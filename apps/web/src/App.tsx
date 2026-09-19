@@ -11,6 +11,7 @@ import { CatalogPage } from '@/pages/CatalogPage';
 import { CourseDetailPage } from '@/pages/CourseDetailPage';
 import { AdminCoursesPage } from '@/pages/AdminCoursesPage';
 import { AdminClassOfferingsPage } from '@/pages/AdminClassOfferingsPage';
+import { MyEnrollmentsPage } from '@/pages/MyEnrollmentsPage';
 
 export function App() {
   return (
@@ -36,14 +37,7 @@ export function App() {
           <Route path="/catalog/:slug" element={<CourseDetailPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route
-            path="/student/*"
-            element={
-              <RoleRoute allowedRoles={['STUDENT']}>
-                <PlaceholderPage title="Student Area" />
-              </RoleRoute>
-            }
-          />
+          <Route path="/student/enrollments" element={<RoleRoute allowedRoles={['STUDENT']}><MyEnrollmentsPage /></RoleRoute>} />
           <Route
             path="/instructor/*"
             element={

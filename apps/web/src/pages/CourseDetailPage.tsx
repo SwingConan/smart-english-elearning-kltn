@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router';
-import { useAuth } from '@/features/auth/auth-context';
-import { safeReturnUrl } from '@/features/auth/return-url';
+import { Link, useParams } from 'react-router';
 import { catalogApi } from '@/features/catalog/api';
 import type { PublicClassOffering, PublicCourse } from '@/features/catalog/types';
+import { EnrollmentAction } from '@/features/enrollments/EnrollmentAction';
 import { ApiError } from '@/lib/api-client';
 
 type DetailLoadState =
@@ -97,38 +96,13 @@ function OfferingCard({ offering }: { offering: PublicClassOffering }) {
         {offering.classStart ? <Detail label="Khai giảng" value={formatDate(offering.classStart)} /> : null}
         {offering.classEnd ? <Detail label="Kết thúc" value={formatDate(offering.classEnd)} /> : null}
       </dl>
-      <EnrollmentPlaceholder />
+      <EnrollmentAction classOfferingId={offering.id} />
     </article>
   );
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
   return <div className="flex gap-2"><dt className="font-medium">{label}:</dt><dd>{value}</dd></div>;
-}
-
-function EnrollmentPlaceholder() {
-  const { user, isLoading } = useAuth();
-  const location = useLocation();
-  const returnUrl = safeReturnUrl(`${location.pathname}${location.search}${location.hash}`);
-
-  if (isLoading) {
-    return <button className="mt-5 rounded-md border px-4 py-2" disabled type="button">Đăng ký</button>;
-  }
-  if (!user) {
-    const params = new URLSearchParams({ returnUrl });
-    return <Link className="mt-5 inline-block rounded-md bg-slate-900 px-4 py-2 text-white" to={`/login?${params.toString()}`}>Đăng ký</Link>;
-  }
-
-  return (
-    <div className="mt-5">
-      <button className="rounded-md border px-4 py-2 opacity-60" disabled type="button">Đăng ký</button>
-      <p className="mt-2 text-xs text-slate-500">
-        {user.role === 'STUDENT'
-          ? 'Chức năng đăng ký sẽ được kết nối ở bước tiếp theo.'
-          : 'Chỉ tài khoản học viên có thể đăng ký lớp.'}
-      </p>
-    </div>
-  );
 }
 
 function formatDate(value: string): string {

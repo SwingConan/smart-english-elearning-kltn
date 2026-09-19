@@ -42,6 +42,7 @@ export function AuthNavigation() {
           <Link to="/admin/class-offerings">Quản lý lớp học</Link>
         </>
       ) : null}
+      {user.role === 'STUDENT' ? <Link to="/student/enrollments">Khóa học của tôi</Link> : null}
       <span>{user.fullName}</span>
       <button
         className="rounded-md border px-3 py-1 disabled:opacity-50"

@@ -179,23 +179,20 @@ describe('CourseDetailPage', () => {
     expect(screen.queryByText('database internals')).not.toBeInTheDocument();
   });
 
-  it('keeps enrollment disabled for a student and never sends an enrollment request', async () => {
+  it('keeps enrollment disabled for a non-student', async () => {
     vi.spyOn(catalogApi, 'detail').mockResolvedValueOnce({ ...course, classOfferings: [course.classOfferings[0]] });
     vi.spyOn(authApi, 'me').mockResolvedValueOnce({
       id: 'student-1',
-      email: 'student@example.test',
-      fullName: 'Student',
-      role: 'STUDENT',
+      email: 'instructor@example.test',
+      fullName: 'Instructor',
+      role: 'INSTRUCTOR',
       status: 'ACTIVE',
     });
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
     renderDetail();
 
     const button = await screen.findByRole('button', { name: 'Đăng ký' });
     expect(button).toBeDisabled();
-    expect(screen.getByText('Chức năng đăng ký sẽ được kết nối ở bước tiếp theo.')).toBeInTheDocument();
-    fireEvent.click(button);
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(screen.getByText('Chỉ tài khoản học viên có thể đăng ký lớp.')).toBeInTheDocument();
   });
 });
 
