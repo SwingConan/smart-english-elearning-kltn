@@ -25,6 +25,8 @@ jobs:
           node --version
           npm --version
       - run: npm ci
+      - name: Generate Prisma Client
+        run: npm run prisma:generate
       - run: npm run check:skeleton
       - run: npm run lint
       - run: npm run typecheck
