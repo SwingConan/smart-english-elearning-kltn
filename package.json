@@ -1,0 +1,41 @@
+{
+  "name": "smart-english-elearning-kltn",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Smart English E-Learning KLTN - React + NestJS modular monolith",
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.22.3 <23",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "dev": "concurrently -n WEB,API -c auto \"npm run dev -w @smart-elearning/web\" \"npm run start:dev -w @smart-elearning/api\"",
+    "dev:web": "npm run dev -w @smart-elearning/web",
+    "dev:api": "npm run start:dev -w @smart-elearning/api",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:coverage": "npm run test:coverage --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prisma:generate": "npm run prisma:generate -w @smart-elearning/api",
+    "prisma:validate": "npm run prisma:validate -w @smart-elearning/api",
+    "prisma:migrate": "npm run prisma:migrate -w @smart-elearning/api",
+    "prisma:studio": "npm run prisma:studio -w @smart-elearning/api",
+    "check:skeleton": "node scripts/check-skeleton.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "prettier": "^3.6.2"
+  },
+  "allowScripts": {
+    "argon2@0.44.0": true,
+    "prisma@7.10.0": true,
+    "@prisma/engines@7.10.0": true,
+    "esbuild@0.28.2": true,
+    "@scarf/scarf": false
+  }
+}
