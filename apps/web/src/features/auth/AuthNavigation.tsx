@@ -36,6 +36,12 @@ export function AuthNavigation() {
 
   return (
     <div className="flex items-center gap-3">
+      {user.role === 'ADMIN_COORDINATOR' ? (
+        <>
+          <Link to="/admin/courses">Quản lý khóa học</Link>
+          <Link to="/admin/class-offerings">Quản lý lớp học</Link>
+        </>
+      ) : null}
       <span>{user.fullName}</span>
       <button
         className="rounded-md border px-3 py-1 disabled:opacity-50"

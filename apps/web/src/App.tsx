@@ -9,6 +9,8 @@ import { AuthNavigation } from '@/features/auth/AuthNavigation';
 import { RoleRoute } from '@/features/auth/RoleRoute';
 import { CatalogPage } from '@/pages/CatalogPage';
 import { CourseDetailPage } from '@/pages/CourseDetailPage';
+import { AdminCoursesPage } from '@/pages/AdminCoursesPage';
+import { AdminClassOfferingsPage } from '@/pages/AdminClassOfferingsPage';
 
 export function App() {
   return (
@@ -50,14 +52,8 @@ export function App() {
               </RoleRoute>
             }
           />
-          <Route
-            path="/admin/*"
-            element={
-              <RoleRoute allowedRoles={['ADMIN_COORDINATOR']}>
-                <PlaceholderPage title="Admin / Điều phối" />
-              </RoleRoute>
-            }
-          />
+          <Route path="/admin/courses" element={<RoleRoute allowedRoles={['ADMIN_COORDINATOR']}><AdminCoursesPage /></RoleRoute>} />
+          <Route path="/admin/class-offerings" element={<RoleRoute allowedRoles={['ADMIN_COORDINATOR']}><AdminClassOfferingsPage /></RoleRoute>} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
