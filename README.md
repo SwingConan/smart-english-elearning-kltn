@@ -4,12 +4,13 @@ Project Skeleton v0.1 for the approved Tech Stack v0.2.
 
 ## 1. Approved baseline
 
-- Frontend: React 19 + Vite 8 + TypeScript + React Router 8
+- Frontend: React + TypeScript + Vite 7.3.6 + React Router
 - UI: Tailwind CSS 4 + shadcn/ui
-- Backend: Node.js 22 LTS + NestJS 12 + Express adapter + TypeScript
+- Backend: Node.js 22.22.3 + NestJS 11.x + Express adapter + TypeScript
 - API: REST + Swagger/OpenAPI
-- Database: PostgreSQL 18
-- ORM: Prisma ORM 7
+- Database: PostgreSQL. Local development environment tested with PostgreSQL 14; the production version is not locked yet.
+- ORM: Prisma ORM 7.10.0
+- Package manager: npm 12.0.2
 - Authentication baseline: server-side session + secure HttpOnly cookie + Argon2id
 - BKT/Adaptive: pure TypeScript domain services
 - Repository: npm workspaces (`apps/web` + `apps/api`)
@@ -25,7 +26,7 @@ Project Skeleton v0.1 for the approved Tech Stack v0.2.
 │   └── api/                  # NestJS modular monolith
 ├── docs/
 ├── scripts/
-├── .github/workflows/        # CI template only until package-lock exists
+├── .github/workflows/        # Active GitHub Actions CI
 ├── package.json
 └── README.md
 ```
@@ -40,13 +41,21 @@ npm -v
 git --version
 ```
 
-Expected Node version for this baseline:
+Required tooling baseline:
 
 ```text
-v22.22.3 or newer on Node 22.x
+Node v22.22.3
+npm 12.0.2
 ```
 
-Do not use Node 23/25/current releases for the thesis environment.
+Use the exact npm version because npm 10.9.8 triggers an Arborist resolver bug with this dependency graph. Do not use Node 23/25/current releases for the thesis environment.
+
+If npm is not already at the required version:
+
+```bash
+npm install --global npm@12.0.2
+npm --version
+```
 
 ## 4. First-time setup
 
@@ -56,7 +65,7 @@ From the repository root:
 npm install
 ```
 
-This creates `package-lock.json`. Commit that lockfile so both machines install the same dependency graph.
+For a clean install from the committed lockfile, including CI, use `npm ci` instead. The committed `package-lock.json` keeps both development machines and CI on the same dependency graph.
 
 Then create environment files:
 
@@ -72,7 +81,7 @@ Copy-Item apps/api/.env.example apps/api/.env
 Copy-Item apps/web/.env.example apps/web/.env
 ```
 
-Update `apps/api/.env` with your local PostgreSQL connection string.
+Update `apps/api/.env` with local development URLs for both `DATABASE_URL` and `SHADOW_DATABASE_URL`. Use separate application and Prisma shadow databases; never commit either URL.
 
 ## 5. Prisma foundation
 
@@ -86,10 +95,16 @@ npm run prisma:validate
 The skeleton intentionally includes only the first identity foundation model (`User`).
 Do **not** dump all 39 ERD entities into the first migration. Add models by vertical slice so the code, migration, API and tests evolve together.
 
-When local PostgreSQL is ready:
+When local PostgreSQL and both environment URLs are ready, apply the committed migrations:
 
 ```bash
-npm run prisma:migrate -- --name init_identity
+npm run prisma:migrate
+```
+
+Create later development migrations with a descriptive name:
+
+```bash
+npm run prisma:migrate -- --name <migration_name>
 ```
 
 ## 6. Run locally

@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  DATABASE_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/smart_elearning_ci?schema=public
+  SHADOW_DATABASE_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/smart_elearning_ci_shadow?schema=public
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.3
+          cache: npm
+      - name: Install npm 12.0.2
+        run: npm install --global npm@12.0.2
+      - name: Verify tooling
+        run: |
+          node --version
+          npm --version
+      - run: npm ci
+      - run: npm run check:skeleton
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
