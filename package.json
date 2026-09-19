@@ -25,6 +25,7 @@
     "prisma:generate": "npm run prisma:generate -w @smart-elearning/api",
     "prisma:validate": "npm run prisma:validate -w @smart-elearning/api",
     "prisma:migrate": "npm run prisma:migrate -w @smart-elearning/api",
+    "prisma:migrate:deploy": "npm run prisma:migrate:deploy -w @smart-elearning/api",
     "prisma:studio": "npm run prisma:studio -w @smart-elearning/api",
     "check:skeleton": "node scripts/check-skeleton.mjs"
   },

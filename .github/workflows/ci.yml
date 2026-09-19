@@ -8,10 +8,25 @@ on:
 env:
   DATABASE_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/smart_elearning_ci?schema=public
   SHADOW_DATABASE_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/smart_elearning_ci_shadow?schema=public
+  SESSION_SECRET: ci-only-session-secret-not-for-production
 
 jobs:
   quality:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: smart_elearning_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_user -d smart_elearning_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,8 +42,12 @@ jobs:
       - run: npm ci
       - name: Generate Prisma Client
         run: npm run prisma:generate
+      - name: Apply Prisma migrations
+        run: npm run prisma:migrate:deploy
       - run: npm run check:skeleton
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test
+      - name: Run API E2E tests
+        run: npm run test:e2e -w @smart-elearning/api
       - run: npm run build
