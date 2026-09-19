@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { adminApi } from '@/features/admin/api';
 import { adminErrorMessage } from '@/features/admin/errors';
+import { useAdminSessionExpiry } from '@/features/admin/use-admin-session-expiry';
 import {
   buildOfferingInput,
   initialOfferingValues,
@@ -22,6 +23,7 @@ export function AdminClassOfferingsPage() {
   const [loadState, setLoadState] = useState<OfferingsLoadState>({ key: -1, status: 'loading' });
   const [editing, setEditing] = useState<AdminClassOffering | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const redirectExpiredSession = useAdminSessionExpiry();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -30,13 +32,13 @@ export function AdminClassOfferingsPage() {
       adminApi.courses.list(controller.signal),
     ])
       .then(([offerings, courses]) => setLoadState({ key: reloadKey, status: 'success', offerings, courses }))
-      .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
-          setLoadState({ key: reloadKey, status: 'error' });
-        }
+      .catch(async (error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        if (await redirectExpiredSession(error)) return;
+        setLoadState({ key: reloadKey, status: 'error' });
       });
     return () => controller.abort();
-  }, [reloadKey]);
+  }, [redirectExpiredSession, reloadKey]);
 
   const isCurrent = loadState.key === reloadKey;
   const data = isCurrent && loadState.status === 'success' ? loadState : null;
@@ -103,6 +105,7 @@ function OfferingForm({ offering, courses, onCancel, onSaved }: OfferingFormProp
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const redirectExpiredSession = useAdminSessionExpiry();
   const update = <K extends keyof OfferingFormValues>(key: K, value: OfferingFormValues[K]) => {
     setValues((current) => ({ ...current, [key]: value }));
   };
@@ -125,6 +128,7 @@ function OfferingForm({ offering, courses, onCancel, onSaved }: OfferingFormProp
         setValues(initialOfferingValues(null));
       }
     } catch (error: unknown) {
+      if (await redirectExpiredSession(error)) return;
       setApiError(adminErrorMessage(error));
     } finally {
       setIsSubmitting(false);

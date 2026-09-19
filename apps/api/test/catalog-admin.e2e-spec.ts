@@ -119,6 +119,22 @@ describe('Course catalog and admin APIs (e2e)', () => {
     await adminAgent
       .post('/api/admin/courses')
       .send({
+        title: 'T'.repeat(301),
+        description: 'Valid description',
+        level,
+      })
+      .expect(400);
+    await adminAgent
+      .post('/api/admin/courses')
+      .send({
+        title: 'Valid title',
+        description: 'D'.repeat(5001),
+        level,
+      })
+      .expect(400);
+    await adminAgent
+      .post('/api/admin/courses')
+      .send({
         title: 'Rejected ownership override',
         description: 'Client must not choose the creator',
         level,
@@ -167,6 +183,16 @@ describe('Course catalog and admin APIs (e2e)', () => {
         maxStudents: 20,
       })
       .expect(201);
+
+    await adminAgent
+      .post('/api/admin/class-offerings')
+      .send({
+        courseId: createdCourse.body.id,
+        name: 'N'.repeat(301),
+        status: 'DRAFT',
+        pricingType: 'FREE',
+      })
+      .expect(400);
 
     const draftOffering = await adminAgent
       .post('/api/admin/class-offerings')
@@ -243,6 +269,32 @@ describe('Course catalog and admin APIs (e2e)', () => {
 
     await request(app.getHttpServer()).get('/api/courses?page=0').expect(400);
     await request(app.getHttpServer()).get('/api/courses?limit=51').expect(400);
+  });
+
+  it('creates distinct slugs for concurrent requests with the same title', async () => {
+    const firstAgent = request.agent(app.getHttpServer());
+    const secondAgent = request.agent(app.getHttpServer());
+    await login(firstAgent, adminEmail);
+    await login(secondAgent, adminEmail);
+    const title = `Concurrent Course ${unique}`;
+    const payload = {
+      title,
+      description: 'Concurrent slug verification',
+      level,
+    };
+
+    const [first, second] = await Promise.all([
+      firstAgent.post('/api/admin/courses').send(payload),
+      secondAgent.post('/api/admin/courses').send(payload),
+    ]);
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(first.body.slug).not.toBe(second.body.slug);
+    expect([first.body.slug, second.body.slug].sort()).toEqual(
+      [`concurrent-course-${unique}`, `concurrent-course-${unique}-2`].sort(),
+    );
+    courseIds.push(first.body.id, second.body.id);
   });
 
   async function login(

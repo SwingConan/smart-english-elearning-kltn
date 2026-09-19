@@ -47,6 +47,36 @@ describe('Auth (e2e)', () => {
     }
   });
 
+  it('rejects oversized registration and login inputs', async () => {
+    await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        email: `oversized-${unique}@example.com`,
+        password: 'A'.repeat(129),
+        fullName: 'Valid Name',
+      })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        email: `oversized-name-${unique}@example.com`,
+        password,
+        fullName: 'N'.repeat(201),
+      })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: 'e'.repeat(309) + '@example.com', password })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: unknownEmail, password: 'A'.repeat(129) })
+      .expect(400);
+  });
+
   it('registers, logs in, persists a PostgreSQL session, and logs out', async () => {
     const registration = await agent
       .post('/api/auth/register')

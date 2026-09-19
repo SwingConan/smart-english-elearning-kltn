@@ -1,9 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ClassOfferingStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CatalogQueryDto } from './dto/catalog-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
+
+const MAX_SLUG_CREATE_ATTEMPTS = 10;
 
 const publicOfferingSelect = {
   id: true,
@@ -98,18 +104,43 @@ export class CoursesService {
   }
 
   async create(input: CreateCourseDto, createdById: string) {
-    const slug = await this.createAvailableSlug(input.title);
-    return this.prisma.course.create({
-      data: {
-        title: input.title,
-        slug,
-        description: input.description ?? '',
-        level: input.level,
-        thumbnailUrl: input.thumbnailUrl,
-        isPublished: input.isPublished ?? false,
-        createdById,
-      },
-    });
+    const baseSlug = slugify(input.title) || 'course';
+
+    for (
+      let attempt = 1;
+      attempt <= MAX_SLUG_CREATE_ATTEMPTS;
+      attempt += 1
+    ) {
+      const slug = attempt === 1 ? baseSlug : `${baseSlug}-${attempt}`;
+
+      try {
+        return await this.prisma.course.create({
+          data: {
+            title: input.title,
+            slug,
+            description: input.description ?? '',
+            level: input.level,
+            thumbnailUrl: input.thumbnailUrl,
+            isPublished: input.isPublished ?? false,
+            createdById,
+          },
+        });
+      } catch (error: unknown) {
+        if (!this.isCourseSlugCollision(error)) {
+          throw error;
+        }
+
+        if (attempt === MAX_SLUG_CREATE_ATTEMPTS) {
+          throw new ConflictException(
+            'Could not create a unique course slug; please use a different title',
+          );
+        }
+      }
+    }
+
+    throw new ConflictException(
+      'Could not create a unique course slug; please use a different title',
+    );
   }
 
   async update(id: string, input: UpdateCourseDto) {
@@ -142,22 +173,24 @@ export class CoursesService {
     }
   }
 
-  private async createAvailableSlug(title: string): Promise<string> {
-    const base = slugify(title) || 'course';
-    let candidate = base;
-    let suffix = 2;
-
-    while (
-      await this.prisma.course.findUnique({
-        where: { slug: candidate },
-        select: { id: true },
-      })
+  private isCourseSlugCollision(error: unknown): boolean {
+    if (
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== 'P2002'
     ) {
-      candidate = `${base}-${suffix}`;
-      suffix += 1;
+      return false;
     }
 
-    return candidate;
+    const metadata = error.meta as Record<string, unknown> | undefined;
+    if (metadata?.modelName && metadata.modelName !== 'Course') {
+      return false;
+    }
+
+    try {
+      return JSON.stringify(metadata).toLowerCase().includes('slug');
+    } catch {
+      return false;
+    }
   }
 }
 

@@ -1,5 +1,5 @@
-import { NotFoundException } from '@nestjs/common';
-import { ClassOfferingStatus } from '../../generated/prisma/client';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ClassOfferingStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CoursesService, slugify } from './courses.service';
 
@@ -27,13 +27,12 @@ describe('CoursesService', () => {
     );
   });
 
-  it('adds a deterministic suffix when a slug collides', async () => {
-    prisma.course.findUnique
-      .mockResolvedValueOnce({ id: 'existing-id' })
-      .mockResolvedValueOnce(null);
-    prisma.course.create.mockImplementation(({ data }) =>
-      Promise.resolve({ id: 'course-id', ...data }),
-    );
+  it('retries a P2002 slug collision with a deterministic suffix', async () => {
+    prisma.course.create
+      .mockRejectedValueOnce(slugCollisionError())
+      .mockImplementationOnce(({ data }) =>
+        Promise.resolve({ id: 'course-id', ...data }),
+      );
 
     const result = await service.create(
       {
@@ -45,6 +44,13 @@ describe('CoursesService', () => {
     );
 
     expect(result.slug).toBe('english-basics-2');
+    expect(prisma.course.create).toHaveBeenCalledTimes(2);
+    expect(prisma.course.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        data: expect.objectContaining({ slug: 'english-basics' }),
+      }),
+    );
     expect(prisma.course.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -53,6 +59,40 @@ describe('CoursesService', () => {
         }),
       }),
     );
+  });
+
+  it('returns a domain conflict after bounded slug retries', async () => {
+    prisma.course.create.mockRejectedValue(slugCollisionError());
+
+    await expect(
+      service.create(
+        { title: 'English Basics', level: 'Beginner' },
+        'admin-id',
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(prisma.course.create).toHaveBeenCalledTimes(10);
+  });
+
+  it('does not swallow a P2002 unrelated to the course slug', async () => {
+    const unrelatedError = new Prisma.PrismaClientKnownRequestError(
+      'Unique constraint failed',
+      {
+        code: 'P2002',
+        clientVersion: '7.10.0',
+        meta: { modelName: 'User', target: ['email'] },
+      },
+    );
+    prisma.course.create.mockRejectedValue(unrelatedError);
+
+    await expect(
+      service.create(
+        { title: 'English Basics', level: 'Beginner' },
+        'admin-id',
+      ),
+    ).rejects.toBe(unrelatedError);
+
+    expect(prisma.course.create).toHaveBeenCalledTimes(1);
   });
 
   it('does not change the slug when editing a title', async () => {
@@ -120,3 +160,11 @@ describe('CoursesService', () => {
     );
   });
 });
+
+function slugCollisionError(): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+    code: 'P2002',
+    clientVersion: '7.10.0',
+    meta: { modelName: 'Course', target: ['slug'] },
+  });
+}

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { adminApi } from '@/features/admin/api';
 import { adminErrorMessage } from '@/features/admin/errors';
+import { useAdminSessionExpiry } from '@/features/admin/use-admin-session-expiry';
 import type { AdminCourse, CourseInput } from '@/features/admin/types';
 
 type CoursesLoadState =
@@ -13,18 +14,19 @@ export function AdminCoursesPage() {
   const [loadState, setLoadState] = useState<CoursesLoadState>({ key: -1, status: 'loading' });
   const [editing, setEditing] = useState<AdminCourse | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const redirectExpiredSession = useAdminSessionExpiry();
 
   useEffect(() => {
     const controller = new AbortController();
     void adminApi.courses.list(controller.signal)
       .then((courses) => setLoadState({ key: reloadKey, status: 'success', courses }))
-      .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
-          setLoadState({ key: reloadKey, status: 'error' });
-        }
+      .catch(async (error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        if (await redirectExpiredSession(error)) return;
+        setLoadState({ key: reloadKey, status: 'error' });
       });
     return () => controller.abort();
-  }, [reloadKey]);
+  }, [redirectExpiredSession, reloadKey]);
 
   const isCurrent = loadState.key === reloadKey;
   const courses = isCurrent && loadState.status === 'success' ? loadState.courses : null;
@@ -93,6 +95,7 @@ function CourseForm({ course, onCancel, onSaved }: CourseFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const redirectExpiredSession = useAdminSessionExpiry();
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -128,6 +131,7 @@ function CourseForm({ course, onCancel, onSaved }: CourseFormProps) {
         setIsPublished(false);
       }
     } catch (error: unknown) {
+      if (await redirectExpiredSession(error)) return;
       setApiError(adminErrorMessage(error));
     } finally {
       setIsSubmitting(false);

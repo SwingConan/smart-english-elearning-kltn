@@ -1,10 +1,15 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { useCallback, useState } from 'react';
+import { MemoryRouter, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '@/App';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { authApi, type AuthUser, type UserRole } from '@/features/auth/api';
+import {
+  AuthContext,
+  type AuthContextValue,
+} from '@/features/auth/auth-context';
 import { ApiError } from '@/lib/api-client';
 import { AdminClassOfferingsPage } from '@/pages/AdminClassOfferingsPage';
 import { AdminCoursesPage } from '@/pages/AdminCoursesPage';
@@ -78,18 +83,18 @@ describe('admin route authorization', () => {
 describe('AdminCoursesPage', () => {
   it('renders courses, empty state and friendly load errors', async () => {
     vi.spyOn(adminApi.courses, 'list').mockResolvedValueOnce([course]);
-    const list = render(<AdminCoursesPage />);
+    const list = renderAdminPage(<AdminCoursesPage />, '/admin/courses');
     expect(await screen.findByRole('heading', { name: course.title })).toBeInTheDocument();
     expect(screen.getByText('Bản nháp')).toBeInTheDocument();
     list.unmount();
 
     vi.spyOn(adminApi.courses, 'list').mockResolvedValueOnce([]);
-    const empty = render(<AdminCoursesPage />);
+    const empty = renderAdminPage(<AdminCoursesPage />, '/admin/courses');
     expect(await screen.findByText('Chưa có khóa học nào.')).toBeInTheDocument();
     empty.unmount();
 
     vi.spyOn(adminApi.courses, 'list').mockRejectedValueOnce(new Error('internal'));
-    render(<AdminCoursesPage />);
+    renderAdminPage(<AdminCoursesPage />, '/admin/courses');
     expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải danh sách khóa học');
     expect(screen.queryByText('internal')).not.toBeInTheDocument();
   });
@@ -97,7 +102,7 @@ describe('AdminCoursesPage', () => {
   it('validates and creates without slug or ownership fields', async () => {
     vi.spyOn(adminApi.courses, 'list').mockResolvedValue([]);
     const create = vi.spyOn(adminApi.courses, 'create').mockResolvedValue(course);
-    render(<AdminCoursesPage />);
+    renderAdminPage(<AdminCoursesPage />, '/admin/courses');
     await screen.findByText('Chưa có khóa học nào.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Tạo khóa học' }));
@@ -123,7 +128,7 @@ describe('AdminCoursesPage', () => {
     const current = { ...course, isPublished: initial };
     vi.spyOn(adminApi.courses, 'list').mockResolvedValue([current]);
     const update = vi.spyOn(adminApi.courses, 'update').mockResolvedValue({ ...current, isPublished: expected });
-    render(<AdminCoursesPage />);
+    renderAdminPage(<AdminCoursesPage />, '/admin/courses');
     await screen.findByRole('heading', { name: current.title });
     fireEvent.click(screen.getByRole('button', { name: 'Chỉnh sửa' }));
     fireEvent.change(screen.getByLabelText('Tên khóa học'), { target: { value: 'Renamed course' } });
@@ -138,7 +143,7 @@ describe('AdminCoursesPage', () => {
     vi.spyOn(adminApi.courses, 'list').mockResolvedValue([]);
     let resolveCreate!: (value: AdminCourse) => void;
     vi.spyOn(adminApi.courses, 'create').mockReturnValueOnce(new Promise((resolve) => { resolveCreate = resolve; }));
-    render(<AdminCoursesPage />);
+    renderAdminPage(<AdminCoursesPage />, '/admin/courses');
     await screen.findByText('Chưa có khóa học nào.');
     fireEvent.change(screen.getByLabelText('Tên khóa học'), { target: { value: course.title } });
     fireEvent.change(screen.getByLabelText('Trình độ'), { target: { value: course.level } });
@@ -152,7 +157,10 @@ describe('AdminCoursesPage', () => {
 describe('AdminClassOfferingsPage', () => {
   it('lists offerings, uses real courses and exposes instructor read-only', async () => {
     mockOfferingLists([offering], [course]);
-    render(<AdminClassOfferingsPage />);
+    renderAdminPage(
+      <AdminClassOfferingsPage />,
+      '/admin/class-offerings',
+    );
     expect(await screen.findByRole('heading', { name: offering.name })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: course.title })).toHaveValue(course.id);
     expect(screen.getByText(/Instructor One/)).toBeInTheDocument();
@@ -162,7 +170,10 @@ describe('AdminClassOfferingsPage', () => {
   it('creates an unassigned FREE DRAFT offering without empty optional dates', async () => {
     mockOfferingLists([], [course]);
     const create = vi.spyOn(adminApi.offerings, 'create').mockResolvedValue(offering);
-    render(<AdminClassOfferingsPage />);
+    renderAdminPage(
+      <AdminClassOfferingsPage />,
+      '/admin/class-offerings',
+    );
     await screen.findByText('Chưa có lớp học nào.');
     fireEvent.change(screen.getByLabelText('Khóa học'), { target: { value: course.id } });
     fireEvent.change(screen.getByLabelText('Tên lớp'), { target: { value: offering.name } });
@@ -181,7 +192,10 @@ describe('AdminClassOfferingsPage', () => {
   it('creates a PAID offering with a positive fee', async () => {
     mockOfferingLists([], [course]);
     const create = vi.spyOn(adminApi.offerings, 'create').mockResolvedValue(offering);
-    render(<AdminClassOfferingsPage />);
+    renderAdminPage(
+      <AdminClassOfferingsPage />,
+      '/admin/class-offerings',
+    );
     await screen.findByText('Chưa có lớp học nào.');
     fireEvent.change(screen.getByLabelText('Khóa học'), { target: { value: course.id } });
     fireEvent.change(screen.getByLabelText('Tên lớp'), { target: { value: offering.name } });
@@ -194,7 +208,10 @@ describe('AdminClassOfferingsPage', () => {
   it('changes DRAFT to OPEN without clearing an assigned instructor', async () => {
     mockOfferingLists([offering], [course]);
     const update = vi.spyOn(adminApi.offerings, 'update').mockResolvedValue({ ...offering, status: 'OPEN' });
-    render(<AdminClassOfferingsPage />);
+    renderAdminPage(
+      <AdminClassOfferingsPage />,
+      '/admin/class-offerings',
+    );
     await screen.findByRole('heading', { name: offering.name });
     fireEvent.click(screen.getByRole('button', { name: 'Chỉnh sửa' }));
     fireEvent.change(screen.getByLabelText('Trạng thái'), { target: { value: 'OPEN' } });
@@ -207,7 +224,10 @@ describe('AdminClassOfferingsPage', () => {
   it('shows friendly API failure and validates pricing, capacity and dates', async () => {
     vi.spyOn(adminApi.offerings, 'list').mockRejectedValueOnce(new Error('raw internal'));
     vi.spyOn(adminApi.courses, 'list').mockResolvedValueOnce([course]);
-    const failed = render(<AdminClassOfferingsPage />);
+    const failed = renderAdminPage(
+      <AdminClassOfferingsPage />,
+      '/admin/class-offerings',
+    );
     expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải dữ liệu quản trị');
     expect(screen.queryByText('raw internal')).not.toBeInTheDocument();
     failed.unmount();
@@ -220,8 +240,104 @@ describe('AdminClassOfferingsPage', () => {
   });
 });
 
+describe('expired admin sessions', () => {
+  it.each([
+    { path: '/admin/courses', area: 'courses' as const },
+    { path: '/admin/class-offerings', area: 'offerings' as const },
+  ])('redirects an expired $area load to login with a safe returnUrl', async ({ path, area }) => {
+    const refreshUser = vi.fn().mockResolvedValue(undefined);
+    if (area === 'courses') {
+      vi.spyOn(adminApi.courses, 'list').mockRejectedValueOnce(
+        new ApiError(401, null),
+      );
+    } else {
+      vi.spyOn(adminApi.offerings, 'list').mockRejectedValueOnce(
+        new ApiError(401, null),
+      );
+      vi.spyOn(adminApi.courses, 'list').mockResolvedValueOnce([]);
+    }
+
+    renderAdminPage(<App />, path, refreshUser);
+
+    expect(await screen.findByRole('heading', { name: 'Đăng nhập' })).toBeInTheDocument();
+    expect(screen.getByTestId('test-location')).toHaveTextContent(
+      `/login?returnUrl=${encodeURIComponent(path)}`,
+    );
+    expect(refreshUser).toHaveBeenCalledOnce();
+  });
+
+  it('does not retry a course mutation after an expired-session 401', async () => {
+    const refreshUser = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(adminApi.courses, 'list').mockResolvedValueOnce([]);
+    const create = vi
+      .spyOn(adminApi.courses, 'create')
+      .mockRejectedValueOnce(new ApiError(401, null));
+    renderAdminPage(<App />, '/admin/courses', refreshUser);
+    await screen.findByText('Chưa có khóa học nào.');
+
+    fireEvent.change(screen.getByLabelText('Tên khóa học'), {
+      target: { value: 'Expired session course' },
+    });
+    fireEvent.change(screen.getByLabelText('Trình độ'), {
+      target: { value: 'BEGINNER' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo khóa học' }));
+
+    expect(await screen.findByRole('heading', { name: 'Đăng nhập' })).toBeInTheDocument();
+    expect(create).toHaveBeenCalledOnce();
+    expect(refreshUser).toHaveBeenCalledOnce();
+  });
+});
+
 function renderApp(path: string) {
   return render(<MemoryRouter initialEntries={[path]}><AuthProvider><App /></AuthProvider></MemoryRouter>);
+}
+
+function renderAdminPage(
+  element: React.ReactNode,
+  path: string,
+  onRefresh = vi.fn().mockResolvedValue(undefined),
+) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <TestAdminAuthProvider onRefresh={onRefresh}>
+        {element}
+        <LocationProbe />
+      </TestAdminAuthProvider>
+    </MemoryRouter>,
+  );
+}
+
+function TestAdminAuthProvider({
+  children,
+  onRefresh,
+}: {
+  children: React.ReactNode;
+  onRefresh: () => Promise<void>;
+}) {
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() =>
+    user('ADMIN_COORDINATOR'),
+  );
+  const refreshUser = useCallback(async () => {
+    await onRefresh();
+    setCurrentUser(null);
+  }, [onRefresh]);
+  const context: AuthContextValue = {
+    user: currentUser,
+    isLoading: false,
+    error: null,
+    login: vi.fn(),
+    register: vi.fn(),
+    logout: vi.fn(),
+    refreshUser,
+  };
+
+  return <AuthContext.Provider value={context}>{children}</AuthContext.Provider>;
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="test-location">{location.pathname}{location.search}</output>;
 }
 
 function user(role: UserRole): AuthUser {
