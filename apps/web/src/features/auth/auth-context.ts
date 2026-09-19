@@ -1,0 +1,22 @@
+import { createContext, useContext } from 'react';
+import type { AuthUser, LoginInput, RegisterInput } from './api';
+
+export interface AuthContextValue {
+  user: AuthUser | null;
+  isLoading: boolean;
+  error: string | null;
+  login: (input: LoginInput) => Promise<AuthUser>;
+  register: (input: RegisterInput) => Promise<AuthUser>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
+}
+
+export const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function useAuth(): AuthContextValue {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
+}
