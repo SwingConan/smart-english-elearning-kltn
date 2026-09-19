@@ -7,6 +7,8 @@ import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { AuthNavigation } from '@/features/auth/AuthNavigation';
 import { RoleRoute } from '@/features/auth/RoleRoute';
+import { CatalogPage } from '@/pages/CatalogPage';
+import { CourseDetailPage } from '@/pages/CourseDetailPage';
 
 export function App() {
   return (
@@ -28,7 +30,8 @@ export function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/status" element={<SystemStatusPage />} />
-          <Route path="/catalog" element={<PlaceholderPage title="Public Catalog" />} />
+          <Route path="/catalog" element={<CatalogPage />} />
+          <Route path="/catalog/:slug" element={<CourseDetailPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route
