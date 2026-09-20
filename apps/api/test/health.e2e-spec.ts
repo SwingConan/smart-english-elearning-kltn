@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import request from 'supertest';
+import * as request from 'supertest';
 import { HealthModule } from '../src/health/health.module';
 
 describe('Health (e2e)', () => {

@@ -20,17 +20,109 @@ enum UserStatus {
   LOCKED
 }
 
-// Foundation model only.
-// Remaining ERD v0.1 entities should be added by vertical slice, not all at once.
+enum ClassOfferingStatus {
+  DRAFT
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PricingType {
+  FREE
+  PAID
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  PENDING_PAYMENT
+  COMPLETED
+  DROPPED
+  CANCELLED
+}
+
 model User {
-  id           String     @id @default(uuid()) @db.Uuid
-  email        String     @unique
-  passwordHash String
-  fullName     String
-  role         UserRole
-  status       UserStatus @default(ACTIVE)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id                     String          @id @default(uuid()) @db.Uuid
+  email                  String          @unique
+  passwordHash           String
+  fullName               String
+  role                   UserRole
+  status                 UserStatus      @default(ACTIVE)
+  createdCourses         Course[]        @relation("CourseCreatedBy")
+  assignedClassOfferings ClassOffering[] @relation("ClassOfferingInstructor")
+  enrollments            Enrollment[]    @relation("LearnerEnrollments")
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
 
   @@map("users")
+}
+
+model UserSession {
+  sid    String   @id @db.VarChar
+  sess   Json
+  expire DateTime @db.Timestamp(6)
+
+  @@index([expire])
+  @@map("user_sessions")
+}
+
+model Course {
+  id             String          @id @default(uuid()) @db.Uuid
+  title          String
+  slug           String          @unique
+  description    String          @db.Text
+  level          String
+  thumbnailUrl   String?
+  isPublished    Boolean         @default(false)
+  createdById    String          @db.Uuid
+  createdBy      User            @relation("CourseCreatedBy", fields: [createdById], references: [id])
+  classOfferings ClassOffering[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([isPublished])
+  @@index([level])
+  @@map("courses")
+}
+
+model ClassOffering {
+  id              String              @id @default(uuid()) @db.Uuid
+  courseId        String              @db.Uuid
+  instructorId    String?             @db.Uuid
+  name            String
+  status          ClassOfferingStatus @default(DRAFT)
+  pricingType     PricingType         @default(FREE)
+  tuitionFeeVnd   Int?
+  maxStudents     Int?
+  enrollmentStart DateTime?
+  enrollmentEnd   DateTime?
+  classStart      DateTime?
+  classEnd        DateTime?
+  course          Course              @relation(fields: [courseId], references: [id])
+  instructor      User?               @relation("ClassOfferingInstructor", fields: [instructorId], references: [id])
+  enrollments     Enrollment[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([courseId])
+  @@index([status])
+  @@index([instructorId])
+  @@map("class_offerings")
+}
+
+model Enrollment {
+  id              String           @id @default(uuid()) @db.Uuid
+  learnerId       String           @db.Uuid
+  classOfferingId String           @db.Uuid
+  status          EnrollmentStatus
+  learner         User             @relation("LearnerEnrollments", fields: [learnerId], references: [id])
+  classOffering   ClassOffering    @relation(fields: [classOfferingId], references: [id])
+  enrolledAt      DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([learnerId, classOfferingId])
+  @@index([learnerId])
+  @@index([classOfferingId])
+  @@index([classOfferingId, status])
+  @@map("enrollments")
 }
