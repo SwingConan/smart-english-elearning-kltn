@@ -1,7 +1,7 @@
 # VS02 IMPLEMENTATION PLAN — CLAUDE REVIEW
 
-**Vertical Slice:** Core Learning Delivery  
-**Baseline:** `main` @ `15169f7` — `feat: complete VS01 auth catalog and enrollment (#2)`  
+**Vertical Slice:** Core Learning Delivery
+**Baseline:** `main` @ `15169f7` — `feat: complete VS01 auth catalog and enrollment (#2)`
 **Status:** Planning-only — no repository modifications
 
 ---
@@ -336,7 +336,7 @@ async getActiveEnrollmentOrFail(learnerId: string, enrollmentId: string): Promis
 | COMPLETED | **Denied** for VS02 — students cannot access completed enrollment content. Reconsider in future VS if read-only access is wanted. |
 | Wrong `enrollmentId` for student | **Denied** — 404 (IDOR protection, same as VS01 pattern) |
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > **Design decision needed:** Should `COMPLETED` enrollment status allow read-only access to content? VS02 spec says "ACTIVE", but blocking completed students from reviewing may be undesirable. **Recommendation: Allow read-only access for COMPLETED in addition to ACTIVE, but only allow progress updates for ACTIVE.** This avoids a jarring UX when admin marks enrollment COMPLETED and student loses all access.
 
 ### IDOR Protection
@@ -848,10 +848,10 @@ Demo English Foundations (existing course)
 
 > [!IMPORTANT]
 > **Should `COMPLETED` enrollment status allow read-only access to course content?**
-> 
+>
 > - **Option A (Strict):** Only `ACTIVE` enrollments can access content. Student loses access when enrollment is marked COMPLETED.
 > - **Option B (Recommended):** `ACTIVE` and `COMPLETED` enrollments can view content. Only `ACTIVE` can update progress.
-> 
+>
 > The spec says "ACTIVE", but Option B is better UX (student can review after course completion).
 
 ### 2. Reorder UX Approach
@@ -860,7 +860,7 @@ Demo English Foundations (existing course)
 > **Drag-and-drop vs. arrow buttons for reordering:**
 > - Drag-and-drop requires a library (e.g., `@dnd-kit/core`) — adds dependency
 > - Up/Down arrow buttons are simpler, no new dependency
-> 
+>
 > **Recommendation:** Start with arrow buttons in VS02 for simplicity. Drag-and-drop can be added as UX polish later.
 
 ### 3. Instructor Multi-Course Content Sharing

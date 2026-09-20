@@ -74,7 +74,7 @@ export function MyEnrollmentsPage() {
               </dl>
               {enrollment.status === 'ACTIVE' && (
                 <div className="mt-4 border-t pt-4">
-                  <Link 
+                  <Link
                     to={`/student/enrollments/${enrollment.id}/learn`}
                     className="inline-block rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 font-medium text-sm"
                   >

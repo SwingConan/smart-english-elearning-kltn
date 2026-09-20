@@ -387,7 +387,7 @@ export function CourseContentManagementPage() {
             <div key={module.id} className="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
               <div className="p-4 bg-gray-50 flex justify-between items-center border-b border-gray-200">
                 <div className="flex items-center gap-3">
-                  <button 
+                  <button
                     onClick={() => setExpandedModuleId(expandedModuleId === module.id ? null : module.id)}
                     className="text-gray-500 hover:text-gray-700 font-bold w-6"
                   >
@@ -425,7 +425,7 @@ export function CourseContentManagementPage() {
                         <div key={lesson.id} className="bg-gray-50 rounded border border-gray-200">
                           <div className="p-3 flex justify-between items-center">
                             <div className="flex items-center gap-2">
-                               <button 
+                               <button
                                 onClick={() => setExpandedLessonId(expandedLessonId === lesson.id ? null : lesson.id)}
                                 className="text-gray-400 hover:text-gray-600 text-xs w-4"
                               >

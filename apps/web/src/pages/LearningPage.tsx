@@ -105,7 +105,7 @@ export function LearningPage() {
   if (loadingContent) {
     return <div role="status" className="p-6">Đang tải nội dung...</div>;
   }
-  
+
   if (error || !content) {
     return <div role="alert" className="p-6 rounded-md bg-red-50 text-red-700">{error ?? 'Không thể tải khóa học.'}</div>;
   }
@@ -125,8 +125,8 @@ export function LearningPage() {
                 Đã học: {progress.completedLessons} / {progress.totalLessons} bài
               </div>
               <div className="w-48 bg-slate-200 rounded-full h-2.5 overflow-hidden">
-                <div 
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                <div
+                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
                   style={{ width: `${progress.progressPercent}%` }}
                 ></div>
               </div>
@@ -188,7 +188,7 @@ export function LearningPage() {
                   <p className="text-slate-600">{lessonDetail.description}</p>
                 )}
               </div>
-              
+
               <div className="space-y-4 mb-8">
                 <h3 className="text-lg font-semibold border-b border-slate-100 pb-2">Tài liệu học tập</h3>
                 {lessonDetail.resources.length === 0 ? (
