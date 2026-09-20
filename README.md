@@ -2,7 +2,7 @@
 
 Modular-monolith thesis project with an npm-workspaces Web/API monorepo.
 
-## Implemented vertical slice
+## Implemented vertical slices
 
 VS01 implements this end-to-end path:
 
@@ -10,13 +10,26 @@ VS01 implements this end-to-end path:
 Auth -> Public Catalog -> Course/ClassOffering -> Enrollment
 ```
 
-The implemented data subset is `User`, `UserSession`, `Course`,
+The VS01 data subset is `User`, `UserSession`, `Course`,
 `ClassOffering`, and `Enrollment`. It includes server-side PostgreSQL sessions,
 student registration/login, public course discovery, coordinator course and
 class-offering management, and student enrollment views.
 
-Not implemented yet: payment confirmation, learning modules/progress,
-instructor lookup or reassignment UI, and BKT/Adaptive behavior.
+VS02 adds core learning delivery:
+
+```text
+Assigned instructor -> Module -> Lesson -> LearningResource
+ACTIVE student enrollment -> LessonProgress -> Course progress
+```
+
+Instructors can manage content for assigned courses, including arrow-based
+ordering of modules, lessons, and URL-based resources. Students with an
+`ACTIVE` enrollment can browse the course structure, open and complete lessons,
+use lesson resources, and view lesson-completion-based course progress.
+
+Not implemented yet: payment confirmation, instructor lookup or reassignment
+UI, file upload/object storage, quiz/test flows, BKT/Adaptive behavior, AI
+grading, engagement analytics, certificates, or virtual classrooms.
 
 ## Tested baseline
 
@@ -139,6 +152,9 @@ npm run test:e2e --workspace=@smart-elearning/api
 npm run build
 ```
 
+Current automated baseline: 10 API unit suites / 89 tests, 6 API E2E suites /
+16 tests, and 8 Web test files / 63 tests (168 tests total).
+
 ## Security and design boundaries
 
 - Backend guards and ownership checks are the authorization boundary; frontend
@@ -148,6 +164,10 @@ npm run build
 - Pricing belongs to `ClassOffering`, not `Course`.
 - FREE enrollment becomes `ACTIVE`; PAID enrollment becomes
   `PENDING_PAYMENT`, which is not active learning access.
+- VS02 learning access requires an `ACTIVE` enrollment; other enrollment
+  statuses are denied without disclosing another learner's resources.
+- Learning resources are URL-based. `isDownloadable` controls business/UI
+  behavior and is not cryptographic download protection.
 - Never commit `.env` files, passwords, session secrets, or connection URLs.
 - See `docs/SECURITY_AUDIT_BASELINE.md` for the current dependency findings and
   deferred production-hardening work.
