@@ -4,7 +4,6 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import {
   ClassOfferingStatus,
   EnrollmentStatus,
-  LessonProgressStatus,
   PrismaClient,
   PricingType,
   ResourceType,
@@ -35,9 +34,7 @@ async function main(): Promise<void> {
     throw new Error('DATABASE_URL is required to run the development seed.');
   }
   if (!password || password.length < 8 || password.length > 128) {
-    throw new Error(
-      'SEED_DEFAULT_PASSWORD must be configured with 8 to 128 characters.',
-    );
+    throw new Error('SEED_DEFAULT_PASSWORD must be configured with 8 to 128 characters.');
   }
 
   const prisma = new PrismaClient({
@@ -81,12 +78,8 @@ async function main(): Promise<void> {
       ),
     );
 
-    const admin = users.find(
-      (user) => user.role === UserRole.ADMIN_COORDINATOR,
-    );
-    const instructor = users.find(
-      (user) => user.role === UserRole.INSTRUCTOR,
-    );
+    const admin = users.find((user) => user.role === UserRole.ADMIN_COORDINATOR);
+    const instructor = users.find((user) => user.role === UserRole.INSTRUCTOR);
     if (!admin || !instructor) {
       throw new Error('Development seed could not prepare demo users.');
     }
@@ -320,10 +313,13 @@ async function main(): Promise<void> {
 
     // Demo enrollment for student in free offering
     await prisma.enrollment.upsert({
-      where: { id: DEMO_ENROLLMENT_ID },
+      where: {
+        learnerId_classOfferingId: {
+          learnerId: student.id,
+          classOfferingId: FREE_OFFERING_ID,
+        },
+      },
       update: {
-        learnerId: student.id,
-        classOfferingId: FREE_OFFERING_ID,
         status: EnrollmentStatus.ACTIVE,
       },
       create: {
@@ -334,7 +330,9 @@ async function main(): Promise<void> {
       },
     });
 
-    console.log('Development seed completed with demo users, catalog data, and VS02 learning content.');
+    console.log(
+      'Development seed completed with demo users, catalog data, and VS02 learning content.',
+    );
   } finally {
     await prisma.$disconnect();
   }
