@@ -1,16 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useParams } from 'react-router';
+import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { instructorApi } from '@/features/instructor/api';
 import type { Module, Lesson, LearningResource, ResourceType } from '@/features/instructor/types';
 import { ApiError } from '@/lib/api-client';
 
 export function CourseContentManagementPage() {
   const { courseId } = useParams<{ courseId: string }>();
-  const navigate = useNavigate();
+  const redirectExpiredSession = useSessionExpiry();
 
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const mutationInFlight = useRef(false);
 
   // States for expanded modules/lessons
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
@@ -30,6 +34,33 @@ export function CourseContentManagementPage() {
   const [editingResource, setEditingResource] = useState<Partial<LearningResource> | null>(null);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
 
+  const beginMutation = (action: string): boolean => {
+    if (mutationInFlight.current) return false;
+    mutationInFlight.current = true;
+    setPendingAction(action);
+    setActionError(null);
+    return true;
+  };
+
+  const endMutation = (): void => {
+    mutationInFlight.current = false;
+    setPendingAction(null);
+  };
+
+  const handleRequestError = useCallback(
+    async (
+      requestError: unknown,
+      fallback: string,
+      conflictMessage?: string,
+    ): Promise<void> => {
+      if (await redirectExpiredSession(requestError)) return;
+      setActionError(
+        contentErrorMessage(requestError, fallback, conflictMessage),
+      );
+    },
+    [redirectExpiredSession],
+  );
+
   useEffect(() => {
     if (!courseId) return;
     const abortController = new AbortController();
@@ -42,19 +73,16 @@ export function CourseContentManagementPage() {
         setError(null);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
-        if (err instanceof ApiError && err.status === 401) {
-          navigate('/login');
-          return;
-        }
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        if (await redirectExpiredSession(err)) return;
+        setError('Không thể tải nội dung khóa học. Vui lòng thử lại.');
       } finally {
         setLoading(false);
       }
     }
 
-    fetchModules();
+    void fetchModules();
     return () => abortController.abort();
-  }, [courseId, navigate]);
+  }, [courseId, redirectExpiredSession]);
 
   // Load lessons for module
   useEffect(() => {
@@ -66,12 +94,15 @@ export function CourseContentManagementPage() {
         setLessonsMap((prev) => ({ ...prev, [expandedModuleId!]: data }));
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
-        console.error(err);
+        await handleRequestError(
+          err,
+          'Không thể tải danh sách bài học. Vui lòng thử lại.',
+        );
       }
     }
-    fetchLessons();
+    void fetchLessons();
     return () => abortController.abort();
-  }, [expandedModuleId]);
+  }, [expandedModuleId, handleRequestError]);
 
   // Load resources for lesson
   useEffect(() => {
@@ -83,18 +114,21 @@ export function CourseContentManagementPage() {
         setResourcesMap((prev) => ({ ...prev, [expandedLessonId!]: data }));
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
-        console.error(err);
+        await handleRequestError(
+          err,
+          'Không thể tải danh sách tài liệu. Vui lòng thử lại.',
+        );
       }
     }
-    fetchResources();
+    void fetchResources();
     return () => abortController.abort();
-  }, [expandedLessonId]);
+  }, [expandedLessonId, handleRequestError]);
 
 
   // Modules handlers
   const handleSaveModule = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!courseId) return;
+    if (!courseId || !beginMutation('Lưu module')) return;
     const formData = new FormData(e.currentTarget);
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
@@ -102,46 +136,58 @@ export function CourseContentManagementPage() {
     try {
       if (editingModule?.id) {
         const updated = await instructorApi.modules.update(editingModule.id, { title, description });
-        setModules(modules.map(m => m.id === updated.id ? updated : m));
+        setModules((current) => current.map((item) => item.id === updated.id ? updated : item));
       } else {
         const created = await instructorApi.modules.create(courseId, { title, description });
-        setModules([...modules, created]);
+        setModules((current) => [...current, created]);
       }
       setIsModuleModalOpen(false);
       setEditingModule(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Lỗi lưu module');
+      await handleRequestError(err, 'Không thể lưu module. Vui lòng thử lại.');
+    } finally {
+      endMutation();
     }
   };
 
   const handleDeleteModule = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa module này? Tất cả bài học bên trong cũng sẽ bị xóa.')) return;
+    if (!beginMutation('Xóa module')) return;
     try {
       await instructorApi.modules.delete(id);
-      setModules(modules.filter(m => m.id !== id));
+      setModules((current) => current.filter((item) => item.id !== id));
       if (expandedModuleId === id) setExpandedModuleId(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Lỗi xóa module');
+      await handleRequestError(
+        err,
+        'Không thể xóa module. Vui lòng thử lại.',
+        'Không thể xóa nội dung vì đã có tiến độ học viên.',
+      );
+    } finally {
+      endMutation();
     }
   };
 
   const handleReorderModules = async (index: number, direction: 'up' | 'down') => {
     if ((direction === 'up' && index === 0) || (direction === 'down' && index === modules.length - 1)) return;
-    const newModules = [...modules];
+    if (!courseId || !beginMutation('Sắp xếp module')) return;
+    const previousModules = modules;
+    const reorderedModules = [...modules];
     const swapIndex = direction === 'up' ? index - 1 : index + 1;
-    [newModules[index], newModules[swapIndex]] = [newModules[swapIndex], newModules[index]];
-    
-    // Update order indexes locally for immediate UI response
-    newModules.forEach((m, i) => m.orderIndex = i);
+    [reorderedModules[index], reorderedModules[swapIndex]] = [reorderedModules[swapIndex], reorderedModules[index]];
+    const newModules = reorderedModules.map((item, orderIndex) => ({ ...item, orderIndex }));
     setModules(newModules);
-    
+
     try {
-      if (courseId) {
-         await instructorApi.modules.reorder(courseId, newModules.map(m => m.id));
-      }
+      await instructorApi.modules.reorder(courseId, newModules.map((item) => item.id));
     } catch (err) {
-      // Revert if error
-      alert('Lỗi khi sắp xếp lại');
+      setModules(previousModules);
+      await handleRequestError(
+        err,
+        'Không thể sắp xếp module. Thứ tự cũ đã được khôi phục.',
+      );
+    } finally {
+      endMutation();
     }
   };
 
@@ -149,7 +195,8 @@ export function CourseContentManagementPage() {
   // Lessons handlers
   const handleSaveLesson = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!expandedModuleId) return;
+    if (!expandedModuleId || !beginMutation('Lưu bài học')) return;
+    const moduleId = expandedModuleId;
     const formData = new FormData(e.currentTarget);
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
@@ -159,51 +206,66 @@ export function CourseContentManagementPage() {
         const updated = await instructorApi.lessons.update(editingLesson.id, { title, description });
         setLessonsMap(prev => ({
           ...prev,
-          [expandedModuleId]: prev[expandedModuleId].map(l => l.id === updated.id ? updated : l)
+          [moduleId]: (prev[moduleId] ?? []).map((item) => item.id === updated.id ? updated : item)
         }));
       } else {
-        const created = await instructorApi.lessons.create(expandedModuleId, { title, description });
+        const created = await instructorApi.lessons.create(moduleId, { title, description });
         setLessonsMap(prev => ({
           ...prev,
-          [expandedModuleId]: [...(prev[expandedModuleId] || []), created]
+          [moduleId]: [...(prev[moduleId] || []), created]
         }));
       }
       setIsLessonModalOpen(false);
       setEditingLesson(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Lỗi lưu bài học');
+      await handleRequestError(err, 'Không thể lưu bài học. Vui lòng thử lại.');
+    } finally {
+      endMutation();
     }
   };
 
   const handleDeleteLesson = async (id: string, moduleId: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa bài học này? Tất cả tài liệu bên trong cũng sẽ bị xóa.')) return;
+    if (!beginMutation('Xóa bài học')) return;
     try {
       await instructorApi.lessons.delete(id);
       setLessonsMap(prev => ({
         ...prev,
-        [moduleId]: prev[moduleId].filter(l => l.id !== id)
+        [moduleId]: (prev[moduleId] ?? []).filter((item) => item.id !== id)
       }));
       if (expandedLessonId === id) setExpandedLessonId(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Lỗi xóa bài học');
+      await handleRequestError(
+        err,
+        'Không thể xóa bài học. Vui lòng thử lại.',
+        'Không thể xóa nội dung vì đã có tiến độ học viên.',
+      );
+    } finally {
+      endMutation();
     }
   };
 
   const handleReorderLessons = async (moduleId: string, index: number, direction: 'up' | 'down') => {
     const lessons = lessonsMap[moduleId] || [];
     if ((direction === 'up' && index === 0) || (direction === 'down' && index === lessons.length - 1)) return;
-    
-    const newLessons = [...lessons];
+    if (!beginMutation('Sắp xếp bài học')) return;
+    const previousLessons = lessons;
+    const reorderedLessons = [...lessons];
     const swapIndex = direction === 'up' ? index - 1 : index + 1;
-    [newLessons[index], newLessons[swapIndex]] = [newLessons[swapIndex], newLessons[index]];
-    
-    newLessons.forEach((l, i) => l.orderIndex = i);
+    [reorderedLessons[index], reorderedLessons[swapIndex]] = [reorderedLessons[swapIndex], reorderedLessons[index]];
+    const newLessons = reorderedLessons.map((item, orderIndex) => ({ ...item, orderIndex }));
     setLessonsMap(prev => ({ ...prev, [moduleId]: newLessons }));
-    
+
     try {
-      await instructorApi.lessons.reorder(moduleId, newLessons.map(l => l.id));
+      await instructorApi.lessons.reorder(moduleId, newLessons.map((item) => item.id));
     } catch (err) {
-      alert('Lỗi khi sắp xếp lại');
+      setLessonsMap((current) => ({ ...current, [moduleId]: previousLessons }));
+      await handleRequestError(
+        err,
+        'Không thể sắp xếp bài học. Thứ tự cũ đã được khôi phục.',
+      );
+    } finally {
+      endMutation();
     }
   };
 
@@ -211,7 +273,8 @@ export function CourseContentManagementPage() {
   // Resource handlers
   const handleSaveResource = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!expandedLessonId) return;
+    if (!expandedLessonId || !beginMutation('Lưu tài liệu')) return;
+    const lessonId = expandedLessonId;
     const formData = new FormData(e.currentTarget);
     const title = formData.get('title') as string;
     const type = formData.get('type') as ResourceType;
@@ -223,59 +286,87 @@ export function CourseContentManagementPage() {
         const updated = await instructorApi.resources.update(editingResource.id, { title, type, url, isDownloadable });
         setResourcesMap(prev => ({
           ...prev,
-          [expandedLessonId]: prev[expandedLessonId].map(r => r.id === updated.id ? updated : r)
+          [lessonId]: (prev[lessonId] ?? []).map((item) => item.id === updated.id ? updated : item)
         }));
       } else {
-        const created = await instructorApi.resources.create(expandedLessonId, { title, type, url, isDownloadable });
+        const created = await instructorApi.resources.create(lessonId, { title, type, url, isDownloadable });
         setResourcesMap(prev => ({
           ...prev,
-          [expandedLessonId]: [...(prev[expandedLessonId] || []), created]
+          [lessonId]: [...(prev[lessonId] || []), created]
         }));
       }
       setIsResourceModalOpen(false);
       setEditingResource(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Lỗi lưu tài liệu');
+      await handleRequestError(err, 'Không thể lưu tài liệu. Vui lòng thử lại.');
+    } finally {
+      endMutation();
     }
   };
 
   const handleDeleteResource = async (id: string, lessonId: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa tài liệu này?')) return;
+    if (!beginMutation('Xóa tài liệu')) return;
     try {
       await instructorApi.resources.delete(id);
       setResourcesMap(prev => ({
         ...prev,
-        [lessonId]: prev[lessonId].filter(r => r.id !== id)
+        [lessonId]: (prev[lessonId] ?? []).filter((item) => item.id !== id)
       }));
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Lỗi xóa tài liệu');
+      await handleRequestError(
+        err,
+        'Không thể xóa tài liệu. Vui lòng thử lại.',
+        'Không thể xóa nội dung vì đã có tiến độ học viên.',
+      );
+    } finally {
+      endMutation();
     }
   };
 
   const handleReorderResources = async (lessonId: string, index: number, direction: 'up' | 'down') => {
     const resources = resourcesMap[lessonId] || [];
     if ((direction === 'up' && index === 0) || (direction === 'down' && index === resources.length - 1)) return;
-    
-    const newResources = [...resources];
+    if (!beginMutation('Sắp xếp tài liệu')) return;
+    const previousResources = resources;
+    const reorderedResources = [...resources];
     const swapIndex = direction === 'up' ? index - 1 : index + 1;
-    [newResources[index], newResources[swapIndex]] = [newResources[swapIndex], newResources[index]];
-    
-    newResources.forEach((r, i) => r.orderIndex = i);
+    [reorderedResources[index], reorderedResources[swapIndex]] = [reorderedResources[swapIndex], reorderedResources[index]];
+    const newResources = reorderedResources.map((item, orderIndex) => ({ ...item, orderIndex }));
     setResourcesMap(prev => ({ ...prev, [lessonId]: newResources }));
-    
+
     try {
-      await instructorApi.resources.reorder(lessonId, newResources.map(r => r.id));
+      await instructorApi.resources.reorder(lessonId, newResources.map((item) => item.id));
     } catch (err) {
-      alert('Lỗi khi sắp xếp lại');
+      setResourcesMap((current) => ({ ...current, [lessonId]: previousResources }));
+      await handleRequestError(
+        err,
+        'Không thể sắp xếp tài liệu. Thứ tự cũ đã được khôi phục.',
+      );
+    } finally {
+      endMutation();
     }
   };
 
 
   if (loading) return <div className="p-8 text-center">Đang tải nội dung...</div>;
-  if (error) return <div className="p-8 text-center text-red-600">Lỗi: {error}</div>;
+  if (error) return <div className="p-8 text-center text-red-600">{error}</div>;
+
+  const isMutating = pendingAction !== null;
 
   return (
     <div className="max-w-5xl mx-auto py-8">
+      {actionError ? (
+        <p className="mb-4 rounded-md bg-red-50 p-3 text-red-700" role="alert">
+          {actionError}
+        </p>
+      ) : null}
+      {pendingAction ? (
+        <p className="mb-4 rounded-md bg-blue-50 p-3 text-blue-700" role="status">
+          {pendingAction}...
+        </p>
+      ) : null}
+      <fieldset className="contents" disabled={isMutating}>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Quản lý nội dung khóa học</h1>
         <button
@@ -477,6 +568,29 @@ export function CourseContentManagementPage() {
           </div>
         </div>
       )}
+      </fieldset>
     </div>
   );
+}
+
+function contentErrorMessage(
+  error: unknown,
+  fallback: string,
+  conflictMessage?: string,
+): string {
+  if (error instanceof ApiError) {
+    if (error.status === 409) {
+      return conflictMessage ?? 'Dữ liệu vừa thay đổi. Vui lòng tải lại và thử lại.';
+    }
+    if (error.status === 403) {
+      return 'Bạn không có quyền thực hiện thao tác này.';
+    }
+    if (error.status === 404) {
+      return 'Nội dung không còn tồn tại. Vui lòng tải lại trang.';
+    }
+    if (error.status === 400) {
+      return 'Dữ liệu chưa hợp lệ. Vui lòng kiểm tra lại.';
+    }
+  }
+  return fallback;
 }

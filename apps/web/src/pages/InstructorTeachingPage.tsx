@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router';
+import { Link } from 'react-router';
+import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { instructorApi } from '@/features/instructor/api';
 import type { TeachingEntry } from '@/features/instructor/types';
-import { ApiError } from '@/lib/api-client';
 
 export function InstructorTeachingPage() {
   const [teachingEntries, setTeachingEntries] = useState<TeachingEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const redirectExpiredSession = useSessionExpiry();
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -20,22 +20,19 @@ export function InstructorTeachingPage() {
         setError(null);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
-        if (err instanceof ApiError && err.status === 401) {
-          navigate('/login');
-          return;
-        }
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        if (await redirectExpiredSession(err)) return;
+        setError('Không thể tải danh sách lớp giảng dạy. Vui lòng thử lại.');
       } finally {
         setLoading(false);
       }
     }
 
-    fetchTeaching();
+    void fetchTeaching();
 
     return () => {
       abortController.abort();
     };
-  }, [navigate]);
+  }, [redirectExpiredSession]);
 
   if (loading) {
     return <div className="p-8 text-center text-gray-500">Đang tải danh sách...</div>;

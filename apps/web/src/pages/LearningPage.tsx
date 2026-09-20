@@ -1,16 +1,13 @@
-import { useEffect, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router';
+import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { learningApi } from '@/features/learning/api';
 import { progressStatusColor, progressStatusIcon, resourceTypeIcon, resourceTypeLabel } from '@/features/learning/display';
 import type { CourseContent, CourseProgress, LessonDetail } from '@/features/learning/types';
-import { ApiError } from '@/lib/api-client';
-import { useAuth } from '@/features/auth/auth-context';
-import { safeReturnUrl } from '@/features/auth/return-url';
 
 export function LearningPage() {
   const { enrollmentId } = useParams<{ enrollmentId: string }>();
-  const { refreshUser } = useAuth();
-  const navigate = useNavigate();
+  const redirectExpiredSession = useSessionExpiry();
 
   const [content, setContent] = useState<CourseContent | null>(null);
   const [progress, setProgress] = useState<CourseProgress | null>(null);
@@ -19,16 +16,17 @@ export function LearningPage() {
   const [loadingContent, setLoadingContent] = useState(true);
   const [loadingLesson, setLoadingLesson] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lessonError, setLessonError] = useState<string | null>(null);
+  const [completionError, setCompletionError] = useState<string | null>(null);
+  const [isCompleting, setIsCompleting] = useState(false);
+  const completionInFlight = useRef(false);
 
   // Load Content and Progress
   useEffect(() => {
     if (!enrollmentId) return;
     const controller = new AbortController();
-    
-    setLoadingContent(true);
-    setError(null);
-    
-    Promise.all([
+
+    void Promise.all([
       learningApi.getContent(enrollmentId, controller.signal),
       learningApi.getProgress(enrollmentId, controller.signal)
     ])
@@ -37,53 +35,71 @@ export function LearningPage() {
       setProgress(progressData);
       setLoadingContent(false);
     })
-    .catch((err: unknown) => {
+    .catch(async (err: unknown) => {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      if (err instanceof ApiError && err.status === 401) {
-        void refreshUser().then(() => {
-          const returnUrl = safeReturnUrl(`/student/enrollments/${enrollmentId}/learn`);
-          navigate(`/login?${new URLSearchParams({ returnUrl }).toString()}`, { replace: true });
-        });
-        return;
-      }
+      if (await redirectExpiredSession(err)) return;
       setError('Không thể tải dữ liệu khóa học.');
       setLoadingContent(false);
     });
 
     return () => controller.abort();
-  }, [enrollmentId, navigate, refreshUser]);
+  }, [enrollmentId, redirectExpiredSession]);
 
   // Load Lesson Detail
   useEffect(() => {
     if (!enrollmentId || !selectedLessonId) return;
     const controller = new AbortController();
-    
-    setLoadingLesson(true);
-    learningApi.openLesson(enrollmentId, selectedLessonId, controller.signal)
+
+    void learningApi.openLesson(enrollmentId, selectedLessonId, controller.signal)
       .then((detail) => {
         setLessonDetail(detail);
+        setLessonError(null);
         setLoadingLesson(false);
       })
-      .catch((err: unknown) => {
+      .catch(async (err: unknown) => {
         if (err instanceof DOMException && err.name === 'AbortError') return;
+        if (await redirectExpiredSession(err)) return;
+        setLessonDetail(null);
+        setLessonError('Không thể mở bài học. Vui lòng thử lại.');
         setLoadingLesson(false);
-        // Handle error if needed
       });
-      
-    return () => controller.abort();
-  }, [enrollmentId, selectedLessonId]);
 
-  const handleCompleteLesson = () => {
-    if (!enrollmentId || !lessonDetail) return;
-    learningApi.completeLesson(enrollmentId, lessonDetail.id)
-      .then(() => {
-        // Refresh progress and content to update icons
-        learningApi.getContent(enrollmentId).then(setContent).catch(console.error);
-        learningApi.getProgress(enrollmentId).then(setProgress).catch(console.error);
-        // Reload current lesson to reflect completion status
-        learningApi.openLesson(enrollmentId, lessonDetail.id).then(setLessonDetail).catch(console.error);
-      })
-      .catch(console.error);
+    return () => controller.abort();
+  }, [enrollmentId, redirectExpiredSession, selectedLessonId]);
+
+  const selectLesson = (lessonId: string): void => {
+    setSelectedLessonId(lessonId);
+    setLessonDetail(null);
+    setLessonError(null);
+    setCompletionError(null);
+    setLoadingLesson(true);
+  };
+
+  const handleCompleteLesson = async (): Promise<void> => {
+    if (!enrollmentId || !lessonDetail || completionInFlight.current) return;
+
+    completionInFlight.current = true;
+    setIsCompleting(true);
+    setCompletionError(null);
+    try {
+      await learningApi.completeLesson(enrollmentId, lessonDetail.id);
+      const [updatedContent, updatedProgress, updatedLesson] = await Promise.all([
+        learningApi.getContent(enrollmentId),
+        learningApi.getProgress(enrollmentId),
+        learningApi.openLesson(enrollmentId, lessonDetail.id),
+      ]);
+      setContent(updatedContent);
+      setProgress(updatedProgress);
+      setLessonDetail(updatedLesson);
+    } catch (requestError: unknown) {
+      if (await redirectExpiredSession(requestError)) return;
+      setCompletionError(
+        'Không thể hoàn thành bài học hoặc làm mới tiến độ. Vui lòng thử lại.',
+      );
+    } finally {
+      completionInFlight.current = false;
+      setIsCompleting(false);
+    }
   };
 
   if (loadingContent) {
@@ -91,7 +107,7 @@ export function LearningPage() {
   }
   
   if (error || !content) {
-    return <div role="alert" className="p-6 rounded-md bg-red-50 text-red-700">{error}</div>;
+    return <div role="alert" className="p-6 rounded-md bg-red-50 text-red-700">{error ?? 'Không thể tải khóa học.'}</div>;
   }
 
   return (
@@ -132,7 +148,7 @@ export function LearningPage() {
                   {module.lessons.map((lesson) => (
                     <li key={lesson.id}>
                       <button
-                        onClick={() => setSelectedLessonId(lesson.id)}
+                        onClick={() => selectLesson(lesson.id)}
                         className={`w-full text-left p-2 rounded-lg flex items-start gap-2 hover:bg-slate-50 transition-colors ${selectedLessonId === lesson.id ? 'bg-blue-50 text-blue-900 font-medium' : 'text-slate-600'}`}
                       >
                         <span className={`mt-0.5 ${progressStatusColor(lesson.progressStatus)}`}>
@@ -157,6 +173,10 @@ export function LearningPage() {
             </div>
           ) : loadingLesson ? (
             <div className="flex items-center justify-center min-h-[400px]">Đang tải bài học...</div>
+          ) : lessonError ? (
+            <div className="flex items-center justify-center min-h-[400px] text-red-700" role="alert">
+              {lessonError}
+            </div>
           ) : lessonDetail ? (
             <div>
               <div className="mb-6">
@@ -205,12 +225,18 @@ export function LearningPage() {
               </div>
 
               <div className="pt-6 border-t border-slate-100">
+                {completionError ? (
+                  <p className="mb-4 rounded-md bg-red-50 p-3 text-red-700" role="alert">
+                    {completionError}
+                  </p>
+                ) : null}
                 {lessonDetail.progress.status !== 'COMPLETED' ? (
                   <button
-                    onClick={handleCompleteLesson}
-                    className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 font-medium"
+                    onClick={() => void handleCompleteLesson()}
+                    disabled={isCompleting}
+                    className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 font-medium disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Hoàn thành bài học
+                    {isCompleting ? 'Đang cập nhật...' : 'Hoàn thành bài học'}
                   </button>
                 ) : (
                   <div className="text-green-600 font-medium flex items-center gap-2 bg-green-50 p-4 rounded-lg">
