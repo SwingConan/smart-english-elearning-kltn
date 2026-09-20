@@ -1,7 +1,6 @@
 import { Link, Route, Routes } from 'react-router';
 import { HomePage } from '@/pages/HomePage';
 import { SystemStatusPage } from '@/pages/SystemStatusPage';
-import { PlaceholderPage } from '@/pages/PlaceholderPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
@@ -12,6 +11,9 @@ import { CourseDetailPage } from '@/pages/CourseDetailPage';
 import { AdminCoursesPage } from '@/pages/AdminCoursesPage';
 import { AdminClassOfferingsPage } from '@/pages/AdminClassOfferingsPage';
 import { MyEnrollmentsPage } from '@/pages/MyEnrollmentsPage';
+import { LearningPage } from '@/pages/LearningPage';
+import { InstructorTeachingPage } from '@/pages/InstructorTeachingPage';
+import { CourseContentManagementPage } from '@/pages/CourseContentManagementPage';
 
 export function App() {
   return (
@@ -37,17 +39,61 @@ export function App() {
           <Route path="/catalog/:slug" element={<CourseDetailPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/student/enrollments" element={<RoleRoute allowedRoles={['STUDENT']}><MyEnrollmentsPage /></RoleRoute>} />
+
+          {/* Student routes */}
           <Route
-            path="/instructor/*"
+            path="/student/enrollments"
             element={
-              <RoleRoute allowedRoles={['INSTRUCTOR']}>
-                <PlaceholderPage title="Instructor Area" />
+              <RoleRoute allowedRoles={['STUDENT']}>
+                <MyEnrollmentsPage />
               </RoleRoute>
             }
           />
-          <Route path="/admin/courses" element={<RoleRoute allowedRoles={['ADMIN_COORDINATOR']}><AdminCoursesPage /></RoleRoute>} />
-          <Route path="/admin/class-offerings" element={<RoleRoute allowedRoles={['ADMIN_COORDINATOR']}><AdminClassOfferingsPage /></RoleRoute>} />
+          <Route
+            path="/student/enrollments/:enrollmentId/learn"
+            element={
+              <RoleRoute allowedRoles={['STUDENT']}>
+                <LearningPage />
+              </RoleRoute>
+            }
+          />
+
+          {/* Instructor routes */}
+          <Route
+            path="/instructor/teaching"
+            element={
+              <RoleRoute allowedRoles={['INSTRUCTOR']}>
+                <InstructorTeachingPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/instructor/courses/:courseId/content"
+            element={
+              <RoleRoute allowedRoles={['INSTRUCTOR']}>
+                <CourseContentManagementPage />
+              </RoleRoute>
+            }
+          />
+
+          {/* Admin routes */}
+          <Route
+            path="/admin/courses"
+            element={
+              <RoleRoute allowedRoles={['ADMIN_COORDINATOR']}>
+                <AdminCoursesPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/admin/class-offerings"
+            element={
+              <RoleRoute allowedRoles={['ADMIN_COORDINATOR']}>
+                <AdminClassOfferingsPage />
+              </RoleRoute>
+            }
+          />
+
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>

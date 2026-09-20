@@ -41,6 +41,18 @@ enum EnrollmentStatus {
   CANCELLED
 }
 
+enum ResourceType {
+  VIDEO
+  DOCUMENT
+  LINK
+}
+
+enum LessonProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
 model User {
   id                     String          @id @default(uuid()) @db.Uuid
   email                  String          @unique
@@ -77,6 +89,7 @@ model Course {
   createdById    String          @db.Uuid
   createdBy      User            @relation("CourseCreatedBy", fields: [createdById], references: [id])
   classOfferings ClassOffering[]
+  modules        Module[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -117,12 +130,81 @@ model Enrollment {
   status          EnrollmentStatus
   learner         User             @relation("LearnerEnrollments", fields: [learnerId], references: [id])
   classOffering   ClassOffering    @relation(fields: [classOfferingId], references: [id])
+  lessonProgress LessonProgress[]
   enrolledAt      DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  updatedAt      DateTime         @updatedAt
 
   @@unique([learnerId, classOfferingId])
   @@index([learnerId])
   @@index([classOfferingId])
   @@index([classOfferingId, status])
   @@map("enrollments")
+}
+
+model Module {
+  id          String   @id @default(uuid()) @db.Uuid
+  courseId    String   @db.Uuid
+  title       String
+  description String?  @db.Text
+  orderIndex  Int
+  course      Course   @relation(fields: [courseId], references: [id])
+  lessons     Lesson[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([courseId, orderIndex])
+  @@index([courseId])
+  @@map("modules")
+}
+
+model Lesson {
+  id          String             @id @default(uuid()) @db.Uuid
+  moduleId    String             @db.Uuid
+  title       String
+  description String?            @db.Text
+  orderIndex  Int
+  module      Module             @relation(fields: [moduleId], references: [id])
+  resources   LearningResource[]
+  progress    LessonProgress[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([moduleId, orderIndex])
+  @@index([moduleId])
+  @@map("lessons")
+}
+
+model LearningResource {
+  id             String       @id @default(uuid()) @db.Uuid
+  lessonId       String       @db.Uuid
+  title          String
+  type           ResourceType
+  url            String
+  orderIndex     Int
+  isDownloadable Boolean      @default(false)
+  lesson         Lesson       @relation(fields: [lessonId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([lessonId, orderIndex])
+  @@index([lessonId])
+  @@map("learning_resources")
+}
+
+model LessonProgress {
+  id             String               @id @default(uuid()) @db.Uuid
+  enrollmentId   String               @db.Uuid
+  lessonId       String               @db.Uuid
+  status         LessonProgressStatus @default(NOT_STARTED)
+  lastAccessedAt DateTime?
+  completedAt    DateTime?
+  enrollment     Enrollment           @relation(fields: [enrollmentId], references: [id])
+  lesson         Lesson               @relation(fields: [lessonId], references: [id])
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@unique([enrollmentId, lessonId])
+  @@index([enrollmentId])
+  @@index([lessonId])
+  @@map("lesson_progress")
 }
