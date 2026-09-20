@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Patch, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { LearningService } from './learning.service';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -18,7 +18,7 @@ export class LearningController {
     return this.learningService.getContent(user.id, enrollmentId);
   }
 
-  @Get('enrollments/:enrollmentId/lessons/:lessonId')
+  @Post('enrollments/:enrollmentId/lessons/:lessonId/open')
   async openLesson(
     @CurrentUser() user: PublicUser,
     @Param('enrollmentId', new ParseUUIDPipe()) enrollmentId: string,

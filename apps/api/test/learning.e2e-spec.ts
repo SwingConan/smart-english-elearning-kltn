@@ -110,13 +110,13 @@ describe('Student learning APIs (e2e)', () => {
     await adminAgent.get(`/api/learning/enrollments/${active}/content`).expect(403);
     await studentAgent.get(`/api/learning/enrollments/${active}/content`).expect(200);
     await otherStudentAgent.get(`/api/learning/enrollments/${active}/content`).expect(404);
-    await studentAgent.get(`/api/learning/enrollments/${active}/lessons/${foreignLessonId}`).expect(404);
+    await studentAgent.post(`/api/learning/enrollments/${active}/lessons/${foreignLessonId}/open`).expect(404);
     await studentAgent.patch(`/api/learning/enrollments/${active}/lessons/${foreignLessonId}/complete`).expect(404);
 
     for (const status of [EnrollmentStatus.PENDING_PAYMENT, EnrollmentStatus.COMPLETED, EnrollmentStatus.DROPPED, EnrollmentStatus.CANCELLED]) {
       const enrollmentId = id(status);
       await studentAgent.get(`/api/learning/enrollments/${enrollmentId}/content`).expect(404);
-      await studentAgent.get(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonAId}`).expect(404);
+      await studentAgent.post(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonAId}/open`).expect(404);
       await studentAgent.patch(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonAId}/complete`).expect(404);
       await studentAgent.get(`/api/learning/enrollments/${enrollmentId}/progress`).expect(404);
     }
@@ -124,15 +124,15 @@ describe('Student learning APIs (e2e)', () => {
 
   it('opens, completes idempotently and calculates course-scoped progress', async () => {
     const active = id(EnrollmentStatus.ACTIVE);
-    const opened = await studentAgent.get(`/api/learning/enrollments/${active}/lessons/${lessonAId}`).expect(200);
+    const opened = await studentAgent.post(`/api/learning/enrollments/${active}/lessons/${lessonAId}/open`).expect(201);
     expect(opened.body.progress.status).toBe(LessonProgressStatus.IN_PROGRESS);
-    const reopened = await studentAgent.get(`/api/learning/enrollments/${active}/lessons/${lessonAId}`).expect(200);
+    const reopened = await studentAgent.post(`/api/learning/enrollments/${active}/lessons/${lessonAId}/open`).expect(201);
     expect(reopened.body.progress.status).toBe(LessonProgressStatus.IN_PROGRESS);
     const completed = await studentAgent.patch(`/api/learning/enrollments/${active}/lessons/${lessonAId}/complete`).expect(200);
     const completedAt = completed.body.completedAt;
     const repeated = await studentAgent.patch(`/api/learning/enrollments/${active}/lessons/${lessonAId}/complete`).expect(200);
     expect(repeated.body.completedAt).toBe(completedAt);
-    const reopenedCompleted = await studentAgent.get(`/api/learning/enrollments/${active}/lessons/${lessonAId}`).expect(200);
+    const reopenedCompleted = await studentAgent.post(`/api/learning/enrollments/${active}/lessons/${lessonAId}/open`).expect(201);
     expect(reopenedCompleted.body.progress.status).toBe(LessonProgressStatus.COMPLETED);
     expect(reopenedCompleted.body.progress.completedAt).toBe(completedAt);
 
@@ -181,7 +181,7 @@ describe('Student learning APIs (e2e)', () => {
   async function createCourse(label: string, createdById: string) { return prisma.course.create({ data: { title: `VS02 ${label} ${unique}`, slug: `vs02-learning-${label}-${unique}`, description: 'E2E', level: 'E2E', isPublished: true, createdById } }); }
   async function login(agent: ReturnType<typeof request.agent>, email: string) { const response = await agent.post('/api/auth/login').send({ email, password }).expect(200); sessionIds.add(extractSessionId(cookie(response.headers['set-cookie']))); }
   function id(key: EnrollmentStatus | string): string { const value = enrollments.get(key); if (!value) throw new Error(`Missing enrollment ${key}`); return value; }
-  function open(enrollmentId: string) { return studentAgent.get(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonBId}`); }
+  function open(enrollmentId: string) { return studentAgent.post(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonBId}/open`); }
   function complete(enrollmentId: string) { return studentAgent.patch(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonBId}/complete`); }
   function progressRows(enrollmentId: string) { return prisma.lessonProgress.findMany({ where: { enrollmentId, lessonId: lessonBId }, select: { status: true, completedAt: true } }); }
 });

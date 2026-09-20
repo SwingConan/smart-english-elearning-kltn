@@ -108,26 +108,44 @@ describe('InstructorContentService', () => {
   });
 
   it.each([
-    ['modules', () => service.reorderModules(instructorId, courseId, { orderedIds: ['a', 'b'] }), prisma.module.findMany, prisma.module.update],
-    ['lessons', () => service.reorderLessons(instructorId, moduleId, { orderedIds: ['a', 'b'] }), prisma.lesson.findMany, prisma.lesson.update],
-    ['resources', () => service.reorderResources(instructorId, lessonId, { orderedIds: ['a', 'b'] }), prisma.learningResource.findMany, prisma.learningResource.update],
+    ['modules', () => service.reorderModules(instructorId, courseId, { orderedIds: ['a', 'b'] }), transaction.module.findMany, transaction.module.update],
+    ['lessons', () => service.reorderLessons(instructorId, moduleId, { orderedIds: ['a', 'b'] }), transaction.lesson.findMany, transaction.lesson.update],
+    ['resources', () => service.reorderResources(instructorId, lessonId, { orderedIds: ['a', 'b'] }), transaction.learningResource.findMany, transaction.learningResource.update],
   ])('accepts a complete deterministic %s reorder through a transaction', async (_kind, invoke, findMany, update) => {
     findMany.mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
     await invoke();
-    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Array));
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
     expect(update).toHaveBeenCalledTimes(4);
     expect(update).toHaveBeenLastCalledWith({ where: { id: 'b' }, data: { orderIndex: 1 } });
   });
 
   it.each([
-    ['modules', (orderedIds: string[]) => service.reorderModules(instructorId, courseId, { orderedIds }), prisma.module.findMany],
-    ['lessons', (orderedIds: string[]) => service.reorderLessons(instructorId, moduleId, { orderedIds }), prisma.lesson.findMany],
-    ['resources', (orderedIds: string[]) => service.reorderResources(instructorId, lessonId, { orderedIds }), prisma.learningResource.findMany],
+    ['modules', (orderedIds: string[]) => service.reorderModules(instructorId, courseId, { orderedIds }), transaction.module.findMany],
+    ['lessons', (orderedIds: string[]) => service.reorderLessons(instructorId, moduleId, { orderedIds }), transaction.lesson.findMany],
+    ['resources', (orderedIds: string[]) => service.reorderResources(instructorId, lessonId, { orderedIds }), transaction.learningResource.findMany],
   ])('rejects duplicate, missing and foreign IDs when reordering %s', async (_kind, invoke, findMany) => {
     findMany.mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
     for (const orderedIds of [['a', 'a'], ['a'], ['a', 'foreign']]) {
       await expect(invoke(orderedIds)).rejects.toBeInstanceOf(BadRequestException);
     }
+  });
+
+  it('bounds reorder serialization retries and preserves unrelated errors', async () => {
+    const serialization = new Prisma.PrismaClientKnownRequestError('Transaction conflict', {
+      code: 'P2034', clientVersion: '7.10.0',
+    });
+    prisma.$transaction.mockRejectedValue(serialization);
+    await expect(service.reorderModules(instructorId, courseId, { orderedIds: [] })).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(3);
+
+    jest.clearAllMocks();
+    prisma.classOffering.findFirst.mockResolvedValue({ id: 'offering-id' });
+    const unrelated = new Error('unrelated');
+    prisma.$transaction.mockRejectedValue(unrelated);
+    await expect(service.reorderModules(instructorId, courseId, { orderedIds: [] })).rejects.toBe(unrelated);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it('rejects lesson and module deletion when learner progress exists without deleting progress', async () => {

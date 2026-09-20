@@ -6,7 +6,10 @@ export const learningApi = {
     apiFetch(`/learning/enrollments/${enrollmentId}/content`, { signal }),
 
   openLesson: (enrollmentId: string, lessonId: string, signal?: AbortSignal): Promise<LessonDetail> =>
-    apiFetch(`/learning/enrollments/${enrollmentId}/lessons/${lessonId}`, { signal }),
+    apiFetch(`/learning/enrollments/${enrollmentId}/lessons/${lessonId}/open`, {
+      method: 'POST',
+      signal,
+    }),
 
   completeLesson: (enrollmentId: string, lessonId: string): Promise<unknown> =>
     apiFetch(`/learning/enrollments/${enrollmentId}/lessons/${lessonId}/complete`, {

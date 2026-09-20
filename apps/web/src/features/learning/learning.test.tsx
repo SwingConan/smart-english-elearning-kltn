@@ -106,6 +106,24 @@ describe('LearningPage', () => {
   });
 });
 
+describe('learning API contract', () => {
+  it('opens a lesson with POST on the explicit side-effect route', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(detail()), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await learningApi.openLesson(enrollmentId, lessonId);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/learning/enrollments/${enrollmentId}/lessons/${lessonId}/open`,
+      expect.objectContaining({ method: 'POST', credentials: 'include' }),
+    );
+  });
+});
+
 describe('MyEnrollmentsPage', () => {
   it('shows Continue Learning only for ACTIVE enrollments', async () => {
     vi.spyOn(enrollmentApi, 'listMine').mockResolvedValue([

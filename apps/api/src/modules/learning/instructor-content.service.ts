@@ -181,38 +181,35 @@ export class InstructorContentService {
   async reorderModules(instructorId: string, courseId: string, dto: ReorderDto): Promise<void> {
     await this.assertInstructorOwnsCourse(instructorId, courseId);
 
-    const existing = await this.prisma.module.findMany({
-      where: { courseId },
-      select: { id: true },
-    });
+    await this.runReorderTransaction(
+      async (transaction) => {
+        const existing = await transaction.module.findMany({
+          where: { courseId },
+          select: { id: true },
+        });
+        const orderedIds = dto.orderedIds;
+        this.validateCompleteOrder(
+          existing.map((item) => item.id),
+          orderedIds,
+          'module IDs of this course',
+        );
 
-    const existingIds = new Set(existing.map((m) => m.id));
-    const orderedIds = dto.orderedIds;
-
-    if (orderedIds.length !== existingIds.size || !orderedIds.every((id) => existingIds.has(id))) {
-      throw new BadRequestException(
-        'orderedIds must contain exactly all module IDs of this course',
-      );
-    }
-
-    if (new Set(orderedIds).size !== orderedIds.length) {
-      throw new BadRequestException('orderedIds must not contain duplicates');
-    }
-
-    await this.prisma.$transaction([
-      ...orderedIds.map((id, index) =>
-        this.prisma.module.update({
-          where: { id },
-          data: { orderIndex: -(index + 1) },
-        }),
-      ),
-      ...orderedIds.map((id, index) =>
-        this.prisma.module.update({
-          where: { id },
-          data: { orderIndex: index },
-        }),
-      ),
-    ]);
+        for (const [index, id] of orderedIds.entries()) {
+          await transaction.module.update({
+            where: { id },
+            data: { orderIndex: -(index + 1) },
+          });
+        }
+        for (const [index, id] of orderedIds.entries()) {
+          await transaction.module.update({
+            where: { id },
+            data: { orderIndex: index },
+          });
+        }
+      },
+      'Module',
+      ['courseId', 'orderIndex'],
+    );
   }
 
   // --- LESSONS ---
@@ -327,38 +324,29 @@ export class InstructorContentService {
     if (!module) throw new NotFoundException('Module not found');
     await this.assertInstructorOwnsCourse(instructorId, module.courseId);
 
-    const existing = await this.prisma.lesson.findMany({
-      where: { moduleId },
-      select: { id: true },
-    });
+    await this.runReorderTransaction(
+      async (transaction) => {
+        const existing = await transaction.lesson.findMany({
+          where: { moduleId },
+          select: { id: true },
+        });
+        const orderedIds = dto.orderedIds;
+        this.validateCompleteOrder(
+          existing.map((item) => item.id),
+          orderedIds,
+          'lesson IDs of this module',
+        );
 
-    const existingIds = new Set(existing.map((l) => l.id));
-    const orderedIds = dto.orderedIds;
-
-    if (orderedIds.length !== existingIds.size || !orderedIds.every((id) => existingIds.has(id))) {
-      throw new BadRequestException(
-        'orderedIds must contain exactly all lesson IDs of this module',
-      );
-    }
-
-    if (new Set(orderedIds).size !== orderedIds.length) {
-      throw new BadRequestException('orderedIds must not contain duplicates');
-    }
-
-    await this.prisma.$transaction([
-      ...orderedIds.map((id, index) =>
-        this.prisma.lesson.update({
-          where: { id },
-          data: { orderIndex: -(index + 1) },
-        }),
-      ),
-      ...orderedIds.map((id, index) =>
-        this.prisma.lesson.update({
-          where: { id },
-          data: { orderIndex: index },
-        }),
-      ),
-    ]);
+        for (const [index, id] of orderedIds.entries()) {
+          await transaction.lesson.update({ where: { id }, data: { orderIndex: -(index + 1) } });
+        }
+        for (const [index, id] of orderedIds.entries()) {
+          await transaction.lesson.update({ where: { id }, data: { orderIndex: index } });
+        }
+      },
+      'Lesson',
+      ['moduleId', 'orderIndex'],
+    );
   }
 
   // --- RESOURCES ---
@@ -471,38 +459,71 @@ export class InstructorContentService {
     if (!lesson) throw new NotFoundException('Lesson not found');
     await this.assertInstructorOwnsCourse(instructorId, lesson.module.courseId);
 
-    const existing = await this.prisma.learningResource.findMany({
-      where: { lessonId },
-      select: { id: true },
-    });
+    await this.runReorderTransaction(
+      async (transaction) => {
+        const existing = await transaction.learningResource.findMany({
+          where: { lessonId },
+          select: { id: true },
+        });
+        const orderedIds = dto.orderedIds;
+        this.validateCompleteOrder(
+          existing.map((item) => item.id),
+          orderedIds,
+          'resource IDs of this lesson',
+        );
 
-    const existingIds = new Set(existing.map((r) => r.id));
-    const orderedIds = dto.orderedIds;
+        for (const [index, id] of orderedIds.entries()) {
+          await transaction.learningResource.update({ where: { id }, data: { orderIndex: -(index + 1) } });
+        }
+        for (const [index, id] of orderedIds.entries()) {
+          await transaction.learningResource.update({ where: { id }, data: { orderIndex: index } });
+        }
+      },
+      'LearningResource',
+      ['lessonId', 'orderIndex'],
+    );
+  }
 
-    if (orderedIds.length !== existingIds.size || !orderedIds.every((id) => existingIds.has(id))) {
-      throw new BadRequestException(
-        'orderedIds must contain exactly all resource IDs of this lesson',
-      );
-    }
-
+  private validateCompleteOrder(
+    existingIds: string[],
+    orderedIds: string[],
+    expectedChildren: string,
+  ): void {
     if (new Set(orderedIds).size !== orderedIds.length) {
       throw new BadRequestException('orderedIds must not contain duplicates');
     }
+    const existingIdSet = new Set(existingIds);
+    if (
+      orderedIds.length !== existingIds.length ||
+      !orderedIds.every((id) => existingIdSet.has(id))
+    ) {
+      throw new BadRequestException(
+        `orderedIds must contain exactly all ${expectedChildren}`,
+      );
+    }
+  }
 
-    await this.prisma.$transaction([
-      ...orderedIds.map((id, index) =>
-        this.prisma.learningResource.update({
-          where: { id },
-          data: { orderIndex: -(index + 1) },
-        }),
-      ),
-      ...orderedIds.map((id, index) =>
-        this.prisma.learningResource.update({
-          where: { id },
-          data: { orderIndex: index },
-        }),
-      ),
-    ]);
+  private async runReorderTransaction(
+    operation: (transaction: Prisma.TransactionClient) => Promise<void>,
+    modelName: string,
+    orderFields: string[],
+  ): Promise<void> {
+    for (let attempt = 1; attempt <= MAX_CONTENT_TRANSACTION_ATTEMPTS; attempt += 1) {
+      try {
+        await this.prisma.$transaction(operation, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        });
+        return;
+      } catch (error: unknown) {
+        const retryable =
+          this.isPrismaError(error, 'P2034') ||
+          this.isRelevantOrderConflict(error, modelName, orderFields);
+        if (!retryable) throw error;
+        if (attempt === MAX_CONTENT_TRANSACTION_ATTEMPTS) {
+          throw new ConflictException('Content order changed concurrently; please try again');
+        }
+      }
+    }
   }
 
   private async runDeleteTransaction(

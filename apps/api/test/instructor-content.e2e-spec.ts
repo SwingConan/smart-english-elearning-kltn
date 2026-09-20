@@ -28,6 +28,7 @@ describe('Instructor content APIs (e2e)', () => {
   let assignedCourseId: string;
   let foreignCourseId: string;
   let enrollmentId: string;
+  let adminId: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -45,6 +46,7 @@ describe('Instructor content APIs (e2e)', () => {
       createUser('student', UserRole.STUDENT, passwordHash),
     ]);
     userIds.push(admin.id, instructor.id, otherInstructor.id, student.id);
+    adminId = admin.id;
     const [assignedCourse, foreignCourse] = await Promise.all([
       createCourse('assigned', admin.id),
       createCourse('foreign', admin.id),
@@ -155,6 +157,55 @@ describe('Instructor content APIs (e2e)', () => {
     expectContiguous(resourceResponses.map(({ body }) => body.orderIndex));
   });
 
+  it('preserves complete contiguous membership under concurrent reorder', async () => {
+    const course = await createCourse('reorder-race', adminId);
+    courseIds.push(course.id);
+    await prisma.classOffering.create({ data: { courseId: course.id, instructorId: userIds[1], name: 'Reorder race class', status: ClassOfferingStatus.OPEN, pricingType: PricingType.FREE } });
+    const modules = [];
+    for (let orderIndex = 0; orderIndex < 3; orderIndex += 1) {
+      modules.push(await prisma.module.create({ data: { courseId: course.id, title: `Reorder module ${orderIndex}`, orderIndex } }));
+    }
+    const lessons = [];
+    for (let orderIndex = 0; orderIndex < 3; orderIndex += 1) {
+      lessons.push(await prisma.lesson.create({ data: { moduleId: modules[0].id, title: `Reorder lesson ${orderIndex}`, orderIndex } }));
+    }
+    const resources = [];
+    for (let orderIndex = 0; orderIndex < 3; orderIndex += 1) {
+      resources.push(await prisma.learningResource.create({ data: { lessonId: lessons[0].id, title: `Reorder resource ${orderIndex}`, type: ResourceType.LINK, url: `https://example.test/reorder-${orderIndex}`, orderIndex } }));
+    }
+
+    const moduleResponses = await Promise.all([
+      instructorAgent.patch(`/api/instructor/courses/${course.id}/modules/reorder`).send({ orderedIds: [modules[2].id, modules[1].id, modules[0].id] }),
+      instructorAgent.patch(`/api/instructor/courses/${course.id}/modules/reorder`).send({ orderedIds: [modules[1].id, modules[0].id, modules[2].id] }),
+    ]);
+    assertConcurrentReorderResponses(moduleResponses);
+    assertOrderedRows(await prisma.module.findMany({ where: { courseId: course.id }, orderBy: { orderIndex: 'asc' }, select: { id: true, orderIndex: true } }), modules.map(({ id }) => id));
+
+    const lessonResponses = await Promise.all([
+      instructorAgent.patch(`/api/instructor/modules/${modules[0].id}/lessons/reorder`).send({ orderedIds: [lessons[2].id, lessons[1].id, lessons[0].id] }),
+      instructorAgent.patch(`/api/instructor/modules/${modules[0].id}/lessons/reorder`).send({ orderedIds: [lessons[1].id, lessons[0].id, lessons[2].id] }),
+    ]);
+    assertConcurrentReorderResponses(lessonResponses);
+    assertOrderedRows(await prisma.lesson.findMany({ where: { moduleId: modules[0].id }, orderBy: { orderIndex: 'asc' }, select: { id: true, orderIndex: true } }), lessons.map(({ id }) => id));
+
+    const resourceResponses = await Promise.all([
+      instructorAgent.patch(`/api/instructor/lessons/${lessons[0].id}/resources/reorder`).send({ orderedIds: [resources[2].id, resources[1].id, resources[0].id] }),
+      instructorAgent.patch(`/api/instructor/lessons/${lessons[0].id}/resources/reorder`).send({ orderedIds: [resources[1].id, resources[0].id, resources[2].id] }),
+    ]);
+    assertConcurrentReorderResponses(resourceResponses);
+    assertOrderedRows(await prisma.learningResource.findMany({ where: { lessonId: lessons[0].id }, orderBy: { orderIndex: 'asc' }, select: { id: true, orderIndex: true } }), resources.map(({ id }) => id));
+  });
+
+  it('keeps COMPLETED learner progress when lesson and module deletion are rejected', async () => {
+    const module = await prisma.module.create({ data: { courseId: assignedCourseId, title: 'Completed progress module', orderIndex: await nextModuleOrder() } });
+    const lesson = await prisma.lesson.create({ data: { moduleId: module.id, title: 'Completed progress lesson', orderIndex: 0 } });
+    await prisma.lessonProgress.create({ data: { enrollmentId, lessonId: lesson.id, status: LessonProgressStatus.COMPLETED, completedAt: new Date() } });
+
+    await instructorAgent.delete(`/api/instructor/lessons/${lesson.id}`).expect(409);
+    await instructorAgent.delete(`/api/instructor/modules/${module.id}`).expect(409);
+    await expect(prisma.lessonProgress.findUnique({ where: { enrollmentId_lessonId: { enrollmentId, lessonId: lesson.id } }, select: { status: true } })).resolves.toEqual({ status: LessonProgressStatus.COMPLETED });
+  });
+
   async function createUser(label: string, role: UserRole, passwordHash: string) {
     return prisma.user.create({ data: { email: `vs02-${label}-${unique}@example.test`, fullName: label, role, status: UserStatus.ACTIVE, passwordHash } });
   }
@@ -184,6 +235,14 @@ function expectContiguous(values: number[]): void {
   const sorted = [...values].sort((a, b) => a - b);
   expect(new Set(sorted).size).toBe(values.length);
   expect(sorted[sorted.length - 1] - sorted[0]).toBe(values.length - 1);
+}
+function assertConcurrentReorderResponses(responses: request.Response[]): void {
+  expect(responses.every(({ status }) => status === 200 || status === 409)).toBe(true);
+  expect(responses.every(({ text }) => !/P2002|P2034/.test(text))).toBe(true);
+}
+function assertOrderedRows(rows: Array<{ id: string; orderIndex: number }>, expectedIds: string[]): void {
+  expect(rows.map(({ orderIndex }) => orderIndex)).toEqual([0, 1, 2]);
+  expect(new Set(rows.map(({ id }) => id))).toEqual(new Set(expectedIds));
 }
 function cookie(value: string[] | string | undefined): string {
   const result = Array.isArray(value) ? value[0] : value;
