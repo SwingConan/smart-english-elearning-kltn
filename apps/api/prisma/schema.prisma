@@ -53,6 +53,33 @@ enum LessonProgressStatus {
   COMPLETED
 }
 
+enum QuestionType {
+  SINGLE_CHOICE
+  TRUE_FALSE
+  MULTIPLE_CHOICE
+}
+
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum TestType {
+  PLACEMENT
+  QUIZ
+}
+
+enum TestStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum TestAttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+}
+
 model User {
   id                     String          @id @default(uuid()) @db.Uuid
   email                  String          @unique
@@ -90,6 +117,8 @@ model Course {
   createdBy      User            @relation("CourseCreatedBy", fields: [createdById], references: [id])
   classOfferings ClassOffering[]
   modules        Module[]
+  questions      Question[]
+  tests          Test[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -130,9 +159,10 @@ model Enrollment {
   status          EnrollmentStatus
   learner         User             @relation("LearnerEnrollments", fields: [learnerId], references: [id])
   classOffering   ClassOffering    @relation(fields: [classOfferingId], references: [id])
-  lessonProgress LessonProgress[]
+  lessonProgress  LessonProgress[]
+  testAttempts    TestAttempt[]
   enrolledAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  updatedAt       DateTime         @updatedAt
 
   @@unique([learnerId, classOfferingId])
   @@index([learnerId])
@@ -166,6 +196,7 @@ model Lesson {
   module      Module             @relation(fields: [moduleId], references: [id])
   resources   LearningResource[]
   progress    LessonProgress[]
+  tests       Test[]
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
@@ -207,4 +238,120 @@ model LessonProgress {
   @@index([enrollmentId])
   @@index([lessonId])
   @@map("lesson_progress")
+}
+
+model Question {
+  id            String             @id @default(uuid()) @db.Uuid
+  courseId      String             @db.Uuid
+  type          QuestionType
+  difficulty    QuestionDifficulty
+  content       String             @db.Text
+  explanation   String?            @db.Text
+  course        Course             @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  options       QuestionOption[]
+  testQuestions TestQuestion[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([courseId])
+  @@index([courseId, type])
+  @@index([courseId, difficulty])
+  @@map("questions")
+}
+
+model QuestionOption {
+  id         String   @id @default(uuid()) @db.Uuid
+  questionId String   @db.Uuid
+  content    String   @db.Text
+  isCorrect  Boolean
+  orderIndex Int
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([questionId, orderIndex])
+  @@index([questionId])
+  @@map("question_options")
+}
+
+model Test {
+  id                    String         @id @default(uuid()) @db.Uuid
+  courseId              String         @db.Uuid
+  lessonId              String?        @db.Uuid
+  type                  TestType
+  title                 String
+  description           String?        @db.Text
+  status                TestStatus     @default(DRAFT)
+  maxAttempts           Int            @default(1)
+  showResultAfterSubmit Boolean        @default(true)
+  course                Course         @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  lesson                Lesson?        @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  testQuestions         TestQuestion[]
+  attempts              TestAttempt[]
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  @@index([courseId])
+  @@index([courseId, status])
+  @@index([lessonId])
+  @@map("tests")
+}
+
+model TestQuestion {
+  id         String       @id @default(uuid()) @db.Uuid
+  testId     String       @db.Uuid
+  questionId String       @db.Uuid
+  orderIndex Int
+  points     Int          @default(1)
+  test       Test         @relation(fields: [testId], references: [id], onDelete: Restrict)
+  question   Question     @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  answers    TestAnswer[]
+  createdAt  DateTime     @default(now())
+
+  @@unique([testId, questionId])
+  @@unique([testId, orderIndex])
+  @@index([testId])
+  @@index([questionId])
+  @@map("test_questions")
+}
+
+model TestAttempt {
+  id            String            @id @default(uuid()) @db.Uuid
+  testId        String            @db.Uuid
+  enrollmentId  String            @db.Uuid
+  attemptNumber Int
+  status        TestAttemptStatus @default(IN_PROGRESS)
+  score         Int?
+  maxScore      Int?
+  startedAt     DateTime          @default(now())
+  submittedAt   DateTime?
+  test          Test              @relation(fields: [testId], references: [id], onDelete: Restrict)
+  enrollment    Enrollment        @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  answers       TestAnswer[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([testId, enrollmentId, attemptNumber])
+  @@index([testId])
+  @@index([enrollmentId])
+  @@index([enrollmentId, testId])
+  @@map("test_attempts")
+}
+
+model TestAnswer {
+  id                String       @id @default(uuid()) @db.Uuid
+  attemptId         String       @db.Uuid
+  testQuestionId    String       @db.Uuid
+  selectedOptionIds String[]     @default([]) @db.Uuid
+  isCorrect         Boolean?
+  pointsAwarded     Int?
+  attempt           TestAttempt  @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  testQuestion      TestQuestion @relation(fields: [testQuestionId], references: [id], onDelete: Restrict)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@unique([attemptId, testQuestionId])
+  @@index([attemptId])
+  @@index([testQuestionId])
+  @@map("test_answers")
 }
