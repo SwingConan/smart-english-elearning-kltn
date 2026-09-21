@@ -75,8 +75,10 @@ Instructor assigned Course
 ### Test
 
 - A `Test` belongs to one `Course`.
-- A `QUIZ` may reference a `Lesson`.
-- A `PLACEMENT` must not reference a Lesson.
+- A `QUIZ` uses a nullable `lessonId` at schema level because `PLACEMENT`
+  is course-level.
+- A `PUBLISHED` QUIZ must reference a `Lesson` belonging to the same `Course`.
+- A `PLACEMENT` must not reference a `Lesson`.
 - Test has `title`, `description`, `type`, `status`, `maxAttempts`, and
   `showResultAfterSubmit`.
 - `maxAttempts` defaults to `1`.
