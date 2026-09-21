@@ -14,6 +14,9 @@ import { MyEnrollmentsPage } from '@/pages/MyEnrollmentsPage';
 import { LearningPage } from '@/pages/LearningPage';
 import { InstructorTeachingPage } from '@/pages/InstructorTeachingPage';
 import { CourseContentManagementPage } from '@/pages/CourseContentManagementPage';
+import { QuestionBankPage } from '@/pages/QuestionBankPage';
+import { TestManagementPage } from '@/pages/TestManagementPage';
+import { TestEditorPage } from '@/pages/TestEditorPage';
 
 export function App() {
   return (
@@ -72,6 +75,30 @@ export function App() {
             element={
               <RoleRoute allowedRoles={['INSTRUCTOR']}>
                 <CourseContentManagementPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/instructor/courses/:courseId/question-bank"
+            element={
+              <RoleRoute allowedRoles={['INSTRUCTOR']}>
+                <QuestionBankPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/instructor/courses/:courseId/tests"
+            element={
+              <RoleRoute allowedRoles={['INSTRUCTOR']}>
+                <TestManagementPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/instructor/tests/:testId/edit"
+            element={
+              <RoleRoute allowedRoles={['INSTRUCTOR']}>
+                <TestEditorPage />
               </RoleRoute>
             }
           />
