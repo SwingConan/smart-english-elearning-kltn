@@ -5,6 +5,12 @@ import type {
   AssessmentTestQuestion,
   AssessmentTestSummary,
   QuestionInput,
+  StudentAnswerSelection,
+  StudentAttemptContent,
+  StudentAttemptResult,
+  StudentAttemptStart,
+  StudentSubmission,
+  StudentTestListItem,
   TestInput,
 } from './types';
 
@@ -79,4 +85,50 @@ export const assessmentApi = {
         body: JSON.stringify({ orderedIds }),
       }),
   },
+};
+
+export const studentAssessmentApi = {
+  listTests: (enrollmentId: string, signal?: AbortSignal): Promise<StudentTestListItem[]> =>
+    apiFetch(`/learning/enrollments/${segment(enrollmentId)}/tests`, { signal }),
+  startOrResume: (enrollmentId: string, testId: string): Promise<StudentAttemptStart> =>
+    apiFetch(
+      `/learning/enrollments/${segment(enrollmentId)}/tests/${segment(testId)}/attempts`,
+      { method: 'POST' },
+    ),
+  getAttempt: (
+    enrollmentId: string,
+    attemptId: string,
+    signal?: AbortSignal,
+  ): Promise<StudentAttemptContent> =>
+    apiFetch(
+      `/learning/enrollments/${segment(enrollmentId)}/attempts/${segment(attemptId)}`,
+      { signal },
+    ),
+  saveAnswers: (
+    enrollmentId: string,
+    attemptId: string,
+    answers: StudentAnswerSelection[],
+  ): Promise<{ attemptId: string; answers: StudentAnswerSelection[] }> =>
+    apiFetch(
+      `/learning/enrollments/${segment(enrollmentId)}/attempts/${segment(attemptId)}/answers`,
+      { method: 'PATCH', body: JSON.stringify({ answers }) },
+    ),
+  submit: (
+    enrollmentId: string,
+    attemptId: string,
+    answers: StudentAnswerSelection[],
+  ): Promise<StudentSubmission> =>
+    apiFetch(
+      `/learning/enrollments/${segment(enrollmentId)}/attempts/${segment(attemptId)}/submit`,
+      { method: 'POST', body: JSON.stringify({ answers }) },
+    ),
+  getResult: (
+    enrollmentId: string,
+    attemptId: string,
+    signal?: AbortSignal,
+  ): Promise<StudentAttemptResult> =>
+    apiFetch(
+      `/learning/enrollments/${segment(enrollmentId)}/attempts/${segment(attemptId)}/result`,
+      { signal },
+    ),
 };

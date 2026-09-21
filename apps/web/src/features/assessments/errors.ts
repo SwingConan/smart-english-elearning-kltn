@@ -49,3 +49,20 @@ export function assessmentErrorMessage(
       return fallback;
   }
 }
+
+export function studentAssessmentErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof ApiError)) return fallback;
+
+  switch (error.status) {
+    case 400:
+      return 'Câu trả lời chưa hợp lệ. Vui lòng kiểm tra lại.';
+    case 403:
+      return 'Bạn không có quyền thực hiện thao tác này.';
+    case 404:
+      return 'Bài kiểm tra hoặc lượt làm không tồn tại, không còn hoạt động, hoặc không thuộc tài khoản của bạn.';
+    case 409:
+      return 'Không thể thực hiện thao tác do giới hạn lượt làm hoặc trạng thái bài đã thay đổi.';
+    default:
+      return fallback;
+  }
+}

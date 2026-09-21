@@ -119,19 +119,27 @@ export function LearningPage() {
         </Link>
         <div className="flex flex-wrap gap-4 justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <h1 className="text-xl font-bold">{content.course.title}</h1>
-          {progress && (
-            <div className="flex items-center gap-4">
-              <div className="text-sm font-medium">
-                Đã học: {progress.completedLessons} / {progress.totalLessons} bài
+          <div className="flex flex-wrap items-center gap-4">
+            <Link
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              to={`/student/enrollments/${enrollmentId}/tests`}
+            >
+              Bài kiểm tra
+            </Link>
+            {progress && (
+              <div className="flex items-center gap-4">
+                <div className="text-sm font-medium">
+                  Đã học: {progress.completedLessons} / {progress.totalLessons} bài
+                </div>
+                <div className="w-48 bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${progress.progressPercent}%` }}
+                  ></div>
+                </div>
               </div>
-              <div className="w-48 bg-slate-200 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                  style={{ width: `${progress.progressPercent}%` }}
-                ></div>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 

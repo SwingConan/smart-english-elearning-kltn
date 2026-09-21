@@ -65,3 +65,118 @@ export interface TestInput {
   maxAttempts: number;
   showResultAfterSubmit: boolean;
 }
+
+export type StudentAttemptStatus = 'IN_PROGRESS' | 'SUBMITTED';
+
+export interface StudentTestListItem {
+  id: string;
+  type: TestType;
+  title: string;
+  description: string | null;
+  lessonId: string | null;
+  maxAttempts: number;
+  showResultAfterSubmit: boolean;
+  questionCount: number;
+  attemptsUsed: number;
+  hasInProgressAttempt: boolean;
+  inProgressAttemptId: string | null;
+  latestSubmittedAttemptId: string | null;
+}
+
+export interface StudentAttemptStart {
+  id: string;
+  testId: string;
+  enrollmentId: string;
+  attemptNumber: number;
+  status: StudentAttemptStatus;
+  startedAt: string;
+}
+
+export interface StudentAttemptOption {
+  id: string;
+  content: string;
+  orderIndex: number;
+}
+
+export interface StudentAttemptQuestion {
+  testQuestionId: string;
+  points: number;
+  question: {
+    id: string;
+    type: QuestionType;
+    difficulty: QuestionDifficulty;
+    content: string;
+    options: StudentAttemptOption[];
+  };
+  selectedOptionIds: string[];
+}
+
+export interface StudentAttemptContent {
+  attempt: {
+    id: string;
+    attemptNumber: number;
+    status: StudentAttemptStatus;
+    startedAt: string;
+    submittedAt: string | null;
+  };
+  test: { id: string; title: string; type: TestType };
+  questions?: StudentAttemptQuestion[];
+}
+
+export interface StudentAnswerSelection {
+  testQuestionId: string;
+  selectedOptionIds: string[];
+}
+
+export interface StudentSubmission {
+  attempt: {
+    id: string;
+    attemptNumber: number;
+    status: 'SUBMITTED';
+    startedAt: string;
+    submittedAt: string;
+    score?: number;
+    maxScore?: number;
+    percentage?: number;
+  };
+  test: { id: string; title: string; type: TestType };
+  resultAvailable: boolean;
+}
+
+export interface StudentResultOption extends StudentAttemptOption {
+  isCorrect: boolean;
+  wasSelected: boolean;
+}
+
+export interface StudentResultQuestion {
+  testQuestionId: string;
+  points: number;
+  question: {
+    id: string;
+    type: QuestionType;
+    difficulty: QuestionDifficulty;
+    content: string;
+    explanation: string | null;
+    options: StudentResultOption[];
+  };
+  answer: {
+    selectedOptionIds: string[];
+    isCorrect: boolean;
+    pointsAwarded: number;
+  };
+}
+
+export interface StudentAttemptResult {
+  attempt: {
+    id: string;
+    attemptNumber: number;
+    status: 'SUBMITTED';
+    score: number;
+    maxScore: number;
+    percentage: number;
+    startedAt: string;
+    submittedAt: string;
+  };
+  test: { id: string; title: string; type: TestType };
+  questions: StudentResultQuestion[];
+}

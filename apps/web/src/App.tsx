@@ -17,6 +17,9 @@ import { CourseContentManagementPage } from '@/pages/CourseContentManagementPage
 import { QuestionBankPage } from '@/pages/QuestionBankPage';
 import { TestManagementPage } from '@/pages/TestManagementPage';
 import { TestEditorPage } from '@/pages/TestEditorPage';
+import { StudentAssessmentListPage } from '@/pages/StudentAssessmentListPage';
+import { StudentTestAttemptPage } from '@/pages/StudentTestAttemptPage';
+import { StudentTestResultPage } from '@/pages/StudentTestResultPage';
 
 export function App() {
   return (
@@ -75,6 +78,30 @@ export function App() {
             element={
               <RoleRoute allowedRoles={['INSTRUCTOR']}>
                 <CourseContentManagementPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/student/enrollments/:enrollmentId/tests"
+            element={
+              <RoleRoute allowedRoles={['STUDENT']}>
+                <StudentAssessmentListPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/student/enrollments/:enrollmentId/attempts/:attemptId"
+            element={
+              <RoleRoute allowedRoles={['STUDENT']}>
+                <StudentTestAttemptPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/student/enrollments/:enrollmentId/attempts/:attemptId/result"
+            element={
+              <RoleRoute allowedRoles={['STUDENT']}>
+                <StudentTestResultPage />
               </RoleRoute>
             }
           />
