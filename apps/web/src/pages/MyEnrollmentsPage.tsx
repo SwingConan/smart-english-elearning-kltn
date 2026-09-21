@@ -72,6 +72,16 @@ export function MyEnrollmentsPage() {
                 <Detail label="Học phí" value={pricingLabel(enrollment.classOffering.pricingType, enrollment.classOffering.tuitionFeeVnd)} />
                 <Detail label="Ngày đăng ký" value={formatDate(enrollment.enrolledAt)} />
               </dl>
+              {enrollment.status === 'ACTIVE' && (
+                <div className="mt-4 border-t pt-4">
+                  <Link
+                    to={`/student/enrollments/${enrollment.id}/learn`}
+                    className="inline-block rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 font-medium text-sm"
+                  >
+                    Tiếp tục học
+                  </Link>
+                </div>
+              )}
             </article>
           ))}
         </div>
