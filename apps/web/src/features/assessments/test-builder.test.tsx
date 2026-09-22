@@ -153,10 +153,38 @@ describe('TestEditorPage', () => {
     fireEvent.click(within(form).getByRole('checkbox'));
     fireEvent.submit(form);
     await waitFor(() => expect(update).toHaveBeenCalledOnce());
-    expect(update.mock.calls[0][1]).toMatchObject({
+    expect(update.mock.calls[0][1]).toEqual({
       title: 'Updated title', description: 'Updated description', showResultAfterSubmit: false,
-      type: 'QUIZ', lessonId: 'lesson-a', maxAttempts: 3,
     });
+  });
+
+  it('PATCHes only effective metadata deltas while retaining genuine locked-field edits', async () => {
+    const current = detail(testId, 'QUIZ', 'DRAFT', []);
+    mockEditor(current, []);
+    const update = vi.spyOn(assessmentApi.tests, 'update')
+      .mockImplementation(async (_id, input) => ({ ...current, ...input, updatedAt: `updated-${update.mock.calls.length}` }));
+    renderEditor();
+    await screen.findByText(current.title);
+    let form = screen.getByRole('heading', { name: /Thông tin bài kiểm tra/i }).closest('form')!;
+
+    fireEvent.submit(form);
+    expect(update).not.toHaveBeenCalled();
+
+    fireEvent.change(within(form).getByLabelText(/Tiêu đề/i), { target: { value: 'Title only' } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(update).toHaveBeenCalledOnce());
+    expect(update.mock.calls[0][1]).toEqual({ title: 'Title only' });
+    expect(update.mock.calls[0][1]).not.toHaveProperty('type');
+    expect(update.mock.calls[0][1]).not.toHaveProperty('lessonId');
+    expect(update.mock.calls[0][1]).not.toHaveProperty('maxAttempts');
+    expect(update.mock.calls[0][1]).not.toHaveProperty('description');
+    expect(update.mock.calls[0][1]).not.toHaveProperty('showResultAfterSubmit');
+
+    form = screen.getByRole('heading', { name: /Thông tin bài kiểm tra/i }).closest('form')!;
+    fireEvent.change(within(form).getByLabelText(/Số lượt làm/i), { target: { value: '4' } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+    expect(update.mock.calls[1][1]).toEqual({ maxAttempts: 4 });
   });
 
   it('adds only available same-course Questions and validates/saves positive integer points', async () => {

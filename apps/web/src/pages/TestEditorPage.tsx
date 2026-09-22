@@ -82,7 +82,7 @@ export function TestEditorPage() {
     setActionError(assessmentErrorMessage(error, fallback, conflict));
   }, [redirectExpiredSession]);
 
-  const saveMetadata = async (input: TestInput) => {
+  const saveMetadata = async (input: Partial<TestInput>) => {
     if (!test || !beginMutation('metadata')) return;
     try {
       const updated = await assessmentApi.tests.update(test.id, input);
@@ -304,7 +304,7 @@ function MetadataForm({ test, lessons, pending, onSave }: {
   test: AssessmentTestDetail;
   lessons: LessonChoice[];
   pending: boolean;
-  onSave: (input: TestInput) => Promise<void>;
+  onSave: (input: Partial<TestInput>) => Promise<void>;
 }) {
   const [type, setType] = useState<TestType>(test.type);
   const [title, setTitle] = useState(test.title);
@@ -324,15 +324,27 @@ function MetadataForm({ test, lessons, pending, onSave }: {
       setFormError('Số lượt làm phải là số nguyên lớn hơn hoặc bằng 1.');
       return;
     }
-    setFormError(null);
-    void onSave({
+    const effective: TestInput = {
       type,
       title: title.trim(),
       description: description.trim() || null,
       lessonId: type === 'QUIZ' ? lessonId || null : null,
       maxAttempts,
       showResultAfterSubmit: showResult,
-    });
+    };
+    const delta: Partial<TestInput> = {};
+    if (effective.type !== test.type) delta.type = effective.type;
+    if (effective.title !== test.title) delta.title = effective.title;
+    if (effective.description !== test.description) delta.description = effective.description;
+    if (effective.lessonId !== test.lessonId) delta.lessonId = effective.lessonId;
+    if (effective.maxAttempts !== test.maxAttempts) delta.maxAttempts = effective.maxAttempts;
+    if (effective.showResultAfterSubmit !== test.showResultAfterSubmit) {
+      delta.showResultAfterSubmit = effective.showResultAfterSubmit;
+    }
+
+    setFormError(null);
+    if (Object.keys(delta).length === 0) return;
+    void onSave(delta);
   };
 
   return (
