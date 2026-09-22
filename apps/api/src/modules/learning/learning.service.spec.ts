@@ -19,6 +19,8 @@ describe('LearningService', () => {
     course: { findUniqueOrThrow: jest.fn() },
     lesson: { findFirst: jest.fn(), count: jest.fn() },
     lessonProgress: { count: jest.fn() },
+    skill: { findMany: jest.fn(), findFirst: jest.fn() },
+    masteryHistory: { findMany: jest.fn() },
     $transaction: jest.fn(),
   };
   const service = new LearningService(prisma as unknown as PrismaService);
@@ -31,6 +33,8 @@ describe('LearningService', () => {
     prisma.course.findUniqueOrThrow.mockResolvedValue({ title: 'Course', modules: [] });
     prisma.lesson.count.mockResolvedValue(0);
     prisma.lessonProgress.count.mockResolvedValue(0);
+    prisma.skill.findMany.mockResolvedValue([]);
+    prisma.masteryHistory.findMany.mockResolvedValue([]);
     transaction.lessonProgress.findUnique.mockResolvedValue(null);
     transaction.lessonProgress.create.mockImplementation(({ data }) => Promise.resolve({ id: 'progress-id', completedAt: null, ...data }));
     transaction.lessonProgress.update.mockImplementation(({ data }) => Promise.resolve({ id: 'progress-id', enrollmentId, lessonId, completedAt: null, ...data }));
@@ -129,6 +133,115 @@ describe('LearningService', () => {
     expect(result.modules[0].lessons[0]).toMatchObject({ progressStatus: LessonProgressStatus.COMPLETED, resourceCount: 2 });
     expect(result).not.toHaveProperty('mastery');
     expect(result).not.toHaveProperty('adaptive');
+  });
+
+  it('returns all Skills with mixed PRIOR and OBSERVED state in stable order', async () => {
+    prisma.skill.findMany.mockResolvedValue([
+      {
+        id: 'alpha-id',
+        code: 'ALPHA',
+        name: 'Alpha',
+        description: null,
+        pInit: 0.3,
+        learnerStates: [{
+          masteryProbability: 0.81,
+          observationCount: 2,
+          lastObservedAt: now,
+        }],
+        prerequisites: [
+          { prerequisiteSkill: { id: 'z-id', code: 'ZETA', name: 'Zeta' } },
+          { prerequisiteSkill: { id: 'b-id', code: 'BETA', name: 'Beta' } },
+        ],
+      },
+      {
+        id: 'beta-id',
+        code: 'BETA',
+        name: 'Beta',
+        description: 'Prior Skill',
+        pInit: 0.45,
+        learnerStates: [],
+        prerequisites: [],
+      },
+    ]);
+
+    const result = await service.getMastery(learnerId, enrollmentId);
+
+    expect(prisma.skill.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { courseId },
+      orderBy: [{ code: 'asc' }, { id: 'asc' }],
+    }));
+    expect(result).toMatchObject({ enrollmentId, courseId });
+    expect(result.skills).toEqual([
+      expect.objectContaining({
+        code: 'ALPHA',
+        masteryProbability: 0.81,
+        observationCount: 2,
+        lastObservedAt: now,
+        state: 'OBSERVED',
+        prerequisites: [
+          { id: 'b-id', code: 'BETA', name: 'Beta' },
+          { id: 'z-id', code: 'ZETA', name: 'Zeta' },
+        ],
+      }),
+      expect.objectContaining({
+        code: 'BETA',
+        masteryProbability: 0.45,
+        observationCount: 0,
+        lastObservedAt: null,
+        state: 'PRIOR',
+      }),
+    ]);
+  });
+
+  it('returns an empty mastery overview without creating state or history', async () => {
+    await expect(service.getMastery(learnerId, enrollmentId)).resolves.toEqual({
+      enrollmentId,
+      courseId,
+      skills: [],
+    });
+    expect(prisma.skill.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.masteryHistory.findMany).not.toHaveBeenCalled();
+  });
+
+  it('returns stored history and PRIOR fallback without exposing assessment answers', async () => {
+    prisma.skill.findFirst.mockResolvedValue({
+      id: 'skill-id',
+      code: 'GRAMMAR',
+      name: 'Grammar',
+      description: null,
+      pInit: 0.4,
+      learnerStates: [],
+    });
+    prisma.masteryHistory.findMany.mockResolvedValue([]);
+
+    const prior = await service.getMasteryHistory(learnerId, enrollmentId, 'skill-id');
+    expect(prior.current).toEqual({
+      masteryProbability: 0.4,
+      observationCount: 0,
+      lastObservedAt: null,
+      state: 'PRIOR',
+    });
+    expect(prior.history).toEqual([]);
+    expect(prisma.masteryHistory.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { enrollmentId, skillId: 'skill-id' },
+      orderBy: [
+        { createdAt: 'asc' },
+        { testAttemptId: 'asc' },
+        { testAnswerId: 'asc' },
+        { id: 'asc' },
+      ],
+    }));
+  });
+
+  it('returns 404 for a missing or cross-Course Skill before querying history', async () => {
+    prisma.skill.findFirst.mockResolvedValue(null);
+    await expect(
+      service.getMasteryHistory(learnerId, enrollmentId, 'foreign-skill'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.skill.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'foreign-skill', courseId },
+    }));
+    expect(prisma.masteryHistory.findMany).not.toHaveBeenCalled();
   });
 
   it('retries progress conflicts at most three times and does not swallow unrelated errors', async () => {

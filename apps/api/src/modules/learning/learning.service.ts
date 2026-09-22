@@ -237,6 +237,139 @@ export class LearningService {
     };
   }
 
+  async getMastery(learnerId: string, enrollmentId: string) {
+    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId);
+    const courseId = enrollment.classOffering.courseId;
+    const skills = await this.prisma.skill.findMany({
+      where: { courseId },
+      orderBy: [{ code: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        pInit: true,
+        learnerStates: {
+          where: { enrollmentId },
+          select: {
+            masteryProbability: true,
+            observationCount: true,
+            lastObservedAt: true,
+          },
+        },
+        prerequisites: {
+          select: {
+            prerequisiteSkill: {
+              select: { id: true, code: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      enrollmentId,
+      courseId,
+      skills: skills.map((skill) => ({
+        id: skill.id,
+        code: skill.code,
+        name: skill.name,
+        description: skill.description,
+        ...this.currentMastery(skill.learnerStates[0], skill.pInit),
+        prerequisites: skill.prerequisites
+          .map(({ prerequisiteSkill }) => prerequisiteSkill)
+          .sort(
+            (left, right) =>
+              left.code.localeCompare(right.code) || left.id.localeCompare(right.id),
+          ),
+      })),
+    };
+  }
+
+  async getMasteryHistory(learnerId: string, enrollmentId: string, skillId: string) {
+    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId);
+    const skill = await this.prisma.skill.findFirst({
+      where: { id: skillId, courseId: enrollment.classOffering.courseId },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        pInit: true,
+        learnerStates: {
+          where: { enrollmentId },
+          select: {
+            masteryProbability: true,
+            observationCount: true,
+            lastObservedAt: true,
+          },
+        },
+      },
+    });
+    if (!skill) {
+      throw new NotFoundException('Skill not found');
+    }
+
+    const history = await this.prisma.masteryHistory.findMany({
+      where: { enrollmentId, skillId },
+      orderBy: [
+        { createdAt: 'asc' },
+        { testAttemptId: 'asc' },
+        { testAnswerId: 'asc' },
+        { id: 'asc' },
+      ],
+      select: {
+        id: true,
+        testAttemptId: true,
+        testAnswerId: true,
+        isCorrect: true,
+        priorMastery: true,
+        evidencePosterior: true,
+        posteriorMastery: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      enrollmentId,
+      skill: {
+        id: skill.id,
+        code: skill.code,
+        name: skill.name,
+        description: skill.description,
+      },
+      current: this.currentMastery(skill.learnerStates[0], skill.pInit),
+      history,
+    };
+  }
+
+  private currentMastery(
+    persisted:
+      | {
+          masteryProbability: number;
+          observationCount: number;
+          lastObservedAt: Date | null;
+        }
+      | undefined,
+    pInit: number,
+  ) {
+    if (!persisted) {
+      return {
+        masteryProbability: pInit,
+        observationCount: 0,
+        lastObservedAt: null,
+        state: 'PRIOR' as const,
+      };
+    }
+
+    return {
+      masteryProbability: persisted.masteryProbability,
+      observationCount: persisted.observationCount,
+      lastObservedAt: persisted.lastObservedAt,
+      state: 'OBSERVED' as const,
+    };
+  }
+
   private async runProgressTransaction<T>(
     operation: (transaction: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
