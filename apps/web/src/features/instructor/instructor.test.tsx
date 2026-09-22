@@ -131,9 +131,10 @@ describe('CourseContentManagementPage', () => {
   it('loads Lesson Skills and sends exact multi/zero full sets with cached Course Skills', async () => {
     const grammar = mappedSkill('grammar', 'GRAMMAR');
     const vocab = mappedSkill('vocab', 'VOCAB');
+    const reading = mappedSkill('reading', 'READING');
     mockContent([moduleA], [lesson], []);
-    vi.spyOn(knowledgeModelApi.skills, 'list').mockResolvedValue([grammar, vocab]);
-    vi.spyOn(knowledgeModelApi.lessonSkills, 'list').mockResolvedValueOnce([grammar]).mockResolvedValueOnce([]);
+    vi.spyOn(knowledgeModelApi.skills, 'list').mockResolvedValue([grammar, vocab, reading]);
+    vi.spyOn(knowledgeModelApi.lessonSkills, 'list').mockResolvedValueOnce([grammar, vocab]).mockResolvedValueOnce([]);
     const replace = vi.spyOn(knowledgeModelApi.lessonSkills, 'replace').mockResolvedValue([]);
     renderContent();
     fireEvent.click(await screen.findByRole('heading', { name: /Alpha module/ }));
@@ -141,9 +142,11 @@ describe('CourseContentManagementPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Edit Skills/i }));
     let dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByLabelText(/GRAMMAR/)).toBeChecked();
-    fireEvent.click(within(dialog).getByLabelText(/VOCAB/));
+    expect(within(dialog).getByLabelText(/VOCAB/)).toBeChecked();
+    fireEvent.click(within(dialog).getByLabelText(/GRAMMAR/));
+    fireEvent.click(within(dialog).getByLabelText(/READING/));
     fireEvent.click(within(dialog).getByRole('button', { name: /Lưu liên kết/i }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith(lesson.id, [grammar.id, vocab.id]));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(lesson.id, [vocab.id, reading.id]));
     expect(screen.getByRole('status')).toHaveTextContent(/Đã cập nhật Skill/i);
 
     fireEvent.click(screen.getByRole('button', { name: /Edit Skills/i }));

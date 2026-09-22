@@ -8,6 +8,7 @@ import { RoleRoute } from '@/features/auth/RoleRoute';
 import { ApiError } from '@/lib/api-client';
 import { StudentMasteryPage } from '@/pages/StudentMasteryPage';
 import { learningApi } from './api';
+import { masteryTimestamp } from './display';
 import type {
   MasteryHistoryResponse,
   MasteryOverview,
@@ -56,6 +57,31 @@ describe('StudentMasteryPage overview', () => {
     expect(await screen.findByText(/chưa được cấu hình Skill/)).toBeInTheDocument();
   });
 
+  it('formats probability boundaries and displays multiple direct prerequisites', async () => {
+    const zero = { ...priorSkill(), id: 'zero', code: 'ZERO', name: 'Zero mastery', masteryProbability: 0 };
+    const full = {
+      ...observedSkill(),
+      id: 'full',
+      code: 'FULL',
+      name: 'Full probability',
+      masteryProbability: 1,
+      prerequisites: [
+        { id: 'grammar', code: 'GRAMMAR', name: 'Grammar' },
+        { id: 'vocab', code: 'VOCAB', name: 'Vocabulary' },
+      ],
+    };
+    vi.spyOn(learningApi, 'getMastery').mockResolvedValue(overview([zero, full]));
+    renderMastery();
+    const zeroCard = (await screen.findByText('Zero mastery')).closest('article')!;
+    expect(within(zeroCard).getByText(/0,0/)).toBeInTheDocument();
+    const fullCard = screen.getByText('Full probability').closest('article')!;
+    expect(within(fullCard).getByText(/100,0/)).toBeInTheDocument();
+    expect(within(fullCard).getByText(/GRAMMAR.*Grammar/)).toBeInTheDocument();
+    expect(within(fullCard).getByText(/VOCAB.*Vocabulary/)).toBeInTheDocument();
+    expect(within(fullCard).getByText(masteryTimestamp(full.lastObservedAt))).toBeInTheDocument();
+    expect(within(fullCard).queryByText(/satisfied|unsatisfied|locked|unlocked/i)).not.toBeInTheDocument();
+  });
+
   it('shows a safe unavailable state without raw backend details', async () => {
     vi.spyOn(learningApi, 'getMastery').mockRejectedValueOnce(
       new ApiError(404, { message: 'foreign enrollment internal detail' }),
@@ -96,8 +122,11 @@ describe('StudentMasteryPage history', () => {
     expect(within(panel).getByText('Sai')).toBeInTheDocument();
     expect(within(panel).getByLabelText('BKT transition 1')).toHaveTextContent(/50,0.*80,0.*82,0/);
     expect(within(panel).getByLabelText('BKT transition 2')).toHaveTextContent(/82,0.*70,0.*73,4/);
-    expect(within(panel).getAllByRole('listitem')[0]).toHaveTextContent('Đúng');
-    expect(within(panel).getAllByRole('listitem')[1]).toHaveTextContent('Sai');
+    const rows = within(panel).getAllByRole('listitem');
+    expect(rows[0]).toHaveTextContent('Đúng');
+    expect(rows[0]).toHaveTextContent(masteryTimestamp('2026-09-22T02:00:00.000Z'));
+    expect(rows[1]).toHaveTextContent('Sai');
+    expect(rows[1]).toHaveTextContent(masteryTimestamp('2026-09-22T03:00:00.000Z'));
   });
 
   it('renders PRIOR current state and treats empty history as valid', async () => {
@@ -118,6 +147,8 @@ describe('StudentMasteryPage history', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Xem lịch sử OBSERVED_SKILL/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải lịch sử mastery');
     expect(screen.queryByText(/raw database history/)).not.toBeInTheDocument();
+    expect(screen.getByText('Sentence Construction')).toBeInTheDocument();
+    expect(screen.getByText(/73,4/)).toBeInTheDocument();
   });
 
   it('does not render assessment answers, explanations or hidden result details', async () => {

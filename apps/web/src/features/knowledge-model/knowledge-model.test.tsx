@@ -26,6 +26,18 @@ describe('KnowledgeModelPage', () => {
     expect(await screen.findByText(/định nghĩa kiến thức mà khóa học đo lường/i)).toBeInTheDocument();
   });
 
+  it('shows loading and a safe Skill-list error without raw internals', async () => {
+    let rejectList!: (reason: unknown) => void;
+    vi.spyOn(knowledgeModelApi.skills, 'list').mockReturnValue(
+      new Promise((_, reject) => { rejectList = reject; }),
+    );
+    renderPage();
+    expect(screen.getByText(/Đang tải Knowledge Model/i)).toBeInTheDocument();
+    rejectList(new Error('raw database stack'));
+    expect(await screen.findByText(/Không thể tải Knowledge Model/i)).toBeInTheDocument();
+    expect(screen.queryByText(/raw database stack/i)).not.toBeInTheDocument();
+  });
+
   it('keeps non-Instructors outside the route', async () => {
     const list = vi.spyOn(knowledgeModelApi.skills, 'list');
     renderPage('STUDENT');
@@ -69,6 +81,64 @@ describe('KnowledgeModelPage', () => {
     fireEvent.submit(form);
     expect(await screen.findByText(/pGuess \+ pSlip phải nhỏ hơn 1/i)).toBeInTheDocument();
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it('validates required identity, every BKT range and accepts valid boundaries', async () => {
+    vi.spyOn(knowledgeModelApi.skills, 'list').mockResolvedValue([]);
+    const create = vi.spyOn(knowledgeModelApi.skills, 'create').mockResolvedValue({
+      ...skill('boundary', 'BOUNDARY'),
+      pInit: 0,
+      pLearn: 1,
+      pGuess: 0,
+      pSlip: 0,
+    });
+    renderPage(); await screen.findByText(/định nghĩa kiến thức/i);
+    fireEvent.click(screen.getByRole('button', { name: /Tạo Skill/i }));
+    const form = skillForm();
+    fireEvent.submit(form);
+    expect(await screen.findByText(/Code và tên không được để trống/i)).toBeInTheDocument();
+    fillIdentity(form, 'BOUNDARY', 'Boundary skill');
+
+    for (const [field, invalid] of [
+      ['pInit', '-0.01'],
+      ['pLearn', '1.01'],
+      ['pGuess', '-0.01'],
+      ['pSlip', '1.01'],
+    ] as const) {
+      setNumber(form, field, invalid);
+      fireEvent.submit(form);
+      expect(await screen.findByText(/nằm trong \[0, 1\]/i)).toBeInTheDocument();
+      setNumber(
+        form,
+        field,
+        field === 'pInit' ? '0.5' : field === 'pLearn' ? '0.1' : field === 'pGuess' ? '0.2' : '0.1',
+      );
+    }
+
+    setNumber(form, 'pInit', '0');
+    setNumber(form, 'pLearn', '1');
+    setNumber(form, 'pGuess', '0');
+    setNumber(form, 'pSlip', '0');
+    fireEvent.submit(form);
+    await waitFor(() => expect(create).toHaveBeenCalledWith(courseId, expect.objectContaining({
+      pInit: 0, pLearn: 1, pGuess: 0, pSlip: 0,
+    })));
+  });
+
+  it('guards duplicate Skill creation while the first request is pending', async () => {
+    vi.spyOn(knowledgeModelApi.skills, 'list').mockResolvedValue([]);
+    let resolveCreate!: (value: Skill) => void;
+    const create = vi.spyOn(knowledgeModelApi.skills, 'create').mockReturnValue(
+      new Promise((resolve) => { resolveCreate = resolve; }),
+    );
+    renderPage(); await screen.findByText(/định nghĩa kiến thức/i);
+    fireEvent.click(screen.getByRole('button', { name: /Tạo Skill/i }));
+    const form = skillForm(); fillIdentity(form, 'ONCE', 'Create once');
+    fireEvent.submit(form); fireEvent.submit(form);
+    expect(create).toHaveBeenCalledOnce();
+    expect(within(form).getByRole('button', { name: /Đang lưu/i })).toBeDisabled();
+    resolveCreate(skill('once', 'ONCE'));
+    expect(await screen.findByText(/ONCE.*Skill once/i)).toBeInTheDocument();
   });
 
   it('sends metadata and BKT edits as delta-only PATCH and skips unchanged PATCH', async () => {
@@ -123,18 +193,21 @@ describe('KnowledgeModelPage', () => {
   });
 
   it('loads prerequisites, excludes self and sends a deduplicated full set including zero', async () => {
-    const target = skill('a', 'ALPHA'); const beta = skill('b', 'BETA'); const gamma = skill('c', 'GAMMA');
-    vi.spyOn(knowledgeModelApi.skills, 'list').mockResolvedValue([target, beta, gamma]);
-    vi.spyOn(knowledgeModelApi.prerequisites, 'list').mockResolvedValueOnce([beta]).mockResolvedValueOnce([]);
+    const target = skill('a', 'ALPHA'); const beta = skill('b', 'BETA');
+    const gamma = skill('c', 'GAMMA'); const delta = skill('d', 'DELTA');
+    vi.spyOn(knowledgeModelApi.skills, 'list').mockResolvedValue([target, beta, gamma, delta]);
+    vi.spyOn(knowledgeModelApi.prerequisites, 'list').mockResolvedValueOnce([beta, gamma]).mockResolvedValueOnce([]);
     const replace = vi.spyOn(knowledgeModelApi.prerequisites, 'replace').mockResolvedValue([]);
     renderPage(); await screen.findByText(/ALPHA/);
     fireEvent.click(within(skillCard('ALPHA')).getByRole('button', { name: /tiên quyết/i }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).queryByText(/ALPHA.*Skill a/i)).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText(/BETA/)).toBeChecked();
-    fireEvent.click(within(dialog).getByLabelText(/GAMMA/));
+    expect(within(dialog).getByLabelText(/GAMMA/)).toBeChecked();
+    fireEvent.click(within(dialog).getByLabelText(/BETA/));
+    fireEvent.click(within(dialog).getByLabelText(/DELTA/));
     fireEvent.click(within(dialog).getByRole('button', { name: /Lưu liên kết/i }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith(target.id, [beta.id, gamma.id]));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(target.id, [gamma.id, delta.id]));
 
     fireEvent.click(within(skillCard('ALPHA')).getByRole('button', { name: /tiên quyết/i }));
     const second = await screen.findByRole('dialog');
@@ -153,6 +226,32 @@ describe('KnowledgeModelPage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: /Lưu liên kết/i }));
     expect(await within(dialog).findByText(/tạo chu trình/i)).toBeInTheDocument();
     expect(screen.queryByText(/Đã cập nhật Skill tiên quyết/i)).not.toBeInTheDocument();
+  });
+
+  it('serializes exact full-set replacement bodies at the API boundary', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    await knowledgeModelApi.prerequisites.replace('target', ['b', 'c']);
+    await knowledgeModelApi.questionSkills.replace('question', ['b', 'c']);
+    await knowledgeModelApi.lessonSkills.replace('lesson', []);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/instructor/skills/target/prerequisites',
+      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ prerequisiteSkillIds: ['b', 'c'] }) }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/instructor/questions/question/skills',
+      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ skillIds: ['b', 'c'] }) }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/instructor/lessons/lesson/skills',
+      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ skillIds: [] }) }),
+    );
   });
 });
 
