@@ -28,6 +28,10 @@ describe('LearningPage', () => {
     expect(await screen.findByText('Learning Course')).toBeInTheDocument();
     expect(screen.getByText('Lesson One')).toBeInTheDocument();
     expect(screen.getByText(/1 \/ 2/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Tiến độ kỹ năng' })).toHaveAttribute(
+      'href',
+      `/student/enrollments/${enrollmentId}/mastery`,
+    );
     page.unmount();
 
     vi.spyOn(learningApi, 'getContent').mockRejectedValueOnce(new Error('raw database'));

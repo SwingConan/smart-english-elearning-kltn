@@ -58,3 +58,54 @@ export interface CourseProgress {
   completedLessons: number;
   progressPercent: number;
 }
+
+export type MasteryState = 'PRIOR' | 'OBSERVED';
+
+export interface MasteryPrerequisite {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface MasterySkill {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  masteryProbability: number;
+  observationCount: number;
+  lastObservedAt: string | null;
+  state: MasteryState;
+  prerequisites: MasteryPrerequisite[];
+}
+
+export interface MasteryOverview {
+  enrollmentId: string;
+  courseId: string;
+  skills: MasterySkill[];
+}
+
+export interface MasteryCurrentState {
+  masteryProbability: number;
+  observationCount: number;
+  lastObservedAt: string | null;
+  state: MasteryState;
+}
+
+export interface MasteryHistoryRow {
+  id: string;
+  testAttemptId: string;
+  testAnswerId: string;
+  isCorrect: boolean;
+  priorMastery: number;
+  evidencePosterior: number;
+  posteriorMastery: number;
+  createdAt: string;
+}
+
+export interface MasteryHistoryResponse {
+  enrollmentId: string;
+  skill: Pick<MasterySkill, 'id' | 'code' | 'name' | 'description'>;
+  current: MasteryCurrentState;
+  history: MasteryHistoryRow[];
+}

@@ -21,6 +21,7 @@ import { StudentAssessmentListPage } from '@/pages/StudentAssessmentListPage';
 import { StudentTestAttemptPage } from '@/pages/StudentTestAttemptPage';
 import { StudentTestResultPage } from '@/pages/StudentTestResultPage';
 import { KnowledgeModelPage } from '@/pages/KnowledgeModelPage';
+import { StudentMasteryPage } from '@/pages/StudentMasteryPage';
 
 export function App() {
   return (
@@ -61,6 +62,14 @@ export function App() {
             element={
               <RoleRoute allowedRoles={['STUDENT']}>
                 <LearningPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/student/enrollments/:enrollmentId/mastery"
+            element={
+              <RoleRoute allowedRoles={['STUDENT']}>
+                <StudentMasteryPage />
               </RoleRoute>
             }
           />

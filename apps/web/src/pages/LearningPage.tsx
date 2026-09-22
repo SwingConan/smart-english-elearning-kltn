@@ -126,6 +126,12 @@ export function LearningPage() {
             >
               Bài kiểm tra
             </Link>
+            <Link
+              className="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
+              to={`/student/enrollments/${enrollmentId}/mastery`}
+            >
+              Tiến độ kỹ năng
+            </Link>
             {progress && (
               <div className="flex items-center gap-4">
                 <div className="text-sm font-medium">
