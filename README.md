@@ -27,9 +27,22 @@ ordering of modules, lessons, and URL-based resources. Students with an
 `ACTIVE` enrollment can browse the course structure, open and complete lessons,
 use lesson resources, and view lesson-completion-based course progress.
 
+VS03 adds the objective assessment foundation:
+
+```text
+Instructor: Question Bank -> Test Builder -> Publish
+Student: ACTIVE Enrollment -> Test -> Attempt -> Submit -> Result
+```
+
+It includes Course-scoped reusable objective Questions, PLACEMENT/QUIZ Tests,
+autosaved Student Attempts, deterministic exact-match scoring, historical
+structure protection after the first Attempt, and publication-controlled
+results.
+
 Not implemented yet: payment confirmation, instructor lookup or reassignment
-UI, file upload/object storage, quiz/test flows, BKT/Adaptive behavior, AI
-grading, engagement analytics, certificates, or virtual classrooms.
+UI, file upload/object storage, Essay/AI grading, Skill/BKT/Adaptive behavior,
+time-limit enforcement, Instructor assessment analytics/results, engagement
+analytics, certificates, or virtual classrooms.
 
 ## Tested baseline
 
@@ -152,8 +165,9 @@ npm run test:e2e --workspace=@smart-elearning/api
 npm run build
 ```
 
-Current automated baseline: 10 API unit suites / 89 tests, 6 API E2E suites /
-16 tests, and 8 Web test files / 63 tests (168 tests total).
+Current automated baseline: 12 API unit suites / 108 tests, 8 API E2E suites /
+25 tests, and 13 Web test files / 102 tests (235 tests total), all PASS at the
+VS03 implementation baseline.
 
 ## Security and design boundaries
 
@@ -166,6 +180,9 @@ Current automated baseline: 10 API unit suites / 89 tests, 6 API E2E suites /
   `PENDING_PAYMENT`, which is not active learning access.
 - VS02 learning access requires an `ACTIVE` enrollment; other enrollment
   statuses are denied without disclosing another learner's resources.
+- VS03 assessment access likewise requires the learner's own `ACTIVE`
+  enrollment. Attempt content does not expose answer truth before an authorized
+  submitted result, and scoring is server-authoritative.
 - Learning resources are URL-based. `isDownloadable` controls business/UI
   behavior and is not cryptographic download protection.
 - Never commit `.env` files, passwords, session secrets, or connection URLs.

@@ -99,12 +99,24 @@ export function InstructorTeachingPage() {
                 )}
               </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="mt-4 grid gap-2 border-t border-gray-100 pt-4">
                 <Link
                   to={`/instructor/courses/${course.id}/content`}
                   className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Quản lý nội dung
+                </Link>
+                <Link
+                  to={`/instructor/courses/${course.id}/question-bank`}
+                  className="inline-flex w-full items-center justify-center rounded-md border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Ngân hàng câu hỏi
+                </Link>
+                <Link
+                  to={`/instructor/courses/${course.id}/tests`}
+                  className="inline-flex w-full items-center justify-center rounded-md border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                >
+                  Quản lý bài kiểm tra
                 </Link>
               </div>
             </div>

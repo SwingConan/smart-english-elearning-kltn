@@ -14,6 +14,12 @@ import { MyEnrollmentsPage } from '@/pages/MyEnrollmentsPage';
 import { LearningPage } from '@/pages/LearningPage';
 import { InstructorTeachingPage } from '@/pages/InstructorTeachingPage';
 import { CourseContentManagementPage } from '@/pages/CourseContentManagementPage';
+import { QuestionBankPage } from '@/pages/QuestionBankPage';
+import { TestManagementPage } from '@/pages/TestManagementPage';
+import { TestEditorPage } from '@/pages/TestEditorPage';
+import { StudentAssessmentListPage } from '@/pages/StudentAssessmentListPage';
+import { StudentTestAttemptPage } from '@/pages/StudentTestAttemptPage';
+import { StudentTestResultPage } from '@/pages/StudentTestResultPage';
 
 export function App() {
   return (
@@ -72,6 +78,54 @@ export function App() {
             element={
               <RoleRoute allowedRoles={['INSTRUCTOR']}>
                 <CourseContentManagementPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/student/enrollments/:enrollmentId/tests"
+            element={
+              <RoleRoute allowedRoles={['STUDENT']}>
+                <StudentAssessmentListPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/student/enrollments/:enrollmentId/attempts/:attemptId"
+            element={
+              <RoleRoute allowedRoles={['STUDENT']}>
+                <StudentTestAttemptPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/student/enrollments/:enrollmentId/attempts/:attemptId/result"
+            element={
+              <RoleRoute allowedRoles={['STUDENT']}>
+                <StudentTestResultPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/instructor/courses/:courseId/question-bank"
+            element={
+              <RoleRoute allowedRoles={['INSTRUCTOR']}>
+                <QuestionBankPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/instructor/courses/:courseId/tests"
+            element={
+              <RoleRoute allowedRoles={['INSTRUCTOR']}>
+                <TestManagementPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/instructor/tests/:testId/edit"
+            element={
+              <RoleRoute allowedRoles={['INSTRUCTOR']}>
+                <TestEditorPage />
               </RoleRoute>
             }
           />
