@@ -39,10 +39,23 @@ autosaved Student Attempts, deterministic exact-match scoring, historical
 structure protection after the first Attempt, and publication-controlled
 results.
 
+VS04 adds the Knowledge Model and Bayesian Knowledge Tracing foundation:
+
+```text
+Instructor: Skill/KC -> prerequisites -> Question/Lesson mappings
+Student objective submit -> BKT -> current mastery -> mastery trajectory
+```
+
+It includes Course-scoped Skills with per-Skill BKT parameters, prerequisite
+metadata, QuestionSkill and LessonSkill mappings, Enrollment-scoped current
+mastery, immutable observation history, and Student mastery overview/history.
+Adaptive Recommendation and personalized path generation remain future VS05
+work; VS04 does not claim adaptive delivery.
+
 Not implemented yet: payment confirmation, instructor lookup or reassignment
-UI, file upload/object storage, Essay/AI grading, Skill/BKT/Adaptive behavior,
-time-limit enforcement, Instructor assessment analytics/results, engagement
-analytics, certificates, or virtual classrooms.
+UI, file upload/object storage, Essay/AI grading, Adaptive Recommendation and
+personalized paths, time-limit enforcement, Instructor assessment/mastery
+analytics, engagement analytics, certificates, or virtual classrooms.
 
 ## Tested baseline
 
@@ -165,9 +178,9 @@ npm run test:e2e --workspace=@smart-elearning/api
 npm run build
 ```
 
-Current automated baseline: 12 API unit suites / 108 tests, 8 API E2E suites /
-25 tests, and 13 Web test files / 102 tests (235 tests total), all PASS at the
-VS03 implementation baseline.
+Current automated baseline: 14 API unit suites / 148 tests, 10 API E2E suites /
+41 tests, and 15 Web test files / 129 tests (318 tests total), all PASS at the
+VS04 implementation baseline entering documentation close-out.
 
 ## Security and design boundaries
 
@@ -183,6 +196,9 @@ VS03 implementation baseline.
 - VS03 assessment access likewise requires the learner's own `ACTIVE`
   enrollment. Attempt content does not expose answer truth before an authorized
   submitted result, and scoring is server-authoritative.
+- VS04 BKT runs server-side inside the first successful objective assessment
+  submit transaction. Student mastery/history is Enrollment-scoped and does not
+  expose hidden answer or result details.
 - Learning resources are URL-based. `isDownloadable` controls business/UI
   behavior and is not cryptographic download protection.
 - Never commit `.env` files, passwords, session secrets, or connection URLs.
