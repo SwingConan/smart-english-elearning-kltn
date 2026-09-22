@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useCallback, useState } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,8 @@ import { CourseContentManagementPage } from '@/pages/CourseContentManagementPage
 import { InstructorTeachingPage } from '@/pages/InstructorTeachingPage';
 import { instructorApi } from './api';
 import type { LearningResource, Lesson, Module, TeachingEntry } from './types';
+import { knowledgeModelApi } from '@/features/knowledge-model/api';
+import type { Skill } from '@/features/knowledge-model/types';
 
 const courseId = '10000000-0000-4000-8000-000000000001';
 const moduleA = moduleView('module-a', 'Alpha module', 0);
@@ -31,6 +33,10 @@ describe('InstructorTeachingPage', () => {
     resolveList([teachingEntry()]);
     expect(await screen.findByText('Assigned English')).toBeInTheDocument();
     expect(screen.getByText('Evening class')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Knowledge Model/i })).toHaveAttribute(
+      'href',
+      `/instructor/courses/${courseId}/skills`,
+    );
     loading.unmount();
 
     vi.spyOn(instructorApi.teaching, 'list').mockResolvedValueOnce([]);
@@ -121,6 +127,47 @@ describe('CourseContentManagementPage', () => {
     expect(refresh).toHaveBeenCalledOnce();
     expect(create).toHaveBeenCalledOnce();
   });
+
+  it('loads Lesson Skills and sends exact multi/zero full sets with cached Course Skills', async () => {
+    const grammar = mappedSkill('grammar', 'GRAMMAR');
+    const vocab = mappedSkill('vocab', 'VOCAB');
+    mockContent([moduleA], [lesson], []);
+    vi.spyOn(knowledgeModelApi.skills, 'list').mockResolvedValue([grammar, vocab]);
+    vi.spyOn(knowledgeModelApi.lessonSkills, 'list').mockResolvedValueOnce([grammar]).mockResolvedValueOnce([]);
+    const replace = vi.spyOn(knowledgeModelApi.lessonSkills, 'replace').mockResolvedValue([]);
+    renderContent();
+    fireEvent.click(await screen.findByRole('heading', { name: /Alpha module/ }));
+    await screen.findByText(/Alpha lesson/);
+    fireEvent.click(screen.getByRole('button', { name: /Edit Skills/i }));
+    let dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText(/GRAMMAR/)).toBeChecked();
+    fireEvent.click(within(dialog).getByLabelText(/VOCAB/));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Lưu liên kết/i }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(lesson.id, [grammar.id, vocab.id]));
+    expect(screen.getByRole('status')).toHaveTextContent(/Đã cập nhật Skill/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit Skills/i }));
+    dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /Lưu liên kết/i }));
+    await waitFor(() => expect(replace).toHaveBeenLastCalledWith(lesson.id, []));
+    expect(knowledgeModelApi.skills.list).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces Lesson Skill mapping errors safely', async () => {
+    const grammar = mappedSkill('grammar', 'GRAMMAR');
+    mockContent([moduleA], [lesson], []);
+    vi.spyOn(knowledgeModelApi.skills, 'list').mockResolvedValue([grammar]);
+    vi.spyOn(knowledgeModelApi.lessonSkills, 'list').mockResolvedValue([grammar]);
+    vi.spyOn(knowledgeModelApi.lessonSkills, 'replace').mockRejectedValue(new ApiError(400, { message: 'raw mapping' }));
+    renderContent();
+    fireEvent.click(await screen.findByRole('heading', { name: /Alpha module/ }));
+    await screen.findByText(/Alpha lesson/);
+    fireEvent.click(screen.getByRole('button', { name: /Edit Skills/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /Lưu liên kết/i }));
+    expect(await within(dialog).findByText(/Không thể cập nhật liên kết Skill/i)).toBeInTheDocument();
+    expect(screen.queryByText(/raw mapping/i)).not.toBeInTheDocument();
+  });
 });
 
 function renderInstructor(element: React.ReactNode) {
@@ -156,3 +203,4 @@ function moduleView(id: string, title: string, orderIndex: number): Module { ret
 function lessonView(id: string, moduleId: string, title: string, orderIndex: number): Lesson { return { id, moduleId, title, description: null, orderIndex, createdAt: '', updatedAt: '' }; }
 function resourceView(id: string, lessonId: string, title: string, orderIndex: number): LearningResource { return { id, lessonId, title, type: 'DOCUMENT', url: 'https://example.test/document', orderIndex, isDownloadable: true, createdAt: '', updatedAt: '' }; }
 function teachingEntry(): TeachingEntry { return { course: { id: courseId, title: 'Assigned English', slug: 'assigned-english', level: 'A1', isPublished: true, _count: { modules: 1 } }, classOfferings: [{ id: 'offering-id', name: 'Evening class', status: 'OPEN' }] }; }
+function mappedSkill(id: string, code: string): Skill { return { id, courseId, code, name: code, description: null, pInit: 0.5, pLearn: 0.1, pGuess: 0.2, pSlip: 0.1, createdAt: '', updatedAt: '' }; }

@@ -20,6 +20,7 @@ import { TestEditorPage } from '@/pages/TestEditorPage';
 import { StudentAssessmentListPage } from '@/pages/StudentAssessmentListPage';
 import { StudentTestAttemptPage } from '@/pages/StudentTestAttemptPage';
 import { StudentTestResultPage } from '@/pages/StudentTestResultPage';
+import { KnowledgeModelPage } from '@/pages/KnowledgeModelPage';
 
 export function App() {
   return (
@@ -102,6 +103,14 @@ export function App() {
             element={
               <RoleRoute allowedRoles={['STUDENT']}>
                 <StudentTestResultPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/instructor/courses/:courseId/skills"
+            element={
+              <RoleRoute allowedRoles={['INSTRUCTOR']}>
+                <KnowledgeModelPage />
               </RoleRoute>
             }
           />

@@ -10,6 +10,9 @@ import type {
   QuestionType,
 } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
+import { knowledgeModelApi } from '@/features/knowledge-model/api';
+import { SkillChecklistDialog } from '@/features/knowledge-model/SkillChecklistDialog';
+import type { Skill } from '@/features/knowledge-model/types';
 
 type EditableOption = { content: string; isCorrect: boolean };
 
@@ -26,10 +29,16 @@ export function QuestionBankPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [editingQuestion, setEditingQuestion] = useState<AssessmentQuestion | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [courseSkills, setCourseSkills] = useState<Skill[] | null>(null);
+  const [mappingQuestion, setMappingQuestion] = useState<AssessmentQuestion | null>(null);
+  const [mappedSkillIds, setMappedSkillIds] = useState<string[]>([]);
+  const [mappingError, setMappingError] = useState<string | null>(null);
+  const [mappingLoading, setMappingLoading] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -105,6 +114,45 @@ export function QuestionBankPage() {
     }
   };
 
+  const openSkillMapping = async (question: AssessmentQuestion) => {
+    if (!courseId) return;
+    setMappingQuestion(question);
+    setActionMessage(null);
+    setMappingLoading(true);
+    setMappingError(null);
+    try {
+      const [available, mapped] = await Promise.all([
+        courseSkills ?? knowledgeModelApi.skills.list(courseId),
+        knowledgeModelApi.questionSkills.list(question.id),
+      ]);
+      setCourseSkills(available);
+      setMappedSkillIds(mapped.map(({ id }) => id));
+    } catch (error) {
+      if (await redirectExpiredSession(error)) return;
+      setMappingError('Không thể tải liên kết Skill cho câu hỏi.');
+    } finally {
+      setMappingLoading(false);
+    }
+  };
+
+  const saveSkillMapping = async () => {
+    if (!mappingQuestion || !beginMutation(`map-${mappingQuestion.id}`)) return;
+    try {
+      const mapped = await knowledgeModelApi.questionSkills.replace(
+        mappingQuestion.id,
+        [...new Set(mappedSkillIds)],
+      );
+      setMappedSkillIds(mapped.map(({ id }) => id));
+      setMappingQuestion(null);
+      setActionMessage('Đã cập nhật Skill cho câu hỏi.');
+    } catch (error) {
+      if (await redirectExpiredSession(error)) return;
+      setMappingError('Không thể cập nhật liên kết Skill cho câu hỏi.');
+    } finally {
+      endMutation();
+    }
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -133,6 +181,7 @@ export function QuestionBankPage() {
       </div>
 
       {actionError && <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{actionError}</div>}
+      {actionMessage && <div className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-700" role="status">{actionMessage}</div>}
 
       {formOpen && (
         <QuestionForm
@@ -174,6 +223,14 @@ export function QuestionBankPage() {
                 </div>
                 <div className="flex gap-2">
                   <button
+                    className="rounded border border-emerald-300 px-3 py-1.5 text-sm text-emerald-700 disabled:opacity-50"
+                    disabled={pendingAction !== null}
+                    onClick={() => void openSkillMapping(question)}
+                    type="button"
+                  >
+                    Edit Skills
+                  </button>
+                  <button
                     className="rounded border px-3 py-1.5 text-sm disabled:opacity-50"
                     disabled={pendingAction !== null}
                     onClick={() => { setEditingQuestion(question); setFormOpen(true); setActionError(null); }}
@@ -195,6 +252,17 @@ export function QuestionBankPage() {
           ))}
         </div>
       )}
+      {mappingQuestion ? <SkillChecklistDialog
+        title="Skill (KC) của câu hỏi"
+        description="Một câu hỏi có thể cung cấp cùng quan sát đúng/sai cho nhiều Skill."
+        skills={courseSkills ?? []}
+        selectedIds={mappedSkillIds}
+        pending={mappingLoading || pendingAction === `map-${mappingQuestion.id}`}
+        error={mappingError}
+        onToggle={(id) => setMappedSkillIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])}
+        onSave={() => void saveSkillMapping()}
+        onCancel={() => setMappingQuestion(null)}
+      /> : null}
     </div>
   );
 }
