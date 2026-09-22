@@ -13,6 +13,7 @@ import {
   TestStatus,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { computeBktUpdate } from '../knowledge-model/bkt';
 import { AnswerSelectionDto, SaveAttemptAnswersDto } from './dto/save-attempt-answers.dto';
 import { SubmitAttemptDto } from './dto/submit-attempt.dto';
 
@@ -29,6 +30,20 @@ const answerableTestQuestionSelect = {
       difficulty: true,
       content: true,
       explanation: true,
+      skills: {
+        orderBy: { skillId: 'asc' as const },
+        select: {
+          skill: {
+            select: {
+              id: true,
+              pInit: true,
+              pLearn: true,
+              pGuess: true,
+              pSlip: true,
+            },
+          },
+        },
+      },
       options: {
         orderBy: { orderIndex: 'asc' as const },
         select: {
@@ -45,6 +60,18 @@ const answerableTestQuestionSelect = {
 type AnswerableTestQuestion = Prisma.TestQuestionGetPayload<{
   select: typeof answerableTestQuestionSelect;
 }>;
+
+interface GradedBktObservation {
+  testAnswerId: string;
+  isCorrect: boolean;
+  skills: Array<{
+    id: string;
+    pInit: number;
+    pLearn: number;
+    pGuess: number;
+    pSlip: number;
+  }>;
+}
 
 @Injectable()
 export class AssessmentStudentService {
@@ -340,6 +367,7 @@ export class AssessmentStudentService {
       const selections = this.validateAnswerSelections(dto.answers, attempt.test.testQuestions);
       let score = 0;
       let maxScore = 0;
+      const bktObservations: GradedBktObservation[] = [];
 
       for (const testQuestion of attempt.test.testQuestions) {
         const selectedOptionIds = selections.get(testQuestion.id) ?? [];
@@ -352,7 +380,7 @@ export class AssessmentStudentService {
         score += pointsAwarded;
         maxScore += testQuestion.points;
 
-        await transaction.testAnswer.upsert({
+        const testAnswer = await transaction.testAnswer.upsert({
           where: {
             attemptId_testQuestionId: {
               attemptId,
@@ -367,8 +395,21 @@ export class AssessmentStudentService {
             isCorrect,
             pointsAwarded,
           },
+          select: { id: true },
+        });
+        bktObservations.push({
+          testAnswerId: testAnswer.id,
+          isCorrect,
+          skills: testQuestion.question.skills.map(({ skill }) => skill),
         });
       }
+
+      await this.applyBktObservations(
+        transaction,
+        enrollmentId,
+        attemptId,
+        bktObservations,
+      );
 
       const submitted = await transaction.testAttempt.update({
         where: { id: attemptId },
@@ -656,6 +697,70 @@ export class AssessmentStudentService {
 
   private sameSet(left: string[], right: string[]): boolean {
     return left.length === right.length && left.every((value, index) => value === right[index]);
+  }
+
+  private async applyBktObservations(
+    transaction: Prisma.TransactionClient,
+    enrollmentId: string,
+    testAttemptId: string,
+    observations: GradedBktObservation[],
+  ): Promise<void> {
+    const observedAt = new Date();
+
+    for (const observation of observations) {
+      for (const skill of observation.skills) {
+        const currentState = await transaction.learnerSkillState.findUnique({
+          where: {
+            enrollmentId_skillId: { enrollmentId, skillId: skill.id },
+          },
+          select: { masteryProbability: true, observationCount: true },
+        });
+        const priorMastery = currentState?.masteryProbability ?? skill.pInit;
+        const { evidencePosterior, posteriorMastery } = computeBktUpdate(
+          priorMastery,
+          skill.pLearn,
+          skill.pGuess,
+          skill.pSlip,
+          observation.isCorrect,
+        );
+
+        if (currentState) {
+          await transaction.learnerSkillState.update({
+            where: {
+              enrollmentId_skillId: { enrollmentId, skillId: skill.id },
+            },
+            data: {
+              masteryProbability: posteriorMastery,
+              observationCount: { increment: 1 },
+              lastObservedAt: observedAt,
+            },
+          });
+        } else {
+          await transaction.learnerSkillState.create({
+            data: {
+              enrollmentId,
+              skillId: skill.id,
+              masteryProbability: posteriorMastery,
+              observationCount: 1,
+              lastObservedAt: observedAt,
+            },
+          });
+        }
+
+        await transaction.masteryHistory.create({
+          data: {
+            enrollmentId,
+            skillId: skill.id,
+            testAttemptId,
+            testAnswerId: observation.testAnswerId,
+            isCorrect: observation.isCorrect,
+            priorMastery,
+            evidencePosterior,
+            posteriorMastery,
+          },
+        });
+      }
+    }
   }
 
   private percentage(score: number, maxScore: number): number {
