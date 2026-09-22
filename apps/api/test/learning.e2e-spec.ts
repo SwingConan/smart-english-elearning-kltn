@@ -238,9 +238,21 @@ describe('Student learning APIs (e2e)', () => {
     await request(app.getHttpServer())
       .get(`/api/learning/enrollments/${active}/mastery`)
       .expect(401);
+    await request(app.getHttpServer())
+      .get(`/api/learning/enrollments/${active}/mastery/${observedSkillId}/history`)
+      .expect(401);
     await instructorAgent.get(`/api/learning/enrollments/${active}/mastery`).expect(403);
     await adminAgent.get(`/api/learning/enrollments/${active}/mastery`).expect(403);
+    await instructorAgent
+      .get(`/api/learning/enrollments/${active}/mastery/${observedSkillId}/history`)
+      .expect(403);
+    await adminAgent
+      .get(`/api/learning/enrollments/${active}/mastery/${observedSkillId}/history`)
+      .expect(403);
     await otherStudentAgent.get(`/api/learning/enrollments/${active}/mastery`).expect(404);
+    await otherStudentAgent
+      .get(`/api/learning/enrollments/${active}/mastery/${observedSkillId}/history`)
+      .expect(404);
     await studentAgent
       .get(`/api/learning/enrollments/${active}/mastery/${foreignSkillId}/history`)
       .expect(404);
@@ -400,6 +412,36 @@ describe('Student learning APIs (e2e)', () => {
     );
   });
 
+  it('orders mastery history deterministically when observations share a timestamp', async () => {
+    const active = id(EnrollmentStatus.ACTIVE);
+    const tiedAt = new Date('2026-09-22T00:00:00.000Z');
+    const rows = await prisma.masteryHistory.findMany({
+      where: { enrollmentId: active, skillId: observedSkillId },
+      select: { id: true, testAttemptId: true, testAnswerId: true },
+    });
+    expect(rows).toHaveLength(2);
+    await prisma.masteryHistory.updateMany({
+      where: { id: { in: rows.map(({ id }) => id) } },
+      data: { createdAt: tiedAt },
+    });
+    const expectedIds = [...rows]
+      .sort((left, right) =>
+        compareUuid(left.testAttemptId, right.testAttemptId) ||
+        compareUuid(left.testAnswerId, right.testAnswerId) ||
+        compareUuid(left.id, right.id),
+      )
+      .map(({ id }) => id);
+
+    const response = await studentAgent
+      .get(`/api/learning/enrollments/${active}/mastery/${observedSkillId}/history`)
+      .expect(200);
+    expect(response.body.history.map(({ id }: { id: string }) => id)).toEqual(expectedIds);
+    expect(response.body.history.map(({ createdAt }: { createdAt: string }) => createdAt)).toEqual([
+      tiedAt.toISOString(),
+      tiedAt.toISOString(),
+    ]);
+  });
+
   it('opens, completes idempotently and calculates course-scoped progress', async () => {
     const active = id(EnrollmentStatus.ACTIVE);
     const opened = await studentAgent.post(`/api/learning/enrollments/${active}/lessons/${lessonAId}/open`).expect(201);
@@ -459,6 +501,7 @@ describe('Student learning APIs (e2e)', () => {
   async function createCourse(label: string, createdById: string) { return prisma.course.create({ data: { title: `VS02 ${label} ${unique}`, slug: `vs02-learning-${label}-${unique}`, description: 'E2E', level: 'E2E', isPublished: true, createdById } }); }
   async function login(agent: ReturnType<typeof request.agent>, email: string) { const response = await agent.post('/api/auth/login').send({ email, password }).expect(200); sessionIds.add(extractSessionId(cookie(response.headers['set-cookie']))); }
   function id(key: EnrollmentStatus | string): string { const value = enrollments.get(key); if (!value) throw new Error(`Missing enrollment ${key}`); return value; }
+  function compareUuid(left: string, right: string): number { return left < right ? -1 : left > right ? 1 : 0; }
   function open(enrollmentId: string) { return studentAgent.post(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonBId}/open`); }
   function complete(enrollmentId: string) { return studentAgent.patch(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonBId}/complete`); }
   function progressRows(enrollmentId: string) { return prisma.lessonProgress.findMany({ where: { enrollmentId, lessonId: lessonBId }, select: { status: true, completedAt: true } }); }

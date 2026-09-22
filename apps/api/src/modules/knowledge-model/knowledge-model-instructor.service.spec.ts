@@ -117,4 +117,27 @@ describe('KnowledgeModelInstructorService', () => {
       service.updateSkill(instructorId, skillId, { pInit: 0.5, name: 'Renamed' }),
     ).resolves.toMatchObject({ name: 'Renamed', pInit: 0.5 });
   });
+
+  it('validates the effective BKT parameter set before applying the history freeze', async () => {
+    transaction.skill.findUnique.mockResolvedValue({
+      id: skillId,
+      courseId,
+      code: 'SKILL',
+      name: 'Skill',
+      description: null,
+      pInit: 0.5,
+      pLearn: 0.1,
+      pGuess: 0.3,
+      pSlip: 0.2,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    transaction.masteryHistory.findFirst.mockResolvedValue({ id: 'history' });
+
+    await expect(
+      service.updateSkill(instructorId, skillId, { pGuess: 0.8 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(transaction.masteryHistory.findFirst).not.toHaveBeenCalled();
+    expect(transaction.skill.update).not.toHaveBeenCalled();
+  });
 });

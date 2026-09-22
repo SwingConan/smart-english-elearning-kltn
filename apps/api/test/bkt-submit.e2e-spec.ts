@@ -250,12 +250,25 @@ describe('BKT assessment submit integration (e2e)', () => {
       where: { enrollmentId },
       orderBy: { id: 'asc' },
     });
+    const attemptBeforeRepeat = await prisma.testAttempt.findUniqueOrThrow({
+      where: { id: attemptId },
+    });
+    const answersBeforeRepeat = await prisma.testAnswer.findMany({
+      where: { attemptId },
+      orderBy: { testQuestionId: 'asc' },
+    });
     const historyBeforeRepeat = await prisma.masteryHistory.findMany({
       where: { testAttemptId: attemptId },
       orderBy: { id: 'asc' },
     });
     const repeated = await submitAttempt(attemptId, []).expect(201);
     expect(repeated.body.attempt.submittedAt).toBe(submitted.body.attempt.submittedAt);
+    await expect(
+      prisma.testAttempt.findUniqueOrThrow({ where: { id: attemptId } }),
+    ).resolves.toEqual(attemptBeforeRepeat);
+    await expect(
+      prisma.testAnswer.findMany({ where: { attemptId }, orderBy: { testQuestionId: 'asc' } }),
+    ).resolves.toEqual(answersBeforeRepeat);
     await expect(
       prisma.learnerSkillState.findMany({ where: { enrollmentId }, orderBy: { id: 'asc' } }),
     ).resolves.toEqual(statesBeforeRepeat);

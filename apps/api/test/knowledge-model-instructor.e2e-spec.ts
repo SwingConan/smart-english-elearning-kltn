@@ -193,9 +193,37 @@ describe('Instructor knowledge-model APIs (e2e)', () => {
 
   it('enforces authentication, Instructor role, assignment, and entity-first authorization', async () => {
     await request(app.getHttpServer()).get(`/api/instructor/courses/${courseA}/skills`).expect(401);
+    await request(app.getHttpServer())
+      .post(`/api/instructor/courses/${courseA}/skills`)
+      .send({ code: 'UNAUTHENTICATED', name: 'Unauthenticated' })
+      .expect(401);
     await studentAgent.get(`/api/instructor/courses/${courseA}/skills`).expect(403);
+    await studentAgent
+      .put(`/api/instructor/questions/${questionA}/skills`)
+      .send({ skillIds: [skillA] })
+      .expect(403);
     await unassignedAgent.get(`/api/instructor/courses/${courseA}/skills`).expect(403);
+    await unassignedAgent
+      .post(`/api/instructor/courses/${courseA}/skills`)
+      .send({ code: 'UNASSIGNED', name: 'Unassigned' })
+      .expect(403);
+    await unassignedAgent
+      .patch(`/api/instructor/skills/${skillA}`)
+      .send({ name: 'Forbidden rename' })
+      .expect(403);
     await unassignedAgent.get(`/api/instructor/skills/${skillA}/prerequisites`).expect(403);
+    await unassignedAgent
+      .put(`/api/instructor/skills/${skillA}/prerequisites`)
+      .send({ prerequisiteSkillIds: [skillB] })
+      .expect(403);
+    await unassignedAgent
+      .put(`/api/instructor/questions/${questionA}/skills`)
+      .send({ skillIds: [skillA] })
+      .expect(403);
+    await unassignedAgent
+      .put(`/api/instructor/lessons/${lessonA}/skills`)
+      .send({ skillIds: [skillA] })
+      .expect(403);
     await instructorAgent
       .get(`/api/instructor/skills/${crypto.randomUUID()}/prerequisites`)
       .expect(404);
@@ -263,9 +291,17 @@ describe('Instructor knowledge-model APIs (e2e)', () => {
       .expect(400);
 
     await createMasteryHistory(beforeHistory.id, questionA);
+    await instructorAgent
+      .patch(`/api/instructor/skills/${beforeHistory.id}`)
+      .send({ name: 'Metadata Rename' })
+      .expect(200);
+    await instructorAgent
+      .patch(`/api/instructor/skills/${beforeHistory.id}`)
+      .send({ pInit: 0.5 })
+      .expect(200);
     const blocked = await instructorAgent
       .patch(`/api/instructor/skills/${beforeHistory.id}`)
-      .send({ pInit: 0.6 })
+      .send({ pLearn: 0.25 })
       .expect(409);
     expectSafeError(blocked);
 
@@ -274,6 +310,10 @@ describe('Instructor knowledge-model APIs (e2e)', () => {
       .send({ pGuess: 0.3, name: 'Same Value Allowed' })
       .expect(200);
     expect(sameValue.body).toMatchObject({ name: 'Same Value Allowed', pGuess: 0.3 });
+    await instructorAgent
+      .patch(`/api/instructor/skills/${beforeHistory.id}`)
+      .send({ pGuess: 0.8 })
+      .expect(400);
     await instructorAgent
       .patch(`/api/instructor/skills/${beforeHistory.id}`)
       .send({ description: 'Metadata remains editable' })
@@ -349,6 +389,17 @@ describe('Instructor knowledge-model APIs (e2e)', () => {
   });
 
   it('replaces QuestionSkill sets, permits zero/many and preserves history', async () => {
+    const unrelatedQuestion = await prisma.question.create({
+      data: {
+        courseId: courseA,
+        type: QuestionType.TRUE_FALSE,
+        difficulty: QuestionDifficulty.EASY,
+        content: 'Unrelated mapping question',
+      },
+    });
+    await prisma.questionSkill.create({
+      data: { questionId: unrelatedQuestion.id, skillId: skillA },
+    });
     await instructorAgent
       .put(`/api/instructor/questions/${questionA}/skills`)
       .send({ skillIds: [skillA, skillB] })
@@ -360,8 +411,22 @@ describe('Instructor knowledge-model APIs (e2e)', () => {
 
     await instructorAgent
       .put(`/api/instructor/questions/${questionA}/skills`)
-      .send({ skillIds: [skillB] })
+      .send({ skillIds: [skillB, skillC] })
       .expect(200);
+    current = await instructorAgent
+      .get(`/api/instructor/questions/${questionA}/skills`)
+      .expect(200);
+    expect(current.body.map((skill: { id: string }) => skill.id)).toEqual([skillB, skillC]);
+    await expect(
+      prisma.questionSkill.count({ where: { questionId: questionA } }),
+    ).resolves.toBe(2);
+    await expect(
+      prisma.questionSkill.findUnique({
+        where: {
+          questionId_skillId: { questionId: unrelatedQuestion.id, skillId: skillA },
+        },
+      }),
+    ).resolves.not.toBeNull();
     await instructorAgent
       .put(`/api/instructor/questions/${questionA}/skills`)
       .send({ skillIds: [skillB, skillB] })
@@ -391,18 +456,29 @@ describe('Instructor knowledge-model APIs (e2e)', () => {
   });
 
   it('replaces LessonSkill sets with zero/one/many and rejects duplicate or cross-Course IDs', async () => {
+    await prisma.lessonSkill.create({ data: { lessonId: lessonB, skillId: crossCourseSkill } });
     await instructorAgent
       .put(`/api/instructor/lessons/${lessonA}/skills`)
-      .send({ skillIds: [skillA, skillC] })
+      .send({ skillIds: [skillA, skillB] })
       .expect(200);
     let current = await instructorAgent
       .get(`/api/instructor/lessons/${lessonA}/skills`)
       .expect(200);
-    expect(current.body.map((skill: { id: string }) => skill.id)).toEqual([skillA, skillC]);
+    expect(current.body.map((skill: { id: string }) => skill.id)).toEqual([skillA, skillB]);
     await instructorAgent
       .put(`/api/instructor/lessons/${lessonA}/skills`)
-      .send({ skillIds: [skillC] })
+      .send({ skillIds: [skillB, skillC] })
       .expect(200);
+    current = await instructorAgent
+      .get(`/api/instructor/lessons/${lessonA}/skills`)
+      .expect(200);
+    expect(current.body.map((skill: { id: string }) => skill.id)).toEqual([skillB, skillC]);
+    await expect(prisma.lessonSkill.count({ where: { lessonId: lessonA } })).resolves.toBe(2);
+    await expect(
+      prisma.lessonSkill.findUnique({
+        where: { lessonId_skillId: { lessonId: lessonB, skillId: crossCourseSkill } },
+      }),
+    ).resolves.not.toBeNull();
     await instructorAgent
       .put(`/api/instructor/lessons/${lessonA}/skills`)
       .send({ skillIds: [skillC, skillC] })
