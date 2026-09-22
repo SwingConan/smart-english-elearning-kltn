@@ -17,6 +17,7 @@ import { ConsultationsModule } from './modules/consultations/consultations.modul
 import { VirtualClassroomModule } from './modules/virtual-classroom/virtual-classroom.module';
 import { CertificatesModule } from './modules/certificates/certificates.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { KnowledgeModelModule } from './modules/knowledge-model/knowledge-model.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { AdminModule } from './modules/admin/admin.module';
     VirtualClassroomModule,
     CertificatesModule,
     AdminModule,
+    KnowledgeModelModule,
   ],
 })
 export class AppModule {}
