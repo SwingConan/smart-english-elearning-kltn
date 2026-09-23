@@ -33,6 +33,10 @@ const DEMO_QUESTION_4_ID = '60000000-0000-4000-8000-000000000004';
 const DEMO_QUESTION_5_ID = '60000000-0000-4000-8000-000000000005';
 const DEMO_PLACEMENT_TEST_ID = '80000000-0000-4000-8000-000000000001';
 const DEMO_QUIZ_TEST_ID = '80000000-0000-4000-8000-000000000002';
+const DEMO_SKILL_GRAMMAR_ID = 'a0000000-0000-4000-8000-000000000001';
+const DEMO_SKILL_VOCABULARY_ID = 'a0000000-0000-4000-8000-000000000002';
+const DEMO_SKILL_READING_ID = 'a0000000-0000-4000-8000-000000000003';
+const DEMO_SKILL_SENTENCE_ID = 'a0000000-0000-4000-8000-000000000004';
 
 const questionSeeds = [
   {
@@ -120,6 +124,121 @@ const quizQuestionSeeds = [
   { id: '90000000-0000-4000-8000-000000000006', questionId: DEMO_QUESTION_1_ID, points: 1 },
   { id: '90000000-0000-4000-8000-000000000007', questionId: DEMO_QUESTION_2_ID, points: 1 },
   { id: '90000000-0000-4000-8000-000000000008', questionId: DEMO_QUESTION_4_ID, points: 2 },
+] as const;
+
+const skillSeeds = [
+  {
+    id: DEMO_SKILL_GRAMMAR_ID,
+    code: 'GRAMMAR_BASIC',
+    name: 'Basic Grammar',
+    description: 'Foundational grammar patterns for introductory English communication.',
+    pInit: 0.5,
+  },
+  {
+    id: DEMO_SKILL_VOCABULARY_ID,
+    code: 'VOCAB_FOUNDATION',
+    name: 'Vocabulary Foundation',
+    description: 'Core vocabulary used in greetings and everyday exchanges.',
+    pInit: 0.5,
+  },
+  {
+    id: DEMO_SKILL_READING_ID,
+    code: 'READING_COMPREHENSION',
+    name: 'Reading Comprehension',
+    description: 'Understanding meaning in short introductory English texts.',
+    pInit: 0.3,
+  },
+  {
+    id: DEMO_SKILL_SENTENCE_ID,
+    code: 'SENTENCE_CONSTRUCTION',
+    name: 'Sentence Construction',
+    description: 'Building complete and appropriate English sentences.',
+    pInit: 0.3,
+  },
+] as const;
+
+const prerequisiteSeeds = [
+  {
+    id: 'b0000000-0000-4000-8000-000000000001',
+    skillId: DEMO_SKILL_SENTENCE_ID,
+    prerequisiteSkillId: DEMO_SKILL_GRAMMAR_ID,
+  },
+  {
+    id: 'b0000000-0000-4000-8000-000000000002',
+    skillId: DEMO_SKILL_READING_ID,
+    prerequisiteSkillId: DEMO_SKILL_VOCABULARY_ID,
+  },
+] as const;
+
+const questionSkillSeeds = [
+  {
+    id: 'c0000000-0000-4000-8000-000000000001',
+    questionId: DEMO_QUESTION_1_ID,
+    skillId: DEMO_SKILL_GRAMMAR_ID,
+  },
+  {
+    id: 'c0000000-0000-4000-8000-000000000002',
+    questionId: DEMO_QUESTION_1_ID,
+    skillId: DEMO_SKILL_VOCABULARY_ID,
+  },
+  {
+    id: 'c0000000-0000-4000-8000-000000000003',
+    questionId: DEMO_QUESTION_2_ID,
+    skillId: DEMO_SKILL_VOCABULARY_ID,
+  },
+  {
+    id: 'c0000000-0000-4000-8000-000000000004',
+    questionId: DEMO_QUESTION_3_ID,
+    skillId: DEMO_SKILL_GRAMMAR_ID,
+  },
+  {
+    id: 'c0000000-0000-4000-8000-000000000005',
+    questionId: DEMO_QUESTION_3_ID,
+    skillId: DEMO_SKILL_SENTENCE_ID,
+  },
+  {
+    id: 'c0000000-0000-4000-8000-000000000006',
+    questionId: DEMO_QUESTION_4_ID,
+    skillId: DEMO_SKILL_VOCABULARY_ID,
+  },
+  {
+    id: 'c0000000-0000-4000-8000-000000000007',
+    questionId: DEMO_QUESTION_5_ID,
+    skillId: DEMO_SKILL_GRAMMAR_ID,
+  },
+  {
+    id: 'c0000000-0000-4000-8000-000000000008',
+    questionId: DEMO_QUESTION_5_ID,
+    skillId: DEMO_SKILL_SENTENCE_ID,
+  },
+] as const;
+
+const lessonSkillSeeds = [
+  {
+    id: 'd0000000-0000-4000-8000-000000000001',
+    lessonId: DEMO_LESSON_1_ID,
+    skillId: DEMO_SKILL_GRAMMAR_ID,
+  },
+  {
+    id: 'd0000000-0000-4000-8000-000000000002',
+    lessonId: DEMO_LESSON_1_ID,
+    skillId: DEMO_SKILL_VOCABULARY_ID,
+  },
+  {
+    id: 'd0000000-0000-4000-8000-000000000003',
+    lessonId: DEMO_LESSON_2_ID,
+    skillId: DEMO_SKILL_VOCABULARY_ID,
+  },
+  {
+    id: 'd0000000-0000-4000-8000-000000000004',
+    lessonId: DEMO_LESSON_2_ID,
+    skillId: DEMO_SKILL_SENTENCE_ID,
+  },
+  {
+    id: 'd0000000-0000-4000-8000-000000000005',
+    lessonId: DEMO_LESSON_3_ID,
+    skillId: DEMO_SKILL_READING_ID,
+  },
 ] as const;
 
 async function main(): Promise<void> {
@@ -558,8 +677,71 @@ async function main(): Promise<void> {
       });
     }
 
+    // VS04: Knowledge model seed. LearnerSkillState and MasteryHistory are intentionally not seeded.
+    for (const skillSeed of skillSeeds) {
+      await prisma.skill.upsert({
+        where: { id: skillSeed.id },
+        update: {
+          courseId: course.id,
+          code: skillSeed.code,
+          name: skillSeed.name,
+          description: skillSeed.description,
+          pInit: skillSeed.pInit,
+          pLearn: 0.1,
+          pGuess: 0.2,
+          pSlip: 0.1,
+        },
+        create: {
+          ...skillSeed,
+          courseId: course.id,
+          pLearn: 0.1,
+          pGuess: 0.2,
+          pSlip: 0.1,
+        },
+      });
+    }
+
+    for (const prerequisite of prerequisiteSeeds) {
+      await prisma.skillPrerequisite.upsert({
+        where: {
+          skillId_prerequisiteSkillId: {
+            skillId: prerequisite.skillId,
+            prerequisiteSkillId: prerequisite.prerequisiteSkillId,
+          },
+        },
+        update: {},
+        create: prerequisite,
+      });
+    }
+
+    for (const mapping of questionSkillSeeds) {
+      await prisma.questionSkill.upsert({
+        where: {
+          questionId_skillId: {
+            questionId: mapping.questionId,
+            skillId: mapping.skillId,
+          },
+        },
+        update: {},
+        create: mapping,
+      });
+    }
+
+    for (const mapping of lessonSkillSeeds) {
+      await prisma.lessonSkill.upsert({
+        where: {
+          lessonId_skillId: {
+            lessonId: mapping.lessonId,
+            skillId: mapping.skillId,
+          },
+        },
+        update: {},
+        create: mapping,
+      });
+    }
+
     console.log(
-      'Development seed completed with demo users, catalog data, learning content, and assessment data.',
+      'Development seed completed with demo users, catalog, learning, assessment, and knowledge-model data.',
     );
   } finally {
     await prisma.$disconnect();

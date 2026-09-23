@@ -6,6 +6,8 @@ import { QuestionBankPage } from '@/pages/QuestionBankPage';
 import { assessmentApi } from './api';
 import { deferred, renderAssessmentRoute } from './assessment-test-utils';
 import type { AssessmentQuestion, QuestionType } from './types';
+import { knowledgeModelApi } from '@/features/knowledge-model/api';
+import type { Skill } from '@/features/knowledge-model/types';
 
 const courseId = 'course-a';
 
@@ -153,6 +155,48 @@ describe('QuestionBankPage', () => {
     expect(screen.getByTestId('location')).toHaveTextContent(`/login?returnUrl=${encodeURIComponent(`/instructor/courses/${courseId}/question-bank`)}`);
     expect(refresh).toHaveBeenCalledOnce();
   });
+
+  it('loads existing Question Skills and sends exact multi/zero full sets', async () => {
+    const existing = question('mapped', 'SINGLE_CHOICE', 'MEDIUM');
+    const grammar = mappedSkill('grammar', 'GRAMMAR');
+    const vocab = mappedSkill('vocab', 'VOCAB');
+    const reading = mappedSkill('reading', 'READING');
+    vi.spyOn(assessmentApi.questions, 'list').mockResolvedValue([existing]);
+    vi.spyOn(knowledgeModelApi.skills, 'list').mockResolvedValue([grammar, vocab, reading]);
+    vi.spyOn(knowledgeModelApi.questionSkills, 'list').mockResolvedValueOnce([grammar, vocab]).mockResolvedValueOnce([]);
+    const replace = vi.spyOn(knowledgeModelApi.questionSkills, 'replace').mockResolvedValue([]);
+    renderPage(); await screen.findByText(existing.content);
+    fireEvent.click(screen.getByRole('button', { name: /Edit Skills/i }));
+    let dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText(/GRAMMAR/)).toBeChecked();
+    expect(within(dialog).getByLabelText(/VOCAB/)).toBeChecked();
+    fireEvent.click(within(dialog).getByLabelText(/GRAMMAR/));
+    fireEvent.click(within(dialog).getByLabelText(/READING/));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Lưu liên kết/i }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(existing.id, [vocab.id, reading.id]));
+    expect(screen.getByRole('status')).toHaveTextContent(/Đã cập nhật Skill/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit Skills/i }));
+    dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /Lưu liên kết/i }));
+    await waitFor(() => expect(replace).toHaveBeenLastCalledWith(existing.id, []));
+    expect(knowledgeModelApi.skills.list).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Question mapping editable and surfaces backend errors', async () => {
+    const existing = question('history', 'SINGLE_CHOICE', 'MEDIUM');
+    const grammar = mappedSkill('grammar', 'GRAMMAR');
+    vi.spyOn(assessmentApi.questions, 'list').mockResolvedValue([existing]);
+    vi.spyOn(knowledgeModelApi.skills, 'list').mockResolvedValue([grammar]);
+    vi.spyOn(knowledgeModelApi.questionSkills, 'list').mockResolvedValue([grammar]);
+    vi.spyOn(knowledgeModelApi.questionSkills, 'replace').mockRejectedValue(new ApiError(400, { message: 'raw mapping' }));
+    renderPage(); await screen.findByText(existing.content);
+    fireEvent.click(screen.getByRole('button', { name: /Edit Skills/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /Lưu liên kết/i }));
+    expect(await within(dialog).findByText(/Không thể cập nhật liên kết Skill/i)).toBeInTheDocument();
+    expect(screen.queryByText(/raw mapping/i)).not.toBeInTheDocument();
+  });
 });
 
 function renderPage() {
@@ -188,3 +232,4 @@ function question(id: string, type: QuestionType, difficulty: AssessmentQuestion
     ],
   };
 }
+function mappedSkill(id: string, code: string): Skill { return { id, courseId, code, name: code, description: null, pInit: 0.5, pLearn: 0.1, pGuess: 0.2, pSlip: 0.1, createdAt: '', updatedAt: '' }; }

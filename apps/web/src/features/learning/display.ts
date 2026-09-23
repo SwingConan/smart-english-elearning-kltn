@@ -39,3 +39,24 @@ export function resourceTypeIcon(type: ResourceType): string {
     case 'LINK': return '🔗';
   }
 }
+
+const percentageFormatter = new Intl.NumberFormat('vi-VN', {
+  style: 'percent',
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+const dateTimeFormatter = new Intl.DateTimeFormat('vi-VN', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
+export function masteryPercentage(probability: number): string {
+  return percentageFormatter.format(probability);
+}
+
+export function masteryTimestamp(value: string | null): string {
+  if (!value) return 'Chưa có observation';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Chưa cập nhật' : dateTimeFormatter.format(date);
+}

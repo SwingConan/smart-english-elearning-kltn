@@ -119,6 +119,7 @@ model Course {
   modules        Module[]
   questions      Question[]
   tests          Test[]
+  skills         Skill[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -153,16 +154,18 @@ model ClassOffering {
 }
 
 model Enrollment {
-  id              String           @id @default(uuid()) @db.Uuid
-  learnerId       String           @db.Uuid
-  classOfferingId String           @db.Uuid
+  id              String              @id @default(uuid()) @db.Uuid
+  learnerId       String              @db.Uuid
+  classOfferingId String              @db.Uuid
   status          EnrollmentStatus
-  learner         User             @relation("LearnerEnrollments", fields: [learnerId], references: [id])
-  classOffering   ClassOffering    @relation(fields: [classOfferingId], references: [id])
+  learner         User                @relation("LearnerEnrollments", fields: [learnerId], references: [id])
+  classOffering   ClassOffering       @relation(fields: [classOfferingId], references: [id])
   lessonProgress  LessonProgress[]
   testAttempts    TestAttempt[]
-  enrolledAt      DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  learnerSkills   LearnerSkillState[]
+  masteryHistory  MasteryHistory[]
+  enrolledAt      DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
   @@unique([learnerId, classOfferingId])
   @@index([learnerId])
@@ -197,6 +200,7 @@ model Lesson {
   resources   LearningResource[]
   progress    LessonProgress[]
   tests       Test[]
+  skills      LessonSkill[]
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
@@ -250,6 +254,7 @@ model Question {
   course        Course             @relation(fields: [courseId], references: [id], onDelete: Restrict)
   options       QuestionOption[]
   testQuestions TestQuestion[]
+  skills        QuestionSkill[]
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
@@ -316,20 +321,21 @@ model TestQuestion {
 }
 
 model TestAttempt {
-  id            String            @id @default(uuid()) @db.Uuid
-  testId        String            @db.Uuid
-  enrollmentId  String            @db.Uuid
-  attemptNumber Int
-  status        TestAttemptStatus @default(IN_PROGRESS)
-  score         Int?
-  maxScore      Int?
-  startedAt     DateTime          @default(now())
-  submittedAt   DateTime?
-  test          Test              @relation(fields: [testId], references: [id], onDelete: Restrict)
-  enrollment    Enrollment        @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
-  answers       TestAnswer[]
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  id             String            @id @default(uuid()) @db.Uuid
+  testId         String            @db.Uuid
+  enrollmentId   String            @db.Uuid
+  attemptNumber  Int
+  status         TestAttemptStatus @default(IN_PROGRESS)
+  score          Int?
+  maxScore       Int?
+  startedAt      DateTime          @default(now())
+  submittedAt    DateTime?
+  test           Test              @relation(fields: [testId], references: [id], onDelete: Restrict)
+  enrollment     Enrollment        @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  answers        TestAnswer[]
+  masteryHistory MasteryHistory[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   @@unique([testId, enrollmentId, attemptNumber])
   @@index([testId])
@@ -339,19 +345,123 @@ model TestAttempt {
 }
 
 model TestAnswer {
-  id                String       @id @default(uuid()) @db.Uuid
-  attemptId         String       @db.Uuid
-  testQuestionId    String       @db.Uuid
-  selectedOptionIds String[]     @default([]) @db.Uuid
+  id                String           @id @default(uuid()) @db.Uuid
+  attemptId         String           @db.Uuid
+  testQuestionId    String           @db.Uuid
+  selectedOptionIds String[]         @default([]) @db.Uuid
   isCorrect         Boolean?
   pointsAwarded     Int?
-  attempt           TestAttempt  @relation(fields: [attemptId], references: [id], onDelete: Restrict)
-  testQuestion      TestQuestion @relation(fields: [testQuestionId], references: [id], onDelete: Restrict)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  attempt           TestAttempt      @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  testQuestion      TestQuestion     @relation(fields: [testQuestionId], references: [id], onDelete: Restrict)
+  masteryHistory    MasteryHistory[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   @@unique([attemptId, testQuestionId])
   @@index([attemptId])
   @@index([testQuestionId])
   @@map("test_answers")
+}
+
+model Skill {
+  id               String              @id @default(uuid()) @db.Uuid
+  courseId         String              @db.Uuid
+  code             String
+  name             String
+  description      String?             @db.Text
+  pInit            Float               @default(0.5)
+  pLearn           Float               @default(0.1)
+  pGuess           Float               @default(0.2)
+  pSlip            Float               @default(0.1)
+  course           Course              @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  prerequisites    SkillPrerequisite[] @relation("SkillPrerequisiteSkill")
+  prerequisiteFor  SkillPrerequisite[] @relation("SkillPrerequisiteRequired")
+  questionMappings QuestionSkill[]
+  lessonMappings   LessonSkill[]
+  learnerStates    LearnerSkillState[]
+  masteryHistory   MasteryHistory[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@unique([courseId, code])
+  @@map("skills")
+}
+
+model SkillPrerequisite {
+  id                  String   @id @default(uuid()) @db.Uuid
+  skillId             String   @db.Uuid
+  prerequisiteSkillId String   @db.Uuid
+  skill               Skill    @relation("SkillPrerequisiteSkill", fields: [skillId], references: [id], onDelete: Restrict)
+  prerequisiteSkill   Skill    @relation("SkillPrerequisiteRequired", fields: [prerequisiteSkillId], references: [id], onDelete: Restrict)
+  createdAt           DateTime @default(now())
+
+  @@unique([skillId, prerequisiteSkillId])
+  @@index([prerequisiteSkillId])
+  @@map("skill_prerequisites")
+}
+
+model QuestionSkill {
+  id         String   @id @default(uuid()) @db.Uuid
+  questionId String   @db.Uuid
+  skillId    String   @db.Uuid
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  skill      Skill    @relation(fields: [skillId], references: [id], onDelete: Restrict)
+  createdAt  DateTime @default(now())
+
+  @@unique([questionId, skillId])
+  @@index([skillId])
+  @@map("question_skills")
+}
+
+model LessonSkill {
+  id        String   @id @default(uuid()) @db.Uuid
+  lessonId  String   @db.Uuid
+  skillId   String   @db.Uuid
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@unique([lessonId, skillId])
+  @@index([skillId])
+  @@map("lesson_skills")
+}
+
+model LearnerSkillState {
+  id                 String     @id @default(uuid()) @db.Uuid
+  enrollmentId       String     @db.Uuid
+  skillId            String     @db.Uuid
+  masteryProbability Float
+  observationCount   Int        @default(0)
+  lastObservedAt     DateTime?
+  enrollment         Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  skill              Skill      @relation(fields: [skillId], references: [id], onDelete: Restrict)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@unique([enrollmentId, skillId])
+  @@index([skillId])
+  @@map("learner_skill_states")
+}
+
+model MasteryHistory {
+  id                String      @id @default(uuid()) @db.Uuid
+  enrollmentId      String      @db.Uuid
+  skillId           String      @db.Uuid
+  testAttemptId     String      @db.Uuid
+  testAnswerId      String      @db.Uuid
+  isCorrect         Boolean
+  priorMastery      Float
+  evidencePosterior Float
+  posteriorMastery  Float
+  enrollment        Enrollment  @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  skill             Skill       @relation(fields: [skillId], references: [id], onDelete: Restrict)
+  testAttempt       TestAttempt @relation(fields: [testAttemptId], references: [id], onDelete: Restrict)
+  testAnswer        TestAnswer  @relation(fields: [testAnswerId], references: [id], onDelete: Restrict)
+  createdAt         DateTime    @default(now())
+
+  @@unique([testAnswerId, skillId])
+  @@index([enrollmentId, skillId, createdAt])
+  @@index([skillId])
+  @@index([testAttemptId])
+  @@map("mastery_history")
 }

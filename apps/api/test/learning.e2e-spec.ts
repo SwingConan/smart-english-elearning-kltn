@@ -8,11 +8,16 @@ import {
   EnrollmentStatus,
   LessonProgressStatus,
   PricingType,
+  QuestionDifficulty,
+  QuestionType,
   ResourceType,
+  TestStatus,
+  TestType,
   UserRole,
   UserStatus,
 } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import { computeBktUpdate } from '../src/modules/knowledge-model/bkt';
 
 describe('Student learning APIs (e2e)', () => {
   let app: INestApplication;
@@ -31,6 +36,10 @@ describe('Student learning APIs (e2e)', () => {
   let lessonAId: string;
   let lessonBId: string;
   let foreignLessonId: string;
+  let observedSkillId: string;
+  let priorSkillId: string;
+  let foreignSkillId: string;
+  let hiddenResultAttemptId: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -86,11 +95,127 @@ describe('Student learning APIs (e2e)', () => {
     await login(otherStudentAgent, `vs02-other-student-${unique}@example.test`);
     await login(instructorAgent, `vs02-instructor-${unique}@example.test`);
     await login(adminAgent, `vs02-admin-${unique}@example.test`);
+
+    const observedSkill = await prisma.skill.create({
+      data: {
+        courseId,
+        code: 'ALPHA_MASTERY',
+        name: 'Alpha Mastery',
+        pInit: 0.3,
+        pLearn: 0.1,
+        pGuess: 0.2,
+        pSlip: 0.1,
+      },
+    });
+    const priorSkill = await prisma.skill.create({
+      data: {
+        courseId,
+        code: 'BETA_PRIOR',
+        name: 'Beta Prior',
+        description: 'No observations yet',
+        pInit: 0.6,
+        pLearn: 0.15,
+        pGuess: 0.2,
+        pSlip: 0.1,
+      },
+    });
+    const foreignSkill = await prisma.skill.create({
+      data: {
+        courseId: foreignCourse.id,
+        code: 'FOREIGN_SKILL',
+        name: 'Foreign Skill',
+      },
+    });
+    observedSkillId = observedSkill.id;
+    priorSkillId = priorSkill.id;
+    foreignSkillId = foreignSkill.id;
+    await prisma.skillPrerequisite.create({
+      data: { skillId: observedSkillId, prerequisiteSkillId: priorSkillId },
+    });
+
+    const question = await prisma.question.create({
+      data: {
+        courseId,
+        type: QuestionType.SINGLE_CHOICE,
+        difficulty: QuestionDifficulty.MEDIUM,
+        content: 'Hidden-result mastery question',
+        explanation: 'Must not leak through mastery APIs',
+        options: {
+          create: [
+            { content: 'Correct option', isCorrect: true, orderIndex: 0 },
+            { content: 'Wrong option', isCorrect: false, orderIndex: 1 },
+          ],
+        },
+      },
+      include: { options: { orderBy: { orderIndex: 'asc' } } },
+    });
+    await prisma.questionSkill.create({
+      data: { questionId: question.id, skillId: observedSkillId },
+    });
+    const hiddenResultTest = await prisma.test.create({
+      data: {
+        courseId,
+        type: TestType.PLACEMENT,
+        title: 'Hidden result mastery test',
+        status: TestStatus.PUBLISHED,
+        maxAttempts: 2,
+        showResultAfterSubmit: false,
+      },
+    });
+    const testQuestion = await prisma.testQuestion.create({
+      data: { testId: hiddenResultTest.id, questionId: question.id, orderIndex: 0, points: 1 },
+    });
+    for (const selectedOptionId of [question.options[0].id, question.options[1].id]) {
+      const started = await studentAgent
+        .post(
+          `/api/learning/enrollments/${id(EnrollmentStatus.ACTIVE)}/tests/${hiddenResultTest.id}/attempts`,
+        )
+        .expect(201);
+      hiddenResultAttemptId ??= started.body.id as string;
+      await studentAgent
+        .post(
+          `/api/learning/enrollments/${id(EnrollmentStatus.ACTIVE)}/attempts/${started.body.id}/submit`,
+        )
+        .send({
+          answers: [{ testQuestionId: testQuestion.id, selectedOptionIds: [selectedOptionId] }],
+        })
+        .expect(201);
+    }
   });
 
   afterAll(async () => {
     if (prisma) {
       await prisma.userSession.deleteMany({ where: { sid: { in: [...sessionIds] } } });
+      const tests = await prisma.test.findMany({
+        where: { courseId: { in: courseIds } },
+        select: { id: true },
+      });
+      const testIds = tests.map(({ id }) => id);
+      const attempts = await prisma.testAttempt.findMany({
+        where: { testId: { in: testIds } },
+        select: { id: true },
+      });
+      const attemptIds = attempts.map(({ id }) => id);
+      const questions = await prisma.question.findMany({
+        where: { courseId: { in: courseIds } },
+        select: { id: true },
+      });
+      const questionIds = questions.map(({ id }) => id);
+      await prisma.masteryHistory.deleteMany({
+        where: { enrollment: { classOffering: { courseId: { in: courseIds } } } },
+      });
+      await prisma.learnerSkillState.deleteMany({
+        where: { enrollment: { classOffering: { courseId: { in: courseIds } } } },
+      });
+      await prisma.testAnswer.deleteMany({ where: { attemptId: { in: attemptIds } } });
+      await prisma.testAttempt.deleteMany({ where: { id: { in: attemptIds } } });
+      await prisma.testQuestion.deleteMany({ where: { testId: { in: testIds } } });
+      await prisma.test.deleteMany({ where: { id: { in: testIds } } });
+      await prisma.questionSkill.deleteMany({ where: { questionId: { in: questionIds } } });
+      await prisma.skillPrerequisite.deleteMany({ where: { skill: { courseId: { in: courseIds } } } });
+      await prisma.questionOption.deleteMany({ where: { questionId: { in: questionIds } } });
+      await prisma.question.deleteMany({ where: { id: { in: questionIds } } });
+      await prisma.skill.deleteMany({ where: { courseId: { in: courseIds } } });
       await prisma.lessonProgress.deleteMany({ where: { enrollment: { classOffering: { courseId: { in: courseIds } } } } });
       await prisma.enrollment.deleteMany({ where: { classOffering: { courseId: { in: courseIds } } } });
       await prisma.learningResource.deleteMany({ where: { lesson: { module: { courseId: { in: courseIds } } } } });
@@ -110,6 +235,27 @@ describe('Student learning APIs (e2e)', () => {
     await adminAgent.get(`/api/learning/enrollments/${active}/content`).expect(403);
     await studentAgent.get(`/api/learning/enrollments/${active}/content`).expect(200);
     await otherStudentAgent.get(`/api/learning/enrollments/${active}/content`).expect(404);
+    await request(app.getHttpServer())
+      .get(`/api/learning/enrollments/${active}/mastery`)
+      .expect(401);
+    await request(app.getHttpServer())
+      .get(`/api/learning/enrollments/${active}/mastery/${observedSkillId}/history`)
+      .expect(401);
+    await instructorAgent.get(`/api/learning/enrollments/${active}/mastery`).expect(403);
+    await adminAgent.get(`/api/learning/enrollments/${active}/mastery`).expect(403);
+    await instructorAgent
+      .get(`/api/learning/enrollments/${active}/mastery/${observedSkillId}/history`)
+      .expect(403);
+    await adminAgent
+      .get(`/api/learning/enrollments/${active}/mastery/${observedSkillId}/history`)
+      .expect(403);
+    await otherStudentAgent.get(`/api/learning/enrollments/${active}/mastery`).expect(404);
+    await otherStudentAgent
+      .get(`/api/learning/enrollments/${active}/mastery/${observedSkillId}/history`)
+      .expect(404);
+    await studentAgent
+      .get(`/api/learning/enrollments/${active}/mastery/${foreignSkillId}/history`)
+      .expect(404);
     await studentAgent.post(`/api/learning/enrollments/${active}/lessons/${foreignLessonId}/open`).expect(404);
     await studentAgent.patch(`/api/learning/enrollments/${active}/lessons/${foreignLessonId}/complete`).expect(404);
 
@@ -119,7 +265,181 @@ describe('Student learning APIs (e2e)', () => {
       await studentAgent.post(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonAId}/open`).expect(404);
       await studentAgent.patch(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonAId}/complete`).expect(404);
       await studentAgent.get(`/api/learning/enrollments/${enrollmentId}/progress`).expect(404);
+      await studentAgent.get(`/api/learning/enrollments/${enrollmentId}/mastery`).expect(404);
+      await studentAgent
+        .get(`/api/learning/enrollments/${enrollmentId}/mastery/${observedSkillId}/history`)
+        .expect(404);
     }
+  });
+
+  it('returns mixed mastery with stable ordering and performs no GET-side writes', async () => {
+    const active = id(EnrollmentStatus.ACTIVE);
+    const expectedAfterCorrect = computeBktUpdate(0.3, 0.1, 0.2, 0.1, true);
+    const expectedAfterIncorrect = computeBktUpdate(
+      expectedAfterCorrect.posteriorMastery,
+      0.1,
+      0.2,
+      0.1,
+      false,
+    );
+    const stateCount = await prisma.learnerSkillState.count({ where: { enrollmentId: active } });
+    const historyCount = await prisma.masteryHistory.count({ where: { enrollmentId: active } });
+
+    const response = await studentAgent
+      .get(`/api/learning/enrollments/${active}/mastery`)
+      .expect(200);
+    expect(response.body).toMatchObject({ enrollmentId: active, courseId });
+    expect(response.body.skills.map(({ code }: { code: string }) => code)).toEqual([
+      'ALPHA_MASTERY',
+      'BETA_PRIOR',
+    ]);
+    expect(response.body.skills[0]).toMatchObject({
+      id: observedSkillId,
+      masteryProbability: expectedAfterIncorrect.posteriorMastery,
+      observationCount: 2,
+      state: 'OBSERVED',
+      prerequisites: [{ id: priorSkillId, code: 'BETA_PRIOR', name: 'Beta Prior' }],
+    });
+    expect(response.body.skills[0].lastObservedAt).toEqual(expect.any(String));
+    expect(response.body.skills[1]).toMatchObject({
+      id: priorSkillId,
+      masteryProbability: 0.6,
+      observationCount: 0,
+      lastObservedAt: null,
+      state: 'PRIOR',
+      prerequisites: [],
+    });
+    expect(JSON.stringify(response.body)).not.toMatch(
+      /selectedOptionIds|pointsAwarded|explanation|isCorrect|options/i,
+    );
+
+    await studentAgent.get(`/api/learning/enrollments/${active}/mastery`).expect(200);
+    await expect(
+      prisma.learnerSkillState.count({ where: { enrollmentId: active } }),
+    ).resolves.toBe(stateCount);
+    await expect(prisma.masteryHistory.count({ where: { enrollmentId: active } })).resolves.toBe(
+      historyCount,
+    );
+    const zero = await studentAgent
+      .get(`/api/learning/enrollments/${id('ZERO')}/mastery`)
+      .expect(200);
+    expect(zero.body.skills).toEqual([]);
+  });
+
+  it('returns learner-owned history independently of hidden assessment results', async () => {
+    const active = id(EnrollmentStatus.ACTIVE);
+    const expectedAfterCorrect = computeBktUpdate(0.3, 0.1, 0.2, 0.1, true);
+    const expectedAfterIncorrect = computeBktUpdate(
+      expectedAfterCorrect.posteriorMastery,
+      0.1,
+      0.2,
+      0.1,
+      false,
+    );
+    await studentAgent
+      .get(`/api/learning/enrollments/${active}/attempts/${hiddenResultAttemptId}/result`)
+      .expect(403);
+    const stateCount = await prisma.learnerSkillState.count({ where: { enrollmentId: active } });
+    const historyCount = await prisma.masteryHistory.count({ where: { enrollmentId: active } });
+
+    const response = await studentAgent
+      .get(`/api/learning/enrollments/${active}/mastery/${observedSkillId}/history`)
+      .expect(200);
+    expect(response.body.skill).toEqual({
+      id: observedSkillId,
+      code: 'ALPHA_MASTERY',
+      name: 'Alpha Mastery',
+      description: null,
+    });
+    expect(response.body.current).toMatchObject({ observationCount: 2, state: 'OBSERVED' });
+    expect(response.body.history).toHaveLength(2);
+    expect(response.body.history.map(({ isCorrect }: { isCorrect: boolean }) => isCorrect)).toEqual([
+      true,
+      false,
+    ]);
+    expect(response.body.history[0]).toEqual(
+      expect.objectContaining({
+        priorMastery: 0.3,
+        createdAt: expect.any(String),
+      }),
+    );
+    expect(response.body.history[0].evidencePosterior).toBeCloseTo(
+      expectedAfterCorrect.evidencePosterior,
+      10,
+    );
+    expect(response.body.history[0].posteriorMastery).toBeCloseTo(
+      expectedAfterCorrect.posteriorMastery,
+      10,
+    );
+    expect(response.body.history[1].priorMastery).toBeCloseTo(
+      response.body.history[0].posteriorMastery,
+      10,
+    );
+    expect(response.body.history[1].evidencePosterior).toBeCloseTo(
+      expectedAfterIncorrect.evidencePosterior,
+      10,
+    );
+    expect(response.body.history[1].posteriorMastery).toBeCloseTo(
+      expectedAfterIncorrect.posteriorMastery,
+      10,
+    );
+    expect(JSON.stringify(response.body)).not.toMatch(
+      /selectedOptionIds|pointsAwarded|explanation|options|correctOption/i,
+    );
+
+    const prior = await studentAgent
+      .get(`/api/learning/enrollments/${active}/mastery/${priorSkillId}/history`)
+      .expect(200);
+    expect(prior.body.current).toEqual({
+      masteryProbability: 0.6,
+      observationCount: 0,
+      lastObservedAt: null,
+      state: 'PRIOR',
+    });
+    expect(prior.body.history).toEqual([]);
+
+    const otherEnrollment = id('OTHER');
+    const other = await otherStudentAgent
+      .get(`/api/learning/enrollments/${otherEnrollment}/mastery/${observedSkillId}/history`)
+      .expect(200);
+    expect(other.body.current).toMatchObject({ observationCount: 0, state: 'PRIOR' });
+    expect(other.body.history).toEqual([]);
+    await expect(
+      prisma.learnerSkillState.count({ where: { enrollmentId: active } }),
+    ).resolves.toBe(stateCount);
+    await expect(prisma.masteryHistory.count({ where: { enrollmentId: active } })).resolves.toBe(
+      historyCount,
+    );
+  });
+
+  it('orders mastery history deterministically when observations share a timestamp', async () => {
+    const active = id(EnrollmentStatus.ACTIVE);
+    const tiedAt = new Date('2026-09-22T00:00:00.000Z');
+    const rows = await prisma.masteryHistory.findMany({
+      where: { enrollmentId: active, skillId: observedSkillId },
+      select: { id: true, testAttemptId: true, testAnswerId: true },
+    });
+    expect(rows).toHaveLength(2);
+    await prisma.masteryHistory.updateMany({
+      where: { id: { in: rows.map(({ id }) => id) } },
+      data: { createdAt: tiedAt },
+    });
+    const expectedIds = [...rows]
+      .sort((left, right) =>
+        compareUuid(left.testAttemptId, right.testAttemptId) ||
+        compareUuid(left.testAnswerId, right.testAnswerId) ||
+        compareUuid(left.id, right.id),
+      )
+      .map(({ id }) => id);
+
+    const response = await studentAgent
+      .get(`/api/learning/enrollments/${active}/mastery/${observedSkillId}/history`)
+      .expect(200);
+    expect(response.body.history.map(({ id }: { id: string }) => id)).toEqual(expectedIds);
+    expect(response.body.history.map(({ createdAt }: { createdAt: string }) => createdAt)).toEqual([
+      tiedAt.toISOString(),
+      tiedAt.toISOString(),
+    ]);
   });
 
   it('opens, completes idempotently and calculates course-scoped progress', async () => {
@@ -181,6 +501,7 @@ describe('Student learning APIs (e2e)', () => {
   async function createCourse(label: string, createdById: string) { return prisma.course.create({ data: { title: `VS02 ${label} ${unique}`, slug: `vs02-learning-${label}-${unique}`, description: 'E2E', level: 'E2E', isPublished: true, createdById } }); }
   async function login(agent: ReturnType<typeof request.agent>, email: string) { const response = await agent.post('/api/auth/login').send({ email, password }).expect(200); sessionIds.add(extractSessionId(cookie(response.headers['set-cookie']))); }
   function id(key: EnrollmentStatus | string): string { const value = enrollments.get(key); if (!value) throw new Error(`Missing enrollment ${key}`); return value; }
+  function compareUuid(left: string, right: string): number { return left < right ? -1 : left > right ? 1 : 0; }
   function open(enrollmentId: string) { return studentAgent.post(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonBId}/open`); }
   function complete(enrollmentId: string) { return studentAgent.patch(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonBId}/complete`); }
   function progressRows(enrollmentId: string) { return prisma.lessonProgress.findMany({ where: { enrollmentId, lessonId: lessonBId }, select: { status: true, completedAt: true } }); }

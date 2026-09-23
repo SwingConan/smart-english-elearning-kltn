@@ -24,6 +24,8 @@ describe('AssessmentStudentService', () => {
     enrollment: { findFirst: jest.fn() },
     testAttempt: { findFirst: jest.fn(), count: jest.fn(), create: jest.fn(), update: jest.fn() },
     testAnswer: { upsert: jest.fn() },
+    learnerSkillState: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+    masteryHistory: { create: jest.fn() },
     test: { findFirst: jest.fn() },
   };
   const prisma = {
@@ -39,7 +41,9 @@ describe('AssessmentStudentService', () => {
     prisma.enrollment.findFirst.mockResolvedValue(enrollment);
     transaction.enrollment.findFirst.mockResolvedValue(enrollment);
     prisma.$transaction.mockImplementation((operation: (client: typeof transaction) => Promise<unknown>) => operation(transaction));
-    transaction.testAnswer.upsert.mockResolvedValue({});
+    transaction.testAnswer.upsert.mockImplementation(({ where }) => Promise.resolve({
+      id: `answer-${where.attemptId_testQuestionId.testQuestionId}`,
+    }));
     transaction.testAttempt.update.mockImplementation(({ data }) => Promise.resolve({
       id: attemptId,
       attemptNumber: 1,
@@ -187,6 +191,7 @@ function testQuestion(
       difficulty: QuestionDifficulty.EASY,
       content: id,
       explanation: 'Explanation',
+      skills: [],
       options: options.map(([optionId, isCorrect], orderIndex) => ({
         id: optionId,
         content: optionId,

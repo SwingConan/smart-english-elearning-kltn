@@ -4,6 +4,9 @@ import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { instructorApi } from '@/features/instructor/api';
 import type { Module, Lesson, LearningResource, ResourceType } from '@/features/instructor/types';
 import { ApiError } from '@/lib/api-client';
+import { knowledgeModelApi } from '@/features/knowledge-model/api';
+import { SkillChecklistDialog } from '@/features/knowledge-model/SkillChecklistDialog';
+import type { Skill } from '@/features/knowledge-model/types';
 
 export function CourseContentManagementPage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -33,6 +36,12 @@ export function CourseContentManagementPage() {
 
   const [editingResource, setEditingResource] = useState<Partial<LearningResource> | null>(null);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
+  const [courseSkills, setCourseSkills] = useState<Skill[] | null>(null);
+  const [mappingLesson, setMappingLesson] = useState<Lesson | null>(null);
+  const [mappedSkillIds, setMappedSkillIds] = useState<string[]>([]);
+  const [mappingError, setMappingError] = useState<string | null>(null);
+  const [mappingMessage, setMappingMessage] = useState<string | null>(null);
+  const [mappingLoading, setMappingLoading] = useState(false);
 
   const beginMutation = (action: string): boolean => {
     if (mutationInFlight.current) return false;
@@ -348,6 +357,45 @@ export function CourseContentManagementPage() {
     }
   };
 
+  const openLessonSkillMapping = async (lesson: Lesson) => {
+    if (!courseId) return;
+    setMappingLesson(lesson);
+    setMappingMessage(null);
+    setMappingLoading(true);
+    setMappingError(null);
+    try {
+      const [available, mapped] = await Promise.all([
+        courseSkills ?? knowledgeModelApi.skills.list(courseId),
+        knowledgeModelApi.lessonSkills.list(lesson.id),
+      ]);
+      setCourseSkills(available);
+      setMappedSkillIds(mapped.map(({ id }) => id));
+    } catch (requestError) {
+      if (await redirectExpiredSession(requestError)) return;
+      setMappingError('Không thể tải liên kết Skill cho bài học.');
+    } finally {
+      setMappingLoading(false);
+    }
+  };
+
+  const saveLessonSkillMapping = async () => {
+    if (!mappingLesson || !beginMutation('Lưu Skill bài học')) return;
+    try {
+      const mapped = await knowledgeModelApi.lessonSkills.replace(
+        mappingLesson.id,
+        [...new Set(mappedSkillIds)],
+      );
+      setMappedSkillIds(mapped.map(({ id }) => id));
+      setMappingLesson(null);
+      setMappingMessage('Đã cập nhật Skill cho bài học.');
+    } catch (requestError) {
+      if (await redirectExpiredSession(requestError)) return;
+      setMappingError('Không thể cập nhật liên kết Skill cho bài học.');
+    } finally {
+      endMutation();
+    }
+  };
+
 
   if (loading) return <div className="p-8 text-center">Đang tải nội dung...</div>;
   if (error) return <div className="p-8 text-center text-red-600">{error}</div>;
@@ -359,6 +407,11 @@ export function CourseContentManagementPage() {
       {actionError ? (
         <p className="mb-4 rounded-md bg-red-50 p-3 text-red-700" role="alert">
           {actionError}
+        </p>
+      ) : null}
+      {mappingMessage ? (
+        <p className="mb-4 rounded-md bg-green-50 p-3 text-green-700" role="status">
+          {mappingMessage}
         </p>
       ) : null}
       {pendingAction ? (
@@ -436,6 +489,7 @@ export function CourseContentManagementPage() {
                               </span>
                             </div>
                             <div className="flex gap-2">
+                               <button onClick={() => void openLessonSkillMapping(lesson)} className="text-xs text-emerald-700 hover:underline">Edit Skills</button>
                                <button onClick={() => handleReorderLessons(module.id, lIndex, 'up')} disabled={lIndex === 0} className="px-1 text-gray-400 disabled:opacity-30">▲</button>
                                <button onClick={() => handleReorderLessons(module.id, lIndex, 'down')} disabled={lIndex === lessonsMap[module.id].length - 1} className="px-1 text-gray-400 disabled:opacity-30">▼</button>
                                <button onClick={() => { setEditingLesson(lesson); setIsLessonModalOpen(true); }} className="text-xs text-blue-600 hover:underline">Sửa</button>
@@ -568,6 +622,17 @@ export function CourseContentManagementPage() {
           </div>
         </div>
       )}
+      {mappingLesson ? <SkillChecklistDialog
+        title={`Skill (KC) của bài học: ${mappingLesson.title}`}
+        description="Chọn các Skill được giảng dạy hoặc củng cố trong bài học này."
+        skills={courseSkills ?? []}
+        selectedIds={mappedSkillIds}
+        pending={mappingLoading || pendingAction === 'Lưu Skill bài học'}
+        error={mappingError}
+        onToggle={(id) => setMappedSkillIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])}
+        onSave={() => void saveLessonSkillMapping()}
+        onCancel={() => setMappingLesson(null)}
+      /> : null}
       </fieldset>
     </div>
   );

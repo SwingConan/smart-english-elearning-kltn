@@ -43,4 +43,21 @@ export class LearningController {
   ) {
     return this.learningService.getProgress(user.id, enrollmentId);
   }
+
+  @Get('enrollments/:enrollmentId/mastery')
+  async getMastery(
+    @CurrentUser() user: PublicUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) enrollmentId: string,
+  ) {
+    return this.learningService.getMastery(user.id, enrollmentId);
+  }
+
+  @Get('enrollments/:enrollmentId/mastery/:skillId/history')
+  async getMasteryHistory(
+    @CurrentUser() user: PublicUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) enrollmentId: string,
+    @Param('skillId', new ParseUUIDPipe()) skillId: string,
+  ) {
+    return this.learningService.getMasteryHistory(user.id, enrollmentId, skillId);
+  }
 }

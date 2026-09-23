@@ -113,6 +113,12 @@ export function InstructorTeachingPage() {
                   Ngân hàng câu hỏi
                 </Link>
                 <Link
+                  to={`/instructor/courses/${course.id}/skills`}
+                  className="inline-flex w-full items-center justify-center rounded-md border border-emerald-200 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                >
+                  Knowledge Model — Skill (KC)
+                </Link>
+                <Link
                   to={`/instructor/courses/${course.id}/tests`}
                   className="inline-flex w-full items-center justify-center rounded-md border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
