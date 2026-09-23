@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 import {
   ClassOfferingStatus,
   EnrollmentStatus,
+  LessonProgressStatus,
   PricingType,
   QuestionDifficulty,
   QuestionType,
@@ -153,7 +154,7 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
         type: TestType.PLACEMENT,
         title: `VS05 F1 Assessment ${unique}`,
         status: TestStatus.PUBLISHED,
-        maxAttempts: 1,
+        maxAttempts: 2,
         showResultAfterSubmit: false,
       },
     });
@@ -319,6 +320,90 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
       masteryHistory: 1,
       lessonProgress: 0,
     });
+  });
+
+  it('preserves BKT mastery and history when a real Lesson completion records progress', async () => {
+    const started = await studentAgent
+      .post(`/api/learning/enrollments/${enrollmentId}/tests/${testId}/attempts`)
+      .expect(201);
+    await submitAttempt(started.body.id as string, correctOptionId).expect(201);
+
+    const learnerStatesBefore = await prisma.learnerSkillState.findMany({
+      where: { enrollmentId },
+      orderBy: { id: 'asc' },
+    });
+    const masteryHistoryBefore = await prisma.masteryHistory.findMany({
+      where: { enrollmentId },
+      orderBy: { id: 'asc' },
+    });
+    const pathBefore = await adaptivePath();
+    const classificationBefore = skillClassification(pathBefore.body);
+
+    expect(learnerStatesBefore).toHaveLength(1);
+    expect(learnerStatesBefore[0]).toMatchObject({
+      enrollmentId,
+      skillId,
+      observationCount: expect.any(Number),
+    });
+    expect(learnerStatesBefore[0].observationCount).toBeGreaterThan(0);
+    expect(masteryHistoryBefore.length).toBeGreaterThan(0);
+    expect(classificationBefore).toMatchObject({
+      skillId,
+      state: 'OBSERVED',
+      masteryProbability: learnerStatesBefore[0].masteryProbability,
+      masteryBand: 'PROGRESSION_READY',
+      prerequisiteStatus: 'READY',
+    });
+    expect(
+      pathBefore.body.path.some(({ lessonId: pathLessonId }: { lessonId: string }) =>
+        pathLessonId === lessonId,
+      ),
+    ).toBe(false);
+    await expect(
+      prisma.lessonProgress.findUnique({
+        where: { enrollmentId_lessonId: { enrollmentId, lessonId } },
+      }),
+    ).resolves.toBeNull();
+
+    const completed = await studentAgent
+      .patch(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonId}/complete`)
+      .expect(200);
+    expect(completed.body).toMatchObject({
+      enrollmentId,
+      lessonId,
+      status: LessonProgressStatus.COMPLETED,
+    });
+    expect(completed.body.completedAt).toEqual(expect.any(String));
+    await expect(
+      prisma.lessonProgress.findUnique({
+        where: { enrollmentId_lessonId: { enrollmentId, lessonId } },
+        select: { status: true, completedAt: true },
+      }),
+    ).resolves.toEqual({
+      status: LessonProgressStatus.COMPLETED,
+      completedAt: new Date(completed.body.completedAt as string),
+    });
+
+    await expect(
+      prisma.learnerSkillState.findMany({
+        where: { enrollmentId },
+        orderBy: { id: 'asc' },
+      }),
+    ).resolves.toEqual(learnerStatesBefore);
+    await expect(
+      prisma.masteryHistory.findMany({
+        where: { enrollmentId },
+        orderBy: { id: 'asc' },
+      }),
+    ).resolves.toEqual(masteryHistoryBefore);
+
+    const pathAfter = await adaptivePath();
+    expect(skillClassification(pathAfter.body)).toEqual(classificationBefore);
+    expect(
+      pathAfter.body.path.some(({ lessonId: pathLessonId }: { lessonId: string }) =>
+        pathLessonId === lessonId,
+      ),
+    ).toBe(false);
   });
 
   function adaptivePath() {
