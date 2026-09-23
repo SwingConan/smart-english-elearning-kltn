@@ -45,6 +45,9 @@ the latest policy, mastery, mappings, and progress.
 - **VS05-F2:** frontend and UX hardening.
 - **VS05-G:** independent review, G1 CLEAN.
 - **VS05-H0:** test-only closure of review NOTE G-01.
+- **VS05-H1:** repository documentation and project-memory synchronization.
+- **VS05-H2:** formal traceability closeout completed in the external canonical artifacts.
+- **VS05-H3:** final release validation, PASS.
 
 ## 4. Locked semantics
 
@@ -90,6 +93,7 @@ VS05 adds exactly one persisted model: `CourseAdaptivePolicy`.
 
 - Latest migration: `20260923081928_vs05_adaptive_policy_foundation`
 - Total migration count: 6
+- Migration status: all applied, no pending migration or drift indication.
 - No recommendation/path/history persistence was added.
 
 ## 7. Cross-feature proof
@@ -142,27 +146,27 @@ change.
 - Audit fix performed: **NO**
 - Dependency changes made for the audit count: **NO**
 
-H1 is documentation-only; the 451 implementation tests are not rerun solely
-for these Markdown edits.
+H3 reran the final release validation against the production tree: all 451
+tests, lint, typecheck, and build passed. The branch is **READY FOR PR**.
 
-## 10. Traceability readiness
+## 10. Traceability closeout
 
-Ready for formal H2 close-out as `FULL`:
+VS05-H2 synchronized the external canonical formal artifacts with these
+official statuses:
 
-- FR-ADP-010
-- FR-ADP-011
-- FR-ADP-012
-- FR-ADP-013
-- FR-ADP-014
-- FR-ADP-015
-- UC09
-- UC42
+- FR-ADP-010: `FULL`
+- FR-ADP-011: `FULL`
+- FR-ADP-012: `FULL`
+- FR-ADP-013: `FULL`
+- FR-ADP-014: `FULL`
+- FR-ADP-015: `FULL`
+- FR-ADP-016: `NOT IMPLEMENTED`
+- UC09: `FULL`
+- UC42: `FULL`
 
-FR-ADP-016 remains `NOT IMPLEMENTED`.
-
-These are readiness statements only. Repository and external formal
-traceability synchronization is still **PENDING VS05-H2**; no official FR/UC
-status is changed by H1.
+The canonical DOCX/XLSX artifacts remain external to this repository. H2
+validated their structure after synchronization and did not create a fake
+repository artifact or commit.
 
 ## 11. Out of scope / future work
 
@@ -175,6 +179,6 @@ status is changed by H1.
 
 ## 12. Exact next step
 
-**VS05-H2 — Formal Traceability Synchronization**, after H1 approval.
+**VS05-H4 — PR / review / squash merge**.
 
-Do not start H2 during this documentation checkpoint.
+Do not begin a new functional slice before VS05 is reviewed and merged.
