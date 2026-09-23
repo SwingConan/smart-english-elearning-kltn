@@ -1,10 +1,10 @@
 # Dependency Security Audit Baseline
 
-Date: 2026-09-19
+Current verification date: 2026-09-23
 
 ## Audit summary
 
-- 9 high-severity package-level findings
+- 6 high-severity package-level findings
 - 0 critical findings
 - No confirmed non-breaking remediation is available for the current tested dependency graph.
 
@@ -38,8 +38,8 @@ Review Multer chain before adding file upload.
 
 ## VS01 close-out — 2026-09-20
 
-The VS01 close-out retains the original 2026-09-19 audit history. The current
-recorded npm audit summary is:
+The VS01 close-out retains the original 2026-09-19 audit history. The audit
+summary recorded at that close-out was:
 
 - 0 critical
 - 9 high
@@ -76,3 +76,16 @@ These items are **deferred**, not implemented guarantees:
 
 Do not run `npm audit fix --force`, and do not change major framework or ORM
 versions solely to make the audit count zero.
+
+## VS05 close-out — 2026-09-23
+
+The current verified npm audit summary is:
+
+- 0 critical
+- 6 high
+- 0 moderate
+- 0 low
+
+VS05 did not change dependencies or run an audit fix to reduce this count. The
+NestJS/Multer and Prisma tooling dependency-chain review policy above remains
+in effect.

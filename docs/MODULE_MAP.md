@@ -12,7 +12,7 @@ The backend is a **Modular Monolith**. Modules are logical boundaries inside one
 | learning          | Instructor curriculum delivery, authorized lesson access, and progress                                                                      | Module, Lesson, LearningResource, LessonProgress                                        |
 | assessments       | Objective Question Bank, Test/TestQuestion lifecycle, Student Attempt/TestAnswer, deterministic scoring, and publication-controlled results | Question, QuestionOption, Test, TestQuestion, TestAttempt, TestAnswer                   |
 | knowledge-model   | Course Skill/KC catalog, prerequisite graph, Question/Lesson mapping, and pure BKT math                                                     | Skill, SkillPrerequisite, QuestionSkill, LessonSkill, LearnerSkillState, MasteryHistory |
-| adaptive          | Future recommendation and personalized-path generation                                                                                      | AdaptiveRecommendation (future)                                                         |
+| adaptive          | Deterministic compute-on-read recommendation, policy, mastery classification, and personalized-path generation                              | CourseAdaptivePolicy; derived path output                                               |
 | essay-grading     | AI suggested assessment + Instructor finalization                                                                                           | AIGradingResult, FinalEssayGrade                                                        |
 | engagement        | Learning events + aggregate metrics                                                                                                         | LearningEvent, EngagementMetric                                                         |
 | consultations     | Instructor consultation + AI advisory                                                                                                       | Conversation, Message                                                                   |
@@ -52,9 +52,10 @@ authorization and progress scoping; it does not redefine their ownership.
   list/Attempt/Result frontend surfaces.
 
 At VS03 close-out, Essay/AI grading, Skill/BKT/Adaptive behavior, and Instructor
-assessment analytics/results remained future work. VS04 now implements the
-Skill/BKT foundation through the ownership boundaries below; Essay/AI,
-Adaptive behavior, and Instructor analytics remain deferred.
+assessment analytics/results remained future work. VS04 implemented the
+Skill/BKT foundation through the ownership boundaries below, and VS05 now
+consumes that learner model through the adaptive boundary. Essay/AI and
+Instructor analytics remain deferred.
 
 ## VS04 Knowledge Model and mastery boundaries
 
@@ -83,9 +84,28 @@ Frontend ownership follows those application boundaries:
   `apps/web/src/pages/StudentMasteryPage.tsx` provide the Student mastery and
   history read experience.
 
-The future `adaptive` boundary may consume this learner model in VS05, but
-VS04 does not implement recommendation, path generation, prerequisite
-lock/unlock, or an Instructor learner-mastery dashboard.
+VS04 itself does not implement recommendation, path generation, prerequisite
+eligibility, or an Instructor learner-mastery dashboard. VS05 consumes the
+VS04 learner model without changing its BKT ownership semantics.
+
+## VS05 Adaptive boundary
+
+`AdaptiveModule` owns the VS05 read and policy surfaces:
+
+- `CourseAdaptivePolicy` is the only persisted adaptive model and stores the
+  Course remedial/progression thresholds.
+- Instructor GET/PUT policy endpoints use assigned-Course authorization and
+  distinguish in-memory `DEFAULT` values from a `SAVED` policy.
+- Student adaptive-path GET reads the current `LearnerSkillState`, direct
+  prerequisites, LessonSkill mappings, LessonProgress, and Course policy.
+- The pure adaptive engine derives mastery bands, prerequisite eligibility,
+  ordered recommendations, blocked Lessons, unmapped Lessons, and structured
+  reasons. Paths and recommendations are not persisted.
+
+Frontend ownership is in `apps/web/src/features/adaptive/`,
+`apps/web/src/pages/AdaptivePolicyPage.tsx`, and
+`apps/web/src/pages/StudentAdaptivePathPage.tsx`. Adaptive `BLOCKED` is a
+recommendation state and does not change Lesson authorization.
 
 ## Deferred/candidate modules
 
