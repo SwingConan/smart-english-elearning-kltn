@@ -119,6 +119,12 @@ export function InstructorTeachingPage() {
                   Knowledge Model — Skill (KC)
                 </Link>
                 <Link
+                  to={`/instructor/courses/${course.id}/adaptive-policy`}
+                  className="inline-flex w-full items-center justify-center rounded-md border border-amber-200 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
+                >
+                  Adaptive Policy
+                </Link>
+                <Link
                   to={`/instructor/courses/${course.id}/tests`}
                   className="inline-flex w-full items-center justify-center rounded-md border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
