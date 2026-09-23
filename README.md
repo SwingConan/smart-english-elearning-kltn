@@ -49,13 +49,28 @@ Student objective submit -> BKT -> current mastery -> mastery trajectory
 It includes Course-scoped Skills with per-Skill BKT parameters, prerequisite
 metadata, QuestionSkill and LessonSkill mappings, Enrollment-scoped current
 mastery, immutable observation history, and Student mastery overview/history.
-Adaptive Recommendation and personalized path generation remain future VS05
-work; VS04 does not claim adaptive delivery.
+
+VS05 adds deterministic Adaptive Recommendation and Personalized Learning Path
+delivery:
+
+```text
+Instructor Course policy -> thresholds -> DEFAULT/SAVED policy
+VS04 learner model + prerequisites + Lesson mappings + progress
+-> compute-on-read adaptive path -> structured explanation
+```
+
+Instructors can read and replace Course-specific remedial/progression
+thresholds. Students can view mastery classifications, ordered REMEDIAL,
+REINFORCEMENT, and PROGRESSION recommendations, blocked Lessons, unmapped
+Lessons/configuration status, and structured learner-facing explanations. The
+adaptive engine is deterministic and explainable: it reads the current VS04
+`LearnerSkillState`, and the next adaptive-path GET reflects assessment/BKT
+updates. Recommendations and paths are not persisted.
 
 Not implemented yet: payment confirmation, instructor lookup or reassignment
-UI, file upload/object storage, Essay/AI grading, Adaptive Recommendation and
-personalized paths, time-limit enforcement, Instructor assessment/mastery
-analytics, engagement analytics, certificates, or virtual classrooms.
+UI, file upload/object storage, Essay/AI grading, time-limit enforcement,
+Instructor assessment/mastery analytics, engagement adaptation, DKT/forgetting,
+LLM recommendation, certificates, or virtual classrooms.
 
 ## Tested baseline
 
@@ -178,9 +193,12 @@ npm run test:e2e --workspace=@smart-elearning/api
 npm run build
 ```
 
-Current automated baseline: 14 API unit suites / 148 tests, 10 API E2E suites /
-41 tests, and 15 Web test files / 129 tests (318 tests total), all PASS at the
-VS04 implementation baseline entering documentation close-out.
+Current automated baseline: 17 API unit suites / 228 tests, 13 API E2E suites /
+61 tests, and 17 Web test files / 162 tests (451 tests total), all PASS at the
+VS05 implementation baseline entering documentation close-out.
+
+Current npm audit baseline: 0 critical / 6 high / 0 moderate / 0 low. No audit
+fix or dependency change is claimed as part of VS05 close-out.
 
 ## Security and design boundaries
 
@@ -199,6 +217,9 @@ VS04 implementation baseline entering documentation close-out.
 - VS04 BKT runs server-side inside the first successful objective assessment
   submit transaction. Student mastery/history is Enrollment-scoped and does not
   expose hidden answer or result details.
+- VS05 recommendations are computed on read from the current learner model,
+  prerequisites, Lesson mappings, progress, and Course policy. Adaptive
+  `BLOCKED` affects recommendation eligibility, not Lesson authorization.
 - Learning resources are URL-based. `isDownloadable` controls business/UI
   behavior and is not cryptographic download protection.
 - Never commit `.env` files, passwords, session secrets, or connection URLs.

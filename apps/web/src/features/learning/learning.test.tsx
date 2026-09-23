@@ -32,6 +32,10 @@ describe('LearningPage', () => {
       'href',
       `/student/enrollments/${enrollmentId}/mastery`,
     );
+    expect(screen.getByRole('link', { name: 'Personalized Learning Path' })).toHaveAttribute(
+      'href',
+      `/student/enrollments/${enrollmentId}/path`,
+    );
     page.unmount();
 
     vi.spyOn(learningApi, 'getContent').mockRejectedValueOnce(new Error('raw database'));

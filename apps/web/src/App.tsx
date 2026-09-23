@@ -22,6 +22,8 @@ import { StudentTestAttemptPage } from '@/pages/StudentTestAttemptPage';
 import { StudentTestResultPage } from '@/pages/StudentTestResultPage';
 import { KnowledgeModelPage } from '@/pages/KnowledgeModelPage';
 import { StudentMasteryPage } from '@/pages/StudentMasteryPage';
+import { AdaptivePolicyPage } from '@/pages/AdaptivePolicyPage';
+import { StudentAdaptivePathPage } from '@/pages/StudentAdaptivePathPage';
 
 export function App() {
   return (
@@ -73,6 +75,14 @@ export function App() {
               </RoleRoute>
             }
           />
+          <Route
+            path="/student/enrollments/:enrollmentId/path"
+            element={
+              <RoleRoute allowedRoles={['STUDENT']}>
+                <StudentAdaptivePathPage />
+              </RoleRoute>
+            }
+          />
 
           {/* Instructor routes */}
           <Route
@@ -120,6 +130,14 @@ export function App() {
             element={
               <RoleRoute allowedRoles={['INSTRUCTOR']}>
                 <KnowledgeModelPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/instructor/courses/:courseId/adaptive-policy"
+            element={
+              <RoleRoute allowedRoles={['INSTRUCTOR']}>
+                <AdaptivePolicyPage />
               </RoleRoute>
             }
           />

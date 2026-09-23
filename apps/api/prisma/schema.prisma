@@ -106,26 +106,39 @@ model UserSession {
 }
 
 model Course {
-  id             String          @id @default(uuid()) @db.Uuid
+  id             String                @id @default(uuid()) @db.Uuid
   title          String
-  slug           String          @unique
-  description    String          @db.Text
+  slug           String                @unique
+  description    String                @db.Text
   level          String
   thumbnailUrl   String?
-  isPublished    Boolean         @default(false)
-  createdById    String          @db.Uuid
-  createdBy      User            @relation("CourseCreatedBy", fields: [createdById], references: [id])
+  isPublished    Boolean               @default(false)
+  createdById    String                @db.Uuid
+  createdBy      User                  @relation("CourseCreatedBy", fields: [createdById], references: [id])
   classOfferings ClassOffering[]
   modules        Module[]
   questions      Question[]
   tests          Test[]
   skills         Skill[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  adaptivePolicy CourseAdaptivePolicy?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 
   @@index([isPublished])
   @@index([level])
   @@map("courses")
+}
+
+model CourseAdaptivePolicy {
+  id                   String   @id @default(uuid()) @db.Uuid
+  courseId             String   @unique @db.Uuid
+  remedialThreshold    Float    @default(0.4)
+  progressionThreshold Float    @default(0.8)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  course               Course   @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  @@map("course_adaptive_policies")
 }
 
 model ClassOffering {
