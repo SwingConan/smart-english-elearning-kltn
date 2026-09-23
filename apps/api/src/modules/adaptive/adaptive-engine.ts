@@ -131,7 +131,7 @@ function validatePolicy(policy: AdaptivePolicyInput): void {
   }
 }
 
-function classifyMasteryBand(
+export function classifyMasteryBand(
   state: AdaptiveMasteryState,
   masteryProbability: number,
   policy: AdaptivePolicyInput,
