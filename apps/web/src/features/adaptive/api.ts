@@ -1,5 +1,5 @@
 import { apiFetch } from '@/lib/api-client';
-import type { AdaptivePolicy, AdaptivePolicyInput } from './types';
+import type { AdaptivePolicy, AdaptivePolicyInput, StudentAdaptivePath } from './types';
 
 export const adaptivePolicyApi = {
   get: (courseId: string, signal?: AbortSignal): Promise<AdaptivePolicy> =>
@@ -11,4 +11,9 @@ export const adaptivePolicyApi = {
       method: 'PUT',
       body: JSON.stringify(input),
     }),
+};
+
+export const adaptivePathApi = {
+  get: (enrollmentId: string, signal?: AbortSignal): Promise<StudentAdaptivePath> =>
+    apiFetch(`/learning/enrollments/${encodeURIComponent(enrollmentId)}/adaptive-path`, { signal }),
 };
