@@ -37,6 +37,7 @@ const DEMO_SKILL_GRAMMAR_ID = 'a0000000-0000-4000-8000-000000000001';
 const DEMO_SKILL_VOCABULARY_ID = 'a0000000-0000-4000-8000-000000000002';
 const DEMO_SKILL_READING_ID = 'a0000000-0000-4000-8000-000000000003';
 const DEMO_SKILL_SENTENCE_ID = 'a0000000-0000-4000-8000-000000000004';
+const DEMO_ADAPTIVE_POLICY_ID = 'e0000000-0000-4000-8000-000000000001';
 
 const questionSeeds = [
   {
@@ -318,6 +319,20 @@ async function main(): Promise<void> {
         level: 'BEGINNER',
         isPublished: true,
         createdById: admin.id,
+      },
+    });
+
+    await prisma.courseAdaptivePolicy.upsert({
+      where: { courseId: course.id },
+      update: {
+        remedialThreshold: 0.4,
+        progressionThreshold: 0.8,
+      },
+      create: {
+        id: DEMO_ADAPTIVE_POLICY_ID,
+        courseId: course.id,
+        remedialThreshold: 0.4,
+        progressionThreshold: 0.8,
       },
     });
 
