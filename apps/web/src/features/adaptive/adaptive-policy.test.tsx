@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context';
 import type { UserRole } from '@/features/auth/api';
@@ -14,6 +14,7 @@ import { adaptivePolicyApi } from './api';
 import type { AdaptivePolicy } from './types';
 
 const courseId = '10000000-0000-4000-8000-000000000001';
+const otherCourseId = '10000000-0000-4000-8000-000000000002';
 
 afterEach(() => {
   cleanup();
@@ -47,6 +48,17 @@ describe('AdaptivePolicyPage', () => {
     expect(progressionInput()).toHaveValue(0.8);
   });
 
+  it('does not mislabel an unexpected policy source as DEFAULT or SAVED', async () => {
+    vi.spyOn(adaptivePolicyApi, 'get').mockResolvedValue({
+      ...policy('SAVED'),
+      source: 'FUTURE_SOURCE' as AdaptivePolicy['source'],
+    });
+    renderPage();
+
+    expect(await screen.findByText(/Nguồn policy hiện chưa xác định/i)).toBeInTheDocument();
+    expect(screen.queryByText(/DEFAULT:|SAVED:/i)).not.toBeInTheDocument();
+  });
+
   it('sends the exact replacement payload and changes DEFAULT to SAVED', async () => {
     vi.spyOn(adaptivePolicyApi, 'get').mockResolvedValue(policy('DEFAULT'));
     const update = vi.spyOn(adaptivePolicyApi, 'update').mockResolvedValue(policy('SAVED'));
@@ -63,6 +75,45 @@ describe('AdaptivePolicyPage', () => {
     );
     expect(await screen.findByText(/SAVED:/i)).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(/Đã lưu Adaptive Policy/i);
+  });
+
+  it('uses server-returned values after save and exposes the probability help text', async () => {
+    vi.spyOn(adaptivePolicyApi, 'get').mockResolvedValue(policy('DEFAULT'));
+    vi.spyOn(adaptivePolicyApi, 'update').mockResolvedValue(policy('SAVED', 0.25, 0.9));
+    renderPage();
+    await screen.findByText(/DEFAULT:/i);
+
+    expect(remedialInput()).toHaveAccessibleDescription(/0.4.*40%/i);
+    expect(progressionInput()).toHaveAccessibleDescription(/0.8.*80%/i);
+    setThresholds('0.3', '0.7');
+    submitForm();
+
+    expect(await screen.findByText(/SAVED:/i)).toBeInTheDocument();
+    expect(remedialInput()).toHaveValue(0.25);
+    expect(progressionInput()).toHaveValue(0.9);
+  });
+
+  it('refetches a changed courseId without retaining stale policy UI', async () => {
+    let resolveOther!: (value: AdaptivePolicy) => void;
+    const get = vi.spyOn(adaptivePolicyApi, 'get').mockImplementation((requestedCourseId) => {
+      if (requestedCourseId === courseId) return Promise.resolve(policy('SAVED', 0.2, 0.7));
+      return new Promise((resolve) => {
+        resolveOther = resolve;
+      });
+    });
+    renderCourseSwitch();
+    await screen.findByText(/SAVED:/i);
+    expect(remedialInput()).toHaveValue(0.2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch course' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/Đang tải Adaptive Policy/i);
+    expect(screen.queryByLabelText('Remedial Threshold')).not.toBeInTheDocument();
+    expect(screen.queryByText(/SAVED:/i)).not.toBeInTheDocument();
+    resolveOther({ ...policy('DEFAULT', 0.35, 0.75), courseId: otherCourseId });
+    expect(await screen.findByText(/DEFAULT:/i)).toBeInTheDocument();
+    expect(remedialInput()).toHaveValue(0.35);
+    expect(get).toHaveBeenLastCalledWith(otherCourseId, expect.any(AbortSignal));
   });
 
   it('accepts the valid 0 and 1 boundaries', async () => {
@@ -239,6 +290,38 @@ function renderPage(
         </Routes>
       </AuthContext.Provider>
     </MemoryRouter>,
+  );
+}
+
+function renderCourseSwitch() {
+  return render(
+    <MemoryRouter initialEntries={[`/instructor/courses/${courseId}/adaptive-policy`]}>
+      <AuthContext.Provider value={authValue()}>
+        <Routes>
+          <Route
+            path="/instructor/courses/:courseId/adaptive-policy"
+            element={
+              <RoleRoute allowedRoles={['INSTRUCTOR']}>
+                <CourseSwitcher />
+                <AdaptivePolicyPage />
+              </RoleRoute>
+            }
+          />
+        </Routes>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+}
+
+function CourseSwitcher() {
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={() => navigate(`/instructor/courses/${otherCourseId}/adaptive-policy`)}
+      type="button"
+    >
+      Switch course
+    </button>
   );
 }
 

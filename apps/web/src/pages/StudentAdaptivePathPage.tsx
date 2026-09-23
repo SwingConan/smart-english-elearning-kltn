@@ -5,7 +5,9 @@ import {
   adaptivePercentage,
   adaptiveReasonText,
   categoryLabel,
+  masteryStateLabel,
   masteryBandLabel,
+  policySourceLabel,
   prerequisiteStatusLabel,
 } from '@/features/adaptive/display';
 import type {
@@ -30,6 +32,7 @@ export function StudentAdaptivePathPage() {
 
   useEffect(() => {
     const controller = new AbortController();
+    let active = true;
 
     async function loadPath() {
       setState({ status: 'loading' });
@@ -40,8 +43,10 @@ export function StudentAdaptivePathPage() {
 
       try {
         const data = await adaptivePathApi.get(enrollmentId, controller.signal);
+        if (!active) return;
         setState({ status: 'success', data });
       } catch (error) {
+        if (!active) return;
         if (error instanceof Error && error.name === 'AbortError') return;
         if (await redirectExpiredSession(error)) return;
         setState({ status: 'error', message: pathErrorMessage(error) });
@@ -49,7 +54,10 @@ export function StudentAdaptivePathPage() {
     }
 
     void loadPath();
-    return () => controller.abort();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [enrollmentId, redirectExpiredSession]);
 
   return (
@@ -178,7 +186,7 @@ function PolicyContext({ data }: { data: StudentAdaptivePath }) {
           Ngữ cảnh policy
         </h2>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">
-          {policy.source === 'DEFAULT' ? 'Using default policy' : 'Course-specific policy'}
+          {policySourceLabel(policy.source)}
         </span>
       </div>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
@@ -209,19 +217,32 @@ function PolicyBand({ label, value }: { label: string; value: string }) {
 }
 
 function ConfigurationNotice({ data }: { data: StudentAdaptivePath }) {
-  if (data.configurationStatus === 'READY') return null;
-  return (
+  let message: string | null;
+  switch (data.configurationStatus) {
+    case 'READY':
+      message = null;
+      break;
+    case 'PARTIALLY_MAPPED':
+      message =
+        'Một số nội dung khóa học chưa được liên kết với Skill/KC, nên lộ trình cá nhân hóa hiện chỉ bao phủ một phần.';
+      break;
+    case 'NO_MAPPED_LESSONS':
+      message =
+        'Khóa học chưa có liên kết Lesson → Skill/KC, nên chưa thể tạo adaptive recommendation.';
+      break;
+    default:
+      message = 'Trạng thái cấu hình lộ trình hiện chưa xác định.';
+  }
+  return message ? (
     <p className="rounded-md bg-amber-50 p-4 text-amber-800" role="status">
-      {data.configurationStatus === 'PARTIALLY_MAPPED'
-        ? 'Một số nội dung khóa học chưa được liên kết với Skill/KC, nên lộ trình cá nhân hóa hiện chỉ bao phủ một phần.'
-        : 'Khóa học chưa có liên kết Lesson → Skill/KC, nên chưa thể tạo adaptive recommendation.'}
+      {message}
     </p>
-  );
+  ) : null;
 }
 
 function SkillSummary({ skill }: { skill: AdaptiveSkillClassification }) {
   return (
-    <article className="rounded-xl border bg-white p-5 shadow-sm">
+    <article className="min-w-0 break-words rounded-xl border bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -232,17 +253,11 @@ function SkillSummary({ skill }: { skill: AdaptiveSkillClassification }) {
         <strong className="text-xl">{adaptivePercentage(skill.masteryProbability)}</strong>
       </div>
       <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
-        <SkillDetail
-          label="Nguồn mastery"
-          value={skill.state === 'PRIOR' ? 'PRIOR — Chưa có quan sát đánh giá' : 'OBSERVED'}
-        />
-        <SkillDetail
-          label="Mastery band"
-          value={`${skill.masteryBand} — ${masteryBandLabel(skill.masteryBand)}`}
-        />
+        <SkillDetail label="Nguồn mastery" value={masteryStateLabel(skill.state)} />
+        <SkillDetail label="Mastery band" value={masteryBandLabel(skill.masteryBand)} />
         <SkillDetail
           label="Prerequisite"
-          value={`${skill.prerequisiteStatus} — ${prerequisiteStatusLabel(skill.prerequisiteStatus)}`}
+          value={prerequisiteStatusLabel(skill.prerequisiteStatus)}
         />
       </dl>
       {skill.unsatisfiedPrerequisites.length > 0 ? (
@@ -265,7 +280,7 @@ function SkillDetail({ label, value }: { label: string; value: string }) {
 
 function PathLessonCard({ lesson }: { lesson: AdaptivePathLesson }) {
   return (
-    <article className="rounded-xl border bg-white p-5 shadow-sm">
+    <article className="min-w-0 break-words rounded-xl border bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm text-slate-500">{lesson.moduleTitle}</p>
@@ -274,7 +289,7 @@ function PathLessonCard({ lesson }: { lesson: AdaptivePathLesson }) {
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold ${categoryStyle(lesson.category)}`}
         >
-          {lesson.category} — {categoryLabel(lesson.category)}
+          {categoryLabel(lesson.category)}
         </span>
       </div>
       <p className="mt-3 text-sm text-slate-700">{adaptiveReasonText(lesson.reason)}</p>
@@ -295,7 +310,7 @@ function PathLessonCard({ lesson }: { lesson: AdaptivePathLesson }) {
 
 function BlockedLessonCard({ lesson }: { lesson: AdaptiveBlockedLesson }) {
   return (
-    <article className="rounded-xl border border-amber-200 bg-white p-5">
+    <article className="min-w-0 break-words rounded-xl border border-amber-200 bg-white p-5">
       <p className="text-sm text-slate-500">{lesson.moduleTitle}</p>
       <h3 className="font-semibold">{lesson.title}</h3>
       <p className="mt-2 text-sm text-slate-700">{adaptiveReasonText(lesson.reason)}</p>
@@ -321,6 +336,8 @@ function categoryStyle(category: AdaptiveLessonCategory): string {
       return 'bg-amber-50 text-amber-800';
     case 'PROGRESSION':
       return 'bg-green-50 text-green-800';
+    default:
+      return 'bg-slate-100 text-slate-700';
   }
 }
 

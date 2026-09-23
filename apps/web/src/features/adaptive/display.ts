@@ -1,7 +1,9 @@
 import type {
   AdaptiveLessonCategory,
   AdaptiveLessonReason,
+  AdaptiveMasteryState,
   AdaptiveMasteryBand,
+  AdaptivePolicySource,
   AdaptivePrerequisiteStatus,
 } from './types';
 
@@ -12,34 +14,68 @@ const percentFormatter = new Intl.NumberFormat('vi-VN', {
 });
 
 export function adaptivePercentage(probability: number): string {
+  if (!Number.isFinite(probability)) return 'Không xác định';
   return percentFormatter.format(probability);
 }
 
 export function masteryBandLabel(band: AdaptiveMasteryBand): string {
   switch (band) {
     case 'UNASSESSED':
-      return 'Chưa đánh giá';
+      return 'UNASSESSED — Chưa đánh giá';
     case 'REMEDIAL':
-      return 'Cần học lại nền tảng';
+      return 'REMEDIAL — Cần học lại nền tảng';
     case 'REINFORCEMENT':
-      return 'Cần củng cố';
+      return 'REINFORCEMENT — Cần củng cố';
     case 'PROGRESSION_READY':
-      return 'Sẵn sàng tiến tiếp';
+      return 'PROGRESSION_READY — Sẵn sàng tiến tiếp';
+    default:
+      return 'Không xác định';
   }
 }
 
 export function prerequisiteStatusLabel(status: AdaptivePrerequisiteStatus): string {
-  return status === 'READY' ? 'Đủ điều kiện' : 'Chưa đủ điều kiện';
+  switch (status) {
+    case 'READY':
+      return 'READY — Đủ điều kiện';
+    case 'BLOCKED':
+      return 'BLOCKED — Chưa đủ điều kiện';
+    default:
+      return 'Không xác định';
+  }
 }
 
 export function categoryLabel(category: AdaptiveLessonCategory): string {
   switch (category) {
     case 'REMEDIAL':
-      return 'Ôn lại nền tảng';
+      return 'REMEDIAL — Ôn lại nền tảng';
     case 'REINFORCEMENT':
-      return 'Củng cố';
+      return 'REINFORCEMENT — Củng cố';
     case 'PROGRESSION':
-      return 'Học nội dung tiếp theo';
+      return 'PROGRESSION — Học nội dung tiếp theo';
+    default:
+      return 'Không xác định';
+  }
+}
+
+export function masteryStateLabel(state: AdaptiveMasteryState): string {
+  switch (state) {
+    case 'PRIOR':
+      return 'PRIOR — Chưa có quan sát đánh giá';
+    case 'OBSERVED':
+      return 'OBSERVED — Đã có quan sát đánh giá';
+    default:
+      return 'Không xác định';
+  }
+}
+
+export function policySourceLabel(source: AdaptivePolicySource): string {
+  switch (source) {
+    case 'DEFAULT':
+      return 'Using default policy';
+    case 'SAVED':
+      return 'Course-specific policy';
+    default:
+      return 'Policy source không xác định';
   }
 }
 
@@ -64,5 +100,7 @@ export function adaptiveReasonText(reason: AdaptiveLessonReason): string {
         ? `Bạn cần đạt điều kiện ở ${prerequisites} trước khi nội dung về ${reason.focusSkillName} được ưu tiên trong lộ trình.`
         : `Các điều kiện tiên quyết cho ${reason.focusSkillName} chưa đạt nên nội dung này chưa được ưu tiên trong lộ trình.`;
     }
+    default:
+      return 'Thông tin lý do đề xuất hiện chưa khả dụng.';
   }
 }

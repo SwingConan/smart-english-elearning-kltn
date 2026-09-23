@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context';
 import { RoleRoute } from '@/features/auth/RoleRoute';
@@ -18,6 +18,7 @@ import type {
 } from './types';
 
 const enrollmentId = '10000000-0000-4000-8000-000000000001';
+const otherEnrollmentId = '10000000-0000-4000-8000-000000000002';
 
 afterEach(() => {
   cleanup();
@@ -48,7 +49,7 @@ describe('StudentAdaptivePathPage', () => {
     expect(screen.getByText(/45,6/)).toBeInTheDocument();
     expect(screen.getByText(/PRIOR — Chưa có quan sát đánh giá/i)).toBeInTheDocument();
     expect(screen.getByText(/UNASSESSED — Chưa đánh giá/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/^OBSERVED$/i)).not.toHaveLength(0);
+    expect(screen.getByText(/OBSERVED — Đã có quan sát đánh giá/i)).toBeInTheDocument();
     expect(screen.getByText(/PROGRESSION_READY — Sẵn sàng tiến tiếp/i)).toBeInTheDocument();
     expect(screen.queryByText(/Mastered/i)).not.toBeInTheDocument();
   });
@@ -118,11 +119,18 @@ describe('StudentAdaptivePathPage', () => {
       state: 'PRIOR' as const,
       masteryProbability: 0.3,
     };
+    const secondPrerequisite = {
+      skillId: 'vocabulary',
+      code: 'VOCABULARY',
+      name: 'Vocabulary Skill With A Long Display Name',
+      state: 'OBSERVED' as const,
+      masteryProbability: 0.6,
+    };
     const blocked: AdaptiveBlockedLesson = {
       ...metadata('blocked', 'Blocked lesson'),
       reason: {
         ...reason('LOCKED_PREREQUISITE', 'Advanced Skill', 0.5, 0.8),
-        unsatisfiedPrerequisites: [prerequisite],
+        unsatisfiedPrerequisites: [prerequisite, secondPrerequisite],
       },
     };
     vi.spyOn(adaptivePathApi, 'get').mockResolvedValue(response({ blockedLessons: [blocked] }));
@@ -139,6 +147,11 @@ describe('StudentAdaptivePathPage', () => {
     ).toBeInTheDocument();
     expect(
       within(blockedSection).getByText(/FOUNDATION.*Foundation Skill.*30/i),
+    ).toBeInTheDocument();
+    expect(
+      within(blockedSection).getByText(
+        /VOCABULARY.*Vocabulary Skill With A Long Display Name.*60/i,
+      ),
     ).toBeInTheDocument();
     expect(
       within(blockedSection).getByText(/chưa được ưu tiên trong lộ trình/i),
@@ -194,6 +207,81 @@ describe('StudentAdaptivePathPage', () => {
 
     expect(await screen.findByText(/không có bài học nào cần ưu tiên/i)).toBeInTheDocument();
     expect(screen.queryByText(/chưa có liên kết Lesson → Skill\/KC/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Bài học chưa được ưu tiên' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Bài học chưa liên kết Skill/KC' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('refetches a changed enrollmentId and removes stale success content while loading', async () => {
+    let resolveOther!: (value: StudentAdaptivePath) => void;
+    const get = vi.spyOn(adaptivePathApi, 'get').mockImplementation((requestedEnrollmentId) => {
+      if (requestedEnrollmentId === enrollmentId) {
+        return Promise.resolve(
+          response({
+            skillClassifications: [skill('first', 'PRIOR', 0.5, 'UNASSESSED', 'READY')],
+          }),
+        );
+      }
+      return new Promise((resolve) => {
+        resolveOther = resolve;
+      });
+    });
+    renderEnrollmentSwitch();
+    expect(await screen.findByText('first Skill')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch enrollment' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/Đang tải lộ trình/i);
+    expect(screen.queryByText('first Skill')).not.toBeInTheDocument();
+    resolveOther(
+      response({
+        enrollmentId: otherEnrollmentId,
+        skillClassifications: [skill('second', 'OBSERVED', 0.6, 'REINFORCEMENT', 'READY')],
+      }),
+    );
+    expect(await screen.findByText('second Skill')).toBeInTheDocument();
+    expect(get).toHaveBeenLastCalledWith(otherEnrollmentId, expect.any(AbortSignal));
+  });
+
+  it('renders safe fallbacks for unexpected runtime display values', async () => {
+    const malformed = response({
+      policy: {
+        remedialThreshold: Number.NaN,
+        progressionThreshold: 0.8,
+        source: 'FUTURE_SOURCE' as StudentAdaptivePath['policy']['source'],
+      },
+      configurationStatus: 'FUTURE_CONFIGURATION' as StudentAdaptivePath['configurationStatus'],
+      skillClassifications: [
+        skill(
+          'unknown',
+          'FUTURE_STATE' as AdaptiveSkillClassification['state'],
+          Number.NaN,
+          'FUTURE_BAND' as AdaptiveSkillClassification['masteryBand'],
+          'FUTURE_PREREQUISITE' as AdaptiveSkillClassification['prerequisiteStatus'],
+        ),
+      ],
+      path: [
+        pathLesson(
+          'unknown',
+          'Unknown display lesson',
+          'FUTURE_CATEGORY' as AdaptiveLessonCategory,
+          reason('FUTURE_REASON' as AdaptiveReasonCode, 'Unknown Skill', Number.NaN, null),
+        ),
+      ],
+    });
+    vi.spyOn(adaptivePathApi, 'get').mockResolvedValue(malformed);
+    renderPage();
+
+    expect(await screen.findByText('Policy source không xác định')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Trạng thái cấu hình lộ trình hiện chưa xác định/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Không xác định').length).toBeGreaterThanOrEqual(4);
+    expect(screen.getByText(/Thông tin lý do đề xuất hiện chưa khả dụng/i)).toBeInTheDocument();
+    expect(screen.queryByText(/FUTURE_/i)).not.toBeInTheDocument();
   });
 
   it.each([
@@ -270,6 +358,53 @@ function renderPage(refreshUser = vi.fn().mockResolvedValue(undefined)) {
         </Routes>
       </AuthContext.Provider>
     </MemoryRouter>,
+  );
+}
+
+function renderEnrollmentSwitch() {
+  const value: AuthContextValue = {
+    user: {
+      id: 'student',
+      email: 'student@example.test',
+      fullName: 'Student',
+      role: 'STUDENT',
+      status: 'ACTIVE',
+    },
+    isLoading: false,
+    error: null,
+    login: vi.fn(),
+    register: vi.fn(),
+    logout: vi.fn(),
+    refreshUser: vi.fn().mockResolvedValue(undefined),
+  };
+  return render(
+    <MemoryRouter initialEntries={[`/student/enrollments/${enrollmentId}/path`]}>
+      <AuthContext.Provider value={value}>
+        <Routes>
+          <Route
+            path="/student/enrollments/:enrollmentId/path"
+            element={
+              <RoleRoute allowedRoles={['STUDENT']}>
+                <EnrollmentSwitcher />
+                <StudentAdaptivePathPage />
+              </RoleRoute>
+            }
+          />
+        </Routes>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+}
+
+function EnrollmentSwitcher() {
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={() => navigate(`/student/enrollments/${otherEnrollmentId}/path`)}
+      type="button"
+    >
+      Switch enrollment
+    </button>
   );
 }
 

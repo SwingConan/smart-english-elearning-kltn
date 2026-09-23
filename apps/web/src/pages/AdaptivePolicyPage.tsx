@@ -20,8 +20,17 @@ export function AdaptivePolicyPage() {
 
   useEffect(() => {
     const controller = new AbortController();
+    let active = true;
 
     async function loadPolicy() {
+      setLoading(true);
+      setPolicy(null);
+      setLoadError(null);
+      setValidationError(null);
+      setSaveError(null);
+      setMessage(null);
+      setRemedialValue('');
+      setProgressionValue('');
       if (!courseId) {
         setLoadError('Không thể xác định khóa học.');
         setLoading(false);
@@ -30,21 +39,26 @@ export function AdaptivePolicyPage() {
 
       try {
         const loaded = await adaptivePolicyApi.get(courseId, controller.signal);
+        if (!active) return;
         setPolicy(loaded);
         setRemedialValue(String(loaded.remedialThreshold));
         setProgressionValue(String(loaded.progressionThreshold));
         setLoadError(null);
       } catch (error) {
+        if (!active) return;
         if (error instanceof Error && error.name === 'AbortError') return;
         if (await redirectExpiredSession(error)) return;
         setLoadError('Không thể tải Adaptive Policy. Vui lòng thử lại.');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
 
     void loadPolicy();
-    return () => controller.abort();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [courseId, redirectExpiredSession]);
 
   async function savePolicy(event: FormEvent<HTMLFormElement>) {
@@ -94,7 +108,11 @@ export function AdaptivePolicyPage() {
         </Link>
       </div>
 
-      {loading ? <p className="py-10 text-center">Đang tải Adaptive Policy...</p> : null}
+      {loading ? (
+        <p className="py-10 text-center" role="status">
+          Đang tải Adaptive Policy...
+        </p>
+      ) : null}
       {!loading && loadError ? (
         <p className="rounded bg-red-50 p-4 text-red-700" role="alert">
           {loadError}
@@ -104,16 +122,7 @@ export function AdaptivePolicyPage() {
       {!loading && policy ? (
         <>
           <section className="rounded-lg border bg-white p-5 shadow-sm" aria-label="Nguồn policy">
-            {policy.source === 'DEFAULT' ? (
-              <p className="rounded bg-amber-50 p-3 text-sm text-amber-800">
-                <strong>DEFAULT:</strong> Đây là giá trị mặc định hiện tại; khóa học chưa có policy
-                riêng được lưu.
-              </p>
-            ) : (
-              <p className="rounded bg-green-50 p-3 text-sm text-green-800">
-                <strong>SAVED:</strong> Policy riêng của khóa học đã được lưu.
-              </p>
-            )}
+            <PolicySourceNotice source={policy.source} />
 
             <form className="mt-5 space-y-4" onSubmit={(event) => void savePolicy(event)}>
               <div>
@@ -123,6 +132,7 @@ export function AdaptivePolicyPage() {
                 <input
                   className="mt-1 w-full rounded border px-3 py-2"
                   id="remedial-threshold"
+                  aria-describedby="remedial-threshold-help"
                   max="1"
                   min="0"
                   onChange={(event) => setRemedialValue(event.target.value)}
@@ -131,7 +141,9 @@ export function AdaptivePolicyPage() {
                   type="number"
                   value={remedialValue}
                 />
-                <p className="mt-1 text-xs text-slate-500">Ví dụ: 0.4 tương đương 40%.</p>
+                <p className="mt-1 text-xs text-slate-500" id="remedial-threshold-help">
+                  Ví dụ: 0.4 tương đương 40%.
+                </p>
               </div>
 
               <div>
@@ -141,6 +153,7 @@ export function AdaptivePolicyPage() {
                 <input
                   className="mt-1 w-full rounded border px-3 py-2"
                   id="progression-threshold"
+                  aria-describedby="progression-threshold-help"
                   max="1"
                   min="0"
                   onChange={(event) => setProgressionValue(event.target.value)}
@@ -149,7 +162,9 @@ export function AdaptivePolicyPage() {
                   type="number"
                   value={progressionValue}
                 />
-                <p className="mt-1 text-xs text-slate-500">Ví dụ: 0.8 tương đương 80%.</p>
+                <p className="mt-1 text-xs text-slate-500" id="progression-threshold-help">
+                  Ví dụ: 0.8 tương đương 80%.
+                </p>
               </div>
 
               {validationError ? (
@@ -198,6 +213,30 @@ export function AdaptivePolicyPage() {
       ) : null}
     </div>
   );
+}
+
+function PolicySourceNotice({ source }: { source: AdaptivePolicy['source'] }) {
+  switch (source) {
+    case 'DEFAULT':
+      return (
+        <p className="rounded bg-amber-50 p-3 text-sm text-amber-800">
+          <strong>DEFAULT:</strong> Đây là giá trị mặc định hiện tại; khóa học chưa có policy riêng
+          được lưu.
+        </p>
+      );
+    case 'SAVED':
+      return (
+        <p className="rounded bg-green-50 p-3 text-sm text-green-800">
+          <strong>SAVED:</strong> Policy riêng của khóa học đã được lưu.
+        </p>
+      );
+    default:
+      return (
+        <p className="rounded bg-slate-100 p-3 text-sm text-slate-700">
+          Nguồn policy hiện chưa xác định.
+        </p>
+      );
+  }
 }
 
 function validatePolicy(
