@@ -24,6 +24,7 @@ import { KnowledgeModelPage } from '@/pages/KnowledgeModelPage';
 import { StudentMasteryPage } from '@/pages/StudentMasteryPage';
 import { AdaptivePolicyPage } from '@/pages/AdaptivePolicyPage';
 import { StudentAdaptivePathPage } from '@/pages/StudentAdaptivePathPage';
+import { InstructorLearnerMasteryPage } from '@/pages/InstructorLearnerMasteryPage';
 
 export function App() {
   return (
@@ -138,6 +139,14 @@ export function App() {
             element={
               <RoleRoute allowedRoles={['INSTRUCTOR']}>
                 <AdaptivePolicyPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/instructor/courses/:courseId/learner-mastery"
+            element={
+              <RoleRoute allowedRoles={['INSTRUCTOR']}>
+                <InstructorLearnerMasteryPage />
               </RoleRoute>
             }
           />

@@ -67,9 +67,23 @@ adaptive engine is deterministic and explainable: it reads the current VS04
 `LearnerSkillState`, and the next adaptive-path GET reflects assessment/BKT
 updates. Recommendations and paths are not persisted.
 
+VS06 adds the Instructor Learner Mastery Dashboard:
+
+```text
+Assigned Instructor -> own ClassOfferings -> ACTIVE Enrollments
+-> current per-Skill PRIOR/OBSERVED mastery -> adaptive mastery band
+```
+
+For each Enrollment, an assigned Instructor can view the learner and
+ClassOffering context, mastery probability, observation count, last-observed
+time, and the current DEFAULT/SAVED Course adaptive-policy thresholds. The
+Course-level endpoint excludes ACTIVE learners belonging to another
+Instructor's ClassOfferings in the same Course. It does not provide class
+aggregates, Instructor mastery-history drill-down, or engagement analytics.
+
 Not implemented yet: payment confirmation, instructor lookup or reassignment
 UI, file upload/object storage, Essay/AI grading, time-limit enforcement,
-Instructor assessment/mastery analytics, engagement adaptation, DKT/forgetting,
+Instructor class aggregate/assessment analytics, engagement adaptation, DKT/forgetting,
 LLM recommendation, certificates, or virtual classrooms.
 
 ## Tested baseline
@@ -193,12 +207,12 @@ npm run test:e2e --workspace=@smart-elearning/api
 npm run build
 ```
 
-Current automated baseline: 17 API unit suites / 228 tests, 13 API E2E suites /
-61 tests, and 17 Web test files / 162 tests (451 tests total), all PASS at the
-VS05 implementation baseline entering documentation close-out.
+Current automated baseline: 18 API unit suites / 248 tests, 14 API E2E suites /
+69 tests, and 18 Web test files / 178 tests (495 tests total), all PASS at the
+VS06 implementation baseline entering documentation close-out.
 
 Current npm audit baseline: 0 critical / 6 high / 0 moderate / 0 low. No audit
-fix or dependency change is claimed as part of VS05 close-out.
+fix or dependency change is claimed as part of VS06 close-out.
 
 ## Security and design boundaries
 
@@ -220,6 +234,9 @@ fix or dependency change is claimed as part of VS05 close-out.
 - VS05 recommendations are computed on read from the current learner model,
   prerequisites, Lesson mappings, progress, and Course policy. Adaptive
   `BLOCKED` affects recommendation eligibility, not Lesson authorization.
+- VS06 Instructor mastery reads are Course-scoped and return only ACTIVE
+  Enrollment rows from the authenticated Instructor's own ClassOfferings. The
+  dashboard GET is read-only and exposes no assessment-answer secrets.
 - Learning resources are URL-based. `isDownloadable` controls business/UI
   behavior and is not cryptographic download protection.
 - Never commit `.env` files, passwords, session secrets, or connection URLs.
