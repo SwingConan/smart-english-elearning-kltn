@@ -16,16 +16,21 @@ import {
   UserStatus,
 } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import { computeBktUpdate } from '../src/modules/knowledge-model/bkt';
 import { expectSafeError, loginAgent } from './assessment-e2e-helpers';
+
+jest.setTimeout(30_000);
 
 describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let studentAgent: ReturnType<typeof request.agent>;
+  let instructorAgent: ReturnType<typeof request.agent>;
   const sessionIds = new Set<string>();
   const unique = `${Date.now()}-${process.pid}`;
   const password = 'Vs05CrossFeature!2026';
   let adminId: string;
+  let instructorId: string;
   let studentId: string;
   let courseId: string;
   let offeringId: string;
@@ -50,13 +55,22 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
     prisma = app.get(PrismaService);
 
     const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
-    const [admin, student] = await Promise.all([
+    const [admin, instructor, student] = await Promise.all([
       prisma.user.create({
         data: {
           email: `vs05-f1-admin-${unique}@example.test`,
           passwordHash,
           fullName: 'VS05 F1 Admin',
           role: UserRole.ADMIN_COORDINATOR,
+          status: UserStatus.ACTIVE,
+        },
+      }),
+      prisma.user.create({
+        data: {
+          email: `vs06-d-instructor-${unique}@example.test`,
+          passwordHash,
+          fullName: 'VS06 D Instructor',
+          role: UserRole.INSTRUCTOR,
           status: UserStatus.ACTIVE,
         },
       }),
@@ -71,6 +85,7 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
       }),
     ]);
     adminId = admin.id;
+    instructorId = instructor.id;
     studentId = student.id;
 
     const course = await prisma.course.create({
@@ -87,6 +102,7 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
     const offering = await prisma.classOffering.create({
       data: {
         courseId,
+        instructorId,
         name: `VS05 F1 Offering ${unique}`,
         status: ClassOfferingStatus.OPEN,
         pricingType: PricingType.FREE,
@@ -165,7 +181,14 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
     testQuestionId = testQuestion.id;
 
     studentAgent = request.agent(app.getHttpServer());
+    instructorAgent = request.agent(app.getHttpServer());
     await loginAgent(studentAgent, `vs05-f1-student-${unique}@example.test`, password, sessionIds);
+    await loginAgent(
+      instructorAgent,
+      `vs06-d-instructor-${unique}@example.test`,
+      password,
+      sessionIds,
+    );
   });
 
   afterAll(async () => {
@@ -194,19 +217,32 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
       await prisma.classOffering.delete({ where: { id: offeringId } });
       await prisma.course.delete({ where: { id: courseId } });
       await prisma.userSession.deleteMany({ where: { sid: { in: [...sessionIds] } } });
-      await prisma.user.deleteMany({ where: { id: { in: [adminId, studentId] } } });
+      await prisma.user.deleteMany({
+        where: { id: { in: [adminId, instructorId, studentId] } },
+      });
     }
     if (app) await app.close();
   });
 
-  it('changes the compute-on-read path exactly once after a real hidden-result assessment', async () => {
+  it('updates both adaptive path and Instructor dashboard exactly once after a real hidden-result assessment', async () => {
     const policyBefore = await prisma.courseAdaptivePolicy.findUniqueOrThrow({
       where: { courseId },
     });
     const countsBefore = await adaptiveStateCounts();
+    const dashboardBefore = await instructorDashboard();
+    const repeatedDashboardBefore = await instructorDashboard();
     const before = await adaptivePath();
     const repeatedBefore = await adaptivePath();
 
+    expect(repeatedDashboardBefore.body).toEqual(dashboardBefore.body);
+    expect(dashboardSkillState(dashboardBefore.body)).toEqual({
+      skillId,
+      state: 'PRIOR',
+      masteryProbability: 0.5,
+      masteryBand: 'UNASSESSED',
+      observationCount: 0,
+      lastObservedAt: null,
+    });
     expect(repeatedBefore.body).toEqual(before.body);
     expect(before.body.policy).toEqual({
       remedialThreshold: 0.4,
@@ -251,23 +287,29 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
     });
     expect(gradedAttempt).toMatchObject({ score: 1, maxScore: 1 });
 
+    const persistedAnswer = await prisma.testAnswer.findUniqueOrThrow({
+      where: { attemptId_testQuestionId: { attemptId, testQuestionId } },
+    });
+    expect(persistedAnswer).toMatchObject({
+      isCorrect: true,
+      pointsAwarded: 1,
+      selectedOptionIds: [correctOptionId],
+    });
+
     const learnerState = await prisma.learnerSkillState.findUniqueOrThrow({
       where: { enrollmentId_skillId: { enrollmentId, skillId } },
     });
+    const expectedMastery = computeBktUpdate(0.5, 0.1, 0.2, 0.1, true).posteriorMastery;
     const history = await prisma.masteryHistory.findUniqueOrThrow({
       where: {
         testAnswerId_skillId: {
-          testAnswerId: (
-            await prisma.testAnswer.findUniqueOrThrow({
-              where: { attemptId_testQuestionId: { attemptId, testQuestionId } },
-            })
-          ).id,
+          testAnswerId: persistedAnswer.id,
           skillId,
         },
       },
     });
     expect(learnerState.observationCount).toBe(1);
-    expect(learnerState.masteryProbability).toBeCloseTo(0.8363636363636364, 10);
+    expect(learnerState.masteryProbability).toBeCloseTo(expectedMastery, 10);
     expect(history).toMatchObject({
       enrollmentId,
       skillId,
@@ -276,6 +318,36 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
       priorMastery: 0.5,
     });
     expect(history.posteriorMastery).toBeCloseTo(learnerState.masteryProbability, 10);
+
+    const dashboardAfter = await instructorDashboard();
+    expect(dashboardSkillState(dashboardAfter.body)).toEqual({
+      skillId,
+      state: 'OBSERVED',
+      masteryProbability: learnerState.masteryProbability,
+      masteryBand: 'PROGRESSION_READY',
+      observationCount: 1,
+      lastObservedAt: learnerState.lastObservedAt?.toISOString(),
+    });
+    const stateBeforeDashboardRepeat = await prisma.learnerSkillState.findUniqueOrThrow({
+      where: { enrollmentId_skillId: { enrollmentId, skillId } },
+    });
+    const historyBeforeDashboardRepeat = await prisma.masteryHistory.findMany({
+      where: { enrollmentId, skillId },
+      orderBy: { id: 'asc' },
+    });
+    const repeatedDashboardAfter = await instructorDashboard();
+    expect(repeatedDashboardAfter.body).toEqual(dashboardAfter.body);
+    await expect(
+      prisma.learnerSkillState.findUniqueOrThrow({
+        where: { enrollmentId_skillId: { enrollmentId, skillId } },
+      }),
+    ).resolves.toEqual(stateBeforeDashboardRepeat);
+    await expect(
+      prisma.masteryHistory.findMany({
+        where: { enrollmentId, skillId },
+        orderBy: { id: 'asc' },
+      }),
+    ).resolves.toEqual(historyBeforeDashboardRepeat);
 
     const after = await adaptivePath();
     expect(skillClassification(after.body)).toMatchObject({
@@ -314,6 +386,7 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
       }),
     ).resolves.toEqual(historyBeforeRepeat);
     await expect(adaptivePath()).resolves.toMatchObject({ body: after.body });
+    await expect(instructorDashboard()).resolves.toMatchObject({ body: dashboardAfter.body });
     await expect(adaptiveStateCounts()).resolves.toEqual({
       policies: 1,
       learnerStates: 1,
@@ -410,6 +483,12 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
     return studentAgent.get(`/api/learning/enrollments/${enrollmentId}/adaptive-path`).expect(200);
   }
 
+  function instructorDashboard() {
+    return instructorAgent
+      .get(`/api/instructor/courses/${courseId}/learner-mastery`)
+      .expect(200);
+  }
+
   function submitAttempt(attemptId: string, selectedOptionId: string) {
     return studentAgent
       .post(`/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/submit`)
@@ -420,6 +499,17 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
 
   function skillClassification(body: { skillClassifications: Array<{ skillId: string }> }) {
     return body.skillClassifications.find((item) => item.skillId === skillId);
+  }
+
+  function dashboardSkillState(body: {
+    learners: Array<{
+      enrollmentId: string;
+      skillStates: Array<{ skillId: string }>;
+    }>;
+  }) {
+    return body.learners
+      .find((learner) => learner.enrollmentId === enrollmentId)
+      ?.skillStates.find((state) => state.skillId === skillId);
   }
 
   async function adaptiveStateCounts() {

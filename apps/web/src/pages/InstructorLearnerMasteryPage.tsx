@@ -131,9 +131,9 @@ function MasteryContent({ data }: { data: InstructorLearnerMasteryResponse }) {
                   <th className="px-4 py-3" scope="col">Học viên</th>
                   <th className="px-4 py-3" scope="col">ClassOffering</th>
                   {data.skills.map((skill) => (
-                    <th className="min-w-64 px-4 py-3" key={skill.skillId} scope="col">
-                      <span className="block font-semibold">{skill.code}</span>
-                      <span className="block font-normal text-slate-600">{skill.name}</span>
+                    <th className="min-w-64 max-w-64 px-4 py-3" key={skill.skillId} scope="col">
+                      <span className="block break-words font-semibold">{skill.code}</span>
+                      <span className="block break-words font-normal text-slate-600">{skill.name}</span>
                     </th>
                   ))}
                 </tr>
@@ -141,8 +141,8 @@ function MasteryContent({ data }: { data: InstructorLearnerMasteryResponse }) {
               <tbody className="divide-y">
                 {data.learners.map((learner) => (
                   <tr data-testid="learner-row" key={learner.enrollmentId}>
-                    <th className="px-4 py-4 align-top font-semibold" scope="row">{learner.learnerName}</th>
-                    <td className="px-4 py-4 align-top">{learner.classOffering.name}</td>
+                    <th className="max-w-64 break-words px-4 py-4 align-top font-semibold" scope="row">{learner.learnerName}</th>
+                    <td className="max-w-64 break-words px-4 py-4 align-top">{learner.classOffering.name}</td>
                     {data.skills.map((skill) => (
                       <td className="px-4 py-4 align-top" key={skill.skillId}>
                         <SkillStateCell state={learner.skillStates.find((item) => item.skillId === skill.skillId)} />
@@ -161,6 +161,16 @@ function MasteryContent({ data }: { data: InstructorLearnerMasteryResponse }) {
 
 function SkillStateCell({ state }: { state: InstructorLearnerMasterySkillState | undefined }) {
   if (!state) return <span className="text-slate-500">Không có dữ liệu</span>;
+  if (state.state !== 'PRIOR' && state.state !== 'OBSERVED') {
+    return (
+      <div className="space-y-1 text-slate-600">
+        <p className="font-semibold">Trạng thái mastery không xác định</p>
+        <p>{masteryBandLabel(state.masteryBand)}</p>
+        <p>{state.observationCount} quan sát</p>
+        <p>Lần quan sát cuối: {adaptiveTimestamp(state.lastObservedAt)}</p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-1">
       {state.state === 'PRIOR' ? (

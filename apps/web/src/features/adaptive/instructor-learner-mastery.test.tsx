@@ -118,6 +118,25 @@ describe('InstructorLearnerMasteryPage', () => {
     ).toHaveLength(3);
   });
 
+  it('uses neutral fallbacks for unknown enums and malformed timestamps', async () => {
+    const data = response({
+      policy: { remedialThreshold: 0.4, progressionThreshold: 0.8, source: 'FUTURE' as 'SAVED' },
+    });
+    data.learners[0].skillStates[0] = {
+      ...data.learners[0].skillStates[0],
+      state: 'FUTURE' as 'OBSERVED',
+      masteryBand: 'FUTURE' as 'REINFORCEMENT',
+      lastObservedAt: 'not-a-date',
+    };
+    vi.spyOn(instructorLearnerMasteryApi, 'get').mockResolvedValue(data);
+    renderPage();
+
+    expect(await screen.findByText('Nguồn chính sách chưa xác định')).toBeInTheDocument();
+    expect(screen.getByText('Trạng thái mastery không xác định')).toBeInTheDocument();
+    expect(screen.getByText('Không xác định')).toBeInTheDocument();
+    expect(screen.getByText('Lần quan sát cuối: —')).toBeInTheDocument();
+  });
+
   it('shows a non-error empty learner state while retaining configured Skills', async () => {
     vi.spyOn(instructorLearnerMasteryApi, 'get').mockResolvedValue(response({ learners: [] }));
     renderPage();
