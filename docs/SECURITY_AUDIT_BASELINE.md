@@ -1,6 +1,6 @@
 # Dependency Security Audit Baseline
 
-Current verification date: 2026-09-23
+Current verification date: 2026-09-24
 
 ## Audit summary
 
@@ -89,3 +89,19 @@ The current verified npm audit summary is:
 VS05 did not change dependencies or run an audit fix to reduce this count. The
 NestJS/Multer and Prisma tooling dependency-chain review policy above remains
 in effect.
+
+## VS06 close-out — 2026-09-24
+
+The verified npm audit summary remains:
+
+- 0 critical
+- 6 high
+- 0 moderate
+- 0 low
+
+VS06 did not change dependencies or apply an audit fix. Its Instructor
+learner-mastery endpoint verifies Course assignment and filters returned rows
+to ACTIVE Enrollments in the authenticated Instructor's own ClassOfferings;
+same-Course learners assigned to another Instructor are excluded. This
+application-level authorization evidence does not remediate or reclassify the
+dependency advisories above.

@@ -12,7 +12,7 @@ The backend is a **Modular Monolith**. Modules are logical boundaries inside one
 | learning          | Instructor curriculum delivery, authorized lesson access, and progress                                                                      | Module, Lesson, LearningResource, LessonProgress                                        |
 | assessments       | Objective Question Bank, Test/TestQuestion lifecycle, Student Attempt/TestAnswer, deterministic scoring, and publication-controlled results | Question, QuestionOption, Test, TestQuestion, TestAttempt, TestAnswer                   |
 | knowledge-model   | Course Skill/KC catalog, prerequisite graph, Question/Lesson mapping, and pure BKT math                                                     | Skill, SkillPrerequisite, QuestionSkill, LessonSkill, LearnerSkillState, MasteryHistory |
-| adaptive          | Deterministic compute-on-read recommendation, policy, mastery classification, and personalized-path generation                              | CourseAdaptivePolicy; derived path output                                               |
+| adaptive          | Deterministic recommendation, policy, mastery classification, personalized paths, and Instructor-owned learner-mastery reads                | CourseAdaptivePolicy; derived path and current-mastery dashboard output                 |
 | essay-grading     | AI suggested assessment + Instructor finalization                                                                                           | AIGradingResult, FinalEssayGrade                                                        |
 | engagement        | Learning events + aggregate metrics                                                                                                         | LearningEvent, EngagementMetric                                                         |
 | consultations     | Instructor consultation + AI advisory                                                                                                       | Conversation, Message                                                                   |
@@ -106,6 +106,23 @@ Frontend ownership is in `apps/web/src/features/adaptive/`,
 `apps/web/src/pages/AdaptivePolicyPage.tsx`, and
 `apps/web/src/pages/StudentAdaptivePathPage.tsx`. Adaptive `BLOCKED` is a
 recommendation state and does not change Lesson authorization.
+
+## VS06 Instructor learner-mastery boundary
+
+`AdaptiveModule` also owns the read-only VS06 Instructor dashboard surface:
+
+- API: `GET /api/instructor/courses/:courseId/learner-mastery` through
+  `InstructorLearnerMasteryController` and `InstructorLearnerMasteryService`;
+- data scope: ACTIVE Enrollments in the authenticated Instructor's own
+  ClassOfferings for the requested Course;
+- frontend: `InstructorLearnerMasteryPage.tsx` at
+  `/instructor/courses/:courseId/learner-mastery`;
+- permanent coverage: service tests, `instructor-learner-mastery.e2e-spec.ts`,
+  the adaptive frontend test suite, and the real assessment -> BKT -> dashboard
+  proof in `adaptive-assessment-bkt.e2e-spec.ts`.
+
+The dashboard reads current `LearnerSkillState` and policy context without
+running BKT or writing learner-model, history, policy, or aggregate data.
 
 ## Deferred/candidate modules
 
