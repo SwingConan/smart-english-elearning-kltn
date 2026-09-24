@@ -12,6 +12,45 @@ export interface AdaptivePolicyInput {
   progressionThreshold: number;
 }
 
+export interface InstructorLearnerMasteryPolicy {
+  remedialThreshold: number;
+  progressionThreshold: number;
+  source: AdaptivePolicySource;
+}
+
+export interface InstructorLearnerMasterySkill {
+  skillId: string;
+  code: string;
+  name: string;
+}
+
+export interface InstructorLearnerMasterySkillState {
+  skillId: string;
+  state: AdaptiveMasteryState;
+  masteryProbability: number;
+  masteryBand: AdaptiveMasteryBand;
+  observationCount: number;
+  lastObservedAt: string | null;
+}
+
+export interface InstructorLearnerMasteryLearner {
+  enrollmentId: string;
+  learnerId: string;
+  learnerName: string;
+  classOffering: {
+    id: string;
+    name: string;
+  };
+  skillStates: InstructorLearnerMasterySkillState[];
+}
+
+export interface InstructorLearnerMasteryResponse {
+  courseId: string;
+  policy: InstructorLearnerMasteryPolicy;
+  skills: InstructorLearnerMasterySkill[];
+  learners: InstructorLearnerMasteryLearner[];
+}
+
 export type AdaptiveConfigurationStatus = 'READY' | 'PARTIALLY_MAPPED' | 'NO_MAPPED_LESSONS';
 export type AdaptiveMasteryState = 'PRIOR' | 'OBSERVED';
 export type AdaptiveMasteryBand = 'UNASSESSED' | 'REMEDIAL' | 'REINFORCEMENT' | 'PROGRESSION_READY';

@@ -125,6 +125,12 @@ export function InstructorTeachingPage() {
                   Adaptive Policy
                 </Link>
                 <Link
+                  to={`/instructor/courses/${course.id}/learner-mastery`}
+                  className="inline-flex w-full items-center justify-center rounded-md border border-cyan-200 px-4 py-2 text-sm font-medium text-cyan-700 hover:bg-cyan-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
+                >
+                  Learner Mastery
+                </Link>
+                <Link
                   to={`/instructor/courses/${course.id}/tests`}
                   className="inline-flex w-full items-center justify-center rounded-md border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >

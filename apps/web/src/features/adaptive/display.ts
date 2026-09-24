@@ -79,6 +79,27 @@ export function policySourceLabel(source: AdaptivePolicySource): string {
   }
 }
 
+export function instructorPolicySourceLabel(source: AdaptivePolicySource): string {
+  switch (source) {
+    case 'DEFAULT':
+      return 'Chính sách mặc định';
+    case 'SAVED':
+      return 'Chính sách riêng của khóa học';
+    default:
+      return 'Nguồn chính sách chưa xác định';
+  }
+}
+
+export function adaptiveTimestamp(value: string | null): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
+}
+
 export function adaptiveReasonText(reason: AdaptiveLessonReason): string {
   const mastery = adaptivePercentage(reason.masteryProbability);
   const threshold = reason.threshold === null ? null : adaptivePercentage(reason.threshold);
