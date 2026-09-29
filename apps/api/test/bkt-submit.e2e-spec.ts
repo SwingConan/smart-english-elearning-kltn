@@ -8,10 +8,10 @@ import {
   EnrollmentStatus,
   PricingType,
   QuestionDifficulty,
-  QuestionType,
+  QuestionResponseType,
   TestAttemptStatus,
   TestStatus,
-  TestType,
+  TestPurpose,
   UserRole,
   UserStatus,
 } from '../src/generated/prisma/client';
@@ -101,12 +101,7 @@ describe('BKT assessment submit integration (e2e)', () => {
     enrollmentId = enrollment.id;
 
     studentAgent = request.agent(app.getHttpServer());
-    await loginAgent(
-      studentAgent,
-      `vs04-c2-student-${unique}@example.test`,
-      password,
-      sessionIds,
-    );
+    await loginAgent(studentAgent, `vs04-c2-student-${unique}@example.test`, password, sessionIds);
   });
 
   afterAll(async () => {
@@ -193,15 +188,9 @@ describe('BKT assessment submit integration (e2e)', () => {
     const grammarState = states.find(({ skillId }) => skillId === grammar.id)!;
     const vocabularyState = states.find(({ skillId }) => skillId === vocabulary.id)!;
     expect(grammarState.observationCount).toBe(2);
-    expect(grammarState.masteryProbability).toBeCloseTo(
-      grammarIncorrect.posteriorMastery,
-      10,
-    );
+    expect(grammarState.masteryProbability).toBeCloseTo(grammarIncorrect.posteriorMastery, 10);
     expect(vocabularyState.observationCount).toBe(1);
-    expect(vocabularyState.masteryProbability).toBeCloseTo(
-      vocabularyCorrect.posteriorMastery,
-      10,
-    );
+    expect(vocabularyState.masteryProbability).toBeCloseTo(vocabularyCorrect.posteriorMastery, 10);
 
     const histories = await prisma.masteryHistory.findMany({
       where: { testAttemptId: attemptId },
@@ -225,24 +214,14 @@ describe('BKT assessment submit integration (e2e)', () => {
       posteriorMastery: grammarCorrect.posteriorMastery,
     });
     expect(grammarHistory[1].isCorrect).toBe(false);
-    expect(grammarHistory[1].priorMastery).toBeCloseTo(
-      grammarCorrect.posteriorMastery,
-      10,
-    );
-    expect(grammarHistory[1].posteriorMastery).toBeCloseTo(
-      grammarIncorrect.posteriorMastery,
-      10,
-    );
+    expect(grammarHistory[1].priorMastery).toBeCloseTo(grammarCorrect.posteriorMastery, 10);
+    expect(grammarHistory[1].posteriorMastery).toBeCloseTo(grammarIncorrect.posteriorMastery, 10);
     const vocabularyHistory = histories.find(({ skillId }) => skillId === vocabulary.id)!;
     expect(vocabularyHistory.priorMastery).toBe(0.6);
-    expect(vocabularyHistory.posteriorMastery).toBeCloseTo(
-      vocabularyCorrect.posteriorMastery,
-      10,
-    );
+    expect(vocabularyHistory.posteriorMastery).toBeCloseTo(vocabularyCorrect.posteriorMastery, 10);
     expect(
       histories.some(
-        ({ testAnswer }) =>
-          testAnswer.testQuestionId === testQuestions.get(unmappedQuestion.id),
+        ({ testAnswer }) => testAnswer.testQuestionId === testQuestions.get(unmappedQuestion.id),
       ),
     ).toBe(false);
 
@@ -422,9 +401,9 @@ describe('BKT assessment submit integration (e2e)', () => {
     expect(attempt.status).toBe(TestAttemptStatus.IN_PROGRESS);
     expect(attempt.submittedAt).toBeNull();
     await expect(prisma.testAnswer.count({ where: { attemptId } })).resolves.toBe(0);
-    await expect(prisma.masteryHistory.count({ where: { testAttemptId: attemptId } })).resolves.toBe(
-      0,
-    );
+    await expect(
+      prisma.masteryHistory.count({ where: { testAttemptId: attemptId } }),
+    ).resolves.toBe(0);
     await expect(
       prisma.learnerSkillState.count({ where: { enrollmentId, skillId: skill.id } }),
     ).resolves.toBe(0);
@@ -455,7 +434,8 @@ describe('BKT assessment submit integration (e2e)', () => {
     const question = await prisma.question.create({
       data: {
         courseId,
-        type: QuestionType.SINGLE_CHOICE,
+        responseType: QuestionResponseType.SINGLE_CHOICE,
+        toeicSkill: 'READING',
         difficulty: QuestionDifficulty.MEDIUM,
         content: `${label} ${unique}`,
         explanation: `${label} explanation`,
@@ -479,7 +459,8 @@ describe('BKT assessment submit integration (e2e)', () => {
     const assessment = await prisma.test.create({
       data: {
         courseId,
-        type: TestType.PLACEMENT,
+        purpose: TestPurpose.PLACEMENT,
+        placementMode: 'LR',
         title: `VS04 C2 Test ${crypto.randomUUID()}`,
         status: TestStatus.PUBLISHED,
         maxAttempts: 1,

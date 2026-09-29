@@ -1,12 +1,15 @@
-import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import {
-  PrismaService,
-} from '../../infrastructure/prisma/prisma.service';
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   QuestionDifficulty,
-  QuestionType,
+  QuestionResponseType,
   TestStatus,
-  TestType,
+  TestPurpose,
 } from '../../generated/prisma/client';
 import { AssessmentInstructorService } from './assessment-instructor.service';
 
@@ -18,11 +21,23 @@ describe('AssessmentInstructorService', () => {
   const transaction = {
     classOffering: { findFirst: jest.fn() },
     lesson: { findFirst: jest.fn() },
-    question: { create: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn(), delete: jest.fn() },
+    question: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
     questionOption: { deleteMany: jest.fn() },
     test: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     testAttempt: { count: jest.fn() },
-    testQuestion: { findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), count: jest.fn(), deleteMany: jest.fn() },
+    testQuestion: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      count: jest.fn(),
+      deleteMany: jest.fn(),
+    },
   };
   const prisma = {
     classOffering: { findFirst: jest.fn() },
@@ -42,16 +57,43 @@ describe('AssessmentInstructorService', () => {
     transaction.testQuestion.findFirst.mockResolvedValue(null);
     transaction.testQuestion.count.mockResolvedValue(0);
     transaction.question.findFirst.mockResolvedValue({ id: questionId });
-    transaction.question.create.mockImplementation(({ data }) => Promise.resolve({ id: questionId, ...data }));
-    transaction.test.create.mockImplementation(({ data }) => Promise.resolve({ id: testId, ...data, testQuestions: [] }));
-    transaction.testQuestion.create.mockImplementation(({ data }) => Promise.resolve({ id: 'test-question-id', ...data }));
-    prisma.$transaction.mockImplementation((operation: (client: typeof transaction) => Promise<unknown>) => operation(transaction));
+    transaction.question.create.mockImplementation(({ data }) =>
+      Promise.resolve({ id: questionId, ...data }),
+    );
+    transaction.test.create.mockImplementation(({ data }) =>
+      Promise.resolve({ id: testId, ...data, testQuestions: [] }),
+    );
+    transaction.testQuestion.create.mockImplementation(({ data }) =>
+      Promise.resolve({ id: 'test-question-id', ...data }),
+    );
+    prisma.$transaction.mockImplementation(
+      (operation: (client: typeof transaction) => Promise<unknown>) => operation(transaction),
+    );
   });
 
   it.each([
-    [QuestionType.SINGLE_CHOICE, [{ content: 'A', isCorrect: true }, { content: 'B', isCorrect: false }]],
-    [QuestionType.TRUE_FALSE, [{ content: 'Custom true', isCorrect: true }, { content: 'Custom false', isCorrect: false }]],
-    [QuestionType.MULTIPLE_CHOICE, [{ content: 'A', isCorrect: true }, { content: 'B', isCorrect: true }, { content: 'C', isCorrect: false }]],
+    [
+      QuestionResponseType.SINGLE_CHOICE,
+      [
+        { content: 'A', isCorrect: true },
+        { content: 'B', isCorrect: false },
+      ],
+    ],
+    [
+      QuestionResponseType.TRUE_FALSE,
+      [
+        { content: 'Custom true', isCorrect: true },
+        { content: 'Custom false', isCorrect: false },
+      ],
+    ],
+    [
+      QuestionResponseType.MULTIPLE_CHOICE,
+      [
+        { content: 'A', isCorrect: true },
+        { content: 'B', isCorrect: true },
+        { content: 'C', isCorrect: false },
+      ],
+    ],
   ])('accepts valid %s questions and assigns contiguous option order', async (type, options) => {
     await service.createQuestion(instructorId, courseId, {
       type,
@@ -64,7 +106,8 @@ describe('AssessmentInstructorService', () => {
     expect(transaction.question.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         courseId,
-        type,
+        responseType: type,
+        toeicSkill: 'READING',
         difficulty: QuestionDifficulty.HARD,
         content: 'Valid question',
         explanation: 'Explanation',
@@ -75,44 +118,71 @@ describe('AssessmentInstructorService', () => {
   });
 
   it.each([
-    ['SC zero correct', QuestionType.SINGLE_CHOICE, [false, false]],
-    ['SC multiple correct', QuestionType.SINGLE_CHOICE, [true, true]],
-    ['TF wrong count', QuestionType.TRUE_FALSE, [true, false, false]],
-    ['TF zero correct', QuestionType.TRUE_FALSE, [false, false]],
-    ['MC zero correct', QuestionType.MULTIPLE_CHOICE, [false, false]],
+    ['SC zero correct', QuestionResponseType.SINGLE_CHOICE, [false, false]],
+    ['SC multiple correct', QuestionResponseType.SINGLE_CHOICE, [true, true]],
+    ['TF wrong count', QuestionResponseType.TRUE_FALSE, [true, false, false]],
+    ['TF zero correct', QuestionResponseType.TRUE_FALSE, [false, false]],
+    ['MC zero correct', QuestionResponseType.MULTIPLE_CHOICE, [false, false]],
   ])('rejects invalid question structure: %s', async (_label, type, correct) => {
-    await expect(service.createQuestion(instructorId, courseId, {
-      type,
-      difficulty: QuestionDifficulty.EASY,
-      content: 'Question',
-      options: correct.map((isCorrect, index) => ({ content: `Option ${index}`, isCorrect })),
-    })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.createQuestion(instructorId, courseId, {
+        type,
+        difficulty: QuestionDifficulty.EASY,
+        content: 'Question',
+        options: correct.map((isCorrect, index) => ({ content: `Option ${index}`, isCorrect })),
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it.each([
-    ['empty question', '', [{ content: 'A', isCorrect: true }, { content: 'B', isCorrect: false }]],
-    ['empty option', 'Question', [{ content: ' ', isCorrect: true }, { content: 'B', isCorrect: false }]],
-    ['normalized duplicate', 'Question', [{ content: ' Same ', isCorrect: true }, { content: 'same', isCorrect: false }]],
+    [
+      'empty question',
+      '',
+      [
+        { content: 'A', isCorrect: true },
+        { content: 'B', isCorrect: false },
+      ],
+    ],
+    [
+      'empty option',
+      'Question',
+      [
+        { content: ' ', isCorrect: true },
+        { content: 'B', isCorrect: false },
+      ],
+    ],
+    [
+      'normalized duplicate',
+      'Question',
+      [
+        { content: ' Same ', isCorrect: true },
+        { content: 'same', isCorrect: false },
+      ],
+    ],
   ])('rejects %s', async (_label, content, options) => {
-    await expect(service.createQuestion(instructorId, courseId, {
-      type: QuestionType.SINGLE_CHOICE,
-      difficulty: QuestionDifficulty.MEDIUM,
-      content,
-      options,
-    })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.createQuestion(instructorId, courseId, {
+        type: QuestionResponseType.SINGLE_CHOICE,
+        difficulty: QuestionDifficulty.MEDIUM,
+        content,
+        options,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('enforces assigned-course authorization', async () => {
     prisma.question.findMany.mockResolvedValue([]);
     await expect(service.listQuestions(instructorId, courseId)).resolves.toEqual([]);
     prisma.classOffering.findFirst.mockResolvedValueOnce(null);
-    await expect(service.listQuestions('unassigned', courseId)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.listQuestions('unassigned', courseId)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('applies Test defaults and lesson rules', async () => {
     const draft = await service.createTest(instructorId, courseId, {
-      type: TestType.PLACEMENT,
+      type: TestPurpose.PLACEMENT,
       title: ' Placement ',
     });
     expect(draft).toMatchObject({
@@ -122,30 +192,38 @@ describe('AssessmentInstructorService', () => {
       lessonId: null,
     });
 
-    await expect(service.createTest(instructorId, courseId, {
-      type: TestType.PLACEMENT,
-      title: 'Invalid',
-      lessonId: 'lesson-id',
-    })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.createTest(instructorId, courseId, {
+        type: TestPurpose.PLACEMENT,
+        title: 'Invalid',
+        lessonId: 'lesson-id',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
 
-    await expect(service.createTest(instructorId, courseId, {
-      type: TestType.QUIZ,
-      title: 'Draft without lesson',
-      lessonId: null,
-    })).resolves.toMatchObject({ lessonId: null, status: TestStatus.DRAFT });
+    await expect(
+      service.createTest(instructorId, courseId, {
+        type: TestPurpose.IN_CLASS,
+        title: 'Draft without lesson',
+        lessonId: null,
+      }),
+    ).resolves.toMatchObject({ lessonId: null, status: TestStatus.DRAFT });
 
     transaction.lesson.findFirst.mockResolvedValueOnce(null);
-    await expect(service.createTest(instructorId, courseId, {
-      type: TestType.QUIZ,
-      title: 'Cross course',
-      lessonId: 'foreign-lesson',
-    })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.createTest(instructorId, courseId, {
+        type: TestPurpose.IN_CLASS,
+        title: 'Cross course',
+        lessonId: 'foreign-lesson',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
 
-    await expect(service.createTest(instructorId, courseId, {
-      type: TestType.QUIZ,
-      title: 'Bad attempts',
-      maxAttempts: 0,
-    })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.createTest(instructorId, courseId, {
+        type: TestPurpose.IN_CLASS,
+        title: 'Bad attempts',
+        maxAttempts: 0,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('appends same-course TestQuestions and rejects cross-course and duplicates', async () => {
@@ -159,15 +237,19 @@ describe('AssessmentInstructorService', () => {
     });
 
     transaction.question.findFirst.mockResolvedValueOnce(null);
-    await expect(service.addTestQuestion(instructorId, testId, {
-      questionId: 'foreign-question',
-      points: 1,
-    })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.addTestQuestion(instructorId, testId, {
+        questionId: 'foreign-question',
+        points: 1,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
 
     transaction.testQuestion.findUnique.mockResolvedValueOnce({ id: 'existing' });
-    await expect(service.addTestQuestion(instructorId, testId, {
-      questionId,
-      points: 1,
-    })).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.addTestQuestion(instructorId, testId, {
+        questionId,
+        points: 1,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

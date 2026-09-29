@@ -8,9 +8,11 @@ import {
 import {
   Prisma,
   QuestionDifficulty,
-  QuestionType,
+  QuestionResponseType,
+  PlacementMode,
+  ToeicSkill,
   TestStatus,
-  TestType,
+  TestPurpose,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AddTestQuestionDto } from './dto/add-test-question.dto';
@@ -26,7 +28,8 @@ const MAX_ASSESSMENT_TRANSACTION_ATTEMPTS = 3;
 const instructorQuestionSelect = {
   id: true,
   courseId: true,
-  type: true,
+  responseType: true,
+  toeicSkill: true,
   difficulty: true,
   content: true,
   explanation: true,
@@ -45,7 +48,8 @@ const instructorQuestionSelect = {
 
 const instructorQuestionPreviewSelect = {
   id: true,
-  type: true,
+  responseType: true,
+  toeicSkill: true,
   difficulty: true,
   content: true,
   explanation: true,
@@ -73,7 +77,8 @@ const instructorTestSelect = {
   id: true,
   courseId: true,
   lessonId: true,
-  type: true,
+  purpose: true,
+  placementMode: true,
   title: true,
   description: true,
   status: true,
@@ -92,7 +97,8 @@ const instructorTestDetailSelect = {
 } satisfies Prisma.TestSelect;
 
 interface NormalizedQuestionInput {
-  type: QuestionType;
+  responseType: QuestionResponseType;
+  toeicSkill: ToeicSkill;
   difficulty: QuestionDifficulty;
   content: string;
   explanation: string | null;
@@ -103,7 +109,8 @@ interface NormalizedQuestionInput {
 }
 
 interface NormalizedTestInput {
-  type: TestType;
+  purpose: TestPurpose;
+  placementMode: PlacementMode | null;
   title: string;
   description: string | null;
   lessonId: string | null;
@@ -148,7 +155,8 @@ export class AssessmentInstructorService {
         return transaction.question.create({
           data: {
             courseId,
-            type: input.type,
+            responseType: input.responseType,
+            toeicSkill: input.toeicSkill,
             difficulty: input.difficulty,
             content: input.content,
             explanation: input.explanation,
@@ -181,7 +189,8 @@ export class AssessmentInstructorService {
       await this.assertQuestionHasNoHistoricalAttempts(transaction, questionId);
 
       const input = this.normalizeAndValidateQuestion({
-        type: dto.type ?? question.type,
+        type: dto.type ?? question.responseType,
+        toeicSkill: dto.toeicSkill ?? question.toeicSkill,
         difficulty: dto.difficulty ?? question.difficulty,
         content: dto.content ?? question.content,
         explanation: dto.explanation !== undefined ? dto.explanation : question.explanation,
@@ -202,7 +211,8 @@ export class AssessmentInstructorService {
       return transaction.question.update({
         where: { id: questionId },
         data: {
-          type: input.type,
+          responseType: input.responseType,
+          toeicSkill: input.toeicSkill,
           difficulty: input.difficulty,
           content: input.content,
           explanation: input.explanation,
@@ -282,7 +292,8 @@ export class AssessmentInstructorService {
 
   async createTest(instructorId: string, courseId: string, dto: CreateTestDto) {
     const input = this.normalizeTestInput({
-      type: dto.type,
+      purpose: dto.type,
+      placementMode: dto.placementMode ?? null,
       title: dto.title,
       description: dto.description ?? null,
       lessonId: dto.lessonId ?? null,
@@ -293,7 +304,13 @@ export class AssessmentInstructorService {
     try {
       return await this.prisma.$transaction(async (transaction) => {
         await this.assertInstructorOwnsCourse(transaction, instructorId, courseId);
-        await this.validateTestLessonRule(transaction, courseId, input.type, input.lessonId, false);
+        await this.validateTestLessonRule(
+          transaction,
+          courseId,
+          input.purpose,
+          input.lessonId,
+          false,
+        );
 
         return transaction.test.create({
           data: {
@@ -323,7 +340,8 @@ export class AssessmentInstructorService {
         await this.assertInstructorOwnsCourse(transaction, instructorId, test.courseId);
 
         const input = this.normalizeTestInput({
-          type: dto.type ?? test.type,
+          purpose: dto.type ?? test.purpose,
+          placementMode: dto.placementMode !== undefined ? dto.placementMode : test.placementMode,
           title: dto.title ?? test.title,
           description: dto.description !== undefined ? dto.description : test.description,
           lessonId: dto.lessonId !== undefined ? dto.lessonId : test.lessonId,
@@ -331,7 +349,7 @@ export class AssessmentInstructorService {
           showResultAfterSubmit: dto.showResultAfterSubmit ?? test.showResultAfterSubmit,
         });
         const lockedFieldChanges =
-          input.type !== test.type ||
+          input.purpose !== test.purpose ||
           input.lessonId !== test.lessonId ||
           input.maxAttempts !== test.maxAttempts;
         if (lockedFieldChanges) {
@@ -340,7 +358,7 @@ export class AssessmentInstructorService {
         await this.validateTestLessonRule(
           transaction,
           test.courseId,
-          input.type,
+          input.purpose,
           input.lessonId,
           test.status === TestStatus.PUBLISHED,
         );
@@ -394,7 +412,8 @@ export class AssessmentInstructorService {
               question: {
                 select: {
                   courseId: true,
-                  type: true,
+                  responseType: true,
+                  toeicSkill: true,
                   difficulty: true,
                   content: true,
                   explanation: true,
@@ -413,7 +432,13 @@ export class AssessmentInstructorService {
       }
 
       await this.assertInstructorOwnsCourse(transaction, instructorId, test.courseId);
-      await this.validateTestLessonRule(transaction, test.courseId, test.type, test.lessonId, true);
+      await this.validateTestLessonRule(
+        transaction,
+        test.courseId,
+        test.purpose,
+        test.lessonId,
+        true,
+      );
       if (test.maxAttempts < 1) {
         throw new BadRequestException('maxAttempts must be at least 1');
       }
@@ -432,7 +457,8 @@ export class AssessmentInstructorService {
           throw new BadRequestException('Every Question must belong to the Test course');
         }
         this.normalizeAndValidateQuestion({
-          type: testQuestion.question.type,
+          type: testQuestion.question.responseType,
+          toeicSkill: testQuestion.question.toeicSkill,
           difficulty: testQuestion.question.difficulty,
           content: testQuestion.question.content,
           explanation: testQuestion.question.explanation,
@@ -625,8 +651,12 @@ export class AssessmentInstructorService {
   private async assertInstructorOwnsCourse(
     database: PrismaService | Prisma.TransactionClient,
     instructorId: string,
-    courseId: string,
+    courseId: string | null,
   ): Promise<void> {
+    if (!courseId) {
+      throw new NotFoundException('Course-scoped assessment not found');
+    }
+
     const assignment = await database.classOffering.findFirst({
       where: { courseId, instructorId },
       select: { id: true },
@@ -668,12 +698,12 @@ export class AssessmentInstructorService {
 
   private async validateTestLessonRule(
     transaction: Prisma.TransactionClient,
-    courseId: string,
-    type: TestType,
+    courseId: string | null,
+    purpose: TestPurpose,
     lessonId: string | null,
     publishing: boolean,
   ): Promise<void> {
-    if (type === TestType.PLACEMENT) {
+    if (purpose === TestPurpose.PLACEMENT) {
       if (lessonId !== null) {
         throw new BadRequestException('PLACEMENT must not reference a Lesson');
       }
@@ -685,6 +715,9 @@ export class AssessmentInstructorService {
     }
     if (lessonId === null) {
       return;
+    }
+    if (!courseId) {
+      throw new BadRequestException('A lesson-scoped test must reference a Course');
     }
 
     const lesson = await transaction.lesson.findFirst({
@@ -710,6 +743,8 @@ export class AssessmentInstructorService {
 
     return {
       ...input,
+      placementMode:
+        input.purpose === TestPurpose.PLACEMENT ? (input.placementMode ?? PlacementMode.LR) : null,
       title,
       description: input.description?.trim() || null,
     };
@@ -778,7 +813,8 @@ export class AssessmentInstructorService {
   }
 
   private normalizeAndValidateQuestion(input: {
-    type: QuestionType;
+    type: QuestionResponseType;
+    toeicSkill?: ToeicSkill;
     difficulty: QuestionDifficulty;
     content: string;
     explanation?: string | null;
@@ -805,21 +841,21 @@ export class AssessmentInstructorService {
 
     const correctCount = options.filter((option) => option.isCorrect).length;
     switch (input.type) {
-      case QuestionType.SINGLE_CHOICE:
+      case QuestionResponseType.SINGLE_CHOICE:
         if (options.length < 2 || correctCount !== 1) {
           throw new BadRequestException(
             'SINGLE_CHOICE requires at least two options and exactly one correct option',
           );
         }
         break;
-      case QuestionType.TRUE_FALSE:
+      case QuestionResponseType.TRUE_FALSE:
         if (options.length !== 2 || correctCount !== 1) {
           throw new BadRequestException(
             'TRUE_FALSE requires exactly two options and exactly one correct option',
           );
         }
         break;
-      case QuestionType.MULTIPLE_CHOICE:
+      case QuestionResponseType.MULTIPLE_CHOICE:
         if (options.length < 2 || correctCount < 1) {
           throw new BadRequestException(
             'MULTIPLE_CHOICE requires at least two options and at least one correct option',
@@ -831,7 +867,8 @@ export class AssessmentInstructorService {
     }
 
     return {
-      type: input.type,
+      responseType: input.type,
+      toeicSkill: input.toeicSkill ?? ToeicSkill.READING,
       difficulty: input.difficulty,
       content,
       explanation,

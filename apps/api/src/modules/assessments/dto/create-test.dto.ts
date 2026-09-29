@@ -10,11 +10,15 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { TestType } from '../../../generated/prisma/client';
+import { PlacementMode, TestPurpose } from '../../../generated/prisma/client';
 
 export class CreateTestDto {
-  @IsEnum(TestType)
-  type: TestType;
+  @IsEnum(TestPurpose)
+  type: TestPurpose;
+
+  @IsOptional()
+  @IsEnum(PlacementMode)
+  placementMode?: PlacementMode | null;
 
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()

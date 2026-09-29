@@ -2,10 +2,10 @@ import { ConflictException } from '@nestjs/common';
 import {
   Prisma,
   QuestionDifficulty,
-  QuestionType,
+  QuestionResponseType,
   TestAttemptStatus,
   TestStatus,
-  TestType,
+  TestPurpose,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AssessmentStudentService } from './assessment-student.service';
@@ -17,8 +17,15 @@ describe('AssessmentStudentService', () => {
   const courseId = 'course-id';
   const enrollment = { id: enrollmentId, classOffering: { courseId } };
   const questions = [
-    testQuestion('tq-sc', QuestionType.SINGLE_CHOICE, 2, [['sc-correct', true], ['sc-wrong', false]]),
-    testQuestion('tq-mc', QuestionType.MULTIPLE_CHOICE, 3, [['mc-a', true], ['mc-b', true], ['mc-c', false]]),
+    testQuestion('tq-sc', QuestionResponseType.SINGLE_CHOICE, 2, [
+      ['sc-correct', true],
+      ['sc-wrong', false],
+    ]),
+    testQuestion('tq-mc', QuestionResponseType.MULTIPLE_CHOICE, 3, [
+      ['mc-a', true],
+      ['mc-b', true],
+      ['mc-c', false],
+    ]),
   ];
   const transaction = {
     enrollment: { findFirst: jest.fn() },
@@ -40,49 +47,63 @@ describe('AssessmentStudentService', () => {
     jest.clearAllMocks();
     prisma.enrollment.findFirst.mockResolvedValue(enrollment);
     transaction.enrollment.findFirst.mockResolvedValue(enrollment);
-    prisma.$transaction.mockImplementation((operation: (client: typeof transaction) => Promise<unknown>) => operation(transaction));
-    transaction.testAnswer.upsert.mockImplementation(({ where }) => Promise.resolve({
-      id: `answer-${where.attemptId_testQuestionId.testQuestionId}`,
-    }));
-    transaction.testAttempt.update.mockImplementation(({ data }) => Promise.resolve({
-      id: attemptId,
-      attemptNumber: 1,
-      status: data.status,
-      score: data.score,
-      maxScore: data.maxScore,
-      startedAt: new Date('2026-09-21T00:00:00Z'),
-      submittedAt: data.submittedAt,
-    }));
+    prisma.$transaction.mockImplementation(
+      (operation: (client: typeof transaction) => Promise<unknown>) => operation(transaction),
+    );
+    transaction.testAnswer.upsert.mockImplementation(({ where }) =>
+      Promise.resolve({
+        id: `answer-${where.attemptId_testQuestionId.testQuestionId}`,
+      }),
+    );
+    transaction.testAttempt.update.mockImplementation(({ data }) =>
+      Promise.resolve({
+        id: attemptId,
+        attemptNumber: 1,
+        status: data.status,
+        score: data.score,
+        maxScore: data.maxScore,
+        startedAt: new Date('2026-09-21T00:00:00Z'),
+        submittedAt: data.submittedAt,
+      }),
+    );
   });
 
   it('shapes the published Test list without question or answer data', async () => {
-    prisma.test.findMany.mockResolvedValue([{
-      id: 'test-id',
-      type: TestType.QUIZ,
-      title: 'Quiz',
-      description: null,
-      lessonId: 'lesson-id',
-      maxAttempts: 2,
-      showResultAfterSubmit: true,
-      _count: { testQuestions: 3 },
-      attempts: [
-        { id: 'submitted', attemptNumber: 1, status: TestAttemptStatus.SUBMITTED },
-        { id: 'active', attemptNumber: 2, status: TestAttemptStatus.IN_PROGRESS },
-      ],
-    }]);
+    prisma.test.findMany.mockResolvedValue([
+      {
+        id: 'test-id',
+        type: TestPurpose.IN_CLASS,
+        title: 'Quiz',
+        description: null,
+        lessonId: 'lesson-id',
+        maxAttempts: 2,
+        showResultAfterSubmit: true,
+        _count: { testQuestions: 3 },
+        attempts: [
+          { id: 'submitted', attemptNumber: 1, status: TestAttemptStatus.SUBMITTED },
+          { id: 'active', attemptNumber: 2, status: TestAttemptStatus.IN_PROGRESS },
+        ],
+      },
+    ]);
 
     const result = await service.listTests(learnerId, enrollmentId);
-    expect(result).toEqual([expect.objectContaining({
-      questionCount: 3,
-      attemptsUsed: 2,
-      hasInProgressAttempt: true,
-      inProgressAttemptId: 'active',
-      latestSubmittedAttemptId: 'submitted',
-    })]);
-    expect(JSON.stringify(result)).not.toMatch(/questions|options|isCorrect|explanation|selectedOptionIds/);
-    expect(prisma.test.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { courseId, status: TestStatus.PUBLISHED },
-    }));
+    expect(result).toEqual([
+      expect.objectContaining({
+        questionCount: 3,
+        attemptsUsed: 2,
+        hasInProgressAttempt: true,
+        inProgressAttemptId: 'active',
+        latestSubmittedAttemptId: 'submitted',
+      }),
+    ]);
+    expect(JSON.stringify(result)).not.toMatch(
+      /questions|options|isCorrect|explanation|selectedOptionIds/,
+    );
+    expect(prisma.test.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { courseId, status: TestStatus.PUBLISHED },
+      }),
+    );
   });
 
   it('scores the authoritative final payload with exact-set matching', async () => {
@@ -97,7 +118,7 @@ describe('AssessmentStudentService', () => {
       test: {
         id: 'test-id',
         title: 'Scoring',
-        type: TestType.QUIZ,
+        type: TestPurpose.IN_CLASS,
         showResultAfterSubmit: true,
         testQuestions: questions,
       },
@@ -111,15 +132,27 @@ describe('AssessmentStudentService', () => {
     });
 
     expect(transaction.testAnswer.upsert).toHaveBeenCalledTimes(2);
-    expect(transaction.testAnswer.upsert).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      update: { selectedOptionIds: ['sc-correct'], isCorrect: true, pointsAwarded: 2 },
-    }));
-    expect(transaction.testAnswer.upsert).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      update: { selectedOptionIds: ['mc-a', 'mc-b'], isCorrect: true, pointsAwarded: 3 },
-    }));
-    expect(transaction.testAttempt.update).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ score: 5, maxScore: 5, status: TestAttemptStatus.SUBMITTED }),
-    }));
+    expect(transaction.testAnswer.upsert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        update: { selectedOptionIds: ['sc-correct'], isCorrect: true, pointsAwarded: 2 },
+      }),
+    );
+    expect(transaction.testAnswer.upsert).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        update: { selectedOptionIds: ['mc-a', 'mc-b'], isCorrect: true, pointsAwarded: 3 },
+      }),
+    );
+    expect(transaction.testAttempt.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          score: 5,
+          maxScore: 5,
+          status: TestAttemptStatus.SUBMITTED,
+        }),
+      }),
+    );
     expect(result.attempt).toMatchObject({ score: 5, maxScore: 5, percentage: 100 });
   });
 
@@ -132,18 +165,30 @@ describe('AssessmentStudentService', () => {
       maxScore: null,
       startedAt: new Date(),
       submittedAt: null,
-      test: { id: 'test-id', title: 'Scoring', type: TestType.QUIZ, showResultAfterSubmit: true, testQuestions: questions },
+      test: {
+        id: 'test-id',
+        title: 'Scoring',
+        type: TestPurpose.IN_CLASS,
+        showResultAfterSubmit: true,
+        testQuestions: questions,
+      },
     });
 
     await service.submitAttempt(learnerId, enrollmentId, attemptId, {
       answers: [{ testQuestionId: 'tq-mc', selectedOptionIds: ['mc-a'] }],
     });
-    expect(transaction.testAnswer.upsert).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      update: { selectedOptionIds: [], isCorrect: false, pointsAwarded: 0 },
-    }));
-    expect(transaction.testAnswer.upsert).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      update: { selectedOptionIds: ['mc-a'], isCorrect: false, pointsAwarded: 0 },
-    }));
+    expect(transaction.testAnswer.upsert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        update: { selectedOptionIds: [], isCorrect: false, pointsAwarded: 0 },
+      }),
+    );
+    expect(transaction.testAnswer.upsert).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        update: { selectedOptionIds: ['mc-a'], isCorrect: false, pointsAwarded: 0 },
+      }),
+    );
   });
 
   it('returns an already submitted attempt without rescoring', async () => {
@@ -156,28 +201,38 @@ describe('AssessmentStudentService', () => {
       maxScore: 5,
       startedAt: new Date(),
       submittedAt,
-      test: { id: 'test-id', title: 'Done', type: TestType.QUIZ, showResultAfterSubmit: true, testQuestions: questions },
+      test: {
+        id: 'test-id',
+        title: 'Done',
+        type: TestPurpose.IN_CLASS,
+        showResultAfterSubmit: true,
+        testQuestions: questions,
+      },
     });
-    await expect(service.submitAttempt(learnerId, enrollmentId, attemptId, { answers: [] }))
-      .resolves.toMatchObject({ attempt: { score: 2, maxScore: 5, submittedAt } });
+    await expect(
+      service.submitAttempt(learnerId, enrollmentId, attemptId, { answers: [] }),
+    ).resolves.toMatchObject({ attempt: { score: 2, maxScore: 5, submittedAt } });
     expect(transaction.testAnswer.upsert).not.toHaveBeenCalled();
     expect(transaction.testAttempt.update).not.toHaveBeenCalled();
   });
 
   it('bounds retryable transaction conflicts', async () => {
-    prisma.$transaction.mockRejectedValue(new Prisma.PrismaClientKnownRequestError('Conflict', {
-      code: 'P2034',
-      clientVersion: '7.10.0',
-    }));
-    await expect(service.startOrResumeAttempt(learnerId, enrollmentId, 'test-id'))
-      .rejects.toBeInstanceOf(ConflictException);
+    prisma.$transaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Conflict', {
+        code: 'P2034',
+        clientVersion: '7.10.0',
+      }),
+    );
+    await expect(
+      service.startOrResumeAttempt(learnerId, enrollmentId, 'test-id'),
+    ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.$transaction).toHaveBeenCalledTimes(3);
   });
 });
 
 function testQuestion(
   id: string,
-  type: QuestionType,
+  type: QuestionResponseType,
   points: number,
   options: Array<[string, boolean]>,
 ) {

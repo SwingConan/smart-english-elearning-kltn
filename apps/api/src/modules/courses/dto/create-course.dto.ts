@@ -1,12 +1,14 @@
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUrl,
   MaxLength,
 } from 'class-validator';
+import { CourseSkillScope } from '../../../generated/prisma/client';
 
 export class CreateCourseDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -25,6 +27,10 @@ export class CreateCourseDto {
   @IsNotEmpty()
   @MaxLength(100)
   level: string;
+
+  @IsOptional()
+  @IsEnum(CourseSkillScope)
+  skillScope?: CourseSkillScope;
 
   @IsOptional()
   @MaxLength(2048)

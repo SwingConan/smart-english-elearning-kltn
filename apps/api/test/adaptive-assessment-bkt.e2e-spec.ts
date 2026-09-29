@@ -9,9 +9,9 @@ import {
   LessonProgressStatus,
   PricingType,
   QuestionDifficulty,
-  QuestionType,
+  QuestionResponseType,
   TestStatus,
-  TestType,
+  TestPurpose,
   UserRole,
   UserStatus,
 } from '../src/generated/prisma/client';
@@ -146,7 +146,8 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
     const question = await prisma.question.create({
       data: {
         courseId,
-        type: QuestionType.SINGLE_CHOICE,
+        responseType: QuestionResponseType.SINGLE_CHOICE,
+        toeicSkill: 'READING',
         difficulty: QuestionDifficulty.MEDIUM,
         content: `Cross feature objective question ${unique}`,
         explanation: 'Secret grading explanation',
@@ -167,7 +168,8 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
     const assessment = await prisma.test.create({
       data: {
         courseId,
-        type: TestType.PLACEMENT,
+        purpose: TestPurpose.PLACEMENT,
+        placementMode: 'LR',
         title: `VS05 F1 Assessment ${unique}`,
         status: TestStatus.PUBLISHED,
         maxAttempts: 2,
@@ -428,8 +430,8 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
       prerequisiteStatus: 'READY',
     });
     expect(
-      pathBefore.body.path.some(({ lessonId: pathLessonId }: { lessonId: string }) =>
-        pathLessonId === lessonId,
+      pathBefore.body.path.some(
+        ({ lessonId: pathLessonId }: { lessonId: string }) => pathLessonId === lessonId,
       ),
     ).toBe(false);
     await expect(
@@ -473,8 +475,8 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
     const pathAfter = await adaptivePath();
     expect(skillClassification(pathAfter.body)).toEqual(classificationBefore);
     expect(
-      pathAfter.body.path.some(({ lessonId: pathLessonId }: { lessonId: string }) =>
-        pathLessonId === lessonId,
+      pathAfter.body.path.some(
+        ({ lessonId: pathLessonId }: { lessonId: string }) => pathLessonId === lessonId,
       ),
     ).toBe(false);
   });
@@ -484,9 +486,7 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
   }
 
   function instructorDashboard() {
-    return instructorAgent
-      .get(`/api/instructor/courses/${courseId}/learner-mastery`)
-      .expect(200);
+    return instructorAgent.get(`/api/instructor/courses/${courseId}/learner-mastery`).expect(200);
   }
 
   function submitAttempt(attemptId: string, selectedOptionId: string) {

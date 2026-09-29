@@ -33,6 +33,28 @@ enum PricingType {
   PAID
 }
 
+enum ToeicSkill {
+  LISTENING
+  READING
+  SPEAKING
+  WRITING
+}
+
+enum CourseSkillScope {
+  LR
+  FOUR_SKILLS
+  LISTENING
+  READING
+  SPEAKING
+  WRITING
+}
+
+enum ClassModality {
+  ONLINE
+  OFFLINE
+  HYBRID
+}
+
 enum EnrollmentStatus {
   ACTIVE
   PENDING_PAYMENT
@@ -53,6 +75,15 @@ enum LessonProgressStatus {
   COMPLETED
 }
 
+enum QuestionResponseType {
+  SINGLE_CHOICE
+  TRUE_FALSE
+  MULTIPLE_CHOICE
+  TEXT_RESPONSE
+  AUDIO_RESPONSE
+}
+
+// LEGACY/FROZEN: retained physically for reversible VS03 compatibility.
 enum QuestionType {
   SINGLE_CHOICE
   TRUE_FALSE
@@ -65,9 +96,21 @@ enum QuestionDifficulty {
   HARD
 }
 
+enum TestPurpose {
+  PLACEMENT
+  IN_CLASS
+  PRACTICE_MOCK
+}
+
+// LEGACY/FROZEN: retained physically for reversible VS03 compatibility.
 enum TestType {
   PLACEMENT
   QUIZ
+}
+
+enum PlacementMode {
+  LR
+  FOUR_SKILLS
 }
 
 enum TestStatus {
@@ -80,18 +123,78 @@ enum TestAttemptStatus {
   SUBMITTED
 }
 
+enum AssessmentStage {
+  PERIODIC
+  MIDTERM
+  FINAL
+}
+
+enum AnswerEvaluationSource {
+  AI
+  INSTRUCTOR
+}
+
+enum AnswerEvaluationStatus {
+  AI_PROVISIONAL
+  PENDING_REVIEW
+  REVIEWED_FINAL
+  FAILED
+}
+
+enum SkillScoreStatus {
+  PROVISIONAL
+  FINAL
+}
+
+enum SkillScoreSource {
+  OBJECTIVE_AUTO
+  AI_ESTIMATE
+  INSTRUCTOR_CONFIRMED
+}
+
+enum AttemptEvaluationStatus {
+  PROVISIONAL
+  FINAL
+}
+
+enum EvaluationMetric {
+  LR_TOTAL
+  SKILL_ESTIMATED_TOEIC
+  SKILL_NORMALIZED
+}
+
+enum CriterionRuleMode {
+  ALL
+  ANY
+}
+
+enum CourseRecommendationKind {
+  PRIMARY
+  SUPPLEMENTARY
+}
+
+enum StudyRecommendationTarget {
+  SKILL
+  LESSON
+  RESOURCE
+  PRACTICE
+}
+
 model User {
-  id                     String          @id @default(uuid()) @db.Uuid
-  email                  String          @unique
+  id                     String                @id @default(uuid()) @db.Uuid
+  email                  String                @unique
   passwordHash           String
   fullName               String
   role                   UserRole
-  status                 UserStatus      @default(ACTIVE)
-  createdCourses         Course[]        @relation("CourseCreatedBy")
-  assignedClassOfferings ClassOffering[] @relation("ClassOfferingInstructor")
-  enrollments            Enrollment[]    @relation("LearnerEnrollments")
-  createdAt              DateTime        @default(now())
-  updatedAt              DateTime        @updatedAt
+  status                 UserStatus            @default(ACTIVE)
+  createdCourses         Course[]              @relation("CourseCreatedBy")
+  assignedClassOfferings ClassOffering[]       @relation("ClassOfferingInstructor")
+  enrollments            Enrollment[]          @relation("LearnerEnrollments")
+  testAttempts           TestAttempt[]         @relation("LearnerTestAttempts")
+  answerEvaluations      AnswerEvaluation[]    @relation("EvaluationInstructor")
+  studyRecommendations   StudyRecommendation[] @relation("LearnerStudyRecommendations")
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
 
   @@map("users")
 }
@@ -106,29 +209,33 @@ model UserSession {
 }
 
 model Course {
-  id             String                @id @default(uuid()) @db.Uuid
-  title          String
-  slug           String                @unique
-  description    String                @db.Text
-  level          String
-  thumbnailUrl   String?
-  isPublished    Boolean               @default(false)
-  createdById    String                @db.Uuid
-  createdBy      User                  @relation("CourseCreatedBy", fields: [createdById], references: [id])
-  classOfferings ClassOffering[]
-  modules        Module[]
-  questions      Question[]
-  tests          Test[]
-  skills         Skill[]
-  adaptivePolicy CourseAdaptivePolicy?
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
+  id                    String                       @id @default(uuid()) @db.Uuid
+  title                 String
+  slug                  String                       @unique
+  description           String                       @db.Text
+  level                 String
+  skillScope            CourseSkillScope             @default(LR)
+  thumbnailUrl          String?
+  isPublished           Boolean                      @default(false)
+  createdById           String                       @db.Uuid
+  createdBy             User                         @relation("CourseCreatedBy", fields: [createdById], references: [id])
+  classOfferings        ClassOffering[]
+  modules               Module[]
+  questions             Question[]
+  tests                 Test[]
+  skills                Skill[]
+  adaptivePolicy        CourseAdaptivePolicy?
+  recommendationProfile CourseRecommendationProfile?
+  recommendations       CourseRecommendation[]
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
 
   @@index([isPublished])
   @@index([level])
   @@map("courses")
 }
 
+/// LEGACY/FROZEN after M01. Preserved for VS04-VS06 compatibility; do not extend for TOEIC core.
 model CourseAdaptivePolicy {
   id                   String   @id @default(uuid()) @db.Uuid
   courseId             String   @unique @db.Uuid
@@ -142,23 +249,29 @@ model CourseAdaptivePolicy {
 }
 
 model ClassOffering {
-  id              String              @id @default(uuid()) @db.Uuid
-  courseId        String              @db.Uuid
-  instructorId    String?             @db.Uuid
-  name            String
-  status          ClassOfferingStatus @default(DRAFT)
-  pricingType     PricingType         @default(FREE)
-  tuitionFeeVnd   Int?
-  maxStudents     Int?
-  enrollmentStart DateTime?
-  enrollmentEnd   DateTime?
-  classStart      DateTime?
-  classEnd        DateTime?
-  course          Course              @relation(fields: [courseId], references: [id])
-  instructor      User?               @relation("ClassOfferingInstructor", fields: [instructorId], references: [id])
-  enrollments     Enrollment[]
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id               String              @id @default(uuid()) @db.Uuid
+  courseId         String              @db.Uuid
+  instructorId     String?             @db.Uuid
+  code             String              @unique @default(uuid())
+  name             String
+  status           ClassOfferingStatus @default(DRAFT)
+  modality         ClassModality       @default(ONLINE)
+  pricingType      PricingType         @default(FREE)
+  tuitionFeeVnd    Int?
+  maxStudents      Int?
+  totalSessions    Int?
+  totalPeriods     Int?
+  enrollmentStart  DateTime?
+  enrollmentEnd    DateTime?
+  classStart       DateTime?
+  classEnd         DateTime?
+  course           Course              @relation(fields: [courseId], references: [id])
+  instructor       User?               @relation("ClassOfferingInstructor", fields: [instructorId], references: [id])
+  enrollments      Enrollment[]
+  scheduleSlots    ClassScheduleSlot[]
+  classAssessments ClassAssessment[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
   @@index([courseId])
   @@index([status])
@@ -166,19 +279,37 @@ model ClassOffering {
   @@map("class_offerings")
 }
 
+model ClassScheduleSlot {
+  id              String        @id @default(uuid()) @db.Uuid
+  classOfferingId String        @db.Uuid
+  dayOfWeek       Int           @db.SmallInt
+  startTime       DateTime      @db.Time
+  endTime         DateTime      @db.Time
+  locationText    String?
+  meetingUrl      String?
+  classOffering   ClassOffering @relation(fields: [classOfferingId], references: [id], onDelete: Restrict)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([classOfferingId])
+  @@index([classOfferingId, dayOfWeek])
+  @@map("class_schedule_slots")
+}
+
 model Enrollment {
-  id              String              @id @default(uuid()) @db.Uuid
-  learnerId       String              @db.Uuid
-  classOfferingId String              @db.Uuid
-  status          EnrollmentStatus
-  learner         User                @relation("LearnerEnrollments", fields: [learnerId], references: [id])
-  classOffering   ClassOffering       @relation(fields: [classOfferingId], references: [id])
-  lessonProgress  LessonProgress[]
-  testAttempts    TestAttempt[]
-  learnerSkills   LearnerSkillState[]
-  masteryHistory  MasteryHistory[]
-  enrolledAt      DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id                   String                @id @default(uuid()) @db.Uuid
+  learnerId            String                @db.Uuid
+  classOfferingId      String                @db.Uuid
+  status               EnrollmentStatus
+  learner              User                  @relation("LearnerEnrollments", fields: [learnerId], references: [id])
+  classOffering        ClassOffering         @relation(fields: [classOfferingId], references: [id])
+  lessonProgress       LessonProgress[]
+  testAttempts         TestAttempt[]
+  learnerSkills        LearnerSkillState[]
+  masteryHistory       MasteryHistory[]
+  studyRecommendations StudyRecommendation[]
+  enrolledAt           DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
   @@unique([learnerId, classOfferingId])
   @@index([learnerId])
@@ -204,18 +335,20 @@ model Module {
 }
 
 model Lesson {
-  id          String             @id @default(uuid()) @db.Uuid
-  moduleId    String             @db.Uuid
-  title       String
-  description String?            @db.Text
-  orderIndex  Int
-  module      Module             @relation(fields: [moduleId], references: [id])
-  resources   LearningResource[]
-  progress    LessonProgress[]
-  tests       Test[]
-  skills      LessonSkill[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id                   String                @id @default(uuid()) @db.Uuid
+  moduleId             String                @db.Uuid
+  title                String
+  description          String?               @db.Text
+  orderIndex           Int
+  module               Module                @relation(fields: [moduleId], references: [id])
+  resources            LearningResource[]
+  progress             LessonProgress[]
+  tests                Test[]
+  skills               LessonSkill[]
+  focusSkills          ToeicSkill[]          @default([])
+  studyRecommendations StudyRecommendation[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
   @@unique([moduleId, orderIndex])
   @@index([moduleId])
@@ -223,16 +356,20 @@ model Lesson {
 }
 
 model LearningResource {
-  id             String       @id @default(uuid()) @db.Uuid
-  lessonId       String       @db.Uuid
-  title          String
-  type           ResourceType
-  url            String
-  orderIndex     Int
-  isDownloadable Boolean      @default(false)
-  lesson         Lesson       @relation(fields: [lessonId], references: [id])
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id                   String                @id @default(uuid()) @db.Uuid
+  lessonId             String                @db.Uuid
+  title                String
+  type                 ResourceType
+  url                  String?
+  storageKey           String?
+  originalFileName     String?
+  mimeType             String?
+  orderIndex           Int
+  isDownloadable       Boolean               @default(false)
+  lesson               Lesson                @relation(fields: [lessonId], references: [id])
+  studyRecommendations StudyRecommendation[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
   @@unique([lessonId, orderIndex])
   @@index([lessonId])
@@ -258,22 +395,29 @@ model LessonProgress {
 }
 
 model Question {
-  id            String             @id @default(uuid()) @db.Uuid
-  courseId      String             @db.Uuid
-  type          QuestionType
+  id            String               @id @default(uuid()) @db.Uuid
+  courseId      String?              @db.Uuid
+  responseType  QuestionResponseType
+  legacyType    QuestionType?        @map("type")
   difficulty    QuestionDifficulty
-  content       String             @db.Text
-  explanation   String?            @db.Text
-  course        Course             @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  toeicSkill    ToeicSkill
+  content       String               @db.Text
+  explanation   String?              @db.Text
+  rubricId      String?              @db.Uuid
+  course        Course?              @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  rubric        Rubric?              @relation(fields: [rubricId], references: [id], onDelete: Restrict)
   options       QuestionOption[]
   testQuestions TestQuestion[]
   skills        QuestionSkill[]
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
   @@index([courseId])
-  @@index([courseId, type])
+  @@index([courseId, responseType])
+  @@index([courseId, legacyType], map: "questions_courseId_type_idx")
   @@index([courseId, difficulty])
+  @@index([toeicSkill])
+  @@index([rubricId])
   @@map("questions")
 }
 
@@ -293,26 +437,54 @@ model QuestionOption {
 }
 
 model Test {
-  id                    String         @id @default(uuid()) @db.Uuid
-  courseId              String         @db.Uuid
-  lessonId              String?        @db.Uuid
-  type                  TestType
+  id                    String            @id @default(uuid()) @db.Uuid
+  courseId              String?           @db.Uuid
+  lessonId              String?           @db.Uuid
+  purpose               TestPurpose
+  legacyType            TestType?         @map("type")
+  placementMode         PlacementMode?
   title                 String
-  description           String?        @db.Text
-  status                TestStatus     @default(DRAFT)
-  maxAttempts           Int            @default(1)
-  showResultAfterSubmit Boolean        @default(true)
-  course                Course         @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  lesson                Lesson?        @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  description           String?           @db.Text
+  status                TestStatus        @default(DRAFT)
+  maxAttempts           Int               @default(1)
+  timeLimitMinutes      Int?
+  showResultAfterSubmit Boolean           @default(true)
+  course                Course?           @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  lesson                Lesson?           @relation(fields: [lessonId], references: [id], onDelete: Restrict)
   testQuestions         TestQuestion[]
   attempts              TestAttempt[]
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
+  classAssessments      ClassAssessment[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
   @@index([courseId])
   @@index([courseId, status])
   @@index([lessonId])
+  @@index([purpose])
+  @@index([placementMode])
   @@map("tests")
+}
+
+model ClassAssessment {
+  id                  String          @id @default(uuid()) @db.Uuid
+  classOfferingId     String          @db.Uuid
+  testId              String          @db.Uuid
+  stage               AssessmentStage
+  openAt              DateTime?
+  closeAt             DateTime?
+  maxAttemptsOverride Int?
+  isActive            Boolean         @default(true)
+  classOffering       ClassOffering   @relation(fields: [classOfferingId], references: [id], onDelete: Restrict)
+  test                Test            @relation(fields: [testId], references: [id], onDelete: Restrict)
+  attempts            TestAttempt[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([classOfferingId])
+  @@index([testId])
+  @@index([stage])
+  @@index([isActive])
+  @@map("class_assessments")
 }
 
 model TestQuestion {
@@ -334,41 +506,54 @@ model TestQuestion {
 }
 
 model TestAttempt {
-  id             String            @id @default(uuid()) @db.Uuid
-  testId         String            @db.Uuid
-  enrollmentId   String            @db.Uuid
-  attemptNumber  Int
-  status         TestAttemptStatus @default(IN_PROGRESS)
-  score          Int?
-  maxScore       Int?
-  startedAt      DateTime          @default(now())
-  submittedAt    DateTime?
-  test           Test              @relation(fields: [testId], references: [id], onDelete: Restrict)
-  enrollment     Enrollment        @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
-  answers        TestAnswer[]
-  masteryHistory MasteryHistory[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id                    String                 @id @default(uuid()) @db.Uuid
+  testId                String                 @db.Uuid
+  learnerId             String                 @db.Uuid
+  enrollmentId          String?                @db.Uuid
+  classAssessmentId     String?                @db.Uuid
+  attemptNumber         Int
+  status                TestAttemptStatus      @default(IN_PROGRESS)
+  score                 Int?
+  maxScore              Int?
+  startedAt             DateTime               @default(now())
+  submittedAt           DateTime?
+  test                  Test                   @relation(fields: [testId], references: [id], onDelete: Restrict)
+  learner               User                   @relation("LearnerTestAttempts", fields: [learnerId], references: [id], onDelete: Restrict)
+  enrollment            Enrollment?            @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  classAssessment       ClassAssessment?       @relation(fields: [classAssessmentId], references: [id], onDelete: Restrict)
+  answers               TestAnswer[]
+  skillScores           AttemptSkillScore[]
+  evaluation            AttemptEvaluation?
+  courseRecommendations CourseRecommendation[]
+  studyRecommendations  StudyRecommendation[]
+  masteryHistory        MasteryHistory[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
-  @@unique([testId, enrollmentId, attemptNumber])
+  @@unique([testId, enrollmentId, attemptNumber], map: "test_attempts_testId_enrollmentId_attemptNumber_key")
   @@index([testId])
+  @@index([learnerId])
   @@index([enrollmentId])
+  @@index([classAssessmentId])
   @@index([enrollmentId, testId])
   @@map("test_attempts")
 }
 
 model TestAnswer {
-  id                String           @id @default(uuid()) @db.Uuid
-  attemptId         String           @db.Uuid
-  testQuestionId    String           @db.Uuid
-  selectedOptionIds String[]         @default([]) @db.Uuid
+  id                String             @id @default(uuid()) @db.Uuid
+  attemptId         String             @db.Uuid
+  testQuestionId    String             @db.Uuid
+  selectedOptionIds String[]           @default([]) @db.Uuid
+  textResponse      String?            @db.Text
+  audioStorageKey   String?
   isCorrect         Boolean?
   pointsAwarded     Int?
-  attempt           TestAttempt      @relation(fields: [attemptId], references: [id], onDelete: Restrict)
-  testQuestion      TestQuestion     @relation(fields: [testQuestionId], references: [id], onDelete: Restrict)
+  attempt           TestAttempt        @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  testQuestion      TestQuestion       @relation(fields: [testQuestionId], references: [id], onDelete: Restrict)
   masteryHistory    MasteryHistory[]
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  evaluations       AnswerEvaluation[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@unique([attemptId, testQuestionId])
   @@index([attemptId])
@@ -376,6 +561,243 @@ model TestAnswer {
   @@map("test_answers")
 }
 
+model Rubric {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String
+  description String?           @db.Text
+  isActive    Boolean           @default(true)
+  criteria    RubricCriterion[]
+  questions   Question[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([isActive])
+  @@map("rubrics")
+}
+
+model RubricCriterion {
+  id          String                 @id @default(uuid()) @db.Uuid
+  rubricId    String                 @db.Uuid
+  code        String
+  name        String
+  description String?                @db.Text
+  orderIndex  Int
+  maxScore    Decimal                @db.Decimal(8, 2)
+  weight      Decimal                @default(1.0) @db.Decimal(6, 4)
+  rubric      Rubric                 @relation(fields: [rubricId], references: [id], onDelete: Restrict)
+  scores      RubricCriterionScore[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@unique([rubricId, code])
+  @@unique([rubricId, orderIndex])
+  @@index([rubricId])
+  @@map("rubric_criteria")
+}
+
+model AnswerEvaluation {
+  id              String                 @id @default(uuid()) @db.Uuid
+  testAnswerId    String                 @db.Uuid
+  source          AnswerEvaluationSource
+  status          AnswerEvaluationStatus
+  evaluatorId     String?                @db.Uuid
+  totalScore      Decimal?               @db.Decimal(8, 2)
+  feedback        String?                @db.Text
+  testAnswer      TestAnswer             @relation(fields: [testAnswerId], references: [id], onDelete: Restrict)
+  evaluator       User?                  @relation("EvaluationInstructor", fields: [evaluatorId], references: [id], onDelete: Restrict)
+  criterionScores RubricCriterionScore[]
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([testAnswerId])
+  @@index([source])
+  @@index([status])
+  @@index([evaluatorId])
+  @@map("answer_evaluations")
+}
+
+model RubricCriterionScore {
+  id                 String           @id @default(uuid()) @db.Uuid
+  answerEvaluationId String           @db.Uuid
+  rubricCriterionId  String           @db.Uuid
+  score              Decimal          @db.Decimal(8, 2)
+  feedback           String?          @db.Text
+  answerEvaluation   AnswerEvaluation @relation(fields: [answerEvaluationId], references: [id], onDelete: Restrict)
+  rubricCriterion    RubricCriterion  @relation(fields: [rubricCriterionId], references: [id], onDelete: Restrict)
+  createdAt          DateTime         @default(now())
+
+  @@unique([answerEvaluationId, rubricCriterionId])
+  @@index([answerEvaluationId])
+  @@index([rubricCriterionId])
+  @@map("rubric_criterion_scores")
+}
+
+model AttemptSkillScore {
+  id                  String           @id @default(uuid()) @db.Uuid
+  attemptId           String           @db.Uuid
+  skill               ToeicSkill
+  rawScore            Decimal?         @db.Decimal(10, 2)
+  maxRawScore         Decimal?         @db.Decimal(10, 2)
+  estimatedToeicScore Int?
+  normalizedScore     Decimal          @db.Decimal(5, 2)
+  status              SkillScoreStatus
+  source              SkillScoreSource
+  attempt             TestAttempt      @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@unique([attemptId, skill])
+  @@index([attemptId])
+  @@index([status])
+  @@index([source])
+  @@map("attempt_skill_scores")
+}
+
+model EvaluationPolicy {
+  id            String              @id @default(uuid()) @db.Uuid
+  code          String              @unique
+  name          String
+  placementMode PlacementMode?
+  ruleConfig    Json                @default("{}")
+  isActive      Boolean             @default(true)
+  bands         EvaluationBand[]
+  evaluations   AttemptEvaluation[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([placementMode])
+  @@index([isActive])
+  @@map("evaluation_policies")
+}
+
+model EvaluationBand {
+  id              String           @id @default(uuid()) @db.Uuid
+  policyId        String           @db.Uuid
+  metric          EvaluationMetric
+  skill           ToeicSkill?
+  code            String
+  label           String
+  minValue        Decimal          @db.Decimal(10, 2)
+  maxValue        Decimal          @db.Decimal(10, 2)
+  summaryTemplate String?          @db.Text
+  orderIndex      Int
+  policy          EvaluationPolicy @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([policyId, metric, skill, code])
+  @@unique([policyId, orderIndex])
+  @@index([policyId])
+  @@index([metric, skill])
+  @@map("evaluation_bands")
+}
+
+model AttemptEvaluation {
+  id                  String                  @id @default(uuid()) @db.Uuid
+  attemptId           String                  @unique @db.Uuid
+  evaluationPolicyId  String?                 @db.Uuid
+  status              AttemptEvaluationStatus
+  placementLevelCode  String?
+  placementLevelLabel String?
+  strongestSkill      ToeicSkill?
+  weakestSkill        ToeicSkill?
+  lrTotalScore        Int?
+  summary             String?                 @db.Text
+  aiExplanation       String?                 @db.Text
+  attempt             TestAttempt             @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  evaluationPolicy    EvaluationPolicy?       @relation(fields: [evaluationPolicyId], references: [id], onDelete: Restrict)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  @@index([evaluationPolicyId])
+  @@index([status])
+  @@index([placementLevelCode])
+  @@map("attempt_evaluations")
+}
+
+model CourseRecommendationProfile {
+  id        String                 @id @default(uuid()) @db.Uuid
+  courseId  String                 @unique @db.Uuid
+  ruleMode  CriterionRuleMode      @default(ALL)
+  priority  Int                    @default(100)
+  isActive  Boolean                @default(true)
+  course    Course                 @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  criteria  CourseSkillCriterion[]
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+
+  @@index([priority])
+  @@index([isActive])
+  @@map("course_recommendation_profiles")
+}
+
+model CourseSkillCriterion {
+  id                     String                      @id @default(uuid()) @db.Uuid
+  profileId              String                      @db.Uuid
+  skill                  ToeicSkill
+  minNormalizedScore     Decimal?                    @db.Decimal(5, 2)
+  maxNormalizedScore     Decimal?                    @db.Decimal(5, 2)
+  minEstimatedToeicScore Int?
+  maxEstimatedToeicScore Int?
+  profile                CourseRecommendationProfile @relation(fields: [profileId], references: [id], onDelete: Restrict)
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+
+  @@unique([profileId, skill])
+  @@index([profileId])
+  @@map("course_skill_criteria")
+}
+
+model CourseRecommendation {
+  id            String                   @id @default(uuid()) @db.Uuid
+  attemptId     String                   @db.Uuid
+  courseId      String                   @db.Uuid
+  kind          CourseRecommendationKind @default(PRIMARY)
+  ruleReason    Json                     @default("{}")
+  aiExplanation String?                  @db.Text
+  attempt       TestAttempt              @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  course        Course                   @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  createdAt     DateTime                 @default(now())
+
+  @@unique([attemptId, courseId])
+  @@index([attemptId])
+  @@index([courseId])
+  @@index([kind])
+  @@map("course_recommendations")
+}
+
+model StudyRecommendation {
+  id              String                    @id @default(uuid()) @db.Uuid
+  learnerId       String                    @db.Uuid
+  enrollmentId    String                    @db.Uuid
+  sourceAttemptId String?                   @db.Uuid
+  skill           ToeicSkill
+  targetType      StudyRecommendationTarget @default(SKILL)
+  lessonId        String?                   @db.Uuid
+  resourceId      String?                   @db.Uuid
+  title           String
+  actionText      String                    @db.Text
+  aiExplanation   String?                   @db.Text
+  isActive        Boolean                   @default(true)
+  learner         User                      @relation("LearnerStudyRecommendations", fields: [learnerId], references: [id], onDelete: Restrict)
+  enrollment      Enrollment                @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  sourceAttempt   TestAttempt?              @relation(fields: [sourceAttemptId], references: [id], onDelete: Restrict)
+  lesson          Lesson?                   @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  resource        LearningResource?         @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@index([learnerId])
+  @@index([enrollmentId])
+  @@index([sourceAttemptId])
+  @@index([skill])
+  @@index([lessonId])
+  @@index([resourceId])
+  @@index([isActive])
+  @@map("study_recommendations")
+}
+
+/// LEGACY/FROZEN BKT micro-skill model. ToeicSkill is the new assessment classification.
 model Skill {
   id               String              @id @default(uuid()) @db.Uuid
   courseId         String              @db.Uuid
@@ -400,6 +822,7 @@ model Skill {
   @@map("skills")
 }
 
+/// LEGACY/FROZEN BKT prerequisite graph.
 model SkillPrerequisite {
   id                  String   @id @default(uuid()) @db.Uuid
   skillId             String   @db.Uuid
@@ -413,6 +836,7 @@ model SkillPrerequisite {
   @@map("skill_prerequisites")
 }
 
+/// LEGACY/FROZEN BKT mapping; Question.toeicSkill is the new core mapping.
 model QuestionSkill {
   id         String   @id @default(uuid()) @db.Uuid
   questionId String   @db.Uuid
@@ -426,6 +850,7 @@ model QuestionSkill {
   @@map("question_skills")
 }
 
+/// LEGACY/FROZEN BKT mapping; Lesson.focusSkills is the new core mapping.
 model LessonSkill {
   id        String   @id @default(uuid()) @db.Uuid
   lessonId  String   @db.Uuid
@@ -439,6 +864,7 @@ model LessonSkill {
   @@map("lesson_skills")
 }
 
+/// LEGACY/FROZEN BKT state; not the M01 learner-state source of truth.
 model LearnerSkillState {
   id                 String     @id @default(uuid()) @db.Uuid
   enrollmentId       String     @db.Uuid
@@ -456,6 +882,7 @@ model LearnerSkillState {
   @@map("learner_skill_states")
 }
 
+/// LEGACY/FROZEN BKT history retained without destructive migration.
 model MasteryHistory {
   id                String      @id @default(uuid()) @db.Uuid
   enrollmentId      String      @db.Uuid
