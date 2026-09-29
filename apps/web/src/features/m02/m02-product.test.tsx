@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { App } from '@/App';
 import { newsEvents } from '@/content/news-events';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { authApi } from '@/features/auth/api';
@@ -53,7 +54,7 @@ describe('M02 public product surface', () => {
       data: [],
       meta: { total: 0, page: 1, limit: 3, totalPages: 0 },
     });
-    render(
+    const view = render(
       <MemoryRouter>
         <HomePage />
       </MemoryRouter>,
@@ -62,7 +63,8 @@ describe('M02 public product surface', () => {
     expect(screen.getByRole('heading', { name: /Bạn muốn bắt đầu từ đâu/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Học như thế nào/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Tin tức & Sự kiện/i })).toBeInTheDocument();
-    expect(await screen.findByText(/Chưa có Course được công bố/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Chưa có khóa học được công bố/i)).toBeInTheDocument();
+    expect(view.container).not.toHaveTextContent(/M02|M03|ClassOffering|LessonProgress/i);
   });
 
   it('renders typed news list, detail and not-found state', () => {
@@ -141,6 +143,28 @@ describe('M02 public product surface', () => {
       expect.stringContaining('/login?'),
     );
     expect(screen.queryByText(/email|password/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps the student workspace outside the public marketing layout', async () => {
+    vi.spyOn(authApi, 'me').mockResolvedValue({
+      id: 'student-1',
+      email: 'student@example.com',
+      fullName: 'Người học',
+      role: 'STUDENT',
+      status: 'ACTIVE',
+    });
+    vi.spyOn(enrollmentApi, 'listMine').mockResolvedValue([]);
+    const view = render(
+      <MemoryRouter initialEntries={['/student/enrollments']}>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('heading', { name: /Lớp học của tôi/i })).toBeInTheDocument();
+    expect(screen.getAllByText('Không gian học tập')).toHaveLength(2);
+    expect(screen.queryByRole('link', { name: /Tin tức & Sự kiện/i })).not.toBeInTheDocument();
+    expect(view.container).not.toHaveTextContent(/M02|M03|ClassOffering|LessonProgress/i);
   });
 });
 

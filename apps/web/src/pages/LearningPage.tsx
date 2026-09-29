@@ -56,7 +56,7 @@ export function LearningPage() {
       {content.modules.length === 0 ? (
         <div className="state-empty mt-6">
           <BookOpen className="mx-auto text-indigo-600" />
-          <p className="mt-3">Course chưa có nội dung được công bố.</p>
+          <p className="mt-3">Khóa học chưa có nội dung được công bố.</p>
         </div>
       ) : (
         <div className="mt-6 space-y-5">

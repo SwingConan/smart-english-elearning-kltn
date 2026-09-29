@@ -48,7 +48,7 @@ export function HomePage() {
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-indigo-100">
               Khám phá chương trình TOEIC theo kỹ năng, so sánh lớp học thực tế và tiếp tục hành
-              trình trong một LMS tập trung.
+              trình trong một không gian học tập tập trung.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link className="btn-light" to="/catalog">
@@ -65,9 +65,9 @@ export function HomePage() {
               <Sparkles className="text-amber-300" size={42} />
               <div className="space-y-3">
                 {[
-                  'Course phù hợp mục tiêu',
-                  'ClassOffering có lịch và trạng thái thật',
-                  'Lesson · Assessment · Progress',
+                  'Khóa học phù hợp mục tiêu',
+                  'Lớp học có lịch và trạng thái rõ ràng',
+                  'Bài học · Bài kiểm tra · Tiến độ',
                 ].map((text, index) => (
                   <div className="flex items-center gap-3 rounded-xl bg-white/10 p-4" key={text}>
                     <span className="grid size-8 place-items-center rounded-full bg-white text-sm font-bold text-indigo-800">
@@ -97,13 +97,13 @@ export function HomePage() {
           <JourneyCard
             icon={Search}
             title="Chưa biết trình độ"
-            text="Tìm hiểu Placement đã được thiết kế cho M03, không đi vào luồng thi giả."
+            text="Tính năng kiểm tra đầu vào đang được chuẩn bị để hỗ trợ xác định trình độ và gợi ý lớp phù hợp."
             to="/guide#placement"
           />
           <JourneyCard
             icon={BookOpen}
             title="Đã có lớp học"
-            text="Đăng nhập để tiếp tục lesson, assessment và progress."
+            text="Đăng nhập để tiếp tục bài học, bài kiểm tra và theo dõi tiến độ."
             to="/student/enrollments"
           />
         </div>
@@ -127,10 +127,10 @@ export function HomePage() {
           </div>
         ) : courseState === 'error' ? (
           <p className="state-error mt-8">
-            Chưa thể tải khóa học. Bạn có thể mở Catalog để thử lại.
+            Chưa thể tải khóa học. Bạn có thể mở danh mục khóa học để thử lại.
           </p>
         ) : courses.length === 0 ? (
-          <p className="state-empty mt-8">Chưa có Course được công bố.</p>
+          <p className="state-empty mt-8">Chưa có khóa học được công bố.</p>
         ) : (
           <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {courses.map((course) => (
@@ -146,14 +146,14 @@ export function HomePage() {
             <Route className="text-white" size={54} />
           </div>
           <div>
-            <p className="eyebrow">Placement — M03</p>
+            <p className="eyebrow">Kiểm tra đầu vào</p>
             <h2 className="section-title">Hiểu điểm xuất phát trước khi chọn lộ trình</h2>
             <p className="mt-4 leading-7 text-slate-600">
-              Quy trình kiểm tra đầu vào sẽ đánh giá trước Enrollment và đưa ra gợi ý theo rule cấu
-              hình. M02 chỉ cung cấp thông tin trung thực, không tạo bài thi hoặc kết quả giả.
+              Tính năng kiểm tra đầu vào đang được chuẩn bị để hỗ trợ người học xác định trình độ và
+              nhận gợi ý lớp phù hợp.
             </p>
             <Link className="btn-primary mt-6" to="/guide#placement">
-              Xem chính sách Placement
+              Tìm hiểu kiểm tra đầu vào
             </Link>
           </div>
         </div>
@@ -167,7 +167,7 @@ export function HomePage() {
         <div className="mt-10 grid gap-5 md:grid-cols-4">
           {[
             ['01', 'Đặt mục tiêu'],
-            ['02', 'Chọn Course và lớp'],
+            ['02', 'Chọn khóa học và lớp'],
             ['03', 'Học và làm bài'],
             ['04', 'Theo dõi tiến độ'],
           ].map(([number, title]) => (
@@ -184,8 +184,8 @@ export function HomePage() {
           <p className="eyebrow text-sky-300">TOEIC domains</p>
           <h2 className="section-title">Phát triển theo từng kỹ năng</h2>
           <p className="mt-4 max-w-3xl text-slate-300">
-            Nền tảng mô hình hóa Listening, Reading, Speaking và Writing. Mỗi Course chỉ cam kết
-            đúng skill scope được công bố.
+            Nền tảng hỗ trợ Listening, Reading, Speaking và Writing. Mỗi khóa học thể hiện rõ các kỹ
+            năng được giảng dạy.
           </p>
           <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
@@ -215,17 +215,17 @@ export function HomePage() {
           <ValueCard
             icon={ShieldCheck}
             title="Trạng thái minh bạch"
-            text="FREE, PAID, còn chỗ, đầy lớp và chờ thanh toán được thể hiện đúng business rule."
+            text="Thông tin miễn phí, có phí, số chỗ còn lại và trạng thái đăng ký được trình bày rõ ràng."
           />
           <ValueCard
             icon={BarChart3}
             title="Tiến độ từ dữ liệu thật"
-            text="LessonProgress và assessment state tạo nên báo cáo theo module, không dùng chỉ số giả."
+            text="Tiến độ bài học và kết quả kiểm tra được tổng hợp theo từng học phần."
           />
           <ValueCard
             icon={CheckCircle2}
             title="Một không gian lớp học"
-            text="Tổng quan, bài học, bài kiểm tra, kết quả và tiến độ cùng nằm trong ClassShell."
+            text="Tổng quan, bài học, bài kiểm tra, kết quả và tiến độ cùng nằm trong một không gian học tập."
           />
         </div>
       </section>
@@ -266,7 +266,7 @@ export function HomePage() {
         <div className="rounded-[2rem] bg-gradient-to-r from-indigo-600 to-sky-600 px-7 py-12 text-center text-white sm:px-12">
           <h2 className="text-3xl font-bold">Sẵn sàng chọn lớp phù hợp?</h2>
           <p className="mx-auto mt-3 max-w-2xl text-indigo-50">
-            Bắt đầu từ Course, so sánh các lớp đang mở và đăng ký theo đúng trạng thái.
+            Bắt đầu từ khóa học, so sánh các lớp đang mở và chọn lịch học phù hợp.
           </p>
           <Link className="btn-light mt-6" to="/catalog">
             Khám phá khóa học

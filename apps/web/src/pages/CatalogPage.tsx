@@ -59,11 +59,11 @@ export function CatalogPage() {
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-      <p className="eyebrow">Course catalog</p>
+      <p className="eyebrow">Danh mục khóa học</p>
       <h1 className="page-title">Chọn chương trình phù hợp</h1>
       <p className="page-lead">
         Lọc theo kỹ năng, trình độ và khả năng có lớp đang mở. Lịch học và học phí được so sánh ở
-        tầng ClassOffering.
+        từng lớp học đang mở.
       </p>
       <Filters
         key={`${state.search}|${state.level}|${state.skillScope}|${state.availability}`}
@@ -92,7 +92,7 @@ export function CatalogPage() {
       ) : null}
       {response?.data.length === 0 ? (
         <div className="state-empty mt-10">
-          <p>Không tìm thấy Course phù hợp với bộ lọc.</p>
+          <p>Không tìm thấy khóa học phù hợp với bộ lọc.</p>
           <button
             className="mt-3 font-semibold text-indigo-700"
             onClick={() =>

@@ -82,8 +82,8 @@ export function EnrollmentAction({
         </p>
         <p className="mt-1">
           {enrollment.status === 'ACTIVE'
-            ? 'Nội dung LMS đã sẵn sàng.'
-            : 'Nội dung lớp chỉ mở sau khi trạng thái được xác nhận ACTIVE.'}
+            ? 'Không gian lớp học đã sẵn sàng.'
+            : 'Nội dung lớp chỉ mở sau khi đăng ký được xác nhận.'}
         </p>
         <Link
           className="mt-3 inline-block font-semibold underline"

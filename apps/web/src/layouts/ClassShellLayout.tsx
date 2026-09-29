@@ -52,8 +52,8 @@ export function ClassShellLayout() {
         <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8">
           <h1 className="text-2xl font-bold text-amber-950">Lớp chưa mở quyền học</h1>
           <p className="mt-3 leading-7 text-amber-900">
-            Enrollment đang ở trạng thái {enrollment.status}. Nội dung LMS chỉ dành cho Enrollment
-            ACTIVE; hệ thống không xác nhận thanh toán giả.
+            Đăng ký của bạn chưa được xác nhận để truy cập nội dung lớp. Vui lòng quay lại sau khi
+            trạng thái đăng ký được cập nhật.
           </p>
           <Link className="btn-secondary mt-6" to="/student/enrollments">
             Về Lớp học của tôi

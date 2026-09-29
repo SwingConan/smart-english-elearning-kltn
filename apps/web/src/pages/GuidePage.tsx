@@ -6,7 +6,7 @@ export function GuidePage() {
     [
       BookOpen,
       '1. Chọn chương trình',
-      'Lọc Course theo level và kỹ năng, sau đó xem curriculum trước khi chọn lớp.',
+      'Lọc khóa học theo trình độ và kỹ năng, sau đó xem chương trình trước khi chọn lớp.',
     ],
     [
       ClipboardCheck,
@@ -15,13 +15,13 @@ export function GuidePage() {
     ],
     [
       GraduationCap,
-      '3. Học trong LMS',
+      '3. Học trong không gian lớp',
       'Mở bài học theo thứ tự, tải tài liệu được phép và đánh dấu hoàn thành.',
     ],
     [
       CheckCircle2,
       '4. Kiểm tra tiến độ',
-      'Làm assessment trong lớp, xem kết quả và theo dõi tiến độ theo module.',
+      'Làm bài kiểm tra trong lớp, xem kết quả và theo dõi tiến độ theo từng học phần.',
     ],
   ] as const;
   return (
@@ -29,7 +29,7 @@ export function GuidePage() {
       <p className="eyebrow">Bắt đầu thuận lợi</p>
       <h1 className="page-title">Hướng dẫn học trên hệ thống</h1>
       <p className="page-lead">
-        Từ chọn Course đến theo dõi tiến độ, mọi bước đều có đường điều hướng rõ ràng và dữ liệu
+        Từ chọn khóa học đến theo dõi tiến độ, mọi bước đều có đường điều hướng rõ ràng và dữ liệu
         theo đúng trạng thái lớp.
       </p>
       <div className="mt-10 grid gap-5 md:grid-cols-2">
@@ -44,9 +44,8 @@ export function GuidePage() {
       <div className="mt-12 rounded-3xl bg-indigo-950 p-8 text-white" id="placement">
         <h2 className="text-2xl font-bold">Kiểm tra đầu vào</h2>
         <p className="mt-3 max-w-3xl leading-7 text-indigo-100">
-          Placement sẽ mở ở M03 với quy trình làm bài và kết quả đầy đủ. Trong M02, bạn có thể xem
-          Course và đăng ký các lớp không yêu cầu Placement mà không gặp luồng thi giả hoặc nút
-          không hoạt động.
+          Tính năng kiểm tra đầu vào đang được chuẩn bị để hỗ trợ xác định trình độ và gợi ý lớp phù
+          hợp. Trong thời gian này, bạn vẫn có thể xem chương trình và đăng ký các lớp đang mở.
         </p>
         <Link className="btn-light mt-6" to="/catalog">
           Khám phá khóa học

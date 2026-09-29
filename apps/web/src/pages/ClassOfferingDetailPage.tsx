@@ -73,7 +73,7 @@ export function ClassOfferingDetailPage() {
   const { offering } = state;
   const disabledReason =
     offering.registrationState === 'FULL'
-      ? 'Lớp đã đủ số học viên ACTIVE.'
+      ? 'Lớp đã đủ số học viên đang học.'
       : offering.registrationState === 'UPCOMING'
         ? 'Lớp chưa đến thời gian nhận đăng ký.'
         : offering.registrationState === 'CLOSED'
@@ -151,8 +151,8 @@ export function ClassOfferingDetailPage() {
           </p>
           <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
             {offering.pricingType === 'FREE'
-              ? 'Đăng ký hợp lệ sẽ tạo Enrollment ACTIVE.'
-              : 'Đăng ký sẽ tạo trạng thái PENDING_PAYMENT. M02 không tích hợp cổng thanh toán giả.'}
+              ? 'Sau khi đăng ký thành công, bạn có thể vào không gian lớp học.'
+              : 'Yêu cầu đăng ký sẽ được ghi nhận ở trạng thái chờ thanh toán; nội dung học chỉ mở sau khi trạng thái được xác nhận.'}
           </div>
           <EnrollmentAction classOfferingId={offering.id} disabledReason={disabledReason} />
         </aside>

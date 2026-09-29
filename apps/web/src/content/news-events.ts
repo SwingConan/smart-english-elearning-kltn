@@ -23,7 +23,7 @@ export const newsEvents: NewsEventItem[] = [
       'Tổng hợp các lớp Listening & Reading theo khung giờ tối và cuối tuần, gồm cả lựa chọn online và hybrid.',
     body: [
       'Các lớp tháng 10 được tổ chức theo hai khung giờ chính: tối thứ Ba, thứ Năm và sáng cuối tuần. Mỗi lớp có trang chi tiết riêng để người học so sánh lịch, hình thức, sĩ số và học phí.',
-      'Người học có thể đăng ký trực tiếp lớp miễn phí sau khi đăng nhập. Với lớp có học phí, hệ thống ghi nhận trạng thái chờ thanh toán và chưa mở nội dung LMS.',
+      'Người học có thể đăng ký trực tiếp lớp miễn phí sau khi đăng nhập. Với lớp có học phí, hệ thống ghi nhận trạng thái chờ thanh toán và chưa mở nội dung học.',
     ],
   },
   {
@@ -48,10 +48,10 @@ export const newsEvents: NewsEventItem[] = [
     publishedAt: '2026-09-18',
     title: 'Chuẩn bị lộ trình TOEIC: bắt đầu từ mục tiêu và thời gian học',
     excerpt:
-      'Một checklist ngắn giúp xác định mục tiêu nội bộ, lịch học phù hợp và cách theo dõi tiến độ trong LMS.',
+      'Một danh sách gợi ý ngắn giúp xác định mục tiêu, lịch học phù hợp và cách theo dõi tiến độ.',
     body: [
-      'Hãy bắt đầu bằng mục tiêu sử dụng tiếng Anh và quỹ thời gian học mỗi tuần. Sau đó, chọn Course phù hợp về kỹ năng và level trước khi so sánh các ClassOffering.',
-      'Kiểm tra đầu vào sẽ được triển khai trong M03. Ở M02, người học vẫn có thể chủ động xem chương trình và đăng ký lớp không yêu cầu Placement.',
+      'Hãy bắt đầu bằng mục tiêu sử dụng tiếng Anh và quỹ thời gian học mỗi tuần. Sau đó, chọn khóa học phù hợp về kỹ năng và trình độ trước khi so sánh các lớp đang mở.',
+      'Tính năng kiểm tra đầu vào đang được chuẩn bị. Người học vẫn có thể chủ động xem chương trình và đăng ký các lớp đang mở.',
     ],
   },
   {
@@ -64,8 +64,8 @@ export const newsEvents: NewsEventItem[] = [
     excerpt:
       'Giao diện mới kết nối tổng quan lớp, bài học, tài liệu, bài kiểm tra, kết quả và tiến độ.',
     body: [
-      'Mỗi lớp ACTIVE nay có một không gian học thống nhất. Thanh điều hướng lớp giúp người học luôn biết mình đang ở đâu và bước tiếp theo là gì.',
-      'Các chỉ số trên trang tiến độ lấy từ LessonProgress và trạng thái assessment thật; BKT/Adaptive legacy không được dùng làm chỉ số tiến độ cốt lõi.',
+      'Mỗi lớp đang học có một không gian thống nhất. Thanh điều hướng lớp giúp người học luôn biết mình đang ở đâu và bước tiếp theo là gì.',
+      'Trang tiến độ tổng hợp số bài học đã hoàn thành cùng trạng thái các bài kiểm tra trong lớp.',
     ],
   },
 ];

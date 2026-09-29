@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router';
 import { RoleRoute } from '@/features/auth/RoleRoute';
 import { ClassShellLayout } from '@/layouts/ClassShellLayout';
 import { PublicLayout } from '@/layouts/PublicLayout';
+import { StudentLayout } from '@/layouts/StudentLayout';
 import { AboutPage } from '@/pages/AboutPage';
 import { AdaptivePolicyPage } from '@/pages/AdaptivePolicyPage';
 import { AdminClassOfferingsPage } from '@/pages/AdminClassOfferingsPage';
@@ -63,26 +64,6 @@ export function App() {
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
 
-        <Route path="student/enrollments" element={student(<MyEnrollmentsPage />)} />
-        <Route path="student/enrollments/:enrollmentId" element={student(<ClassShellLayout />)}>
-          <Route index element={<ClassOverviewPage />} />
-          <Route path="learn" element={<LearningPage />} />
-          <Route path="lessons/:lessonId" element={<LessonPage />} />
-          <Route path="tests" element={<StudentAssessmentListPage />} />
-          <Route path="results" element={<ClassResultsPage />} />
-          <Route path="progress" element={<ProgressPage />} />
-          <Route path="attempts/:attemptId" element={<StudentTestAttemptPage />} />
-          <Route path="attempts/:attemptId/result" element={<StudentTestResultPage />} />
-        </Route>
-        <Route
-          path="student/enrollments/:enrollmentId/mastery"
-          element={student(<StudentMasteryPage />)}
-        />
-        <Route
-          path="student/enrollments/:enrollmentId/path"
-          element={student(<StudentAdaptivePathPage />)}
-        />
-
         <Route path="instructor/teaching" element={instructor(<InstructorTeachingPage />)} />
         <Route
           path="instructor/courses/:courseId/content"
@@ -113,6 +94,28 @@ export function App() {
         <Route path="admin/class-offerings" element={admin(<AdminClassOfferingsPage />)} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
+
+      <Route element={student(<StudentLayout />)}>
+        <Route path="student/enrollments" element={<MyEnrollmentsPage />} />
+      </Route>
+      <Route path="student/enrollments/:enrollmentId" element={student(<ClassShellLayout />)}>
+        <Route index element={<ClassOverviewPage />} />
+        <Route path="learn" element={<LearningPage />} />
+        <Route path="lessons/:lessonId" element={<LessonPage />} />
+        <Route path="tests" element={<StudentAssessmentListPage />} />
+        <Route path="results" element={<ClassResultsPage />} />
+        <Route path="progress" element={<ProgressPage />} />
+        <Route path="attempts/:attemptId" element={<StudentTestAttemptPage />} />
+        <Route path="attempts/:attemptId/result" element={<StudentTestResultPage />} />
+      </Route>
+      <Route
+        path="student/enrollments/:enrollmentId/mastery"
+        element={student(<StudentMasteryPage />)}
+      />
+      <Route
+        path="student/enrollments/:enrollmentId/path"
+        element={student(<StudentAdaptivePathPage />)}
+      />
     </Routes>
   );
 }

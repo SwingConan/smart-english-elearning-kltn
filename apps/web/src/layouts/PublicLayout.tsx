@@ -104,8 +104,7 @@ export function PublicLayout() {
             <h2 className="font-semibold text-white">Hỗ trợ</h2>
             <div className="mt-3 flex flex-col gap-2 text-sm">
               <Link to="/contact">Liên hệ</Link>
-              <a href="mailto:support@smart-english.local">support@smart-english.local</a>
-              <span>Đồ án KLTN 2026–2027</span>
+              <span>Kênh liên hệ của nhóm dự án sẽ được cập nhật.</span>
             </div>
           </div>
         </div>

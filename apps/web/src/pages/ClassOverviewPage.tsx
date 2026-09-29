@@ -71,7 +71,7 @@ export function ClassOverviewPage() {
           label="Bài đã hoàn thành"
           value={`${data.progress.completedLessons}/${data.progress.totalLessons}`}
         />
-        <Metric label="Assessment cần làm" value={String(pendingAssessments.length)} />
+        <Metric label="Bài kiểm tra cần làm" value={String(pendingAssessments.length)} />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-2xl border bg-white p-6">
@@ -110,7 +110,7 @@ export function ClassOverviewPage() {
               ))}
             </div>
           ) : (
-            <p className="mt-4 text-sm text-slate-600">Không có assessment đang chờ.</p>
+            <p className="mt-4 text-sm text-slate-600">Không có bài kiểm tra đang chờ.</p>
           )}
           <Link
             className="mt-4 inline-block font-semibold text-indigo-700"

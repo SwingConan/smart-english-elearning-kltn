@@ -56,7 +56,7 @@ export function LessonPage() {
   if (state === 'error' || !data)
     return (
       <div className="state-error">
-        Không thể mở bài học. Bài có thể không thuộc Course của enrollment này.
+        Không thể mở bài học. Bài học có thể không thuộc lớp của bạn.
       </div>
     );
   const complete = async () => {

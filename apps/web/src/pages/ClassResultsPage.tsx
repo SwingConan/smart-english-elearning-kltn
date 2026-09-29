@@ -26,7 +26,7 @@ export function ClassResultsPage() {
   return (
     <section>
       <div className="rounded-2xl border bg-white p-6">
-        <p className="eyebrow">Assessment results</p>
+        <p className="eyebrow">Kết quả bài kiểm tra</p>
         <h2 className="mt-2 text-3xl font-bold">Kết quả</h2>
         <p className="mt-3 text-slate-600">
           Chỉ hiển thị các lượt làm đã nộp và được phép công bố theo VS03.

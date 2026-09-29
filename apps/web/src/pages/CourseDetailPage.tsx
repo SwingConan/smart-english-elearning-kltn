@@ -40,14 +40,14 @@ export function CourseDetailPage() {
     return (
       <Message
         title="Không tìm thấy khóa học"
-        text="Course chưa được công bố hoặc đường dẫn không chính xác."
+        text="Khóa học chưa được công bố hoặc đường dẫn không chính xác."
       />
     );
   if (state.status === 'error')
     return (
       <section className="section-shell">
         <div className="state-error" role="alert">
-          Không thể tải thông tin Course.
+          Không thể tải thông tin khóa học.
           <button
             className="ml-3 font-semibold underline"
             onClick={() => setReloadKey((value) => value + 1)}
@@ -126,16 +126,16 @@ export function CourseDetailPage() {
               <Row label="Trình độ" value={course.level} />
               <Row label="Phạm vi kỹ năng" value={course.skillScope} />
               <Row label="Lớp đang mở" value={String(course.openOfferingCount)} />
-              <Row label="Modules" value={String(course.modules?.length ?? 0)} />
+              <Row label="Học phần" value={String(course.modules?.length ?? 0)} />
             </dl>
           </aside>
         </div>
       </section>
       <section className="section-shell pt-0" id="open-classes">
-        <p className="eyebrow">ClassOffering</p>
+        <p className="eyebrow">Lớp đang mở</p>
         <h2 className="section-title">So sánh lớp đang mở</h2>
         {course.classOfferings.length === 0 ? (
-          <div className="state-empty mt-7">Hiện chưa có lớp nhận đăng ký cho Course này.</div>
+          <div className="state-empty mt-7">Hiện chưa có lớp nhận đăng ký cho khóa học này.</div>
         ) : (
           <div className="mt-7 overflow-x-auto rounded-2xl border bg-white">
             <table className="min-w-[1080px] w-full text-left text-sm">

@@ -100,7 +100,7 @@ export function ProgressPage() {
           Tiến độ bài kiểm tra
         </h2>
         {progress.assessments.length === 0 ? (
-          <p className="mt-4 text-slate-600">Chưa có assessment trong lớp.</p>
+          <p className="mt-4 text-slate-600">Chưa có bài kiểm tra trong lớp.</p>
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {progress.assessments.map((item) => (

@@ -6,25 +6,25 @@ export function AboutPage() {
       <p className="eyebrow">Về nền tảng</p>
       <h1 className="page-title">Một hành trình học TOEIC có cấu trúc</h1>
       <p className="page-lead">
-        Smart English E-Learning là đồ án KLTN tập trung kết nối discovery, lớp học, nội dung,
-        assessment và tiến độ trên một nền tảng nhất quán.
+        Smart English E-Learning là đồ án KLTN tập trung kết nối discovery, lớp học, nội dung, bài
+        kiểm tra và tiến độ trên một nền tảng nhất quán.
       </p>
       <div className="mt-10 grid gap-6 md:grid-cols-3">
         {[
           [
             Target,
             'Đúng mục tiêu',
-            'Course và ClassOffering được tách rõ để người học chọn đúng chương trình và lịch học.',
+            'Khóa học và lớp học được trình bày rõ để người học chọn đúng chương trình và lịch học.',
           ],
           [
             Layers3,
             'Học tập liền mạch',
-            'Class shell giữ ngữ cảnh từ tổng quan đến lesson, assessment, result và progress.',
+            'Không gian lớp giữ ngữ cảnh xuyên suốt từ tổng quan đến bài học, bài kiểm tra, kết quả và tiến độ.',
           ],
           [
             ShieldCheck,
             'Quyền truy cập rõ ràng',
-            'Nội dung LMS chỉ mở cho Enrollment ACTIVE; trạng thái chờ thanh toán không bị mô tả sai.',
+            'Nội dung học chỉ mở cho đăng ký đã được xác nhận; trạng thái chờ thanh toán được trình bày minh bạch.',
           ],
         ].map(([Icon, title, text]) => (
           <article className="card" key={String(title)}>

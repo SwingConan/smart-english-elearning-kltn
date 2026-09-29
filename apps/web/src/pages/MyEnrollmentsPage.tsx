@@ -42,7 +42,7 @@ export function MyEnrollmentsPage() {
   );
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-      <p className="eyebrow">Student LMS</p>
+      <p className="eyebrow">Không gian học tập</p>
       <h1 className="page-title">Lớp học của tôi</h1>
       <p className="page-lead">
         Theo dõi lớp đang học, lớp sắp bắt đầu và trạng thái chờ thanh toán tại một nơi.
@@ -175,11 +175,13 @@ function ClassCard({ enrollment }: { enrollment: EnrollmentView }) {
               Chờ thanh toán
             </p>
             <p className="mt-1">
-              Nội dung LMS chưa được mở. Không có xác nhận thanh toán giả trong M02.
+              Nội dung lớp chưa được mở trong khi đăng ký đang chờ xác nhận thanh toán.
             </p>
           </div>
         ) : (
-          <p className="mt-5 text-sm text-slate-500">Lớp hiện không có quyền truy cập LMS.</p>
+          <p className="mt-5 text-sm text-slate-500">
+            Lớp hiện chưa mở quyền truy cập nội dung học.
+          </p>
         )}
       </div>
     </article>
@@ -187,10 +189,10 @@ function ClassCard({ enrollment }: { enrollment: EnrollmentView }) {
 }
 function Status({ status }: { status: EnrollmentStatus }) {
   const label: Record<EnrollmentStatus, string> = {
-    ACTIVE: 'ACTIVE',
+    ACTIVE: 'Đang học',
     PENDING_PAYMENT: 'Chờ thanh toán',
-    COMPLETED: 'Hoàn thành',
-    DROPPED: 'Đã rút',
+    COMPLETED: 'Đã hoàn thành',
+    DROPPED: 'Đã dừng học',
     CANCELLED: 'Đã hủy',
   };
   return (

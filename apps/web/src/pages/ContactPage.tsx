@@ -1,4 +1,4 @@
-import { Clock3, Mail, MapPin } from 'lucide-react';
+import { BellRing, MessageCircleMore, ShieldCheck } from 'lucide-react';
 
 export function ContactPage() {
   return (
@@ -6,20 +6,23 @@ export function ContactPage() {
       <p className="eyebrow">Hỗ trợ</p>
       <h1 className="page-title">Liên hệ</h1>
       <p className="page-lead">
-        Kênh liên hệ phục vụ demo và trao đổi về đồ án. Trang không hiển thị form gửi giả khi chưa
-        có backend xử lý.
+        Kênh liên hệ chính thức của nhóm dự án sẽ được cập nhật tại đây khi sẵn sàng.
       </p>
       <div className="mt-10 grid gap-5 md:grid-cols-3">
-        <ContactCard icon={Mail} title="Email" value="support@smart-english.local" />
         <ContactCard
-          icon={MapPin}
-          title="Địa điểm"
-          value="Không gian demo KLTN — TP. Hồ Chí Minh"
+          icon={MessageCircleMore}
+          title="Kênh liên hệ"
+          value="Thông tin liên hệ của nhóm dự án đang được cập nhật."
         />
         <ContactCard
-          icon={Clock3}
-          title="Thời gian phản hồi"
-          value="Thứ Hai–Thứ Sáu, 08:00–17:00"
+          icon={BellRing}
+          title="Thông báo"
+          value="Các kênh hỗ trợ chính thức sẽ được công bố trực tiếp trên trang này."
+        />
+        <ContactCard
+          icon={ShieldCheck}
+          title="Thông tin xác thực"
+          value="Chúng tôi không hiển thị email, số điện thoại hoặc thời gian phản hồi khi chưa được xác nhận."
         />
       </div>
     </section>
@@ -31,7 +34,7 @@ function ContactCard({
   title,
   value,
 }: {
-  icon: typeof Mail;
+  icon: typeof MessageCircleMore;
   title: string;
   value: string;
 }) {

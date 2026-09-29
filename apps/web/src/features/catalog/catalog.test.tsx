@@ -143,7 +143,7 @@ describe('public catalog', () => {
         <CatalogPage />
       </MemoryRouter>,
     );
-    expect(await screen.findByText(/Không tìm thấy Course phù hợp/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Không tìm thấy khóa học phù hợp/i)).toBeInTheDocument();
     empty.unmount();
     vi.spyOn(catalogApi, 'list').mockRejectedValueOnce(new Error('database internals'));
     render(
