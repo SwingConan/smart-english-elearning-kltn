@@ -1,201 +1,118 @@
-import { Link, Route, Routes } from 'react-router';
-import { HomePage } from '@/pages/HomePage';
-import { SystemStatusPage } from '@/pages/SystemStatusPage';
-import { NotFoundPage } from '@/pages/NotFoundPage';
-import { LoginPage } from '@/pages/LoginPage';
-import { RegisterPage } from '@/pages/RegisterPage';
-import { AuthNavigation } from '@/features/auth/AuthNavigation';
+import type { ReactNode } from 'react';
+import { Route, Routes } from 'react-router';
 import { RoleRoute } from '@/features/auth/RoleRoute';
-import { CatalogPage } from '@/pages/CatalogPage';
-import { CourseDetailPage } from '@/pages/CourseDetailPage';
-import { AdminCoursesPage } from '@/pages/AdminCoursesPage';
+import { ClassShellLayout } from '@/layouts/ClassShellLayout';
+import { PublicLayout } from '@/layouts/PublicLayout';
+import { AboutPage } from '@/pages/AboutPage';
+import { AdaptivePolicyPage } from '@/pages/AdaptivePolicyPage';
 import { AdminClassOfferingsPage } from '@/pages/AdminClassOfferingsPage';
-import { MyEnrollmentsPage } from '@/pages/MyEnrollmentsPage';
-import { LearningPage } from '@/pages/LearningPage';
-import { InstructorTeachingPage } from '@/pages/InstructorTeachingPage';
+import { AdminCoursesPage } from '@/pages/AdminCoursesPage';
+import { ClassOfferingDetailPage } from '@/pages/ClassOfferingDetailPage';
+import { ClassOverviewPage } from '@/pages/ClassOverviewPage';
+import { ClassResultsPage } from '@/pages/ClassResultsPage';
+import { ContactPage } from '@/pages/ContactPage';
 import { CourseContentManagementPage } from '@/pages/CourseContentManagementPage';
+import { CourseDetailPage } from '@/pages/CourseDetailPage';
+import { CatalogPage } from '@/pages/CatalogPage';
+import { GuidePage } from '@/pages/GuidePage';
+import { HomePage } from '@/pages/HomePage';
+import { InstructorLearnerMasteryPage } from '@/pages/InstructorLearnerMasteryPage';
+import { InstructorTeachingPage } from '@/pages/InstructorTeachingPage';
+import { KnowledgeModelPage } from '@/pages/KnowledgeModelPage';
+import { LearningPage } from '@/pages/LearningPage';
+import { LessonPage } from '@/pages/LessonPage';
+import { LoginPage } from '@/pages/LoginPage';
+import { MyEnrollmentsPage } from '@/pages/MyEnrollmentsPage';
+import { NewsEventDetailPage } from '@/pages/NewsEventDetailPage';
+import { NewsEventsPage } from '@/pages/NewsEventsPage';
+import { NotFoundPage } from '@/pages/NotFoundPage';
+import { ProgressPage } from '@/pages/ProgressPage';
 import { QuestionBankPage } from '@/pages/QuestionBankPage';
-import { TestManagementPage } from '@/pages/TestManagementPage';
-import { TestEditorPage } from '@/pages/TestEditorPage';
+import { RegisterPage } from '@/pages/RegisterPage';
+import { StudentAdaptivePathPage } from '@/pages/StudentAdaptivePathPage';
 import { StudentAssessmentListPage } from '@/pages/StudentAssessmentListPage';
+import { StudentMasteryPage } from '@/pages/StudentMasteryPage';
 import { StudentTestAttemptPage } from '@/pages/StudentTestAttemptPage';
 import { StudentTestResultPage } from '@/pages/StudentTestResultPage';
-import { KnowledgeModelPage } from '@/pages/KnowledgeModelPage';
-import { StudentMasteryPage } from '@/pages/StudentMasteryPage';
-import { AdaptivePolicyPage } from '@/pages/AdaptivePolicyPage';
-import { StudentAdaptivePathPage } from '@/pages/StudentAdaptivePathPage';
-import { InstructorLearnerMasteryPage } from '@/pages/InstructorLearnerMasteryPage';
+import { SystemStatusPage } from '@/pages/SystemStatusPage';
+import { TestEditorPage } from '@/pages/TestEditorPage';
+import { TestManagementPage } from '@/pages/TestManagementPage';
+
+const student = (element: ReactNode) => <RoleRoute allowedRoles={['STUDENT']}>{element}</RoleRoute>;
+const instructor = (element: ReactNode) => (
+  <RoleRoute allowedRoles={['INSTRUCTOR']}>{element}</RoleRoute>
+);
+const admin = (element: ReactNode) => (
+  <RoleRoute allowedRoles={['ADMIN_COORDINATOR']}>{element}</RoleRoute>
+);
 
 export function App() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link className="font-semibold" to="/">
-            Smart English E-Learning
-          </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link to="/catalog">Khóa học</Link>
-            <Link to="/status">System Status</Link>
-            <AuthNavigation />
-          </nav>
-        </div>
-      </header>
+    <Routes>
+      <Route element={<PublicLayout />}>
+        <Route index element={<HomePage />} />
+        <Route path="catalog" element={<CatalogPage />} />
+        <Route path="catalog/:slug" element={<CourseDetailPage />} />
+        <Route path="classes/:id" element={<ClassOfferingDetailPage />} />
+        <Route path="guide" element={<GuidePage />} />
+        <Route path="news-events" element={<NewsEventsPage />} />
+        <Route path="news-events/:slug" element={<NewsEventDetailPage />} />
+        <Route path="about" element={<AboutPage />} />
+        <Route path="contact" element={<ContactPage />} />
+        <Route path="status" element={<SystemStatusPage />} />
+        <Route path="login" element={<LoginPage />} />
+        <Route path="register" element={<RegisterPage />} />
 
-      <main className="mx-auto max-w-6xl px-6 py-10">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/status" element={<SystemStatusPage />} />
-          <Route path="/catalog" element={<CatalogPage />} />
-          <Route path="/catalog/:slug" element={<CourseDetailPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+        <Route path="student/enrollments" element={student(<MyEnrollmentsPage />)} />
+        <Route path="student/enrollments/:enrollmentId" element={student(<ClassShellLayout />)}>
+          <Route index element={<ClassOverviewPage />} />
+          <Route path="learn" element={<LearningPage />} />
+          <Route path="lessons/:lessonId" element={<LessonPage />} />
+          <Route path="tests" element={<StudentAssessmentListPage />} />
+          <Route path="results" element={<ClassResultsPage />} />
+          <Route path="progress" element={<ProgressPage />} />
+          <Route path="attempts/:attemptId" element={<StudentTestAttemptPage />} />
+          <Route path="attempts/:attemptId/result" element={<StudentTestResultPage />} />
+        </Route>
+        <Route
+          path="student/enrollments/:enrollmentId/mastery"
+          element={student(<StudentMasteryPage />)}
+        />
+        <Route
+          path="student/enrollments/:enrollmentId/path"
+          element={student(<StudentAdaptivePathPage />)}
+        />
 
-          {/* Student routes */}
-          <Route
-            path="/student/enrollments"
-            element={
-              <RoleRoute allowedRoles={['STUDENT']}>
-                <MyEnrollmentsPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/student/enrollments/:enrollmentId/learn"
-            element={
-              <RoleRoute allowedRoles={['STUDENT']}>
-                <LearningPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/student/enrollments/:enrollmentId/mastery"
-            element={
-              <RoleRoute allowedRoles={['STUDENT']}>
-                <StudentMasteryPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/student/enrollments/:enrollmentId/path"
-            element={
-              <RoleRoute allowedRoles={['STUDENT']}>
-                <StudentAdaptivePathPage />
-              </RoleRoute>
-            }
-          />
-
-          {/* Instructor routes */}
-          <Route
-            path="/instructor/teaching"
-            element={
-              <RoleRoute allowedRoles={['INSTRUCTOR']}>
-                <InstructorTeachingPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/instructor/courses/:courseId/content"
-            element={
-              <RoleRoute allowedRoles={['INSTRUCTOR']}>
-                <CourseContentManagementPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/student/enrollments/:enrollmentId/tests"
-            element={
-              <RoleRoute allowedRoles={['STUDENT']}>
-                <StudentAssessmentListPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/student/enrollments/:enrollmentId/attempts/:attemptId"
-            element={
-              <RoleRoute allowedRoles={['STUDENT']}>
-                <StudentTestAttemptPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/student/enrollments/:enrollmentId/attempts/:attemptId/result"
-            element={
-              <RoleRoute allowedRoles={['STUDENT']}>
-                <StudentTestResultPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/instructor/courses/:courseId/skills"
-            element={
-              <RoleRoute allowedRoles={['INSTRUCTOR']}>
-                <KnowledgeModelPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/instructor/courses/:courseId/adaptive-policy"
-            element={
-              <RoleRoute allowedRoles={['INSTRUCTOR']}>
-                <AdaptivePolicyPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/instructor/courses/:courseId/learner-mastery"
-            element={
-              <RoleRoute allowedRoles={['INSTRUCTOR']}>
-                <InstructorLearnerMasteryPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/instructor/courses/:courseId/question-bank"
-            element={
-              <RoleRoute allowedRoles={['INSTRUCTOR']}>
-                <QuestionBankPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/instructor/courses/:courseId/tests"
-            element={
-              <RoleRoute allowedRoles={['INSTRUCTOR']}>
-                <TestManagementPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/instructor/tests/:testId/edit"
-            element={
-              <RoleRoute allowedRoles={['INSTRUCTOR']}>
-                <TestEditorPage />
-              </RoleRoute>
-            }
-          />
-
-          {/* Admin routes */}
-          <Route
-            path="/admin/courses"
-            element={
-              <RoleRoute allowedRoles={['ADMIN_COORDINATOR']}>
-                <AdminCoursesPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/admin/class-offerings"
-            element={
-              <RoleRoute allowedRoles={['ADMIN_COORDINATOR']}>
-                <AdminClassOfferingsPage />
-              </RoleRoute>
-            }
-          />
-
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </main>
-    </div>
+        <Route path="instructor/teaching" element={instructor(<InstructorTeachingPage />)} />
+        <Route
+          path="instructor/courses/:courseId/content"
+          element={instructor(<CourseContentManagementPage />)}
+        />
+        <Route
+          path="instructor/courses/:courseId/skills"
+          element={instructor(<KnowledgeModelPage />)}
+        />
+        <Route
+          path="instructor/courses/:courseId/adaptive-policy"
+          element={instructor(<AdaptivePolicyPage />)}
+        />
+        <Route
+          path="instructor/courses/:courseId/learner-mastery"
+          element={instructor(<InstructorLearnerMasteryPage />)}
+        />
+        <Route
+          path="instructor/courses/:courseId/question-bank"
+          element={instructor(<QuestionBankPage />)}
+        />
+        <Route
+          path="instructor/courses/:courseId/tests"
+          element={instructor(<TestManagementPage />)}
+        />
+        <Route path="instructor/tests/:testId/edit" element={instructor(<TestEditorPage />)} />
+        <Route path="admin/courses" element={admin(<AdminCoursesPage />)} />
+        <Route path="admin/class-offerings" element={admin(<AdminClassOfferingsPage />)} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
   );
 }

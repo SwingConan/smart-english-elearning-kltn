@@ -1,0 +1,69 @@
+import { useEffect, useState } from 'react';
+import { Award } from 'lucide-react';
+import { Link, useParams } from 'react-router';
+import { learningApi } from '@/features/learning/api';
+import type { CourseProgress } from '@/features/learning/types';
+
+export function ClassResultsPage() {
+  const { enrollmentId = '' } = useParams();
+  const [progress, setProgress] = useState<CourseProgress | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    void learningApi
+      .getProgress(enrollmentId, controller.signal)
+      .then(setProgress)
+      .catch((reason: unknown) => {
+        if (!(reason instanceof DOMException && reason.name === 'AbortError')) setError(true);
+      });
+    return () => controller.abort();
+  }, [enrollmentId]);
+  if (error) return <div className="state-error">Không thể tải danh sách kết quả.</div>;
+  if (!progress) return <div className="h-60 animate-pulse rounded-2xl bg-white" role="status" />;
+  const completed = progress.assessments.filter(
+    (item) => item.status === 'COMPLETED' && item.attemptId,
+  );
+  return (
+    <section>
+      <div className="rounded-2xl border bg-white p-6">
+        <p className="eyebrow">Assessment results</p>
+        <h2 className="mt-2 text-3xl font-bold">Kết quả</h2>
+        <p className="mt-3 text-slate-600">
+          Chỉ hiển thị các lượt làm đã nộp và được phép công bố theo VS03.
+        </p>
+      </div>
+      {completed.length === 0 ? (
+        <div className="state-empty mt-6">
+          <Award className="mx-auto text-indigo-600" />
+          <p className="mt-3">Chưa có kết quả được công bố.</p>
+          <Link
+            className="mt-3 inline-block font-semibold text-indigo-700"
+            to={`/student/enrollments/${enrollmentId}/tests`}
+          >
+            Mở bài kiểm tra
+          </Link>
+        </div>
+      ) : (
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          {completed.map((item) => (
+            <article className="rounded-2xl border bg-white p-5" key={item.id}>
+              <p className="text-xs font-bold text-emerald-700">ĐÃ NỘP</p>
+              <h3 className="mt-2 text-lg font-bold">{item.title}</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                {item.submittedAt
+                  ? `Nộp lúc ${new Date(item.submittedAt).toLocaleString('vi-VN')}`
+                  : 'Đã hoàn thành'}
+              </p>
+              <Link
+                className="btn-secondary mt-4"
+                to={`/student/enrollments/${enrollmentId}/attempts/${item.attemptId}/result`}
+              >
+                Xem chi tiết
+              </Link>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}

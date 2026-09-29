@@ -11,7 +11,11 @@ export const learningApi = {
   getContent: (enrollmentId: string, signal?: AbortSignal): Promise<CourseContent> =>
     apiFetch(`/learning/enrollments/${enrollmentId}/content`, { signal }),
 
-  openLesson: (enrollmentId: string, lessonId: string, signal?: AbortSignal): Promise<LessonDetail> =>
+  openLesson: (
+    enrollmentId: string,
+    lessonId: string,
+    signal?: AbortSignal,
+  ): Promise<LessonDetail> =>
     apiFetch(`/learning/enrollments/${enrollmentId}/lessons/${lessonId}/open`, {
       method: 'POST',
       signal,
@@ -24,6 +28,12 @@ export const learningApi = {
 
   getProgress: (enrollmentId: string, signal?: AbortSignal): Promise<CourseProgress> =>
     apiFetch(`/learning/enrollments/${enrollmentId}/progress`, { signal }),
+
+  getResourceDownload: (
+    enrollmentId: string,
+    resourceId: string,
+  ): Promise<{ url: string; fileName: string; mimeType: string | null }> =>
+    apiFetch(`/learning/enrollments/${enrollmentId}/resources/${resourceId}/download`),
 
   getMastery: (enrollmentId: string, signal?: AbortSignal): Promise<MasteryOverview> =>
     apiFetch(`/learning/enrollments/${enrollmentId}/mastery`, { signal }),
