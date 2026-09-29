@@ -318,8 +318,11 @@ export class KnowledgeModelInstructorService {
   private async assertInstructorOwnsCourse(
     database: Database,
     instructorId: string,
-    courseId: string,
+    courseId: string | null,
   ): Promise<void> {
+    if (!courseId) {
+      throw new NotFoundException('Legacy BKT mapping requires a course-scoped Question');
+    }
     const assignment = await database.classOffering.findFirst({
       where: { courseId, instructorId },
       select: { id: true },
@@ -359,8 +362,11 @@ export class KnowledgeModelInstructorService {
   private async requireSkillsInCourse(
     database: Database,
     skillIds: string[],
-    courseId: string,
+    courseId: string | null,
   ): Promise<void> {
+    if (!courseId) {
+      throw new NotFoundException('Legacy BKT mapping requires a course-scoped Question');
+    }
     if (skillIds.length === 0) return;
     const skills = await database.skill.findMany({
       where: { id: { in: skillIds } },

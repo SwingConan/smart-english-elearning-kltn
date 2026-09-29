@@ -2,15 +2,21 @@ import 'dotenv/config';
 import * as argon2 from 'argon2';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
+  ClassModality,
   ClassOfferingStatus,
+  CourseSkillScope,
+  CriterionRuleMode,
   EnrollmentStatus,
+  EvaluationMetric,
   PrismaClient,
   PricingType,
   QuestionDifficulty,
-  QuestionType,
+  QuestionResponseType,
   ResourceType,
+  PlacementMode,
+  ToeicSkill,
   TestStatus,
-  TestType,
+  TestPurpose,
   UserRole,
   UserStatus,
 } from '../src/generated/prisma/client';
@@ -38,11 +44,15 @@ const DEMO_SKILL_VOCABULARY_ID = 'a0000000-0000-4000-8000-000000000002';
 const DEMO_SKILL_READING_ID = 'a0000000-0000-4000-8000-000000000003';
 const DEMO_SKILL_SENTENCE_ID = 'a0000000-0000-4000-8000-000000000004';
 const DEMO_ADAPTIVE_POLICY_ID = 'e0000000-0000-4000-8000-000000000001';
+const DEMO_EVALUATION_POLICY_ID = 'f0000000-0000-4000-8000-000000000001';
+const DEMO_RECOMMENDATION_PROFILE_ID = 'f1000000-0000-4000-8000-000000000001';
+const DEMO_CLASS_ASSESSMENT_ID = 'f2000000-0000-4000-8000-000000000001';
 
 const questionSeeds = [
   {
     id: DEMO_QUESTION_1_ID,
-    type: QuestionType.SINGLE_CHOICE,
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
     difficulty: QuestionDifficulty.EASY,
     content: 'Which greeting is appropriate when meeting someone in the morning?',
     explanation: '“Good morning” is the conventional morning greeting.',
@@ -55,7 +65,8 @@ const questionSeeds = [
   },
   {
     id: DEMO_QUESTION_2_ID,
-    type: QuestionType.TRUE_FALSE,
+    type: QuestionResponseType.TRUE_FALSE,
+    toeicSkill: ToeicSkill.LISTENING,
     difficulty: QuestionDifficulty.EASY,
     content: '“Hello” can be used as a greeting.',
     explanation: '“Hello” is a common general greeting.',
@@ -66,7 +77,8 @@ const questionSeeds = [
   },
   {
     id: DEMO_QUESTION_3_ID,
-    type: QuestionType.SINGLE_CHOICE,
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
     difficulty: QuestionDifficulty.MEDIUM,
     content: 'Choose the most polite response to “How are you?”',
     explanation: 'The complete polite response acknowledges the question and returns it.',
@@ -83,7 +95,8 @@ const questionSeeds = [
   },
   {
     id: DEMO_QUESTION_4_ID,
-    type: QuestionType.MULTIPLE_CHOICE,
+    type: QuestionResponseType.MULTIPLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
     difficulty: QuestionDifficulty.MEDIUM,
     content: 'Select all phrases that can be used to say goodbye.',
     explanation: 'Both “Goodbye” and “See you later” are leave-taking expressions.',
@@ -96,7 +109,8 @@ const questionSeeds = [
   },
   {
     id: DEMO_QUESTION_5_ID,
-    type: QuestionType.SINGLE_CHOICE,
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
     difficulty: QuestionDifficulty.HARD,
     content: 'Which sentence uses the most appropriate formal introduction?',
     explanation: 'The formal construction introduces the speaker clearly and politely.',
@@ -306,17 +320,19 @@ async function main(): Promise<void> {
     const course = await prisma.course.upsert({
       where: { slug: 'demo-english-foundations' },
       update: {
-        title: 'Demo English Foundations',
-        description: 'A small published course for local VS01 demonstrations.',
-        level: 'BEGINNER',
+        title: 'TOEIC Workplace Foundations (Demo)',
+        description: 'A compact Listening and Reading course using workplace TOEIC-style contexts.',
+        level: 'FOUNDATION',
+        skillScope: CourseSkillScope.LR,
         isPublished: true,
         createdById: admin.id,
       },
       create: {
-        title: 'Demo English Foundations',
+        title: 'TOEIC Workplace Foundations (Demo)',
         slug: 'demo-english-foundations',
-        description: 'A small published course for local VS01 demonstrations.',
-        level: 'BEGINNER',
+        description: 'A compact Listening and Reading course using workplace TOEIC-style contexts.',
+        level: 'FOUNDATION',
+        skillScope: CourseSkillScope.LR,
         isPublished: true,
         createdById: admin.id,
       },
@@ -336,14 +352,103 @@ async function main(): Promise<void> {
       },
     });
 
+    const evaluationPolicy = await prisma.evaluationPolicy.upsert({
+      where: { code: 'DEMO_PLACEMENT_LR_V1' },
+      update: {
+        name: 'Demo internal L&R placement policy',
+        placementMode: PlacementMode.LR,
+        ruleConfig: { version: 1, basis: 'internal-demo', officialToeicEquivalence: false },
+        isActive: true,
+      },
+      create: {
+        id: DEMO_EVALUATION_POLICY_ID,
+        code: 'DEMO_PLACEMENT_LR_V1',
+        name: 'Demo internal L&R placement policy',
+        placementMode: PlacementMode.LR,
+        ruleConfig: { version: 1, basis: 'internal-demo', officialToeicEquivalence: false },
+        isActive: true,
+      },
+    });
+
+    const evaluationBands = [
+      {
+        id: 'f0100000-0000-4000-8000-000000000001',
+        code: 'FOUNDATION',
+        label: 'Foundation',
+        minValue: 10,
+        maxValue: 450,
+        orderIndex: 0,
+      },
+      {
+        id: 'f0100000-0000-4000-8000-000000000002',
+        code: 'DEVELOPING',
+        label: 'Developing',
+        minValue: 455,
+        maxValue: 700,
+        orderIndex: 1,
+      },
+      {
+        id: 'f0100000-0000-4000-8000-000000000003',
+        code: 'ADVANCING',
+        label: 'Advancing',
+        minValue: 705,
+        maxValue: 990,
+        orderIndex: 2,
+      },
+    ] as const;
+    for (const band of evaluationBands) {
+      await prisma.evaluationBand.upsert({
+        where: { id: band.id },
+        update: {
+          ...band,
+          policyId: evaluationPolicy.id,
+          metric: EvaluationMetric.LR_TOTAL,
+          skill: null,
+        },
+        create: {
+          ...band,
+          policyId: evaluationPolicy.id,
+          metric: EvaluationMetric.LR_TOTAL,
+          skill: null,
+        },
+      });
+    }
+
+    const recommendationProfile = await prisma.courseRecommendationProfile.upsert({
+      where: { courseId: course.id },
+      update: { ruleMode: CriterionRuleMode.ALL, priority: 100, isActive: true },
+      create: {
+        id: DEMO_RECOMMENDATION_PROFILE_ID,
+        courseId: course.id,
+        ruleMode: CriterionRuleMode.ALL,
+        priority: 100,
+        isActive: true,
+      },
+    });
+    for (const [index, skill] of [ToeicSkill.LISTENING, ToeicSkill.READING].entries()) {
+      await prisma.courseSkillCriterion.upsert({
+        where: { profileId_skill: { profileId: recommendationProfile.id, skill } },
+        update: { minNormalizedScore: 0, maxNormalizedScore: 65 },
+        create: {
+          id: `f1100000-0000-4000-8000-00000000000${index + 1}`,
+          profileId: recommendationProfile.id,
+          skill,
+          minNormalizedScore: 0,
+          maxNormalizedScore: 65,
+        },
+      });
+    }
+
     await Promise.all([
       prisma.classOffering.upsert({
         where: { id: FREE_OFFERING_ID },
         update: {
           courseId: course.id,
           instructorId: instructor.id,
+          code: 'TOEIC-LR-DEMO-FREE',
           name: 'Demo Free Cohort',
           status: ClassOfferingStatus.OPEN,
+          modality: ClassModality.ONLINE,
           pricingType: PricingType.FREE,
           tuitionFeeVnd: 0,
           maxStudents: 25,
@@ -352,8 +457,10 @@ async function main(): Promise<void> {
           id: FREE_OFFERING_ID,
           courseId: course.id,
           instructorId: instructor.id,
+          code: 'TOEIC-LR-DEMO-FREE',
           name: 'Demo Free Cohort',
           status: ClassOfferingStatus.OPEN,
+          modality: ClassModality.ONLINE,
           pricingType: PricingType.FREE,
           tuitionFeeVnd: 0,
           maxStudents: 25,
@@ -364,8 +471,10 @@ async function main(): Promise<void> {
         update: {
           courseId: course.id,
           instructorId: instructor.id,
+          code: 'TOEIC-LR-DEMO-PAID',
           name: 'Demo Paid Cohort',
           status: ClassOfferingStatus.OPEN,
+          modality: ClassModality.HYBRID,
           pricingType: PricingType.PAID,
           tuitionFeeVnd: 750_000,
           maxStudents: 20,
@@ -374,8 +483,10 @@ async function main(): Promise<void> {
           id: PAID_OFFERING_ID,
           courseId: course.id,
           instructorId: instructor.id,
+          code: 'TOEIC-LR-DEMO-PAID',
           name: 'Demo Paid Cohort',
           status: ClassOfferingStatus.OPEN,
+          modality: ClassModality.HYBRID,
           pricingType: PricingType.PAID,
           tuitionFeeVnd: 750_000,
           maxStudents: 20,
@@ -433,6 +544,7 @@ async function main(): Promise<void> {
         title: 'Welcome & Course Overview',
         description: 'An introduction to the course structure and learning objectives.',
         orderIndex: 0,
+        focusSkills: [ToeicSkill.LISTENING, ToeicSkill.READING],
       },
       create: {
         id: DEMO_LESSON_1_ID,
@@ -440,6 +552,7 @@ async function main(): Promise<void> {
         title: 'Welcome & Course Overview',
         description: 'An introduction to the course structure and learning objectives.',
         orderIndex: 0,
+        focusSkills: [ToeicSkill.LISTENING, ToeicSkill.READING],
       },
     });
 
@@ -451,6 +564,7 @@ async function main(): Promise<void> {
         title: 'Basic Greetings',
         description: 'Learn how to greet people in English.',
         orderIndex: 1,
+        focusSkills: [ToeicSkill.LISTENING],
       },
       create: {
         id: DEMO_LESSON_2_ID,
@@ -458,6 +572,7 @@ async function main(): Promise<void> {
         title: 'Basic Greetings',
         description: 'Learn how to greet people in English.',
         orderIndex: 1,
+        focusSkills: [ToeicSkill.LISTENING],
       },
     });
 
@@ -469,6 +584,7 @@ async function main(): Promise<void> {
         title: 'Common Words',
         description: 'Essential vocabulary for everyday communication.',
         orderIndex: 0,
+        focusSkills: [ToeicSkill.READING],
       },
       create: {
         id: DEMO_LESSON_3_ID,
@@ -476,6 +592,7 @@ async function main(): Promise<void> {
         title: 'Common Words',
         description: 'Essential vocabulary for everyday communication.',
         orderIndex: 0,
+        focusSkills: [ToeicSkill.READING],
       },
     });
 
@@ -569,7 +686,8 @@ async function main(): Promise<void> {
         where: { id: questionSeed.id },
         update: {
           courseId: course.id,
-          type: questionSeed.type,
+          responseType: questionSeed.type,
+          toeicSkill: questionSeed.toeicSkill,
           difficulty: questionSeed.difficulty,
           content: questionSeed.content,
           explanation: questionSeed.explanation,
@@ -577,7 +695,8 @@ async function main(): Promise<void> {
         create: {
           id: questionSeed.id,
           courseId: course.id,
-          type: questionSeed.type,
+          responseType: questionSeed.type,
+          toeicSkill: questionSeed.toeicSkill,
           difficulty: questionSeed.difficulty,
           content: questionSeed.content,
           explanation: questionSeed.explanation,
@@ -609,7 +728,8 @@ async function main(): Promise<void> {
       update: {
         courseId: course.id,
         lessonId: null,
-        type: TestType.PLACEMENT,
+        purpose: TestPurpose.PLACEMENT,
+        placementMode: PlacementMode.LR,
         title: 'Demo English Placement Test',
         description: 'A course-level placement assessment for local demonstrations.',
         status: TestStatus.PUBLISHED,
@@ -620,7 +740,8 @@ async function main(): Promise<void> {
         id: DEMO_PLACEMENT_TEST_ID,
         courseId: course.id,
         lessonId: null,
-        type: TestType.PLACEMENT,
+        purpose: TestPurpose.PLACEMENT,
+        placementMode: PlacementMode.LR,
         title: 'Demo English Placement Test',
         description: 'A course-level placement assessment for local demonstrations.',
         status: TestStatus.PUBLISHED,
@@ -634,7 +755,8 @@ async function main(): Promise<void> {
       update: {
         courseId: course.id,
         lessonId: DEMO_LESSON_2_ID,
-        type: TestType.QUIZ,
+        purpose: TestPurpose.IN_CLASS,
+        placementMode: null,
         title: 'Demo Greetings Quiz',
         description: 'A lesson quiz covering greetings and leave-taking expressions.',
         status: TestStatus.PUBLISHED,
@@ -645,12 +767,32 @@ async function main(): Promise<void> {
         id: DEMO_QUIZ_TEST_ID,
         courseId: course.id,
         lessonId: DEMO_LESSON_2_ID,
-        type: TestType.QUIZ,
+        purpose: TestPurpose.IN_CLASS,
+        placementMode: null,
         title: 'Demo Greetings Quiz',
         description: 'A lesson quiz covering greetings and leave-taking expressions.',
         status: TestStatus.PUBLISHED,
         maxAttempts: 2,
         showResultAfterSubmit: true,
+      },
+    });
+
+    await prisma.classAssessment.upsert({
+      where: { id: DEMO_CLASS_ASSESSMENT_ID },
+      update: {
+        classOfferingId: FREE_OFFERING_ID,
+        testId: DEMO_QUIZ_TEST_ID,
+        stage: 'PERIODIC',
+        maxAttemptsOverride: 2,
+        isActive: true,
+      },
+      create: {
+        id: DEMO_CLASS_ASSESSMENT_ID,
+        classOfferingId: FREE_OFFERING_ID,
+        testId: DEMO_QUIZ_TEST_ID,
+        stage: 'PERIODIC',
+        maxAttemptsOverride: 2,
+        isActive: true,
       },
     });
 

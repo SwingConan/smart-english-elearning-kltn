@@ -10,7 +10,11 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
-import { QuestionDifficulty, QuestionType } from '../../../generated/prisma/client';
+import {
+  QuestionDifficulty,
+  QuestionResponseType,
+  ToeicSkill,
+} from '../../../generated/prisma/client';
 
 export class QuestionOptionInputDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -24,8 +28,12 @@ export class QuestionOptionInputDto {
 }
 
 export class CreateQuestionDto {
-  @IsEnum(QuestionType)
-  type: QuestionType;
+  @IsEnum(QuestionResponseType)
+  type: QuestionResponseType;
+
+  @IsOptional()
+  @IsEnum(ToeicSkill)
+  toeicSkill?: ToeicSkill;
 
   @IsEnum(QuestionDifficulty)
   difficulty: QuestionDifficulty;

@@ -8,7 +8,7 @@ import {
 import {
   EnrollmentStatus,
   Prisma,
-  QuestionType,
+  QuestionResponseType,
   TestAttemptStatus,
   TestStatus,
 } from '../../generated/prisma/client';
@@ -26,7 +26,7 @@ const answerableTestQuestionSelect = {
   question: {
     select: {
       id: true,
-      type: true,
+      responseType: true,
       difficulty: true,
       content: true,
       explanation: true,
@@ -87,7 +87,7 @@ export class AssessmentStudentService {
       },
       select: {
         id: true,
-        type: true,
+        purpose: true,
         title: true,
         description: true,
         lessonId: true,
@@ -117,7 +117,7 @@ export class AssessmentStudentService {
 
       return {
         id: test.id,
-        type: test.type,
+        type: test.purpose,
         title: test.title,
         description: test.description,
         lessonId: test.lessonId,
@@ -167,6 +167,7 @@ export class AssessmentStudentService {
       const inProgress = await transaction.testAttempt.findFirst({
         where: {
           testId,
+          learnerId,
           enrollmentId,
           status: TestAttemptStatus.IN_PROGRESS,
         },
@@ -187,6 +188,7 @@ export class AssessmentStudentService {
       return transaction.testAttempt.create({
         data: {
           testId,
+          learnerId,
           enrollmentId,
           attemptNumber: attemptsUsed + 1,
           status: TestAttemptStatus.IN_PROGRESS,
@@ -214,7 +216,7 @@ export class AssessmentStudentService {
           select: {
             id: true,
             title: true,
-            type: true,
+            purpose: true,
             testQuestions: {
               orderBy: { orderIndex: 'asc' },
               select: answerableTestQuestionSelect,
@@ -240,7 +242,7 @@ export class AssessmentStudentService {
     const testMetadata = {
       id: attempt.test.id,
       title: attempt.test.title,
-      type: attempt.test.type,
+      type: attempt.test.purpose,
     };
 
     if (attempt.status === TestAttemptStatus.SUBMITTED) {
@@ -258,7 +260,7 @@ export class AssessmentStudentService {
         points: testQuestion.points,
         question: {
           id: testQuestion.question.id,
-          type: testQuestion.question.type,
+          type: testQuestion.question.responseType,
           difficulty: testQuestion.question.difficulty,
           content: testQuestion.question.content,
           options: testQuestion.question.options.map((option) => ({
@@ -347,7 +349,7 @@ export class AssessmentStudentService {
             select: {
               id: true,
               title: true,
-              type: true,
+              purpose: true,
               showResultAfterSubmit: true,
               testQuestions: {
                 orderBy: { orderIndex: 'asc' },
@@ -404,12 +406,7 @@ export class AssessmentStudentService {
         });
       }
 
-      await this.applyBktObservations(
-        transaction,
-        enrollmentId,
-        attemptId,
-        bktObservations,
-      );
+      await this.applyBktObservations(transaction, enrollmentId, attemptId, bktObservations);
 
       const submitted = await transaction.testAttempt.update({
         where: { id: attemptId },
@@ -435,7 +432,7 @@ export class AssessmentStudentService {
         test: {
           id: attempt.test.id,
           title: attempt.test.title,
-          type: attempt.test.type,
+          purpose: attempt.test.purpose,
           showResultAfterSubmit: attempt.test.showResultAfterSubmit,
         },
       });
@@ -462,7 +459,7 @@ export class AssessmentStudentService {
           select: {
             id: true,
             title: true,
-            type: true,
+            purpose: true,
             showResultAfterSubmit: true,
             testQuestions: {
               orderBy: { orderIndex: 'asc' },
@@ -505,7 +502,7 @@ export class AssessmentStudentService {
       test: {
         id: attempt.test.id,
         title: attempt.test.title,
-        type: attempt.test.type,
+        type: attempt.test.purpose,
       },
       questions: attempt.test.testQuestions.map((testQuestion) => {
         const answer = answerMap.get(testQuestion.id);
@@ -517,7 +514,7 @@ export class AssessmentStudentService {
           points: testQuestion.points,
           question: {
             id: testQuestion.question.id,
-            type: testQuestion.question.type,
+            type: testQuestion.question.responseType,
             difficulty: testQuestion.question.difficulty,
             content: testQuestion.question.content,
             explanation: testQuestion.question.explanation,
@@ -616,12 +613,12 @@ export class AssessmentStudentService {
         throw new BadRequestException('selectedOptionIds must not contain duplicates');
       }
       if (
-        (testQuestion.question.type === QuestionType.SINGLE_CHOICE ||
-          testQuestion.question.type === QuestionType.TRUE_FALSE) &&
+        (testQuestion.question.responseType === QuestionResponseType.SINGLE_CHOICE ||
+          testQuestion.question.responseType === QuestionResponseType.TRUE_FALSE) &&
         selectedOptionIds.length > 1
       ) {
         throw new BadRequestException(
-          `${testQuestion.question.type} accepts at most one selected option`,
+          `${testQuestion.question.responseType} accepts at most one selected option`,
         );
       }
 
@@ -648,7 +645,7 @@ export class AssessmentStudentService {
     test: {
       id: string;
       title: string;
-      type: string;
+      purpose: string;
       showResultAfterSubmit: boolean;
     };
   }) {
@@ -663,7 +660,7 @@ export class AssessmentStudentService {
       test: {
         id: attempt.test.id,
         title: attempt.test.title,
-        type: attempt.test.type,
+        type: attempt.test.purpose,
       },
       resultAvailable: attempt.test.showResultAfterSubmit,
     };

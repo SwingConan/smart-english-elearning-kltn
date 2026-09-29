@@ -8,10 +8,10 @@ import {
   EnrollmentStatus,
   PricingType,
   QuestionDifficulty,
-  QuestionType,
+  QuestionResponseType,
   TestAttemptStatus,
   TestStatus,
-  TestType,
+  TestPurpose,
   UserRole,
   UserStatus,
 } from '../src/generated/prisma/client';
@@ -110,7 +110,8 @@ describe('Instructor knowledge-model APIs (e2e)', () => {
     const question = await prisma.question.create({
       data: {
         courseId: courseA,
-        type: QuestionType.SINGLE_CHOICE,
+        responseType: QuestionResponseType.SINGLE_CHOICE,
+        toeicSkill: 'READING',
         difficulty: QuestionDifficulty.EASY,
         content: 'Knowledge model question A',
         options: {
@@ -392,7 +393,8 @@ describe('Instructor knowledge-model APIs (e2e)', () => {
     const unrelatedQuestion = await prisma.question.create({
       data: {
         courseId: courseA,
-        type: QuestionType.TRUE_FALSE,
+        responseType: QuestionResponseType.TRUE_FALSE,
+        toeicSkill: 'READING',
         difficulty: QuestionDifficulty.EASY,
         content: 'Unrelated mapping question',
       },
@@ -417,9 +419,7 @@ describe('Instructor knowledge-model APIs (e2e)', () => {
       .get(`/api/instructor/questions/${questionA}/skills`)
       .expect(200);
     expect(current.body.map((skill: { id: string }) => skill.id)).toEqual([skillB, skillC]);
-    await expect(
-      prisma.questionSkill.count({ where: { questionId: questionA } }),
-    ).resolves.toBe(2);
+    await expect(prisma.questionSkill.count({ where: { questionId: questionA } })).resolves.toBe(2);
     await expect(
       prisma.questionSkill.findUnique({
         where: {
@@ -469,9 +469,7 @@ describe('Instructor knowledge-model APIs (e2e)', () => {
       .put(`/api/instructor/lessons/${lessonA}/skills`)
       .send({ skillIds: [skillB, skillC] })
       .expect(200);
-    current = await instructorAgent
-      .get(`/api/instructor/lessons/${lessonA}/skills`)
-      .expect(200);
+    current = await instructorAgent.get(`/api/instructor/lessons/${lessonA}/skills`).expect(200);
     expect(current.body.map((skill: { id: string }) => skill.id)).toEqual([skillB, skillC]);
     await expect(prisma.lessonSkill.count({ where: { lessonId: lessonA } })).resolves.toBe(2);
     await expect(
@@ -532,10 +530,15 @@ describe('Instructor knowledge-model APIs (e2e)', () => {
   }
 
   async function createMasteryHistory(skillId: string, questionId: string) {
+    const enrollment = await prisma.enrollment.findUniqueOrThrow({
+      where: { id: enrollmentA },
+      select: { learnerId: true },
+    });
     const test = await prisma.test.create({
       data: {
         courseId: courseA,
-        type: TestType.PLACEMENT,
+        purpose: TestPurpose.PLACEMENT,
+        placementMode: 'LR',
         title: `History ${crypto.randomUUID()}`,
         status: TestStatus.PUBLISHED,
       },
@@ -546,6 +549,7 @@ describe('Instructor knowledge-model APIs (e2e)', () => {
     const attempt = await prisma.testAttempt.create({
       data: {
         testId: test.id,
+        learnerId: enrollment.learnerId,
         enrollmentId: enrollmentA,
         attemptNumber: 1,
         status: TestAttemptStatus.SUBMITTED,

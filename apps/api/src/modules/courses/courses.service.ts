@@ -1,9 +1,5 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { ClassOfferingStatus, Prisma } from '../../generated/prisma/client';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ClassOfferingStatus, CourseSkillScope, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CatalogQueryDto } from './dto/catalog-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -36,6 +32,7 @@ const publicCourseSelect = {
   slug: true,
   description: true,
   level: true,
+  skillScope: true,
   thumbnailUrl: true,
   isPublished: true,
   classOfferings: {
@@ -52,9 +49,7 @@ export class CoursesService {
   async listPublic(query: CatalogQueryDto) {
     const where: Prisma.CourseWhereInput = {
       isPublished: true,
-      ...(query.search
-        ? { title: { contains: query.search, mode: 'insensitive' } }
-        : {}),
+      ...(query.search ? { title: { contains: query.search, mode: 'insensitive' } } : {}),
       ...(query.level ? { level: query.level } : {}),
     };
     const skip = (query.page - 1) * query.limit;
@@ -106,11 +101,7 @@ export class CoursesService {
   async create(input: CreateCourseDto, createdById: string) {
     const baseSlug = slugify(input.title) || 'course';
 
-    for (
-      let attempt = 1;
-      attempt <= MAX_SLUG_CREATE_ATTEMPTS;
-      attempt += 1
-    ) {
+    for (let attempt = 1; attempt <= MAX_SLUG_CREATE_ATTEMPTS; attempt += 1) {
       const slug = attempt === 1 ? baseSlug : `${baseSlug}-${attempt}`;
 
       try {
@@ -120,6 +111,7 @@ export class CoursesService {
             slug,
             description: input.description ?? '',
             level: input.level,
+            skillScope: input.skillScope ?? CourseSkillScope.LR,
             thumbnailUrl: input.thumbnailUrl,
             isPublished: input.isPublished ?? false,
             createdById,
@@ -149,16 +141,11 @@ export class CoursesService {
       where: { id },
       data: {
         ...(input.title !== undefined ? { title: input.title } : {}),
-        ...(input.description !== undefined
-          ? { description: input.description }
-          : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
         ...(input.level !== undefined ? { level: input.level } : {}),
-        ...(input.thumbnailUrl !== undefined
-          ? { thumbnailUrl: input.thumbnailUrl }
-          : {}),
-        ...(input.isPublished !== undefined
-          ? { isPublished: input.isPublished }
-          : {}),
+        ...(input.skillScope !== undefined ? { skillScope: input.skillScope } : {}),
+        ...(input.thumbnailUrl !== undefined ? { thumbnailUrl: input.thumbnailUrl } : {}),
+        ...(input.isPublished !== undefined ? { isPublished: input.isPublished } : {}),
       },
     });
   }
@@ -174,10 +161,7 @@ export class CoursesService {
   }
 
   private isCourseSlugCollision(error: unknown): boolean {
-    if (
-      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-      error.code !== 'P2002'
-    ) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
       return false;
     }
 

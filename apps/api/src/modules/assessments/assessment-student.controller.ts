@@ -1,15 +1,26 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PublicUser } from '../users/user.types';
 import { AssessmentStudentService } from './assessment-student.service';
+import { AssessmentCompatibilityInterceptor } from './assessment-compatibility.interceptor';
 import { SaveAttemptAnswersDto } from './dto/save-attempt-answers.dto';
 import { SubmitAttemptDto } from './dto/submit-attempt.dto';
 
 @ApiTags('student assessments')
 @Roles(UserRole.STUDENT)
+@UseInterceptors(AssessmentCompatibilityInterceptor)
 @Controller('learning')
 export class AssessmentStudentController {
   constructor(private readonly assessmentStudentService: AssessmentStudentService) {}
