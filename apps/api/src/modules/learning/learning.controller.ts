@@ -44,6 +44,15 @@ export class LearningController {
     return this.learningService.getProgress(user.id, enrollmentId);
   }
 
+  @Get('enrollments/:enrollmentId/resources/:resourceId/download')
+  async getResourceDownload(
+    @CurrentUser() user: PublicUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) enrollmentId: string,
+    @Param('resourceId', new ParseUUIDPipe()) resourceId: string,
+  ) {
+    return this.learningService.getResourceDownload(user.id, enrollmentId, resourceId);
+  }
+
   @Get('enrollments/:enrollmentId/mastery')
   async getMastery(
     @CurrentUser() user: PublicUser,

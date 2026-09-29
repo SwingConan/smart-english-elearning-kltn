@@ -1,6 +1,13 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { EnrollmentStatus, LessonProgressStatus, Prisma } from '../../generated/prisma/client';
+import {
+  EnrollmentStatus,
+  LessonProgressStatus,
+  Prisma,
+  TestAttemptStatus,
+  TestPurpose,
+  TestStatus,
+} from '../../generated/prisma/client';
 
 const MAX_PROGRESS_TRANSACTION_ATTEMPTS = 3;
 
@@ -109,8 +116,12 @@ export class LearningService {
             title: true,
             type: true,
             url: true,
+            storageKey: true,
+            originalFileName: true,
+            mimeType: true,
             orderIndex: true,
             isDownloadable: true,
+            updatedAt: true,
           },
         },
       },
@@ -210,20 +221,67 @@ export class LearningService {
 
     const course = await this.prisma.course.findUniqueOrThrow({
       where: { id: courseId },
-      select: { title: true },
-    });
-
-    const totalLessons = await this.prisma.lesson.count({
-      where: { module: { courseId } },
-    });
-
-    const completedLessons = await this.prisma.lessonProgress.count({
-      where: {
-        enrollmentId,
-        status: LessonProgressStatus.COMPLETED,
-        lesson: { module: { courseId } },
+      select: {
+        title: true,
+        modules: {
+          orderBy: { orderIndex: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            orderIndex: true,
+            lessons: {
+              orderBy: { orderIndex: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                orderIndex: true,
+                progress: {
+                  where: { enrollmentId },
+                  select: { status: true, completedAt: true },
+                },
+              },
+            },
+          },
+        },
       },
     });
+
+    const assessments = await this.prisma.classAssessment.findMany({
+      where: {
+        classOfferingId: enrollment.classOfferingId,
+        isActive: true,
+        test: {
+          status: TestStatus.PUBLISHED,
+          purpose: { in: [TestPurpose.IN_CLASS, TestPurpose.PRACTICE_MOCK] },
+        },
+      },
+      orderBy: [{ openAt: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true,
+        stage: true,
+        openAt: true,
+        closeAt: true,
+        test: {
+          select: {
+            id: true,
+            title: true,
+            purpose: true,
+            attempts: {
+              where: { enrollmentId },
+              orderBy: { attemptNumber: 'desc' },
+              take: 1,
+              select: { id: true, status: true, submittedAt: true },
+            },
+          },
+        },
+      },
+    });
+
+    const lessons = course.modules.flatMap((module) => module.lessons);
+    const totalLessons = lessons.length;
+    const completedLessons = lessons.filter(
+      (lesson) => lesson.progress[0]?.status === LessonProgressStatus.COMPLETED,
+    ).length;
 
     const progressPercent =
       totalLessons === 0 ? 0 : Math.min(100, Math.round((completedLessons / totalLessons) * 100));
@@ -234,6 +292,79 @@ export class LearningService {
       totalLessons,
       completedLessons,
       progressPercent,
+      modules: course.modules.map((module) => {
+        const moduleCompletedLessons = module.lessons.filter(
+          (lesson) => lesson.progress[0]?.status === LessonProgressStatus.COMPLETED,
+        ).length;
+        return {
+          id: module.id,
+          title: module.title,
+          orderIndex: module.orderIndex,
+          totalLessons: module.lessons.length,
+          completedLessons: moduleCompletedLessons,
+          progressPercent:
+            module.lessons.length === 0
+              ? 0
+              : Math.round((moduleCompletedLessons / module.lessons.length) * 100),
+          lessons: module.lessons.map((lesson) => ({
+            id: lesson.id,
+            title: lesson.title,
+            orderIndex: lesson.orderIndex,
+            status: lesson.progress[0]?.status ?? LessonProgressStatus.NOT_STARTED,
+            completedAt: lesson.progress[0]?.completedAt ?? null,
+          })),
+        };
+      }),
+      assessments: assessments.map((assessment) => {
+        const attempt = assessment.test.attempts[0];
+        return {
+          id: assessment.id,
+          testId: assessment.test.id,
+          title: assessment.test.title,
+          purpose: assessment.test.purpose,
+          stage: assessment.stage,
+          openAt: assessment.openAt,
+          closeAt: assessment.closeAt,
+          status:
+            attempt?.status === TestAttemptStatus.SUBMITTED
+              ? 'COMPLETED'
+              : attempt?.status === TestAttemptStatus.IN_PROGRESS
+                ? 'IN_PROGRESS'
+                : 'NOT_STARTED',
+          attemptId: attempt?.id ?? null,
+          submittedAt: attempt?.submittedAt ?? null,
+        };
+      }),
+    };
+  }
+
+  async getResourceDownload(learnerId: string, enrollmentId: string, resourceId: string) {
+    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId);
+    const resource = await this.prisma.learningResource.findFirst({
+      where: {
+        id: resourceId,
+        isDownloadable: true,
+        lesson: { module: { courseId: enrollment.classOffering.courseId } },
+      },
+      select: {
+        id: true,
+        title: true,
+        url: true,
+        storageKey: true,
+        originalFileName: true,
+        mimeType: true,
+      },
+    });
+    if (!resource || !resource.url) {
+      throw new NotFoundException('Downloadable resource not found');
+    }
+
+    return {
+      resourceId: resource.id,
+      url: resource.url,
+      fileName: resource.originalFileName ?? resource.title,
+      mimeType: resource.mimeType,
+      delivery: resource.storageKey ? 'STORAGE' : 'EXTERNAL_URL',
     };
   }
 
@@ -279,8 +410,7 @@ export class LearningService {
         prerequisites: skill.prerequisites
           .map(({ prerequisiteSkill }) => prerequisiteSkill)
           .sort(
-            (left, right) =>
-              left.code.localeCompare(right.code) || left.id.localeCompare(right.id),
+            (left, right) => left.code.localeCompare(right.code) || left.id.localeCompare(right.id),
           ),
       })),
     };

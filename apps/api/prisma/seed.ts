@@ -8,6 +8,7 @@ import {
   CriterionRuleMode,
   EnrollmentStatus,
   EvaluationMetric,
+  LessonProgressStatus,
   PrismaClient,
   PricingType,
   QuestionDifficulty,
@@ -16,6 +17,7 @@ import {
   PlacementMode,
   ToeicSkill,
   TestStatus,
+  TestAttemptStatus,
   TestPurpose,
   UserRole,
   UserStatus,
@@ -47,6 +49,132 @@ const DEMO_ADAPTIVE_POLICY_ID = 'e0000000-0000-4000-8000-000000000001';
 const DEMO_EVALUATION_POLICY_ID = 'f0000000-0000-4000-8000-000000000001';
 const DEMO_RECOMMENDATION_PROFILE_ID = 'f1000000-0000-4000-8000-000000000001';
 const DEMO_CLASS_ASSESSMENT_ID = 'f2000000-0000-4000-8000-000000000001';
+const DEMO_PRACTICE_TEST_ID = '80000000-0000-4000-8000-000000000003';
+const DEMO_PRACTICE_ASSESSMENT_ID = 'f2000000-0000-4000-8000-000000000002';
+const DEMO_SUBMITTED_ATTEMPT_ID = 'f3000000-0000-4000-8000-000000000001';
+const DEMO_MODULE_3_ID = '20000000-0000-4000-8000-000000000003';
+
+const additionalCourseSeeds = [
+  {
+    id: '01000000-0000-4000-8000-000000000002',
+    slug: 'toeic-listening-focus',
+    title: 'TOEIC Listening Focus',
+    description:
+      'Luyện nghe theo bối cảnh hội thoại và thông báo công sở, tập trung nhận diện ý chính và chi tiết.',
+    level: 'BASIC',
+    skillScope: CourseSkillScope.LISTENING,
+  },
+  {
+    id: '01000000-0000-4000-8000-000000000003',
+    slug: 'toeic-reading-strategies',
+    title: 'TOEIC Reading Strategies',
+    description:
+      'Củng cố từ vựng, ngữ pháp và chiến lược đọc nhanh cho văn bản môi trường làm việc.',
+    level: 'INTERMEDIATE',
+    skillScope: CourseSkillScope.READING,
+  },
+  {
+    id: '01000000-0000-4000-8000-000000000004',
+    slug: 'toeic-lr-advancing',
+    title: 'TOEIC L&R Advancing',
+    description:
+      'Chương trình Listening & Reading nâng cao với bài luyện theo thời gian và kỹ thuật kiểm soát tốc độ.',
+    level: 'ADVANCING',
+    skillScope: CourseSkillScope.LR,
+  },
+  {
+    id: '01000000-0000-4000-8000-000000000005',
+    slug: 'workplace-writing-foundations',
+    title: 'Workplace Writing Foundations',
+    description:
+      'Nền tảng viết email và phản hồi ngắn trong môi trường làm việc; chưa bao gồm chấm điểm AI.',
+    level: 'FOUNDATION',
+    skillScope: CourseSkillScope.WRITING,
+  },
+] as const;
+
+const additionalOfferingSeeds = [
+  [
+    '11000000-0000-4000-8000-000000000003',
+    0,
+    'TOEIC-LIS-01',
+    'Listening buổi tối',
+    ClassModality.ONLINE,
+    PricingType.FREE,
+    0,
+    24,
+  ],
+  [
+    '11000000-0000-4000-8000-000000000004',
+    0,
+    'TOEIC-LIS-02',
+    'Listening cuối tuần',
+    ClassModality.OFFLINE,
+    PricingType.PAID,
+    1_200_000,
+    20,
+  ],
+  [
+    '11000000-0000-4000-8000-000000000005',
+    1,
+    'TOEIC-REA-01',
+    'Reading tăng tốc',
+    ClassModality.HYBRID,
+    PricingType.PAID,
+    1_450_000,
+    22,
+  ],
+  [
+    '11000000-0000-4000-8000-000000000006',
+    1,
+    'TOEIC-REA-02',
+    'Reading thực hành',
+    ClassModality.ONLINE,
+    PricingType.FREE,
+    0,
+    18,
+  ],
+  [
+    '11000000-0000-4000-8000-000000000007',
+    2,
+    'TOEIC-LR-ADV-01',
+    'L&R nâng cao tối',
+    ClassModality.ONLINE,
+    PricingType.PAID,
+    1_800_000,
+    16,
+  ],
+  [
+    '11000000-0000-4000-8000-000000000008',
+    2,
+    'TOEIC-LR-ADV-02',
+    'L&R nâng cao cuối tuần',
+    ClassModality.OFFLINE,
+    PricingType.PAID,
+    1_950_000,
+    1,
+  ],
+  [
+    '11000000-0000-4000-8000-000000000009',
+    3,
+    'WRITING-FDN-01',
+    'Writing nền tảng',
+    ClassModality.ONLINE,
+    PricingType.FREE,
+    0,
+    25,
+  ],
+  [
+    '11000000-0000-4000-8000-000000000010',
+    3,
+    'WRITING-FDN-02',
+    'Writing thực hành',
+    ClassModality.HYBRID,
+    PricingType.PAID,
+    1_300_000,
+    20,
+  ],
+] as const;
 
 const questionSeeds = [
   {
@@ -338,6 +466,33 @@ async function main(): Promise<void> {
       },
     });
 
+    const additionalCourses = [];
+    for (const seed of additionalCourseSeeds) {
+      additionalCourses.push(
+        await prisma.course.upsert({
+          where: { slug: seed.slug },
+          update: {
+            title: seed.title,
+            description: seed.description,
+            level: seed.level,
+            skillScope: seed.skillScope,
+            isPublished: true,
+            createdById: admin.id,
+          },
+          create: {
+            id: seed.id,
+            slug: seed.slug,
+            title: seed.title,
+            description: seed.description,
+            level: seed.level,
+            skillScope: seed.skillScope,
+            isPublished: true,
+            createdById: admin.id,
+          },
+        }),
+      );
+    }
+
     await prisma.courseAdaptivePolicy.upsert({
       where: { courseId: course.id },
       update: {
@@ -452,6 +607,12 @@ async function main(): Promise<void> {
           pricingType: PricingType.FREE,
           tuitionFeeVnd: 0,
           maxStudents: 25,
+          totalSessions: 18,
+          totalPeriods: 36,
+          enrollmentStart: new Date('2026-09-15T00:00:00Z'),
+          enrollmentEnd: new Date('2026-10-15T23:59:59Z'),
+          classStart: new Date('2026-10-20T00:00:00Z'),
+          classEnd: new Date('2026-12-20T00:00:00Z'),
         },
         create: {
           id: FREE_OFFERING_ID,
@@ -464,6 +625,12 @@ async function main(): Promise<void> {
           pricingType: PricingType.FREE,
           tuitionFeeVnd: 0,
           maxStudents: 25,
+          totalSessions: 18,
+          totalPeriods: 36,
+          enrollmentStart: new Date('2026-09-15T00:00:00Z'),
+          enrollmentEnd: new Date('2026-10-15T23:59:59Z'),
+          classStart: new Date('2026-10-20T00:00:00Z'),
+          classEnd: new Date('2026-12-20T00:00:00Z'),
         },
       }),
       prisma.classOffering.upsert({
@@ -478,6 +645,12 @@ async function main(): Promise<void> {
           pricingType: PricingType.PAID,
           tuitionFeeVnd: 750_000,
           maxStudents: 20,
+          totalSessions: 20,
+          totalPeriods: 40,
+          enrollmentStart: new Date('2026-09-20T00:00:00Z'),
+          enrollmentEnd: new Date('2026-10-25T23:59:59Z'),
+          classStart: new Date('2026-11-01T00:00:00Z'),
+          classEnd: new Date('2027-01-15T00:00:00Z'),
         },
         create: {
           id: PAID_OFFERING_ID,
@@ -490,9 +663,106 @@ async function main(): Promise<void> {
           pricingType: PricingType.PAID,
           tuitionFeeVnd: 750_000,
           maxStudents: 20,
+          totalSessions: 20,
+          totalPeriods: 40,
+          enrollmentStart: new Date('2026-09-20T00:00:00Z'),
+          enrollmentEnd: new Date('2026-10-25T23:59:59Z'),
+          classStart: new Date('2026-11-01T00:00:00Z'),
+          classEnd: new Date('2027-01-15T00:00:00Z'),
         },
       }),
     ]);
+
+    for (const [
+      id,
+      courseIndex,
+      code,
+      name,
+      modality,
+      pricingType,
+      tuitionFeeVnd,
+      maxStudents,
+    ] of additionalOfferingSeeds) {
+      await prisma.classOffering.upsert({
+        where: { id },
+        update: {
+          courseId: additionalCourses[courseIndex].id,
+          instructorId: instructor.id,
+          code,
+          name,
+          status: ClassOfferingStatus.OPEN,
+          modality,
+          pricingType,
+          tuitionFeeVnd,
+          maxStudents,
+          totalSessions: 16,
+          totalPeriods: 32,
+          enrollmentStart: new Date('2026-09-20T00:00:00Z'),
+          enrollmentEnd: new Date('2026-11-05T23:59:59Z'),
+          classStart: new Date('2026-11-10T00:00:00Z'),
+          classEnd: new Date('2027-01-20T00:00:00Z'),
+        },
+        create: {
+          id,
+          courseId: additionalCourses[courseIndex].id,
+          instructorId: instructor.id,
+          code,
+          name,
+          status: ClassOfferingStatus.OPEN,
+          modality,
+          pricingType,
+          tuitionFeeVnd,
+          maxStudents,
+          totalSessions: 16,
+          totalPeriods: 32,
+          enrollmentStart: new Date('2026-09-20T00:00:00Z'),
+          enrollmentEnd: new Date('2026-11-05T23:59:59Z'),
+          classStart: new Date('2026-11-10T00:00:00Z'),
+          classEnd: new Date('2027-01-20T00:00:00Z'),
+        },
+      });
+    }
+
+    const allOfferingIds = [
+      FREE_OFFERING_ID,
+      PAID_OFFERING_ID,
+      ...additionalOfferingSeeds.map(([id]) => id),
+    ];
+    for (const [index, classOfferingId] of allOfferingIds.entries()) {
+      const weekend = index % 2 === 1;
+      const slots = weekend
+        ? [
+            { dayOfWeek: 6, startTime: '08:00:00', endTime: '10:00:00' },
+            { dayOfWeek: 7, startTime: '08:00:00', endTime: '10:00:00' },
+          ]
+        : [
+            { dayOfWeek: 2, startTime: '18:00:00', endTime: '20:00:00' },
+            { dayOfWeek: 4, startTime: '18:00:00', endTime: '20:00:00' },
+          ];
+      for (const [slotIndex, slot] of slots.entries()) {
+        const id = `12000000-0000-4000-8${String(index).padStart(3, '0')}-${String(slotIndex + 1).padStart(12, '0')}`;
+        await prisma.classScheduleSlot.upsert({
+          where: { id },
+          update: {
+            classOfferingId,
+            dayOfWeek: slot.dayOfWeek,
+            startTime: new Date(`1970-01-01T${slot.startTime}Z`),
+            endTime: new Date(`1970-01-01T${slot.endTime}Z`),
+            locationText: weekend ? 'Phòng A.203' : null,
+            meetingUrl: weekend ? null : 'https://meet.google.com/',
+          },
+          create: {
+            id,
+            classOfferingId,
+            dayOfWeek: slot.dayOfWeek,
+            startTime: new Date(`1970-01-01T${slot.startTime}Z`),
+            endTime: new Date(`1970-01-01T${slot.endTime}Z`),
+            locationText: weekend ? 'Phòng A.203' : null,
+            meetingUrl: weekend ? null : 'https://meet.google.com/',
+          },
+        });
+      }
+    }
 
     // ── VS02: Modules, Lessons, Resources ──────────────────────────
     const student = users.find((user) => user.role === UserRole.STUDENT);
@@ -596,14 +866,83 @@ async function main(): Promise<void> {
       },
     });
 
+    await prisma.module.upsert({
+      where: { id: DEMO_MODULE_3_ID },
+      update: {
+        courseId: course.id,
+        title: 'TOEIC Workplace Practice',
+        description: 'Ứng dụng Listening và Reading trong email, thông báo và hội thoại công sở.',
+        orderIndex: 2,
+      },
+      create: {
+        id: DEMO_MODULE_3_ID,
+        courseId: course.id,
+        title: 'TOEIC Workplace Practice',
+        description: 'Ứng dụng Listening và Reading trong email, thông báo và hội thoại công sở.',
+        orderIndex: 2,
+      },
+    });
+
+    const extendedLessons = [
+      [
+        '30000000-0000-4000-8000-000000000004',
+        DEMO_MODULE_2_ID,
+        'Từ vựng văn phòng',
+        'Nhận diện từ vựng thường gặp trong lịch họp và trao đổi công việc.',
+        1,
+        [ToeicSkill.READING],
+      ],
+      [
+        '30000000-0000-4000-8000-000000000005',
+        DEMO_MODULE_2_ID,
+        'Ngữ pháp trong email',
+        'Ôn cấu trúc câu dùng trong thông báo và email ngắn.',
+        2,
+        [ToeicSkill.READING],
+      ],
+      [
+        '30000000-0000-4000-8000-000000000006',
+        DEMO_MODULE_3_ID,
+        'Nghe hội thoại công sở',
+        'Luyện xác định người nói, mục đích và bước tiếp theo.',
+        0,
+        [ToeicSkill.LISTENING],
+      ],
+      [
+        '30000000-0000-4000-8000-000000000007',
+        DEMO_MODULE_3_ID,
+        'Đọc thông báo nội bộ',
+        'Đọc nhanh thông báo, lịch trình và hướng dẫn vận hành.',
+        1,
+        [ToeicSkill.READING],
+      ],
+      [
+        '30000000-0000-4000-8000-000000000008',
+        DEMO_MODULE_3_ID,
+        'Bài luyện tổng hợp',
+        'Kết hợp Listening và Reading trong một phiên luyện ngắn.',
+        2,
+        [ToeicSkill.LISTENING, ToeicSkill.READING],
+      ],
+    ] as const;
+    for (const [id, moduleId, title, description, orderIndex, focusSkills] of extendedLessons) {
+      await prisma.lesson.upsert({
+        where: { id },
+        update: { moduleId, title, description, orderIndex, focusSkills: [...focusSkills] },
+        create: { id, moduleId, title, description, orderIndex, focusSkills: [...focusSkills] },
+      });
+    }
+
     // Resources for Lesson 1
     await prisma.learningResource.upsert({
       where: { id: DEMO_RESOURCE_VIDEO_ID },
       update: {
         lessonId: DEMO_LESSON_1_ID,
         title: 'Introduction Video',
-        type: ResourceType.VIDEO,
-        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        type: ResourceType.LINK,
+        url: 'https://www.ets.org/toeic/test-takers/about.html',
+        originalFileName: null,
+        mimeType: 'text/html',
         orderIndex: 0,
         isDownloadable: false,
       },
@@ -611,8 +950,10 @@ async function main(): Promise<void> {
         id: DEMO_RESOURCE_VIDEO_ID,
         lessonId: DEMO_LESSON_1_ID,
         title: 'Introduction Video',
-        type: ResourceType.VIDEO,
-        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        type: ResourceType.LINK,
+        url: 'https://www.ets.org/toeic/test-takers/about.html',
+        originalFileName: null,
+        mimeType: 'text/html',
         orderIndex: 0,
         isDownloadable: false,
       },
@@ -624,7 +965,9 @@ async function main(): Promise<void> {
         lessonId: DEMO_LESSON_1_ID,
         title: 'Course Syllabus',
         type: ResourceType.DOCUMENT,
-        url: 'https://example.com/demo-syllabus.pdf',
+        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        originalFileName: 'lo-trinh-toeic-workplace-foundations.pdf',
+        mimeType: 'application/pdf',
         orderIndex: 1,
         isDownloadable: true,
       },
@@ -633,7 +976,9 @@ async function main(): Promise<void> {
         lessonId: DEMO_LESSON_1_ID,
         title: 'Course Syllabus',
         type: ResourceType.DOCUMENT,
-        url: 'https://example.com/demo-syllabus.pdf',
+        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        originalFileName: 'lo-trinh-toeic-workplace-foundations.pdf',
+        mimeType: 'application/pdf',
         orderIndex: 1,
         isDownloadable: true,
       },
@@ -646,7 +991,9 @@ async function main(): Promise<void> {
         lessonId: DEMO_LESSON_2_ID,
         title: 'Practice Exercises',
         type: ResourceType.LINK,
-        url: 'https://example.com/demo-exercises',
+        url: 'https://www.ets.org/toeic/test-takers/prepare.html',
+        originalFileName: null,
+        mimeType: 'text/html',
         orderIndex: 0,
         isDownloadable: false,
       },
@@ -655,11 +1002,66 @@ async function main(): Promise<void> {
         lessonId: DEMO_LESSON_2_ID,
         title: 'Practice Exercises',
         type: ResourceType.LINK,
-        url: 'https://example.com/demo-exercises',
+        url: 'https://www.ets.org/toeic/test-takers/prepare.html',
+        originalFileName: null,
+        mimeType: 'text/html',
         orderIndex: 0,
         isDownloadable: false,
       },
     });
+
+    const extendedResources = [
+      [
+        '40000000-0000-4000-8000-000000000004',
+        DEMO_LESSON_3_ID,
+        'Bảng từ vựng môi trường làm việc',
+        ResourceType.DOCUMENT,
+        'toeic-workplace-vocabulary.pdf',
+        0,
+      ],
+      [
+        '40000000-0000-4000-8000-000000000005',
+        '30000000-0000-4000-8000-000000000006',
+        'Phiếu ghi chú khi luyện nghe',
+        ResourceType.DOCUMENT,
+        'listening-note-sheet.pdf',
+        0,
+      ],
+      [
+        '40000000-0000-4000-8000-000000000006',
+        '30000000-0000-4000-8000-000000000007',
+        'Checklist đọc thông báo',
+        ResourceType.DOCUMENT,
+        'reading-notice-checklist.pdf',
+        0,
+      ],
+    ] as const;
+    for (const [id, lessonId, title, type, originalFileName, orderIndex] of extendedResources) {
+      await prisma.learningResource.upsert({
+        where: { id },
+        update: {
+          lessonId,
+          title,
+          type,
+          url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+          originalFileName,
+          mimeType: 'application/pdf',
+          orderIndex,
+          isDownloadable: true,
+        },
+        create: {
+          id,
+          lessonId,
+          title,
+          type,
+          url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+          originalFileName,
+          mimeType: 'application/pdf',
+          orderIndex,
+          isDownloadable: true,
+        },
+      });
+    }
 
     // Demo enrollment for student in free offering
     await prisma.enrollment.upsert({
@@ -680,7 +1082,63 @@ async function main(): Promise<void> {
       },
     });
 
-    // VS03: Stable assessment foundation data. Attempts and answers are intentionally not seeded.
+    await prisma.enrollment.upsert({
+      where: {
+        learnerId_classOfferingId: {
+          learnerId: student.id,
+          classOfferingId: PAID_OFFERING_ID,
+        },
+      },
+      update: { status: EnrollmentStatus.PENDING_PAYMENT },
+      create: {
+        id: '50000000-0000-4000-8000-000000000002',
+        learnerId: student.id,
+        classOfferingId: PAID_OFFERING_ID,
+        status: EnrollmentStatus.PENDING_PAYMENT,
+      },
+    });
+
+    await prisma.enrollment.upsert({
+      where: {
+        learnerId_classOfferingId: {
+          learnerId: student.id,
+          classOfferingId: '11000000-0000-4000-8000-000000000008',
+        },
+      },
+      update: { status: EnrollmentStatus.ACTIVE },
+      create: {
+        id: '50000000-0000-4000-8000-000000000003',
+        learnerId: student.id,
+        classOfferingId: '11000000-0000-4000-8000-000000000008',
+        status: EnrollmentStatus.ACTIVE,
+      },
+    });
+
+    const progressSeeds = [
+      [DEMO_LESSON_1_ID, LessonProgressStatus.COMPLETED],
+      [DEMO_LESSON_2_ID, LessonProgressStatus.COMPLETED],
+      [DEMO_LESSON_3_ID, LessonProgressStatus.IN_PROGRESS],
+    ] as const;
+    for (const [lessonId, status] of progressSeeds) {
+      const now = new Date('2026-09-28T09:00:00Z');
+      await prisma.lessonProgress.upsert({
+        where: { enrollmentId_lessonId: { enrollmentId: DEMO_ENROLLMENT_ID, lessonId } },
+        update: {
+          status,
+          lastAccessedAt: now,
+          completedAt: status === LessonProgressStatus.COMPLETED ? now : null,
+        },
+        create: {
+          enrollmentId: DEMO_ENROLLMENT_ID,
+          lessonId,
+          status,
+          lastAccessedAt: now,
+          completedAt: status === LessonProgressStatus.COMPLETED ? now : null,
+        },
+      });
+    }
+
+    // VS03/M02: stable assessment data plus one submitted demo attempt for the Result flow.
     for (const questionSeed of questionSeeds) {
       await prisma.question.upsert({
         where: { id: questionSeed.id },
@@ -777,6 +1235,33 @@ async function main(): Promise<void> {
       },
     });
 
+    await prisma.test.upsert({
+      where: { id: DEMO_PRACTICE_TEST_ID },
+      update: {
+        courseId: course.id,
+        lessonId: '30000000-0000-4000-8000-000000000008',
+        purpose: TestPurpose.PRACTICE_MOCK,
+        placementMode: null,
+        title: 'Bài luyện tổng hợp L&R',
+        description: 'Phiên luyện ngắn giúp rà soát Listening và Reading trong bối cảnh công sở.',
+        status: TestStatus.PUBLISHED,
+        maxAttempts: 2,
+        showResultAfterSubmit: true,
+      },
+      create: {
+        id: DEMO_PRACTICE_TEST_ID,
+        courseId: course.id,
+        lessonId: '30000000-0000-4000-8000-000000000008',
+        purpose: TestPurpose.PRACTICE_MOCK,
+        placementMode: null,
+        title: 'Bài luyện tổng hợp L&R',
+        description: 'Phiên luyện ngắn giúp rà soát Listening và Reading trong bối cảnh công sở.',
+        status: TestStatus.PUBLISHED,
+        maxAttempts: 2,
+        showResultAfterSubmit: true,
+      },
+    });
+
     await prisma.classAssessment.upsert({
       where: { id: DEMO_CLASS_ASSESSMENT_ID },
       update: {
@@ -791,6 +1276,25 @@ async function main(): Promise<void> {
         classOfferingId: FREE_OFFERING_ID,
         testId: DEMO_QUIZ_TEST_ID,
         stage: 'PERIODIC',
+        maxAttemptsOverride: 2,
+        isActive: true,
+      },
+    });
+
+    await prisma.classAssessment.upsert({
+      where: { id: DEMO_PRACTICE_ASSESSMENT_ID },
+      update: {
+        classOfferingId: FREE_OFFERING_ID,
+        testId: DEMO_PRACTICE_TEST_ID,
+        stage: 'MIDTERM',
+        maxAttemptsOverride: 2,
+        isActive: true,
+      },
+      create: {
+        id: DEMO_PRACTICE_ASSESSMENT_ID,
+        classOfferingId: FREE_OFFERING_ID,
+        testId: DEMO_PRACTICE_TEST_ID,
+        stage: 'MIDTERM',
         maxAttemptsOverride: 2,
         isActive: true,
       },
@@ -830,6 +1334,98 @@ async function main(): Promise<void> {
           questionId: testQuestion.questionId,
           orderIndex,
           points: testQuestion.points,
+        },
+      });
+    }
+
+    for (const [orderIndex, testQuestion] of quizQuestionSeeds.entries()) {
+      await prisma.testQuestion.upsert({
+        where: { id: `91000000-0000-4000-8000-00000000000${orderIndex + 1}` },
+        update: {
+          testId: DEMO_PRACTICE_TEST_ID,
+          questionId: testQuestion.questionId,
+          orderIndex,
+          points: testQuestion.points,
+        },
+        create: {
+          id: `91000000-0000-4000-8000-00000000000${orderIndex + 1}`,
+          testId: DEMO_PRACTICE_TEST_ID,
+          questionId: testQuestion.questionId,
+          orderIndex,
+          points: testQuestion.points,
+        },
+      });
+    }
+
+    await prisma.testAttempt.upsert({
+      where: { id: DEMO_SUBMITTED_ATTEMPT_ID },
+      update: {
+        testId: DEMO_QUIZ_TEST_ID,
+        learnerId: student.id,
+        enrollmentId: DEMO_ENROLLMENT_ID,
+        classAssessmentId: DEMO_CLASS_ASSESSMENT_ID,
+        attemptNumber: 1,
+        status: TestAttemptStatus.SUBMITTED,
+        score: 4,
+        maxScore: 4,
+        startedAt: new Date('2026-09-27T08:00:00Z'),
+        submittedAt: new Date('2026-09-27T08:12:00Z'),
+      },
+      create: {
+        id: DEMO_SUBMITTED_ATTEMPT_ID,
+        testId: DEMO_QUIZ_TEST_ID,
+        learnerId: student.id,
+        enrollmentId: DEMO_ENROLLMENT_ID,
+        classAssessmentId: DEMO_CLASS_ASSESSMENT_ID,
+        attemptNumber: 1,
+        status: TestAttemptStatus.SUBMITTED,
+        score: 4,
+        maxScore: 4,
+        startedAt: new Date('2026-09-27T08:00:00Z'),
+        submittedAt: new Date('2026-09-27T08:12:00Z'),
+      },
+    });
+
+    const submittedAnswerSeeds = [
+      [
+        '92000000-0000-4000-8000-000000000001',
+        '90000000-0000-4000-8000-000000000006',
+        ['70000000-0000-4000-8000-000000000001'],
+        1,
+      ],
+      [
+        '92000000-0000-4000-8000-000000000002',
+        '90000000-0000-4000-8000-000000000007',
+        ['70000000-0000-4000-8000-000000000005'],
+        1,
+      ],
+      [
+        '92000000-0000-4000-8000-000000000003',
+        '90000000-0000-4000-8000-000000000008',
+        ['70000000-0000-4000-8000-000000000011', '70000000-0000-4000-8000-000000000012'],
+        2,
+      ],
+    ] as const;
+    for (const [id, testQuestionId, selectedOptionIds, pointsAwarded] of submittedAnswerSeeds) {
+      await prisma.testAnswer.upsert({
+        where: {
+          attemptId_testQuestionId: {
+            attemptId: DEMO_SUBMITTED_ATTEMPT_ID,
+            testQuestionId,
+          },
+        },
+        update: {
+          selectedOptionIds: [...selectedOptionIds],
+          isCorrect: true,
+          pointsAwarded,
+        },
+        create: {
+          id,
+          attemptId: DEMO_SUBMITTED_ATTEMPT_ID,
+          testQuestionId,
+          selectedOptionIds: [...selectedOptionIds],
+          isCorrect: true,
+          pointsAwarded,
         },
       });
     }
@@ -905,7 +1501,7 @@ async function main(): Promise<void> {
   }
 }
 
-void main().catch(() => {
-  console.error('Development seed failed. Check the local environment configuration.');
+void main().catch((error: unknown) => {
+  console.error('Development seed failed. Check the local environment configuration.', error);
   process.exitCode = 1;
 });

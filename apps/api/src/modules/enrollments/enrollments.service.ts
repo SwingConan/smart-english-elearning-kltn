@@ -19,24 +19,55 @@ const enrollmentViewSelect = {
   id: true,
   status: true,
   enrolledAt: true,
+  updatedAt: true,
+  lessonProgress: {
+    where: { status: 'COMPLETED' as const },
+    select: { id: true },
+  },
   classOffering: {
     select: {
       id: true,
+      code: true,
       name: true,
       status: true,
+      modality: true,
       pricingType: true,
       tuitionFeeVnd: true,
+      classStart: true,
+      classEnd: true,
+      instructor: { select: { id: true, fullName: true } },
+      scheduleSlots: {
+        orderBy: [{ dayOfWeek: 'asc' as const }, { startTime: 'asc' as const }],
+        select: {
+          id: true,
+          dayOfWeek: true,
+          startTime: true,
+          endTime: true,
+          locationText: true,
+        },
+      },
       course: {
         select: {
           id: true,
           title: true,
           slug: true,
           level: true,
+          skillScope: true,
+          thumbnailUrl: true,
+          modules: {
+            select: {
+              lessons: { select: { id: true } },
+            },
+          },
         },
       },
     },
   },
 } satisfies Prisma.EnrollmentSelect;
+
+type EnrollmentViewRow = Prisma.EnrollmentGetPayload<{
+  select: typeof enrollmentViewSelect;
+}>;
 
 @Injectable()
 export class EnrollmentsService {
@@ -76,9 +107,7 @@ export class EnrollmentsService {
               select: { id: true },
             });
             if (existing) {
-              throw new ConflictException(
-                'You are already enrolled in this class offering',
-              );
+              throw new ConflictException('You are already enrolled in this class offering');
             }
 
             const enrollmentStatus =
@@ -86,10 +115,7 @@ export class EnrollmentsService {
                 ? EnrollmentStatus.ACTIVE
                 : EnrollmentStatus.PENDING_PAYMENT;
 
-            if (
-              enrollmentStatus === EnrollmentStatus.ACTIVE &&
-              offering.maxStudents !== null
-            ) {
+            if (enrollmentStatus === EnrollmentStatus.ACTIVE && offering.maxStudents !== null) {
               const activeCount = await transaction.enrollment.count({
                 where: {
                   classOfferingId: offering.id,
@@ -101,7 +127,7 @@ export class EnrollmentsService {
               }
             }
 
-            return transaction.enrollment.create({
+            const enrollment = await transaction.enrollment.create({
               data: {
                 learnerId,
                 classOfferingId: offering.id,
@@ -109,6 +135,7 @@ export class EnrollmentsService {
               },
               select: enrollmentViewSelect,
             });
+            return this.mapEnrollment(enrollment);
           },
           {
             isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -116,9 +143,7 @@ export class EnrollmentsService {
         );
       } catch (error: unknown) {
         if (this.isPrismaError(error, 'P2002')) {
-          throw new ConflictException(
-            'You are already enrolled in this class offering',
-          );
+          throw new ConflictException('You are already enrolled in this class offering');
         }
 
         if (this.isPrismaError(error, 'P2034')) {
@@ -137,12 +162,13 @@ export class EnrollmentsService {
     throw new ConflictException('Enrollment could not be completed');
   }
 
-  listMine(learnerId: string) {
-    return this.prisma.enrollment.findMany({
+  async listMine(learnerId: string) {
+    const enrollments = await this.prisma.enrollment.findMany({
       where: { learnerId },
       select: enrollmentViewSelect,
       orderBy: { enrolledAt: 'desc' },
     });
+    return enrollments.map((enrollment) => this.mapEnrollment(enrollment));
   }
 
   async getMineById(learnerId: string, id: string) {
@@ -155,7 +181,7 @@ export class EnrollmentsService {
       throw new NotFoundException('Enrollment not found');
     }
 
-    return enrollment;
+    return this.mapEnrollment(enrollment);
   }
 
   private validateAvailability(
@@ -167,10 +193,7 @@ export class EnrollmentsService {
     },
     now: Date,
   ): void {
-    if (
-      offering.status !== ClassOfferingStatus.OPEN ||
-      !offering.course.isPublished
-    ) {
+    if (offering.status !== ClassOfferingStatus.OPEN || !offering.course.isPublished) {
       throw new BadRequestException('Class offering is not available');
     }
 
@@ -184,9 +207,26 @@ export class EnrollmentsService {
   }
 
   private isPrismaError(error: unknown, code: string): boolean {
-    return (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === code
-    );
+    return error instanceof Prisma.PrismaClientKnownRequestError && error.code === code;
+  }
+
+  private mapEnrollment(enrollment: EnrollmentViewRow) {
+    const course = enrollment.classOffering.course;
+    const modules = course?.modules ?? [];
+    const completedProgress = enrollment.lessonProgress ?? [];
+    const totalLessons = modules.reduce((total, module) => total + module.lessons.length, 0);
+    const completedLessons = completedProgress.length;
+    const progressPercent =
+      totalLessons === 0 ? 0 : Math.min(100, Math.round((completedLessons / totalLessons) * 100));
+
+    return {
+      ...enrollment,
+      classOffering: {
+        ...enrollment.classOffering,
+        ...(course ? { course: { ...course, modules: undefined } } : {}),
+      },
+      lessonProgress: undefined,
+      progress: { totalLessons, completedLessons, progressPercent },
+    };
   }
 }

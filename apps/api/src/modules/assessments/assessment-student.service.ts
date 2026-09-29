@@ -10,6 +10,7 @@ import {
   Prisma,
   QuestionResponseType,
   TestAttemptStatus,
+  TestPurpose,
   TestStatus,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -84,6 +85,7 @@ export class AssessmentStudentService {
       where: {
         courseId: enrollment.classOffering.courseId,
         status: TestStatus.PUBLISHED,
+        purpose: { in: [TestPurpose.IN_CLASS, TestPurpose.PRACTICE_MOCK] },
       },
       select: {
         id: true,

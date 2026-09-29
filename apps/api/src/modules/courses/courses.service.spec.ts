@@ -1,5 +1,5 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { ClassOfferingStatus, Prisma } from '../../generated/prisma/client';
+import { ClassOfferingStatus, CourseSkillScope, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CoursesService, slugify } from './courses.service';
 
@@ -22,17 +22,13 @@ describe('CoursesService', () => {
   });
 
   it('normalizes a title into a URL-safe lowercase slug', () => {
-    expect(slugify('  Tiếng Anh Giao Tiếp — Cơ Bản!  ')).toBe(
-      'tieng-anh-giao-tiep-co-ban',
-    );
+    expect(slugify('  Tiếng Anh Giao Tiếp — Cơ Bản!  ')).toBe('tieng-anh-giao-tiep-co-ban');
   });
 
   it('retries a P2002 slug collision with a deterministic suffix', async () => {
     prisma.course.create
       .mockRejectedValueOnce(slugCollisionError())
-      .mockImplementationOnce(({ data }) =>
-        Promise.resolve({ id: 'course-id', ...data }),
-      );
+      .mockImplementationOnce(({ data }) => Promise.resolve({ id: 'course-id', ...data }));
 
     const result = await service.create(
       {
@@ -65,31 +61,22 @@ describe('CoursesService', () => {
     prisma.course.create.mockRejectedValue(slugCollisionError());
 
     await expect(
-      service.create(
-        { title: 'English Basics', level: 'Beginner' },
-        'admin-id',
-      ),
+      service.create({ title: 'English Basics', level: 'Beginner' }, 'admin-id'),
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(prisma.course.create).toHaveBeenCalledTimes(10);
   });
 
   it('does not swallow a P2002 unrelated to the course slug', async () => {
-    const unrelatedError = new Prisma.PrismaClientKnownRequestError(
-      'Unique constraint failed',
-      {
-        code: 'P2002',
-        clientVersion: '7.10.0',
-        meta: { modelName: 'User', target: ['email'] },
-      },
-    );
+    const unrelatedError = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+      code: 'P2002',
+      clientVersion: '7.10.0',
+      meta: { modelName: 'User', target: ['email'] },
+    });
     prisma.course.create.mockRejectedValue(unrelatedError);
 
     await expect(
-      service.create(
-        { title: 'English Basics', level: 'Beginner' },
-        'admin-id',
-      ),
+      service.create({ title: 'English Basics', level: 'Beginner' }, 'admin-id'),
     ).rejects.toBe(unrelatedError);
 
     expect(prisma.course.create).toHaveBeenCalledTimes(1);
@@ -156,6 +143,27 @@ describe('CoursesService', () => {
     expect(prisma.course.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { slug: 'hidden-course', isPublished: true },
+      }),
+    );
+  });
+
+  it('filters the public catalog by TOEIC skill scope and open availability', async () => {
+    prisma.course.findMany.mockReturnValue(Promise.resolve([]));
+    prisma.course.count.mockReturnValue(Promise.resolve(0));
+    prisma.$transaction.mockResolvedValue([[], 0]);
+    await service.listPublic({
+      skillScope: CourseSkillScope.LISTENING,
+      availability: 'OPEN',
+      page: 1,
+      limit: 12,
+    });
+    expect(prisma.course.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isPublished: true,
+          skillScope: CourseSkillScope.LISTENING,
+          classOfferings: { some: { status: ClassOfferingStatus.OPEN } },
+        },
       }),
     );
   });

@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { CourseSkillScope } from '../../../generated/prisma/client';
 
 export class CatalogQueryDto {
   @IsOptional()
@@ -11,6 +12,14 @@ export class CatalogQueryDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   level?: string;
+
+  @IsOptional()
+  @IsEnum(CourseSkillScope)
+  skillScope?: CourseSkillScope;
+
+  @IsOptional()
+  @IsIn(['OPEN'])
+  availability?: 'OPEN';
 
   @Type(() => Number)
   @IsInt()

@@ -591,6 +591,12 @@ describe('Student learning APIs (e2e)', () => {
       completedLessons: 1,
       progressPercent: 50,
     });
+    expect(progress.body.modules[0]).toMatchObject({
+      totalLessons: 2,
+      completedLessons: 1,
+      progressPercent: 50,
+    });
+    expect(progress.body.assessments).toEqual(expect.any(Array));
     const content = await studentAgent
       .get(`/api/learning/enrollments/${active}/content`)
       .expect(200);
@@ -610,6 +616,42 @@ describe('Student learning APIs (e2e)', () => {
       .get(`/api/learning/enrollments/${id('ZERO')}/progress`)
       .expect(200);
     expect(zero.body).toMatchObject({ totalLessons: 0, completedLessons: 0, progressPercent: 0 });
+  });
+
+  it('authorizes downloadable resources by ACTIVE enrollment and Course ownership', async () => {
+    const resource = await prisma.learningResource.findFirstOrThrow({
+      where: { lessonId: lessonAId, title: 'Document' },
+    });
+    const active = id(EnrollmentStatus.ACTIVE);
+    const response = await studentAgent
+      .get(`/api/learning/enrollments/${active}/resources/${resource.id}/download`)
+      .expect(200);
+    expect(response.body).toMatchObject({
+      resourceId: resource.id,
+      url: 'https://example.test/doc',
+      delivery: 'EXTERNAL_URL',
+    });
+    await otherStudentAgent
+      .get(`/api/learning/enrollments/${active}/resources/${resource.id}/download`)
+      .expect(404);
+    await studentAgent
+      .get(
+        `/api/learning/enrollments/${id(EnrollmentStatus.PENDING_PAYMENT)}/resources/${resource.id}/download`,
+      )
+      .expect(404);
+    const foreignResource = await prisma.learningResource.create({
+      data: {
+        lessonId: foreignLessonId,
+        title: 'Foreign document',
+        type: ResourceType.DOCUMENT,
+        url: 'https://example.test/foreign',
+        orderIndex: 0,
+        isDownloadable: true,
+      },
+    });
+    await studentAgent
+      .get(`/api/learning/enrollments/${active}/resources/${foreignResource.id}/download`)
+      .expect(404);
   });
 
   it('keeps one IN_PROGRESS row under concurrent open/open', async () => {

@@ -101,7 +101,11 @@ describe('AssessmentStudentService', () => {
     );
     expect(prisma.test.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { courseId, status: TestStatus.PUBLISHED },
+        where: {
+          courseId,
+          status: TestStatus.PUBLISHED,
+          purpose: { in: [TestPurpose.IN_CLASS, TestPurpose.PRACTICE_MOCK] },
+        },
       }),
     );
   });

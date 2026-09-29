@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import {
   ClassModality,
   ClassOfferingStatus,
+  EnrollmentStatus,
+  Prisma,
   PricingType,
   UserRole,
 } from '../../generated/prisma/client';
@@ -24,6 +26,59 @@ const adminOfferingInclude = {
   instructor: { select: { id: true, fullName: true } },
 } as const;
 
+const publicOfferingDetailSelect = {
+  id: true,
+  code: true,
+  name: true,
+  status: true,
+  modality: true,
+  pricingType: true,
+  tuitionFeeVnd: true,
+  maxStudents: true,
+  totalSessions: true,
+  totalPeriods: true,
+  enrollmentStart: true,
+  enrollmentEnd: true,
+  classStart: true,
+  classEnd: true,
+  course: {
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      description: true,
+      level: true,
+      skillScope: true,
+      modules: {
+        orderBy: { orderIndex: 'asc' as const },
+        select: {
+          id: true,
+          title: true,
+          orderIndex: true,
+          _count: { select: { lessons: true } },
+        },
+      },
+    },
+  },
+  instructor: { select: { id: true, fullName: true } },
+  scheduleSlots: {
+    orderBy: [{ dayOfWeek: 'asc' as const }, { startTime: 'asc' as const }],
+    select: {
+      id: true,
+      dayOfWeek: true,
+      startTime: true,
+      endTime: true,
+      locationText: true,
+      meetingUrl: true,
+    },
+  },
+  _count: {
+    select: {
+      enrollments: { where: { status: EnrollmentStatus.ACTIVE } },
+    },
+  },
+} satisfies Prisma.ClassOfferingSelect;
+
 @Injectable()
 export class ClassOfferingsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -33,6 +88,54 @@ export class ClassOfferingsService {
       include: adminOfferingInclude,
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async getPublicById(id: string) {
+    const offering = await this.prisma.classOffering.findFirst({
+      where: {
+        id,
+        status: { in: [ClassOfferingStatus.OPEN, ClassOfferingStatus.IN_PROGRESS] },
+        course: { isPublished: true },
+      },
+      select: publicOfferingDetailSelect,
+    });
+    if (!offering) {
+      throw new NotFoundException('Class offering not found');
+    }
+
+    const registeredCount = offering._count.enrollments;
+    const remainingSeats =
+      offering.maxStudents === null ? null : Math.max(0, offering.maxStudents - registeredCount);
+    const isFull = remainingSeats === 0;
+    const now = new Date();
+    const registrationState =
+      offering.status !== ClassOfferingStatus.OPEN
+        ? 'CLOSED'
+        : offering.enrollmentStart && now < offering.enrollmentStart
+          ? 'UPCOMING'
+          : offering.enrollmentEnd && now > offering.enrollmentEnd
+            ? 'CLOSED'
+            : isFull
+              ? 'FULL'
+              : 'AVAILABLE';
+
+    return {
+      ...offering,
+      course: {
+        ...offering.course,
+        modules: offering.course.modules.map((module) => ({
+          id: module.id,
+          title: module.title,
+          orderIndex: module.orderIndex,
+          lessonCount: module._count.lessons,
+        })),
+      },
+      registeredCount,
+      remainingSeats,
+      isFull,
+      registrationState,
+      _count: undefined,
+    };
   }
 
   async create(input: CreateClassOfferingDto) {
