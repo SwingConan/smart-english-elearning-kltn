@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { Filter, Search } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { catalogApi } from '@/features/catalog/api';
 import {
@@ -7,103 +8,131 @@ import {
   writeCatalogUrlState,
 } from '@/features/catalog/catalog-query';
 import { CourseCard } from '@/features/catalog/CourseCard';
-import type { CatalogResponse } from '@/features/catalog/types';
+import type { CatalogResponse, CourseSkillScope } from '@/features/catalog/types';
 
-type CatalogLoadState =
+type LoadState =
   | { key: string; status: 'loading' }
   | { key: string; status: 'success'; response: CatalogResponse }
   | { key: string; status: 'error' };
+const skillOptions: Array<[CourseSkillScope, string]> = [
+  ['LR', 'Listening & Reading'],
+  ['LISTENING', 'Listening'],
+  ['READING', 'Reading'],
+  ['SPEAKING', 'Speaking'],
+  ['WRITING', 'Writing'],
+  ['FOUR_SKILLS', '4 kỹ năng'],
+];
 
 export function CatalogPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const urlState = readCatalogUrlState(searchParams);
-  const requestKey = `${urlState.search}|${urlState.level}|${urlState.page}`;
-  const [loadState, setLoadState] = useState<CatalogLoadState>({
-    key: '',
-    status: 'loading',
-  });
-
+  const [params, setParams] = useSearchParams();
+  const state = readCatalogUrlState(params);
+  const [reloadKey, setReloadKey] = useState(0);
+  const key = `${state.search}|${state.level}|${state.skillScope}|${state.availability}|${state.page}|${reloadKey}`;
+  const [load, setLoad] = useState<LoadState>({ key: '', status: 'loading' });
   useEffect(() => {
     const controller = new AbortController();
     void catalogApi
       .list(
         {
-          search: urlState.search || undefined,
-          level: urlState.level || undefined,
-          page: urlState.page,
+          search: state.search || undefined,
+          level: state.level || undefined,
+          skillScope: (state.skillScope || undefined) as CourseSkillScope | undefined,
+          availability: state.availability ? 'OPEN' : undefined,
+          page: state.page,
           limit: CATALOG_LIMIT,
         },
         controller.signal,
       )
-      .then((response) => {
-        setLoadState({ key: requestKey, status: 'success', response });
-      })
+      .then((response) => setLoad({ key, status: 'success', response }))
       .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
-          setLoadState({ key: requestKey, status: 'error' });
-        }
+        if (!(error instanceof DOMException && error.name === 'AbortError'))
+          setLoad({ key, status: 'error' });
       });
     return () => controller.abort();
-  }, [requestKey, urlState.level, urlState.page, urlState.search]);
-
-  const updateUrl = (next: typeof urlState) => {
-    setSearchParams(writeCatalogUrlState(next));
-  };
-  const isCurrent = loadState.key === requestKey;
-  const response = isCurrent && loadState.status === 'success' ? loadState.response : null;
-  const levelOptions = Array.from(
-    new Set([urlState.level, ...(response?.data.map((course) => course.level) ?? [])]),
+  }, [key, state.availability, state.level, state.page, state.search, state.skillScope]);
+  const current = load.key === key;
+  const response = current && load.status === 'success' ? load.response : null;
+  const levels = Array.from(
+    new Set([state.level, ...(response?.data.map((course) => course.level) ?? [])]),
   ).filter(Boolean);
+  const update = (next: typeof state) => setParams(writeCatalogUrlState(next));
 
   return (
-    <section>
-      <h1 className="text-3xl font-bold">Khóa học</h1>
-      <p className="mt-2 text-slate-600">Khám phá các khóa học tiếng Anh đang được công bố.</p>
-
-      <CatalogFilters
-        key={`${urlState.search}|${urlState.level}`}
-        initialSearch={urlState.search}
-        level={urlState.level}
-        levelOptions={levelOptions}
-        onLevelChange={(level) => updateUrl({ ...urlState, level, page: 1 })}
-        onSearch={(search) => updateUrl({ ...urlState, search, page: 1 })}
+    <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+      <p className="eyebrow">Course catalog</p>
+      <h1 className="page-title">Chọn chương trình phù hợp</h1>
+      <p className="page-lead">
+        Lọc theo kỹ năng, trình độ và khả năng có lớp đang mở. Lịch học và học phí được so sánh ở
+        tầng ClassOffering.
+      </p>
+      <Filters
+        key={`${state.search}|${state.level}|${state.skillScope}|${state.availability}`}
+        initial={state}
+        levels={levels}
+        onChange={update}
       />
-
-      {!isCurrent || loadState.status === 'loading' ? (
-        <p className="mt-8" role="status">Đang tải danh sách khóa học...</p>
+      {!current || load.status === 'loading' ? (
+        <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3" role="status">
+          {[1, 2, 3, 4, 5, 6].map((item) => (
+            <div className="h-80 animate-pulse rounded-2xl bg-slate-200" key={item} />
+          ))}
+        </div>
       ) : null}
-      {isCurrent && loadState.status === 'error' ? (
-        <p className="mt-8 rounded-md bg-red-50 p-4 text-red-700" role="alert">
-          Không thể tải danh sách khóa học. Vui lòng thử lại.
-        </p>
+      {current && load.status === 'error' ? (
+        <div className="state-error mt-10" role="alert">
+          <p>Không thể tải danh sách khóa học.</p>
+          <button
+            className="mt-3 font-semibold underline"
+            onClick={() => setReloadKey((value) => value + 1)}
+            type="button"
+          >
+            Thử lại
+          </button>
+        </div>
       ) : null}
       {response?.data.length === 0 ? (
-        <p className="mt-8 rounded-md border bg-white p-6">Không tìm thấy khóa học phù hợp.</p>
+        <div className="state-empty mt-10">
+          <p>Không tìm thấy Course phù hợp với bộ lọc.</p>
+          <button
+            className="mt-3 font-semibold text-indigo-700"
+            onClick={() =>
+              update({ search: '', level: '', skillScope: '', availability: '', page: 1 })
+            }
+            type="button"
+          >
+            Xóa bộ lọc
+          </button>
+        </div>
       ) : null}
       {response && response.data.length > 0 ? (
         <>
-          <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {response.data.map((course) => <CourseCard course={course} key={course.id} />)}
+          <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {response.data.map((course) => (
+              <CourseCard course={course} key={course.id} />
+            ))}
           </div>
-          <nav aria-label="Phân trang khóa học" className="mt-8 flex items-center justify-center gap-4">
+          <nav
+            aria-label="Phân trang khóa học"
+            className="mt-10 flex items-center justify-center gap-4"
+          >
             <button
-              aria-label="Trang trước"
-              className="rounded-md border bg-white px-4 py-2 disabled:opacity-50"
+              className="btn-secondary disabled:opacity-40"
               disabled={response.meta.page <= 1}
-              onClick={() => updateUrl({ ...urlState, page: response.meta.page - 1 })}
+              onClick={() => update({ ...state, page: response.meta.page - 1 })}
               type="button"
             >
-              Trước
+              Trang trước
             </button>
-            <span>Trang {response.meta.page} / {Math.max(response.meta.totalPages, 1)}</span>
+            <span className="text-sm font-medium">
+              Trang {response.meta.page} / {Math.max(response.meta.totalPages, 1)}
+            </span>
             <button
-              aria-label="Trang sau"
-              className="rounded-md border bg-white px-4 py-2 disabled:opacity-50"
+              className="btn-secondary disabled:opacity-40"
               disabled={response.meta.page >= response.meta.totalPages}
-              onClick={() => updateUrl({ ...urlState, page: response.meta.page + 1 })}
+              onClick={() => update({ ...state, page: response.meta.page + 1 })}
               type="button"
             >
-              Sau
+              Trang sau
             </button>
           </nav>
         </>
@@ -112,49 +141,90 @@ export function CatalogPage() {
   );
 }
 
-interface CatalogFiltersProps {
-  initialSearch: string;
-  level: string;
-  levelOptions: string[];
-  onSearch: (search: string) => void;
-  onLevelChange: (level: string) => void;
-}
-
-function CatalogFilters({ initialSearch, level, levelOptions, onSearch, onLevelChange }: CatalogFiltersProps) {
-  const [search, setSearch] = useState(initialSearch);
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+function Filters({
+  initial,
+  levels,
+  onChange,
+}: {
+  initial: ReturnType<typeof readCatalogUrlState>;
+  levels: string[];
+  onChange: (state: ReturnType<typeof readCatalogUrlState>) => void;
+}) {
+  const [search, setSearch] = useState(initial.search);
+  const submit = (event: FormEvent) => {
     event.preventDefault();
-    onSearch(search.trim());
+    onChange({ ...initial, search: search.trim(), page: 1 });
   };
-
   return (
-    <form className="mt-6 flex flex-col gap-4 rounded-xl border bg-white p-4 md:flex-row md:items-end" onSubmit={submit}>
-      <label className="flex-1">
-        <span className="block text-sm font-medium">Tìm khóa học</span>
-        <input
-          className="mt-1 w-full rounded-md border px-3 py-2"
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Ví dụ: grammar"
-          type="search"
-          value={search}
-        />
-      </label>
+    <form
+      className="mt-9 grid gap-4 rounded-2xl border bg-white p-5 shadow-sm lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto] lg:items-end"
+      onSubmit={submit}
+    >
       <label>
-        <span className="block text-sm font-medium">Trình độ</span>
-        <select
-          className="mt-1 w-full rounded-md border px-3 py-2"
-          onChange={(event) => onLevelChange(event.target.value)}
-          value={level}
-        >
-          <option value="">Tất cả</option>
-          {levelOptions.map((courseLevel) => (
-            <option key={courseLevel} value={courseLevel}>{courseLevel}</option>
-          ))}
-        </select>
+        <span className="text-sm font-semibold">Tìm kiếm</span>
+        <div className="relative mt-2">
+          <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+          <input
+            className="w-full rounded-lg border py-2 pl-10 pr-3"
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Tên hoặc từ khóa"
+            type="search"
+            value={search}
+          />
+        </div>
       </label>
-      <button className="rounded-md bg-slate-900 px-5 py-2 text-white" type="submit">
-        Tìm kiếm
+      <Select
+        label="Trình độ"
+        value={initial.level}
+        onChange={(value) => onChange({ ...initial, level: value, page: 1 })}
+        options={levels.map((value) => [value, value])}
+      />
+      <Select
+        label="Kỹ năng"
+        value={initial.skillScope}
+        onChange={(value) => onChange({ ...initial, skillScope: value, page: 1 })}
+        options={skillOptions}
+      />
+      <Select
+        label="Lớp học"
+        value={initial.availability}
+        onChange={(value) => onChange({ ...initial, availability: value, page: 1 })}
+        options={[['OPEN', 'Có lớp đang mở']]}
+      />
+      <button className="btn-primary" type="submit">
+        <Filter size={17} />
+        Áp dụng
       </button>
     </form>
+  );
+}
+
+function Select({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: ReadonlyArray<readonly [string, string]>;
+}) {
+  return (
+    <label>
+      <span className="text-sm font-semibold">{label}</span>
+      <select
+        className="mt-2 w-full rounded-lg border px-3 py-2"
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      >
+        <option value="">Tất cả</option>
+        {options.map(([optionValue, label]) => (
+          <option key={optionValue} value={optionValue}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

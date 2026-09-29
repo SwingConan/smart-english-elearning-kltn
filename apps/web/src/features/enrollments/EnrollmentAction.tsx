@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '@/features/auth/auth-context';
 import { safeReturnUrl } from '@/features/auth/return-url';
@@ -6,92 +6,142 @@ import { ApiError } from '@/lib/api-client';
 import { enrollmentApi } from './api';
 import type { EnrollmentView } from './types';
 
-export function EnrollmentAction({ classOfferingId }: { classOfferingId: string }) {
+export function EnrollmentAction({
+  classOfferingId,
+  disabledReason,
+}: {
+  classOfferingId: string;
+  disabledReason?: string;
+}) {
   const { user, isLoading, refreshUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<EnrollmentView | null>(null);
+  const [existing, setExisting] = useState<EnrollmentView | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const submittingRef = useRef(false);
+  const inFlight = useRef(false);
   const returnUrl = safeReturnUrl(`${location.pathname}${location.search}${location.hash}`);
 
-  if (isLoading) {
-    return <button className="mt-5 rounded-md border px-4 py-2" disabled type="button">Đăng ký</button>;
-  }
-  if (!user) {
-    const params = new URLSearchParams({ returnUrl });
-    return <Link className="mt-5 inline-block rounded-md bg-slate-900 px-4 py-2 text-white" to={`/login?${params.toString()}`}>Đăng ký</Link>;
-  }
-  if (user.role !== 'STUDENT') {
+  useEffect(() => {
+    if (user?.role !== 'STUDENT') return;
+    const controller = new AbortController();
+    void enrollmentApi
+      .listMine(controller.signal)
+      .then((items) =>
+        setExisting(items.find((item) => item.classOffering.id === classOfferingId) ?? null),
+      )
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [classOfferingId, user?.role]);
+
+  if (isLoading)
+    return (
+      <button className="btn-secondary mt-5" disabled type="button">
+        Đang kiểm tra...
+      </button>
+    );
+  if (disabledReason)
     return (
       <div className="mt-5">
-        <button className="rounded-md border px-4 py-2 opacity-60" disabled type="button">Đăng ký</button>
-        <p className="mt-2 text-xs text-slate-500">Chỉ tài khoản học viên có thể đăng ký lớp.</p>
+        <button className="btn-secondary opacity-60" disabled type="button">
+          Không thể đăng ký
+        </button>
+        <p className="mt-2 text-sm text-slate-600">{disabledReason}</p>
       </div>
     );
-  }
-  if (result) {
+  if (!user)
     return (
-      <div className="mt-5 rounded-md bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
-        <p>
-          {result.status === 'ACTIVE'
-            ? 'Đăng ký khóa học thành công.'
-            : 'Yêu cầu đăng ký đã được tạo và đang chờ thanh toán.'}
-        </p>
-        <Link className="mt-2 inline-block font-medium underline" to="/student/enrollments">Xem khóa học của tôi</Link>
+      <Link
+        className="btn-primary mt-5"
+        to={`/login?${new URLSearchParams({ returnUrl }).toString()}`}
+      >
+        Đăng nhập để đăng ký
+      </Link>
+    );
+  if (user.role !== 'STUDENT')
+    return (
+      <div className="mt-5">
+        <button className="btn-secondary opacity-60" disabled type="button">
+          Đăng ký
+        </button>
+        <p className="mt-2 text-sm text-slate-600">Chỉ tài khoản học viên có thể đăng ký lớp.</p>
       </div>
     );
-  }
+  const enrollment = result ?? existing;
+  if (enrollment)
+    return (
+      <div
+        className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950"
+        role="status"
+      >
+        <p className="font-semibold">
+          {enrollment.status === 'ACTIVE'
+            ? 'Bạn đã đăng ký lớp này.'
+            : 'Đăng ký đang chờ thanh toán.'}
+        </p>
+        <p className="mt-1">
+          {enrollment.status === 'ACTIVE'
+            ? 'Nội dung LMS đã sẵn sàng.'
+            : 'Nội dung lớp chỉ mở sau khi trạng thái được xác nhận ACTIVE.'}
+        </p>
+        <Link
+          className="mt-3 inline-block font-semibold underline"
+          to={
+            enrollment.status === 'ACTIVE'
+              ? `/student/enrollments/${enrollment.id}`
+              : '/student/enrollments'
+          }
+        >
+          {enrollment.status === 'ACTIVE' ? 'Vào lớp học' : 'Xem Lớp học của tôi'}
+        </Link>
+      </div>
+    );
 
   const enroll = async () => {
-    if (submittingRef.current) return;
-    submittingRef.current = true;
-    setIsSubmitting(true);
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setSubmitting(true);
     setError(null);
     try {
       setResult(await enrollmentApi.create(classOfferingId));
-    } catch (requestError: unknown) {
+    } catch (requestError) {
       if (requestError instanceof ApiError && requestError.status === 401) {
         await refreshUser();
-        const params = new URLSearchParams({ returnUrl });
-        navigate(`/login?${params.toString()}`, { replace: true });
+        navigate(`/login?${new URLSearchParams({ returnUrl }).toString()}`, { replace: true });
         return;
       }
-      setError(enrollmentErrorMessage(requestError));
+      setError(messageFor(requestError));
     } finally {
-      submittingRef.current = false;
-      setIsSubmitting(false);
+      inFlight.current = false;
+      setSubmitting(false);
     }
   };
-
   return (
     <div className="mt-5">
       <button
-        className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
-        disabled={isSubmitting}
+        className="btn-primary disabled:opacity-50"
+        disabled={submitting}
         onClick={() => void enroll()}
         type="button"
       >
-        {isSubmitting ? 'Đang xử lý...' : 'Đăng ký'}
+        {submitting ? 'Đang xử lý...' : 'Đăng ký lớp'}
       </button>
-      {error ? <p className="mt-2 text-sm text-red-700" role="alert">{error}</p> : null}
+      {error ? (
+        <p className="mt-3 text-sm text-red-700" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-function enrollmentErrorMessage(error: unknown): string {
+function messageFor(error: unknown): string {
   if (error instanceof ApiError) {
-    switch (error.status) {
-      case 400:
-        return 'Hiện không thể đăng ký lớp học này. Vui lòng kiểm tra thời gian hoặc trạng thái lớp.';
-      case 403:
-        return 'Bạn không có quyền đăng ký lớp học này.';
-      case 404:
-        return 'Lớp học không còn tồn tại hoặc không khả dụng.';
-      case 409:
-        return 'Không thể hoàn tất đăng ký vì lớp học đã đầy hoặc bạn đã đăng ký trước đó.';
-    }
+    if (error.status === 400) return 'Lớp hiện không nhận đăng ký.';
+    if (error.status === 403) return 'Bạn không có quyền đăng ký lớp này.';
+    if (error.status === 404) return 'Lớp không còn khả dụng.';
+    if (error.status === 409) return 'Lớp đã đầy hoặc bạn đã đăng ký trước đó.';
   }
   return 'Không thể kết nối máy chủ. Vui lòng thử lại.';
 }

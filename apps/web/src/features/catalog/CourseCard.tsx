@@ -1,34 +1,57 @@
+import { ArrowRight, BookOpen } from 'lucide-react';
 import { Link } from 'react-router';
 import type { PublicCourse } from './types';
 
 export function CourseCard({ course }: { course: PublicCourse }) {
   const description =
-    course.description.length > 160
-      ? `${course.description.slice(0, 157)}...`
-      : course.description;
-
+    course.description.length > 160 ? `${course.description.slice(0, 157)}...` : course.description;
   return (
-    <article className="overflow-hidden rounded-xl border bg-white shadow-sm">
+    <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
       {course.thumbnailUrl ? (
         <img
           alt={`Ảnh khóa học ${course.title}`}
           className="h-44 w-full object-cover"
           src={course.thumbnailUrl}
         />
-      ) : null}
+      ) : (
+        <div className="visual-indigo grid h-44 place-items-center">
+          <BookOpen className="text-white/90" size={46} />
+        </div>
+      )}
       <div className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          {course.level}
+        <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide">
+          <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-700">
+            {course.level}
+          </span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
+            {skillScopeLabel(course.skillScope)}
+          </span>
+        </div>
+        <h2 className="mt-3 text-xl font-bold">{course.title}</h2>
+        {description ? (
+          <p className="mt-3 text-sm leading-6 text-slate-600">{description}</p>
+        ) : null}
+        <p className="mt-4 text-sm font-medium text-slate-500">
+          {course.openOfferingCount} lớp đang mở
         </p>
-        <h2 className="mt-2 text-xl font-semibold">{course.title}</h2>
-        {description ? <p className="mt-3 text-sm text-slate-600">{description}</p> : null}
         <Link
-          className="mt-5 inline-block rounded-md bg-slate-900 px-4 py-2 text-sm text-white"
+          className="mt-5 inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white group-hover:bg-indigo-700"
           to={`/catalog/${course.slug}`}
         >
-          Xem chi tiết
+          Xem khóa học <ArrowRight size={16} />
         </Link>
       </div>
     </article>
   );
+}
+
+function skillScopeLabel(scope: PublicCourse['skillScope']): string {
+  return {
+    LR: 'Listening & Reading',
+    FOUR_SKILLS: '4 kỹ năng',
+    LISTENING: 'Listening',
+    READING: 'Reading',
+    SPEAKING: 'Speaking',
+    WRITING: 'Writing',
+  }[scope];
 }

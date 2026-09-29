@@ -7,6 +7,7 @@ export const enrollmentApi = {
       method: 'POST',
       body: JSON.stringify({ classOfferingId }),
     }),
-  listMine: (signal?: AbortSignal) =>
-    apiFetch<EnrollmentView[]>('/enrollments/my', { signal }),
+  listMine: (signal?: AbortSignal) => apiFetch<EnrollmentView[]>('/enrollments/my', { signal }),
+  detail: (id: string, signal?: AbortSignal) =>
+    apiFetch<EnrollmentView>(`/enrollments/${encodeURIComponent(id)}`, { signal }),
 };
