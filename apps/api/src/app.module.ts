@@ -18,6 +18,7 @@ import { VirtualClassroomModule } from './modules/virtual-classroom/virtual-clas
 import { CertificatesModule } from './modules/certificates/certificates.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { KnowledgeModelModule } from './modules/knowledge-model/knowledge-model.module';
+import { PlacementModule } from './modules/placement/placement.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { KnowledgeModelModule } from './modules/knowledge-model/knowledge-model.
     CertificatesModule,
     AdminModule,
     KnowledgeModelModule,
+    PlacementModule,
   ],
 })
 export class AppModule {}
