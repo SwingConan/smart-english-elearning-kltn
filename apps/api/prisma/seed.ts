@@ -41,6 +41,8 @@ const DEMO_QUESTION_3_ID = '60000000-0000-4000-8000-000000000003';
 const DEMO_QUESTION_4_ID = '60000000-0000-4000-8000-000000000004';
 const DEMO_QUESTION_5_ID = '60000000-0000-4000-8000-000000000005';
 const DEMO_PLACEMENT_TEST_ID = '80000000-0000-4000-8000-000000000001';
+const M03_PLACEMENT_CORE_TEST_ID = '80000000-0000-4000-8000-000000000011';
+const M03_PLACEMENT_ADVANCED_TEST_ID = '80000000-0000-4000-8000-000000000012';
 const DEMO_QUIZ_TEST_ID = '80000000-0000-4000-8000-000000000002';
 const DEMO_SKILL_GRAMMAR_ID = 'a0000000-0000-4000-8000-000000000001';
 const DEMO_SKILL_VOCABULARY_ID = 'a0000000-0000-4000-8000-000000000002';
@@ -260,12 +262,183 @@ const questionSeeds = [
   },
 ] as const;
 
-const placementQuestionSeeds = [
-  { id: '90000000-0000-4000-8000-000000000001', questionId: DEMO_QUESTION_1_ID, points: 1 },
-  { id: '90000000-0000-4000-8000-000000000002', questionId: DEMO_QUESTION_2_ID, points: 1 },
-  { id: '90000000-0000-4000-8000-000000000003', questionId: DEMO_QUESTION_3_ID, points: 1 },
-  { id: '90000000-0000-4000-8000-000000000004', questionId: DEMO_QUESTION_4_ID, points: 2 },
-  { id: '90000000-0000-4000-8000-000000000005', questionId: DEMO_QUESTION_5_ID, points: 1 },
+const m03PlacementQuestionSeeds = [
+  {
+    id: '61000000-0000-4000-8000-000000000001',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'Where should visitors collect their name badges?',
+    explanation: 'The announcement directs visitors to collect badges at reception.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000001', content: 'At reception', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000002', content: 'In the cafeteria', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000003', content: 'Beside the elevator', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000004', content: 'Inside the meeting room', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000002',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'What time will the orientation begin?',
+    explanation: 'The announcement states that orientation begins at nine thirty.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000005', content: '8:30', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000006', content: '9:00', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000007', content: '9:30', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000008', content: '10:00', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000003',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'Why is the delivery delayed?',
+    explanation: 'The caller explains that severe weather delayed the delivery truck.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000009', content: 'The address was incorrect', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000010', content: 'The weather affected transport', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000011', content: 'The warehouse was closed', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000012', content: 'The order was cancelled', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000004',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'What does the caller offer to do?',
+    explanation: 'The caller offers to email an updated delivery schedule.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000013', content: 'Refund the order', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000014', content: 'Send an updated schedule', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000015', content: 'Change the delivery address', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000016', content: 'Call the warehouse manager', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000005',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'What is the purpose of the email?',
+    explanation: 'The email confirms the room and time for a scheduled meeting.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000017', content: 'To confirm meeting details', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000018', content: 'To request annual leave', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000019', content: 'To advertise a conference', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000020', content: 'To cancel a reservation', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000006',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'Where will the meeting take place?',
+    explanation: 'The email names Conference Room B as the meeting location.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000021', content: 'Conference Room A', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000022', content: 'Conference Room B', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000023', content: 'The training center', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000024', content: 'The main lobby', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000007',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'What must employees do before Friday?',
+    explanation: 'The notice asks employees to update their emergency contact information.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000025', content: 'Submit a travel request', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000026', content: 'Update emergency contact details', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000027', content: 'Complete a safety course', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000028', content: 'Return office equipment', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000008',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'Who should employees contact if they need help?',
+    explanation: 'The final sentence directs questions to the Human Resources desk.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000029', content: 'The finance team', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000030', content: 'The building manager', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000031', content: 'The Human Resources desk', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000032', content: 'The security office', isCorrect: false },
+    ],
+  },
+] as const;
+
+const m03PlacementForms = [
+  {
+    id: DEMO_PLACEMENT_TEST_ID,
+    title: 'Placement L&R — Nền tảng',
+    description: 'Bài đánh giá nội bộ Listening và Reading dành cho người mới bắt đầu.',
+    duration: 20,
+    questionPrefix: '90000000-0000-4000-8000-00000000000',
+    groupPrefix: '81000000-0000-4000-8000-00000000000',
+  },
+  {
+    id: M03_PLACEMENT_CORE_TEST_ID,
+    title: 'Placement L&R — Cốt lõi',
+    description: 'Bài đánh giá nội bộ Listening và Reading ở mức cơ bản đến trung bình.',
+    duration: 25,
+    questionPrefix: '9a000000-0000-4000-8000-00000000000',
+    groupPrefix: '82000000-0000-4000-8000-00000000000',
+  },
+  {
+    id: M03_PLACEMENT_ADVANCED_TEST_ID,
+    title: 'Placement L&R — Nâng cao',
+    description: 'Bài đánh giá nội bộ Listening và Reading cho người học đã có nền tảng tốt.',
+    duration: 30,
+    questionPrefix: '9b000000-0000-4000-8000-00000000000',
+    groupPrefix: '83000000-0000-4000-8000-00000000000',
+  },
+] as const;
+
+const m03PlacementGroupContent = [
+  {
+    skill: ToeicSkill.LISTENING,
+    title: 'Thông báo tại văn phòng',
+    instructions: 'Nghe thông báo và trả lời câu 1–2.',
+    stimulusText:
+      'Welcome to Northstar Consulting. Please collect your name badge at reception. The orientation begins at nine thirty in Conference Room A.',
+    audioUrl:
+      'tts:Welcome to Northstar Consulting. Please collect your name badge at reception. The orientation begins at nine thirty in Conference Room A.',
+  },
+  {
+    skill: ToeicSkill.LISTENING,
+    title: 'Tin nhắn giao hàng',
+    instructions: 'Nghe tin nhắn và trả lời câu 3–4.',
+    stimulusText:
+      'This is Maya from City Delivery. Severe weather has delayed your order until Thursday afternoon. I will email you an updated schedule today.',
+    audioUrl:
+      'tts:This is Maya from City Delivery. Severe weather has delayed your order until Thursday afternoon. I will email you an updated schedule today.',
+  },
+  {
+    skill: ToeicSkill.READING,
+    title: 'Email xác nhận cuộc họp',
+    instructions: 'Đọc email và trả lời câu 5–6.',
+    stimulusText:
+      'Subject: Project meeting confirmation\nHello team, our project meeting is confirmed for Tuesday at 2:00 p.m. in Conference Room B. Please bring the revised timeline.\nRegards, Elena',
+    audioUrl: null,
+  },
+  {
+    skill: ToeicSkill.READING,
+    title: 'Thông báo nhân sự',
+    instructions: 'Đọc thông báo và trả lời câu 7–8.',
+    stimulusText:
+      'All employees must update their emergency contact information in the staff portal before Friday. If you need assistance, contact the Human Resources desk on the second floor.',
+    audioUrl: null,
+  },
 ] as const;
 
 const quizQuestionSeeds = [
@@ -1170,7 +1343,7 @@ async function main(): Promise<void> {
     }
 
     // VS03/M02: stable assessment data plus one submitted demo attempt for the Result flow.
-    for (const questionSeed of questionSeeds) {
+    for (const questionSeed of [...questionSeeds, ...m03PlacementQuestionSeeds]) {
       await prisma.question.upsert({
         where: { id: questionSeed.id },
         update: {
@@ -1212,32 +1385,36 @@ async function main(): Promise<void> {
       }
     }
 
-    await prisma.test.upsert({
-      where: { id: DEMO_PLACEMENT_TEST_ID },
-      update: {
-        courseId: course.id,
-        lessonId: null,
-        purpose: TestPurpose.PLACEMENT,
-        placementMode: PlacementMode.LR,
-        title: 'Kiểm tra đầu vào TOEIC L&R',
-        description: 'Bài đánh giá đầu vào nội bộ cho chương trình Listening và Reading.',
-        status: TestStatus.PUBLISHED,
-        maxAttempts: 1,
-        showResultAfterSubmit: true,
-      },
-      create: {
-        id: DEMO_PLACEMENT_TEST_ID,
-        courseId: course.id,
-        lessonId: null,
-        purpose: TestPurpose.PLACEMENT,
-        placementMode: PlacementMode.LR,
-        title: 'Kiểm tra đầu vào TOEIC L&R',
-        description: 'Bài đánh giá đầu vào nội bộ cho chương trình Listening và Reading.',
-        status: TestStatus.PUBLISHED,
-        maxAttempts: 1,
-        showResultAfterSubmit: true,
-      },
-    });
+    for (const form of m03PlacementForms) {
+      await prisma.test.upsert({
+        where: { id: form.id },
+        update: {
+          courseId: course.id,
+          lessonId: null,
+          purpose: TestPurpose.PLACEMENT,
+          placementMode: PlacementMode.LR,
+          title: form.title,
+          description: form.description,
+          status: TestStatus.PUBLISHED,
+          maxAttempts: 10,
+          timeLimitMinutes: form.duration,
+          showResultAfterSubmit: true,
+        },
+        create: {
+          id: form.id,
+          courseId: course.id,
+          lessonId: null,
+          purpose: TestPurpose.PLACEMENT,
+          placementMode: PlacementMode.LR,
+          title: form.title,
+          description: form.description,
+          status: TestStatus.PUBLISHED,
+          maxAttempts: 10,
+          timeLimitMinutes: form.duration,
+          showResultAfterSubmit: true,
+        },
+      });
+    }
 
     await prisma.test.upsert({
       where: { id: DEMO_QUIZ_TEST_ID },
@@ -1447,23 +1624,57 @@ async function main(): Promise<void> {
       },
     });
 
-    for (const [orderIndex, testQuestion] of placementQuestionSeeds.entries()) {
-      await prisma.testQuestion.upsert({
-        where: { id: testQuestion.id },
-        update: {
-          testId: DEMO_PLACEMENT_TEST_ID,
-          questionId: testQuestion.questionId,
-          orderIndex,
-          points: testQuestion.points,
-        },
-        create: {
-          id: testQuestion.id,
-          testId: DEMO_PLACEMENT_TEST_ID,
-          questionId: testQuestion.questionId,
-          orderIndex,
-          points: testQuestion.points,
-        },
-      });
+    for (const form of m03PlacementForms) {
+      const groups = [];
+      for (const [orderIndex, group] of m03PlacementGroupContent.entries()) {
+        const id = `${form.groupPrefix}${orderIndex + 1}`;
+        groups.push(
+          await prisma.testQuestionGroup.upsert({
+            where: { id },
+            update: {
+              testId: form.id,
+              skill: group.skill,
+              orderIndex,
+              title: group.title,
+              instructions: group.instructions,
+              stimulusText: group.stimulusText,
+              audioUrl: group.audioUrl,
+            },
+            create: {
+              id,
+              testId: form.id,
+              skill: group.skill,
+              orderIndex,
+              title: group.title,
+              instructions: group.instructions,
+              stimulusText: group.stimulusText,
+              audioUrl: group.audioUrl,
+            },
+          }),
+        );
+      }
+
+      for (const [orderIndex, question] of m03PlacementQuestionSeeds.entries()) {
+        const id = `${form.questionPrefix}${orderIndex + 1}`;
+        await prisma.testQuestion.upsert({
+          where: { id },
+          update: {
+            testId: form.id,
+            questionId: question.id,
+            groupId: groups[Math.floor(orderIndex / 2)].id,
+            orderIndex,
+            points: 1,
+          },
+          create: {
+            id,
+            testId: form.id,
+            questionId: question.id,
+            groupId: groups[Math.floor(orderIndex / 2)].id,
+            orderIndex,
+            points: 1,
+          },
+        });
+      }
     }
 
     for (const [orderIndex, testQuestion] of quizQuestionSeeds.entries()) {
