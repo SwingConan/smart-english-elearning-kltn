@@ -32,7 +32,10 @@ export interface LessonResource {
   id: string;
   title: string;
   type: ResourceType;
-  url: string;
+  url: string | null;
+  originalFileName: string | null;
+  mimeType: string | null;
+  updatedAt: string;
   orderIndex: number;
   isDownloadable: boolean;
 }
@@ -57,6 +60,33 @@ export interface CourseProgress {
   totalLessons: number;
   completedLessons: number;
   progressPercent: number;
+  modules: Array<{
+    id: string;
+    title: string;
+    orderIndex: number;
+    totalLessons: number;
+    completedLessons: number;
+    progressPercent: number;
+    lessons: Array<{
+      id: string;
+      title: string;
+      orderIndex: number;
+      status: LessonProgressStatus;
+      completedAt: string | null;
+    }>;
+  }>;
+  assessments: Array<{
+    id: string;
+    testId: string;
+    title: string;
+    purpose: 'IN_CLASS' | 'PRACTICE_MOCK';
+    stage: 'PERIODIC' | 'MIDTERM' | 'FINAL';
+    openAt: string | null;
+    closeAt: string | null;
+    status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+    attemptId: string | null;
+    submittedAt: string | null;
+  }>;
 }
 
 export type MasteryState = 'PRIOR' | 'OBSERVED';

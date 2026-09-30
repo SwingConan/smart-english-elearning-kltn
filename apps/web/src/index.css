@@ -1,7 +1,14 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
   color: #111827;
   background: #f8fafc;
 }
@@ -10,6 +17,72 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+:focus-visible {
+  outline: 3px solid #818cf8;
+  outline-offset: 3px;
+}
+
+@layer components {
+  .section-shell {
+    @apply mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20;
+  }
+  .page-title {
+    @apply mt-3 text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl;
+  }
+  .page-lead {
+    @apply mt-4 max-w-3xl text-lg leading-8 text-slate-600;
+  }
+  .section-title {
+    @apply mt-2 text-3xl font-bold tracking-tight sm:text-4xl;
+  }
+  .eyebrow {
+    @apply text-sm font-bold uppercase tracking-[.18em] text-indigo-700;
+  }
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-800 transition hover:border-indigo-300 hover:text-indigo-700;
+  }
+  .btn-light {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-indigo-800 transition hover:bg-indigo-50;
+  }
+  .btn-ghost-light {
+    @apply inline-flex items-center justify-center rounded-xl border border-white/30 px-5 py-3 font-semibold text-white transition hover:bg-white/10;
+  }
+  .state-error {
+    @apply rounded-xl border border-red-200 bg-red-50 p-5 text-red-800;
+  }
+  .state-empty {
+    @apply rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-600;
+  }
+}
+
+.hero-grid {
+  background-image:
+    radial-gradient(circle at 82% 15%, rgb(56 189 248 / 0.22), transparent 28%),
+    radial-gradient(circle at 10% 85%, rgb(129 140 248 / 0.22), transparent 30%);
+}
+.visual-indigo {
+  background: linear-gradient(135deg, #4338ca, #0ea5e9);
+}
+.visual-sky {
+  background: linear-gradient(135deg, #0369a1, #38bdf8);
+}
+.visual-amber {
+  background: linear-gradient(135deg, #b45309, #fbbf24);
+}
+.visual-emerald {
+  background: linear-gradient(135deg, #047857, #34d399);
 }
 
 button,

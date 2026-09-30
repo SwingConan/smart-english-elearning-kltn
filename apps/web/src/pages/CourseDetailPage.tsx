@@ -1,75 +1,177 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, CalendarDays, ChevronRight } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { catalogApi } from '@/features/catalog/api';
+import { CourseCover } from '@/features/catalog/CourseCover';
+import { courseLevelLabel, modalityLabel, skillScopeLabel } from '@/features/catalog/display';
 import type { PublicClassOffering, PublicCourse } from '@/features/catalog/types';
-import { EnrollmentAction } from '@/features/enrollments/EnrollmentAction';
 import { ApiError } from '@/lib/api-client';
 
-type DetailLoadState =
+type State =
   | { slug: string; status: 'loading' }
-  | { slug: string; status: 'success'; course: PublicCourse }
-  | { slug: string; status: 'not-found' }
-  | { slug: string; status: 'error' };
-
-const vndFormatter = new Intl.NumberFormat('vi-VN', {
-  style: 'currency',
-  currency: 'VND',
-});
-const dateFormatter = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium' });
+  | { slug: string; status: 'ready'; course: PublicCourse }
+  | { slug: string; status: 'not-found' | 'error' };
+const date = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short' });
+const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 
 export function CourseDetailPage() {
   const { slug = '' } = useParams();
-  const [loadState, setLoadState] = useState<DetailLoadState>({ slug: '', status: 'loading' });
-
+  const [state, setState] = useState<State>({ slug: '', status: 'loading' });
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     void catalogApi
       .detail(slug, controller.signal)
-      .then((course) => setLoadState({ slug, status: 'success', course }))
+      .then((course) => setState({ slug, status: 'ready', course }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return;
-        setLoadState({
+        setState({
           slug,
           status: error instanceof ApiError && error.status === 404 ? 'not-found' : 'error',
         });
       });
     return () => controller.abort();
-  }, [slug]);
-
-  if (loadState.slug !== slug || loadState.status === 'loading') {
-    return <p role="status">Đang tải thông tin khóa học...</p>;
-  }
-  if (loadState.status === 'not-found') {
-    return <section><h1 className="text-2xl font-semibold">Không tìm thấy khóa học</h1></section>;
-  }
-  if (loadState.status === 'error') {
-    return <p className="rounded-md bg-red-50 p-4 text-red-700" role="alert">Không thể tải khóa học. Vui lòng thử lại.</p>;
-  }
-
-  const { course } = loadState;
+  }, [slug, reloadKey]);
+  if (state.slug !== slug || state.status === 'loading')
+    return (
+      <div className="section-shell" role="status">
+        <div className="h-80 animate-pulse rounded-3xl bg-slate-200" />
+      </div>
+    );
+  if (state.status === 'not-found')
+    return (
+      <Message
+        title="Không tìm thấy khóa học"
+        text="Khóa học chưa được công bố hoặc đường dẫn không chính xác."
+      />
+    );
+  if (state.status === 'error')
+    return (
+      <section className="section-shell">
+        <div className="state-error" role="alert">
+          Không thể tải thông tin khóa học.
+          <button
+            className="ml-3 font-semibold underline"
+            onClick={() => setReloadKey((value) => value + 1)}
+            type="button"
+          >
+            Thử lại
+          </button>
+        </div>
+      </section>
+    );
+  if (state.status !== 'ready') return null;
+  const { course } = state;
   return (
     <article>
-      <Link className="text-sm underline" to="/catalog">← Quay lại danh sách</Link>
-      <div className="mt-5 grid gap-8 md:grid-cols-[2fr_1fr]">
-        <div>
-          <p className="text-sm font-semibold uppercase text-slate-500">{course.level}</p>
-          <h1 className="mt-2 text-3xl font-bold">{course.title}</h1>
-          <p className="mt-5 whitespace-pre-line text-slate-700">{course.description}</p>
+      <section className="bg-indigo-950 text-white">
+        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+          <Link
+            className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-200"
+            to="/catalog"
+          >
+            <ArrowLeft size={16} />
+            Danh mục khóa học
+          </Link>
+          <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
+            <div>
+              <div className="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide">
+                <span className="rounded-full bg-white/10 px-3 py-1">
+                  {courseLevelLabel(course.level)}
+                </span>
+                <span className="rounded-full bg-white/10 px-3 py-1">
+                  {skillScopeLabel(course.skillScope)}
+                </span>
+              </div>
+              <h1 className="mt-4 text-4xl font-bold sm:text-5xl">{course.title}</h1>
+              <p className="mt-5 max-w-3xl text-lg leading-8 text-indigo-100">
+                {course.description}
+              </p>
+              <a className="btn-light mt-7" href="#open-classes">
+                Xem lớp đang mở
+              </a>
+            </div>
+            <CourseCover
+              className="min-h-52 place-items-center rounded-3xl"
+              skillScope={course.skillScope}
+            />
+          </div>
         </div>
-        {course.thumbnailUrl ? (
-          <img alt={`Ảnh khóa học ${course.title}`} className="w-full rounded-xl object-cover" src={course.thumbnailUrl} />
-        ) : null}
-      </div>
-
-      <section className="mt-10" aria-labelledby="open-offerings-heading">
-        <h2 className="text-2xl font-semibold" id="open-offerings-heading">Lớp đang mở</h2>
+      </section>
+      <section className="section-shell">
+        <div className="grid gap-10 lg:grid-cols-[1fr_340px]">
+          <div>
+            <p className="eyebrow">Nội dung chương trình</p>
+            <h2 className="section-title">Nội dung chương trình</h2>
+            <div className="mt-7 space-y-4">
+              {course.modules?.map((module) => (
+                <article className="rounded-2xl border bg-white p-5" key={module.id}>
+                  <h3 className="font-bold">
+                    {module.orderIndex + 1}. {module.title}
+                  </h3>
+                  {module.description ? (
+                    <p className="mt-2 text-sm text-slate-600">{module.description}</p>
+                  ) : null}
+                  <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+                    {module.lessons.map((lesson) => (
+                      <li className="flex items-start gap-2 text-sm text-slate-700" key={lesson.id}>
+                        <ChevronRight className="mt-0.5 shrink-0 text-indigo-600" size={16} />
+                        <span>
+                          {lesson.title}{' '}
+                          <span className="text-slate-400">· {lesson.resourceCount} tài liệu</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+          </div>
+          <aside className="rounded-2xl bg-slate-100 p-6">
+            <h2 className="font-bold">Thông tin nhanh</h2>
+            <dl className="mt-4 space-y-3 text-sm">
+              <Row label="Trình độ" value={courseLevelLabel(course.level)} />
+              <Row label="Phạm vi kỹ năng" value={skillScopeLabel(course.skillScope)} />
+              <Row label="Lớp đang mở" value={String(course.openOfferingCount)} />
+              <Row label="Học phần" value={String(course.modules?.length ?? 0)} />
+            </dl>
+          </aside>
+        </div>
+      </section>
+      <section className="section-shell pt-0" id="open-classes">
+        <p className="eyebrow">Lớp đang mở</p>
+        <h2 className="section-title">So sánh lớp đang mở</h2>
         {course.classOfferings.length === 0 ? (
-          <p className="mt-4 rounded-md border bg-white p-5">Hiện chưa có lớp đang mở đăng ký.</p>
+          <div className="state-empty mt-7">Hiện chưa có lớp nhận đăng ký cho khóa học này.</div>
         ) : (
-          <div className="mt-5 grid gap-5 md:grid-cols-2">
-            {course.classOfferings.map((offering) => (
-              <OfferingCard key={offering.id} offering={offering} />
-            ))}
+          <div className="mt-7 overflow-x-auto rounded-2xl border bg-white">
+            <table className="min-w-[1080px] w-full text-left text-sm">
+              <thead className="bg-slate-100 text-slate-600">
+                <tr>
+                  {[
+                    'Mã lớp',
+                    'Giảng viên',
+                    'Lịch học',
+                    'Hình thức',
+                    'Khai giảng',
+                    'Kết thúc',
+                    'Học phí',
+                    'Sĩ số',
+                    'Trạng thái',
+                    '',
+                  ].map((heading) => (
+                    <th className="px-4 py-3 font-semibold" key={heading}>
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {course.classOfferings.map((offering) => (
+                  <OfferingRow key={offering.id} offering={offering} />
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
@@ -77,35 +179,80 @@ export function CourseDetailPage() {
   );
 }
 
-function OfferingCard({ offering }: { offering: PublicClassOffering }) {
+function OfferingRow({ offering }: { offering: PublicClassOffering }) {
   return (
-    <article className="rounded-xl border bg-white p-5">
-      <h3 className="text-lg font-semibold">{offering.name}</h3>
-      <p className="mt-2 font-medium text-emerald-700">
+    <tr>
+      <td className="px-4 py-4 font-semibold">{offering.code}</td>
+      <td className="px-4 py-4">{offering.instructor?.fullName ?? 'Đang cập nhật'}</td>
+      <td className="px-4 py-4">
+        <span className="inline-flex items-center gap-1">
+          <CalendarDays size={15} />
+          {formatSchedule(offering)}
+        </span>
+      </td>
+      <td className="px-4 py-4">{modalityLabel(offering.modality)}</td>
+      <td className="px-4 py-4">{formatDate(offering.classStart)}</td>
+      <td className="px-4 py-4">{formatDate(offering.classEnd)}</td>
+      <td className="px-4 py-4">
         {offering.pricingType === 'FREE'
           ? 'Miễn phí'
-          : offering.tuitionFeeVnd === null
-            ? 'Học phí chưa cập nhật'
-            : vndFormatter.format(offering.tuitionFeeVnd)}
-      </p>
-      <dl className="mt-4 space-y-2 text-sm text-slate-700">
-        {offering.instructor ? <Detail label="Giảng viên" value={offering.instructor.fullName} /> : null}
-        {offering.maxStudents !== null ? <Detail label="Sĩ số tối đa" value={String(offering.maxStudents)} /> : null}
-        {offering.enrollmentStart ? <Detail label="Mở đăng ký" value={formatDate(offering.enrollmentStart)} /> : null}
-        {offering.enrollmentEnd ? <Detail label="Đóng đăng ký" value={formatDate(offering.enrollmentEnd)} /> : null}
-        {offering.classStart ? <Detail label="Khai giảng" value={formatDate(offering.classStart)} /> : null}
-        {offering.classEnd ? <Detail label="Kết thúc" value={formatDate(offering.classEnd)} /> : null}
-      </dl>
-      <EnrollmentAction classOfferingId={offering.id} />
-    </article>
+          : offering.tuitionFeeVnd
+            ? money.format(offering.tuitionFeeVnd)
+            : 'Đang cập nhật'}
+      </td>
+      <td className="px-4 py-4">
+        {offering.registeredCount}/{offering.maxStudents ?? '∞'}
+      </td>
+      <td className="px-4 py-4">
+        <span
+          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${offering.isFull ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}
+        >
+          {offering.isFull ? 'Đã đầy' : 'Còn chỗ'}
+        </span>
+      </td>
+      <td className="px-4 py-4">
+        <Link className="font-semibold text-indigo-700" to={`/classes/${offering.id}`}>
+          Xem chi tiết
+        </Link>
+      </td>
+    </tr>
   );
 }
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return <div className="flex gap-2"><dt className="font-medium">{label}:</dt><dd>{value}</dd></div>;
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-slate-500">{label}</dt>
+      <dd className="font-semibold">{value}</dd>
+    </div>
+  );
 }
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'Chưa cập nhật' : dateFormatter.format(date);
+function formatDate(value: string | null) {
+  if (!value) return 'Đang cập nhật';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 'Đang cập nhật' : date.format(parsed);
+}
+function formatSchedule(offering: PublicClassOffering) {
+  if (offering.scheduleSlots.length === 0) return 'Đang cập nhật';
+  const days: Record<number, string> = {
+    1: 'T2',
+    2: 'T3',
+    3: 'T4',
+    4: 'T5',
+    5: 'T6',
+    6: 'T7',
+    7: 'CN',
+  };
+  const first = offering.scheduleSlots[0];
+  return `${offering.scheduleSlots.map((slot) => days[slot.dayOfWeek] ?? `Ngày ${slot.dayOfWeek}`).join('/')} ${new Date(first.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}`;
+}
+function Message({ title, text }: { title: string; text: string }) {
+  return (
+    <section className="section-shell text-center">
+      <h1 className="text-3xl font-bold">{title}</h1>
+      <p className="mt-3 text-slate-600">{text}</p>
+      <Link className="btn-primary mt-6" to="/catalog">
+        Về danh mục
+      </Link>
+    </section>
+  );
 }

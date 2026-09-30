@@ -76,17 +76,40 @@ describe('Course catalog and admin APIs (e2e)', () => {
 
   afterAll(async () => {
     if (prisma) {
+      const fixtureUsers = await prisma.user.findMany({
+        where: { email: { in: [adminEmail, studentEmail, instructorEmail] } },
+        select: { id: true },
+      });
+      const fixtureUserIds = [...new Set([...userIds, ...fixtureUsers.map(({ id }) => id)])];
+      const fixtureCourses = await prisma.course.findMany({
+        where: {
+          OR: [
+            { id: { in: courseIds } },
+            { createdById: { in: fixtureUserIds } },
+            { title: { startsWith: `VS01 ` }, description: 'Phase 3 E2E course' },
+            {
+              title: { startsWith: `Concurrent Course ${unique}` },
+              description: 'Concurrent slug verification',
+            },
+          ],
+        },
+        select: { id: true },
+      });
+      const fixtureCourseIds = fixtureCourses.map(({ id }) => id);
       await prisma.userSession.deleteMany({
         where: { sid: { in: [...sessionIds] } },
       });
       await prisma.enrollment.deleteMany({
-        where: { classOffering: { courseId: { in: courseIds } } },
+        where: { classOffering: { courseId: { in: fixtureCourseIds } } },
+      });
+      await prisma.classScheduleSlot.deleteMany({
+        where: { classOffering: { courseId: { in: fixtureCourseIds } } },
       });
       await prisma.classOffering.deleteMany({
-        where: { courseId: { in: courseIds } },
+        where: { courseId: { in: fixtureCourseIds } },
       });
-      await prisma.course.deleteMany({ where: { id: { in: courseIds } } });
-      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+      await prisma.course.deleteMany({ where: { id: { in: fixtureCourseIds } } });
+      await prisma.user.deleteMany({ where: { id: { in: fixtureUserIds } } });
     }
     if (app) {
       await app.close();
@@ -95,9 +118,7 @@ describe('Course catalog and admin APIs (e2e)', () => {
 
   it('enforces admin roles and exposes only published catalog data', async () => {
     const isolatedCatalogUrl = `/api/courses?search=${encodeURIComponent(unique)}`;
-    const guestCatalog = await request(app.getHttpServer())
-      .get(isolatedCatalogUrl)
-      .expect(200);
+    const guestCatalog = await request(app.getHttpServer()).get(isolatedCatalogUrl).expect(200);
     expect(guestCatalog.body.data).toEqual([]);
 
     await request(app.getHttpServer()).get('/api/admin/courses').expect(401);
@@ -158,18 +179,16 @@ describe('Course catalog and admin APIs (e2e)', () => {
 
     const adminCourses = await adminAgent.get('/api/admin/courses').expect(200);
     expect(
-      adminCourses.body.some(
-        (course: { id: string }) => course.id === createdCourse.body.id,
-      ),
+      adminCourses.body.some((course: { id: string }) => course.id === createdCourse.body.id),
     ).toBe(true);
 
-    await request(app.getHttpServer()).get(isolatedCatalogUrl).expect(200, {
-      data: [],
-      meta: { total: 0, page: 1, limit: 12, totalPages: 0 },
-    });
     await request(app.getHttpServer())
-      .get(`/api/courses/${originalSlug}`)
-      .expect(404);
+      .get(isolatedCatalogUrl)
+      .expect(200, {
+        data: [],
+        meta: { total: 0, page: 1, limit: 12, totalPages: 0 },
+      });
+    await request(app.getHttpServer()).get(`/api/courses/${originalSlug}`).expect(404);
 
     const openCandidate = await adminAgent
       .post('/api/admin/class-offerings')
@@ -214,13 +233,9 @@ describe('Course catalog and admin APIs (e2e)', () => {
       })
       .expect(400);
 
-    const adminOfferings = await adminAgent
-      .get('/api/admin/class-offerings')
-      .expect(200);
+    const adminOfferings = await adminAgent.get('/api/admin/class-offerings').expect(200);
     expect(
-      adminOfferings.body.some(
-        (offering: { id: string }) => offering.id === draftOffering.body.id,
-      ),
+      adminOfferings.body.some((offering: { id: string }) => offering.id === draftOffering.body.id),
     ).toBe(true);
 
     const publishedCourse = await adminAgent
@@ -233,6 +248,15 @@ describe('Course catalog and admin APIs (e2e)', () => {
       .patch(`/api/admin/class-offerings/${openCandidate.body.id}`)
       .send({ status: 'OPEN' })
       .expect(200);
+    await prisma.classScheduleSlot.create({
+      data: {
+        classOfferingId: openCandidate.body.id,
+        dayOfWeek: 2,
+        startTime: new Date('1970-01-01T18:00:00.000Z'),
+        endTime: new Date('1970-01-01T20:00:00.000Z'),
+        locationText: 'Online',
+      },
+    });
 
     await instructorAgent
       .patch(`/api/admin/courses/${createdCourse.body.id}`)
@@ -257,18 +281,48 @@ describe('Course catalog and admin APIs (e2e)', () => {
       fullName: 'VS01 Instructor',
     });
     expect(publicCourse.classOfferings[0].instructor).not.toHaveProperty('email');
+    expect(publicCourse.classOfferings[0].scheduleSlots).toEqual([
+      expect.objectContaining({ dayOfWeek: 2, locationText: 'Online' }),
+    ]);
+
+    const filteredCatalog = await request(app.getHttpServer())
+      .get('/api/courses')
+      .query({ search: unique, skillScope: 'LR', availability: 'OPEN' })
+      .expect(200);
+    expect(
+      filteredCatalog.body.data.some(
+        (course: { id: string }) => course.id === createdCourse.body.id,
+      ),
+    ).toBe(true);
+
+    const publicOffering = await request(app.getHttpServer())
+      .get(`/api/class-offerings/${openCandidate.body.id}`)
+      .expect(200);
+    expect(publicOffering.body).toMatchObject({
+      id: openCandidate.body.id,
+      code: expect.any(String),
+      registeredCount: 0,
+      remainingSeats: 20,
+      isFull: false,
+      registrationState: 'AVAILABLE',
+      course: { id: createdCourse.body.id, title: updatedTitle },
+      scheduleSlots: [expect.objectContaining({ dayOfWeek: 2 })],
+    });
+    expect(publicOffering.body.instructor).not.toHaveProperty('email');
+    await request(app.getHttpServer())
+      .get(`/api/class-offerings/${draftOffering.body.id}`)
+      .expect(404);
 
     const publicDetail = await request(app.getHttpServer())
       .get(`/api/courses/${originalSlug}`)
       .expect(200);
     expect(publicDetail.body.classOfferings).toHaveLength(1);
     expect(publicDetail.body.classOfferings[0].status).toBe('OPEN');
-    expect(publicDetail.body.classOfferings[0].id).not.toBe(
-      draftOffering.body.id,
-    );
+    expect(publicDetail.body.classOfferings[0].id).not.toBe(draftOffering.body.id);
 
     await request(app.getHttpServer()).get('/api/courses?page=0').expect(400);
     await request(app.getHttpServer()).get('/api/courses?limit=51').expect(400);
+    await request(app.getHttpServer()).get('/api/courses?skillScope=INVALID').expect(400);
   });
 
   it('creates distinct slugs for concurrent requests with the same title', async () => {
@@ -297,22 +351,14 @@ describe('Course catalog and admin APIs (e2e)', () => {
     courseIds.push(first.body.id, second.body.id);
   });
 
-  async function login(
-    agent: ReturnType<typeof request.agent>,
-    email: string,
-  ): Promise<void> {
-    const response = await agent
-      .post('/api/auth/login')
-      .send({ email, password })
-      .expect(200);
+  async function login(agent: ReturnType<typeof request.agent>, email: string): Promise<void> {
+    const response = await agent.post('/api/auth/login').send({ email, password }).expect(200);
     sessionIds.add(extractSessionId(getCookie(response.headers['set-cookie'])));
   }
 });
 
 function getCookie(setCookieHeader: string[] | string | undefined): string {
-  const cookie = Array.isArray(setCookieHeader)
-    ? setCookieHeader[0]
-    : setCookieHeader;
+  const cookie = Array.isArray(setCookieHeader) ? setCookieHeader[0] : setCookieHeader;
   if (!cookie) {
     throw new Error('Expected a session cookie');
   }
@@ -325,9 +371,7 @@ function extractSessionId(cookie: string): string {
     throw new Error('Expected a session cookie value');
   }
   const signedValue = decodeURIComponent(encodedValue);
-  const unsignedValue = signedValue.startsWith('s:')
-    ? signedValue.slice(2)
-    : signedValue;
+  const unsignedValue = signedValue.startsWith('s:') ? signedValue.slice(2) : signedValue;
   const separator = unsignedValue.lastIndexOf('.');
   if (separator < 1) {
     throw new Error('Expected a signed session cookie');

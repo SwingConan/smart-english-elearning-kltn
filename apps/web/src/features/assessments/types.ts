@@ -2,6 +2,8 @@ export type QuestionType = 'SINGLE_CHOICE' | 'TRUE_FALSE' | 'MULTIPLE_CHOICE';
 export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type TestType = 'PLACEMENT' | 'QUIZ';
 export type TestStatus = 'DRAFT' | 'PUBLISHED';
+export type TestPurpose = 'PLACEMENT' | 'IN_CLASS' | 'PRACTICE_MOCK';
+export type AssessmentStage = 'PERIODIC' | 'MIDTERM' | 'FINAL';
 
 export interface QuestionOption {
   id: string;
@@ -70,11 +72,15 @@ export type StudentAttemptStatus = 'IN_PROGRESS' | 'SUBMITTED';
 
 export interface StudentTestListItem {
   id: string;
-  type: TestType;
+  purpose: Exclude<TestPurpose, 'PLACEMENT'>;
+  stage: AssessmentStage | null;
   title: string;
   description: string | null;
   lessonId: string | null;
   maxAttempts: number;
+  timeLimitMinutes: number | null;
+  openAt: string | null;
+  closeAt: string | null;
   showResultAfterSubmit: boolean;
   questionCount: number;
   attemptsUsed: number;
@@ -119,7 +125,13 @@ export interface StudentAttemptContent {
     startedAt: string;
     submittedAt: string | null;
   };
-  test: { id: string; title: string; type: TestType };
+  test: {
+    id: string;
+    title: string;
+    type: TestType;
+    purpose?: TestPurpose;
+    stage?: AssessmentStage | null;
+  };
   questions?: StudentAttemptQuestion[];
 }
 
@@ -139,7 +151,13 @@ export interface StudentSubmission {
     maxScore?: number;
     percentage?: number;
   };
-  test: { id: string; title: string; type: TestType };
+  test: {
+    id: string;
+    title: string;
+    type: TestType;
+    purpose?: TestPurpose;
+    stage?: AssessmentStage | null;
+  };
   resultAvailable: boolean;
 }
 
@@ -177,6 +195,12 @@ export interface StudentAttemptResult {
     startedAt: string;
     submittedAt: string;
   };
-  test: { id: string; title: string; type: TestType };
+  test: {
+    id: string;
+    title: string;
+    type: TestType;
+    purpose?: TestPurpose;
+    stage?: AssessmentStage | null;
+  };
   questions: StudentResultQuestion[];
 }

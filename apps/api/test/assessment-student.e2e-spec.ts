@@ -232,12 +232,22 @@ describe('Student assessment APIs (e2e)', () => {
       .get(`/api/learning/enrollments/${activeEnrollment}/attempts/${foreignAttempt.id}`)
       .expect(404);
 
+    const placementOnly = await prisma.test.create({
+      data: {
+        courseId: courseA,
+        purpose: TestPurpose.PLACEMENT,
+        placementMode: 'LR',
+        title: `Placement excluded ${unique}`,
+        status: TestStatus.PUBLISHED,
+      },
+    });
     const list = await studentAgent
       .get(`/api/learning/enrollments/${activeEnrollment}/tests`)
       .expect(200);
     expect(list.body.map((test: { id: string }) => test.id)).toContain(mainPublishedTest);
     expect(list.body.map((test: { id: string }) => test.id)).not.toContain(draftTest);
     expect(list.body.map((test: { id: string }) => test.id)).not.toContain(foreignPublishedTest);
+    expect(list.body.map((test: { id: string }) => test.id)).not.toContain(placementOnly.id);
     const main = list.body.find((test: { id: string }) => test.id === mainPublishedTest);
     expect(main).toMatchObject({ questionCount: 3, attemptsUsed: 0, hasInProgressAttempt: false });
     expect(JSON.stringify(list.body)).not.toMatch(
@@ -754,8 +764,7 @@ describe('Student assessment APIs (e2e)', () => {
     const assessment = await prisma.test.create({
       data: {
         courseId,
-        purpose: TestPurpose.PLACEMENT,
-        placementMode: 'LR',
+        purpose: TestPurpose.IN_CLASS,
         title: `${title} ${unique}`,
         status,
         maxAttempts,

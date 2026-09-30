@@ -9,11 +9,15 @@ const MAX_SLUG_CREATE_ATTEMPTS = 10;
 
 const publicOfferingSelect = {
   id: true,
+  code: true,
   name: true,
   status: true,
+  modality: true,
   pricingType: true,
   tuitionFeeVnd: true,
   maxStudents: true,
+  totalSessions: true,
+  totalPeriods: true,
   enrollmentStart: true,
   enrollmentEnd: true,
   classStart: true,
@@ -22,6 +26,22 @@ const publicOfferingSelect = {
     select: {
       id: true,
       fullName: true,
+    },
+  },
+  scheduleSlots: {
+    orderBy: [{ dayOfWeek: 'asc' as const }, { startTime: 'asc' as const }],
+    select: {
+      id: true,
+      dayOfWeek: true,
+      startTime: true,
+      endTime: true,
+      locationText: true,
+      meetingUrl: true,
+    },
+  },
+  _count: {
+    select: {
+      enrollments: { where: { status: 'ACTIVE' as const } },
     },
   },
 } satisfies Prisma.ClassOfferingSelect;
@@ -42,6 +62,38 @@ const publicCourseSelect = {
   },
 } satisfies Prisma.CourseSelect;
 
+const publicCourseDetailSelect = {
+  ...publicCourseSelect,
+  modules: {
+    orderBy: { orderIndex: 'asc' as const },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      orderIndex: true,
+      lessons: {
+        orderBy: { orderIndex: 'asc' as const },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          orderIndex: true,
+          focusSkills: true,
+          _count: { select: { resources: true } },
+        },
+      },
+    },
+  },
+} satisfies Prisma.CourseSelect;
+
+type PublicOfferingRow = Prisma.ClassOfferingGetPayload<{
+  select: typeof publicOfferingSelect;
+}>;
+type PublicCourseRow = Prisma.CourseGetPayload<{ select: typeof publicCourseSelect }>;
+type PublicCourseDetailRow = Prisma.CourseGetPayload<{
+  select: typeof publicCourseDetailSelect;
+}>;
+
 @Injectable()
 export class CoursesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -51,6 +103,10 @@ export class CoursesService {
       isPublished: true,
       ...(query.search ? { title: { contains: query.search, mode: 'insensitive' } } : {}),
       ...(query.level ? { level: query.level } : {}),
+      ...(query.skillScope ? { skillScope: query.skillScope } : {}),
+      ...(query.availability
+        ? { classOfferings: { some: { status: ClassOfferingStatus.OPEN } } }
+        : {}),
     };
     const skip = (query.page - 1) * query.limit;
     const [data, total] = await this.prisma.$transaction([
@@ -65,7 +121,7 @@ export class CoursesService {
     ]);
 
     return {
-      data,
+      data: data.map((course) => this.mapPublicCourse(course)),
       meta: {
         total,
         page: query.page,
@@ -78,14 +134,14 @@ export class CoursesService {
   async getPublicBySlug(slug: string) {
     const course = await this.prisma.course.findFirst({
       where: { slug, isPublished: true },
-      select: publicCourseSelect,
+      select: publicCourseDetailSelect,
     });
 
     if (!course) {
       throw new NotFoundException('Course not found');
     }
 
-    return course;
+    return this.mapPublicCourseDetail(course);
   }
 
   listAdmin() {
@@ -176,6 +232,46 @@ export class CoursesService {
       return false;
     }
   }
+
+  private mapPublicCourse(course: PublicCourseRow) {
+    return {
+      ...course,
+      classOfferings: course.classOfferings.map(mapPublicOffering),
+      openOfferingCount: course.classOfferings.length,
+    };
+  }
+
+  private mapPublicCourseDetail(course: PublicCourseDetailRow) {
+    return {
+      ...course,
+      classOfferings: course.classOfferings.map(mapPublicOffering),
+      openOfferingCount: course.classOfferings.length,
+      modules: course.modules.map((module) => ({
+        ...module,
+        lessons: module.lessons.map((lesson) => ({
+          ...lesson,
+          resourceCount: lesson._count.resources,
+          _count: undefined,
+        })),
+      })),
+    };
+  }
+}
+
+function mapPublicOffering(offering: PublicOfferingRow) {
+  const registeredCount = offering._count.enrollments;
+  const remainingSeats =
+    offering.maxStudents === null ? null : Math.max(0, offering.maxStudents - registeredCount);
+  const isFull = remainingSeats === 0;
+
+  return {
+    ...offering,
+    registeredCount,
+    remainingSeats,
+    isFull,
+    registrationState: isFull ? ('FULL' as const) : ('AVAILABLE' as const),
+    _count: undefined,
+  };
 }
 
 export function slugify(value: string): string {

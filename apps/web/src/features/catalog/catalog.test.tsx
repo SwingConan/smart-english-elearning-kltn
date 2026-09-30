@@ -2,8 +2,6 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AuthProvider } from '@/features/auth/AuthContext';
-import { authApi } from '@/features/auth/api';
 import { ApiError } from '@/lib/api-client';
 import { CatalogPage } from '@/pages/CatalogPage';
 import { CourseDetailPage } from '@/pages/CourseDetailPage';
@@ -14,45 +12,60 @@ import type { CatalogResponse, PublicCourse } from './types';
 
 const course: PublicCourse = {
   id: 'course-1',
-  title: 'English Grammar Basics',
-  slug: 'english-grammar-basics',
-  description: 'Nền tảng ngữ pháp tiếng Anh.',
+  title: 'TOEIC Foundation',
+  slug: 'toeic-foundation',
+  description: 'Nền tảng TOEIC.',
   level: 'BEGINNER',
-  thumbnailUrl: 'https://example.test/grammar.jpg',
+  skillScope: 'LR',
+  thumbnailUrl: null,
   isPublished: true,
+  openOfferingCount: 1,
+  modules: [
+    {
+      id: 'module-1',
+      title: 'Listening basics',
+      description: null,
+      orderIndex: 0,
+      lessons: [
+        {
+          id: 'lesson-1',
+          title: 'Part 1',
+          description: null,
+          focusSkills: ['LISTENING'],
+          orderIndex: 0,
+          resourceCount: 2,
+        },
+      ],
+    },
+  ],
   classOfferings: [
     {
-      id: 'offering-free',
-      name: 'Lớp miễn phí buổi tối',
+      id: 'offering-1',
+      code: 'TOEIC-01',
+      name: 'TOEIC tối',
       status: 'OPEN',
+      modality: 'ONLINE',
       pricingType: 'FREE',
       tuitionFeeVnd: 0,
       maxStudents: 20,
-      enrollmentStart: '2026-09-01T00:00:00.000Z',
-      enrollmentEnd: '2026-09-30T00:00:00.000Z',
-      classStart: '2026-10-01T00:00:00.000Z',
-      classEnd: '2026-12-01T00:00:00.000Z',
-      instructor: { id: 'instructor-1', fullName: 'Nguyễn Giảng Viên' },
-    },
-    {
-      id: 'offering-paid',
-      name: 'Lớp chuyên sâu',
-      status: 'OPEN',
-      pricingType: 'PAID',
-      tuitionFeeVnd: 1_500_000,
-      maxStudents: null,
+      totalSessions: 18,
+      totalPeriods: 36,
       enrollmentStart: null,
       enrollmentEnd: null,
-      classStart: null,
-      classEnd: null,
-      instructor: null,
+      classStart: '2026-10-01T00:00:00.000Z',
+      classEnd: '2026-12-01T00:00:00.000Z',
+      scheduleSlots: [],
+      registeredCount: 5,
+      remainingSeats: 15,
+      isFull: false,
+      registrationState: 'AVAILABLE',
+      instructor: { id: 'teacher-1', fullName: 'Nguyễn Giảng Viên' },
     },
   ],
 };
-
-const response = (data: PublicCourse[], page = 1, totalPages = 1): CatalogResponse => ({
+const response = (data: PublicCourse[]): CatalogResponse => ({
   data,
-  meta: { total: data.length || totalPages, page, limit: 12, totalPages },
+  meta: { total: data.length, page: 1, limit: 12, totalPages: 1 },
 });
 
 afterEach(() => {
@@ -61,55 +74,46 @@ afterEach(() => {
 });
 
 describe('catalog query mapping', () => {
-  it('maps valid query values and safely normalizes unknown values', () => {
-    expect(readCatalogUrlState(new URLSearchParams('search=grammar&level=BEGINNER&page=2')))
-      .toEqual({ search: 'grammar', level: 'BEGINNER', page: 2 });
-    expect(readCatalogUrlState(new URLSearchParams('level=Custom%20Level&page=oops&unknown=value')))
-      .toEqual({ search: '', level: 'Custom Level', page: 1 });
-    expect(writeCatalogUrlState({ search: 'grammar & speaking', level: 'BEGINNER', page: 2 }).toString())
-      .toBe('search=grammar+%26+speaking&level=BEGINNER&page=2');
+  it('round-trips all M02 filters', () => {
+    expect(
+      readCatalogUrlState(
+        new URLSearchParams('search=toeic&level=BEGINNER&skillScope=LR&availability=OPEN&page=2'),
+      ),
+    ).toEqual({
+      search: 'toeic',
+      level: 'BEGINNER',
+      skillScope: 'LR',
+      availability: 'OPEN',
+      page: 2,
+    });
+    expect(
+      writeCatalogUrlState({
+        search: 'toeic',
+        level: '',
+        skillScope: 'LISTENING',
+        availability: 'OPEN',
+        page: 1,
+      }).toString(),
+    ).toBe('search=toeic&skillScope=LISTENING&availability=OPEN');
   });
 });
 
-describe('CourseCard', () => {
-  it('renders only real public course fields and links by slug', () => {
-    render(<MemoryRouter><CourseCard course={course} /></MemoryRouter>);
+describe('public catalog', () => {
+  it('renders a product card linked by slug', () => {
+    render(
+      <MemoryRouter>
+        <CourseCard course={course} />
+      </MemoryRouter>,
+    );
     expect(screen.getByRole('heading', { name: course.title })).toBeInTheDocument();
-    expect(screen.getByText(course.level)).toBeInTheDocument();
-    expect(screen.getByRole('img')).toHaveAttribute('alt', `Ảnh khóa học ${course.title}`);
-    expect(screen.getByRole('link', { name: 'Xem chi tiết' })).toHaveAttribute(
+    expect(screen.getByText('Listening & Reading')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Xem khóa học/i })).toHaveAttribute(
       'href',
-      `/catalog/${course.slug}`,
+      '/catalog/toeic-foundation',
     );
-    expect(screen.queryByText(/₫|rating|học viên/i)).not.toBeInTheDocument();
-  });
-});
-
-describe('CatalogPage', () => {
-  it('shows loading and then renders courses', async () => {
-    let resolveRequest!: (value: CatalogResponse) => void;
-    vi.spyOn(catalogApi, 'list').mockReturnValueOnce(
-      new Promise((resolve) => { resolveRequest = resolve; }),
-    );
-    render(<MemoryRouter><CatalogPage /></MemoryRouter>);
-    expect(screen.getByRole('status')).toHaveTextContent('Đang tải');
-    resolveRequest(response([course]));
-    expect(await screen.findByRole('heading', { name: course.title })).toBeInTheDocument();
   });
 
-  it('renders empty and friendly error states', async () => {
-    vi.spyOn(catalogApi, 'list').mockResolvedValueOnce(response([]));
-    const first = render(<MemoryRouter><CatalogPage /></MemoryRouter>);
-    expect(await screen.findByText('Không tìm thấy khóa học phù hợp.')).toBeInTheDocument();
-    first.unmount();
-
-    vi.spyOn(catalogApi, 'list').mockRejectedValueOnce(new Error('internal details'));
-    render(<MemoryRouter><CatalogPage /></MemoryRouter>);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải danh sách khóa học');
-    expect(screen.queryByText('internal details')).not.toBeInTheDocument();
-  });
-
-  it('syncs search and level to the URL and resets page to one', async () => {
+  it('synchronizes skill and availability filters to the URL', async () => {
     const list = vi.spyOn(catalogApi, 'list').mockResolvedValue(response([course]));
     render(
       <MemoryRouter initialEntries={['/catalog?page=3']}>
@@ -117,98 +121,77 @@ describe('CatalogPage', () => {
         <LocationProbe />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(list).toHaveBeenCalled());
-    fireEvent.change(screen.getByLabelText('Tìm khóa học'), { target: { value: 'grammar & speaking' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
-    expect(await screen.findByTestId('location')).toHaveTextContent('search=grammar+%26+speaking');
-    expect(screen.getByTestId('location')).not.toHaveTextContent('page=3');
-
-    fireEvent.change(screen.getByLabelText('Trình độ'), { target: { value: 'BEGINNER' } });
-    expect(await screen.findByTestId('location')).toHaveTextContent('level=BEGINNER');
-    await waitFor(() => expect(list).toHaveBeenLastCalledWith(
-      expect.objectContaining({ search: 'grammar & speaking', level: 'BEGINNER', page: 1, limit: 12 }),
-      expect.any(AbortSignal),
-    ));
-  });
-
-  it('changes page through pagination controls', async () => {
-    const list = vi.spyOn(catalogApi, 'list').mockResolvedValue(response([course], 1, 2));
-    render(<MemoryRouter><CatalogPage /><LocationProbe /></MemoryRouter>);
     await screen.findByRole('heading', { name: course.title });
-    fireEvent.click(screen.getByRole('button', { name: 'Trang sau' }));
-    expect(await screen.findByTestId('location')).toHaveTextContent('page=2');
-    await waitFor(() => expect(list).toHaveBeenLastCalledWith(
-      expect.objectContaining({ page: 2 }),
-      expect.any(AbortSignal),
-    ));
-  });
-});
-
-describe('CourseDetailPage', () => {
-  it('renders public fields, OPEN offerings, pricing, instructor and guest CTA', async () => {
-    vi.spyOn(catalogApi, 'detail').mockResolvedValueOnce(course);
-    vi.spyOn(authApi, 'me').mockRejectedValueOnce(new ApiError(401, null));
-    renderDetail();
-
-    expect(await screen.findByRole('heading', { name: course.title })).toBeInTheDocument();
-    expect(screen.getByText('Miễn phí')).toBeInTheDocument();
-    expect(screen.getByText(/1\.500\.000/)).toBeInTheDocument();
-    expect(screen.getByText('Nguyễn Giảng Viên')).toBeInTheDocument();
-    const links = await screen.findAllByRole('link', { name: 'Đăng ký' });
-    expect(links[0]).toHaveAttribute(
-      'href',
-      `/login?returnUrl=${encodeURIComponent(`/catalog/${course.slug}`)}`,
+    fireEvent.change(screen.getByLabelText('Kỹ năng'), { target: { value: 'LR' } });
+    fireEvent.change(screen.getByLabelText('Lớp học'), { target: { value: 'OPEN' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Áp dụng' }));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('skillScope=LR'));
+    expect(screen.getByTestId('location')).toHaveTextContent('availability=OPEN');
+    expect(screen.getByTestId('location')).not.toHaveTextContent('page=3');
+    await waitFor(() =>
+      expect(list).toHaveBeenLastCalledWith(
+        expect.objectContaining({ skillScope: 'LR', availability: 'OPEN', page: 1 }),
+        expect.any(AbortSignal),
+      ),
     );
   });
 
-  it('shows no-offering, 404 and generic error states without raw errors', async () => {
-    vi.spyOn(authApi, 'me').mockRejectedValue(new ApiError(401, null));
-    vi.spyOn(catalogApi, 'detail').mockResolvedValueOnce({ ...course, classOfferings: [] });
-    const noOffering = renderDetail();
-    expect(await screen.findByText('Hiện chưa có lớp đang mở đăng ký.')).toBeInTheDocument();
-    noOffering.unmount();
-
-    vi.spyOn(catalogApi, 'detail').mockRejectedValueOnce(new ApiError(404, null));
-    const missing = renderDetail();
-    expect(await screen.findByRole('heading', { name: 'Không tìm thấy khóa học' })).toBeInTheDocument();
-    missing.unmount();
-
-    vi.spyOn(catalogApi, 'detail').mockRejectedValueOnce(new Error('database internals'));
-    renderDetail();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải khóa học');
+  it('uses friendly empty and failure states', async () => {
+    vi.spyOn(catalogApi, 'list').mockResolvedValueOnce(response([]));
+    const empty = render(
+      <MemoryRouter>
+        <CatalogPage />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText(/Không tìm thấy khóa học phù hợp/i)).toBeInTheDocument();
+    empty.unmount();
+    vi.spyOn(catalogApi, 'list').mockRejectedValueOnce(new Error('database internals'));
+    render(
+      <MemoryRouter>
+        <CatalogPage />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText(/Không thể tải danh sách khóa học/i)).toBeInTheDocument();
     expect(screen.queryByText('database internals')).not.toBeInTheDocument();
   });
+});
 
-  it('keeps enrollment disabled for a non-student', async () => {
-    vi.spyOn(catalogApi, 'detail').mockResolvedValueOnce({ ...course, classOfferings: [course.classOfferings[0]] });
-    vi.spyOn(authApi, 'me').mockResolvedValueOnce({
-      id: 'student-1',
-      email: 'instructor@example.test',
-      fullName: 'Instructor',
-      role: 'INSTRUCTOR',
-      status: 'ACTIVE',
-    });
-    renderDetail();
+describe('course detail', () => {
+  it('separates Course curriculum from ClassOffering enrollment', async () => {
+    vi.spyOn(catalogApi, 'detail').mockResolvedValue(course);
+    render(
+      <MemoryRouter initialEntries={['/catalog/toeic-foundation']}>
+        <Routes>
+          <Route path="/catalog/:slug" element={<CourseDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('heading', { name: course.title })).toBeInTheDocument();
+    expect(screen.getByText(/Listening basics/)).toBeInTheDocument();
+    expect(screen.getByText('Nguyễn Giảng Viên')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Xem chi tiết/i })).toHaveAttribute(
+      'href',
+      '/classes/offering-1',
+    );
+    expect(screen.queryByRole('button', { name: /Đăng ký/i })).not.toBeInTheDocument();
+  });
 
-    const button = await screen.findByRole('button', { name: 'Đăng ký' });
-    expect(button).toBeDisabled();
-    expect(screen.getByText('Chỉ tài khoản học viên có thể đăng ký lớp.')).toBeInTheDocument();
+  it('maps a missing unpublished Course to a safe 404 state', async () => {
+    vi.spyOn(catalogApi, 'detail').mockRejectedValue(new ApiError(404, null));
+    render(
+      <MemoryRouter initialEntries={['/catalog/missing']}>
+        <Routes>
+          <Route path="/catalog/:slug" element={<CourseDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(
+      await screen.findByRole('heading', { name: /Không tìm thấy khóa học/i }),
+    ).toBeInTheDocument();
   });
 });
 
 function LocationProbe() {
   const location = useLocation();
   return <output data-testid="location">{location.search}</output>;
-}
-
-function renderDetail() {
-  return render(
-    <MemoryRouter initialEntries={[`/catalog/${course.slug}`]}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/catalog/:slug" element={<CourseDetailPage />} />
-        </Routes>
-      </AuthProvider>
-    </MemoryRouter>,
-  );
 }

@@ -15,7 +15,7 @@ describe('AssessmentStudentService', () => {
   const enrollmentId = 'enrollment-id';
   const attemptId = 'attempt-id';
   const courseId = 'course-id';
-  const enrollment = { id: enrollmentId, classOffering: { courseId } };
+  const enrollment = { id: enrollmentId, classOffering: { id: 'offering-id', courseId } };
   const questions = [
     testQuestion('tq-sc', QuestionResponseType.SINGLE_CHOICE, 2, [
       ['sc-correct', true],
@@ -72,12 +72,21 @@ describe('AssessmentStudentService', () => {
     prisma.test.findMany.mockResolvedValue([
       {
         id: 'test-id',
-        type: TestPurpose.IN_CLASS,
+        purpose: TestPurpose.IN_CLASS,
         title: 'Quiz',
         description: null,
         lessonId: 'lesson-id',
         maxAttempts: 2,
+        timeLimitMinutes: 15,
         showResultAfterSubmit: true,
+        classAssessments: [
+          {
+            stage: 'PERIODIC',
+            openAt: new Date('2026-09-01T00:00:00Z'),
+            closeAt: new Date('2026-10-01T00:00:00Z'),
+            maxAttemptsOverride: 2,
+          },
+        ],
         _count: { testQuestions: 3 },
         attempts: [
           { id: 'submitted', attemptNumber: 1, status: TestAttemptStatus.SUBMITTED },
@@ -94,6 +103,9 @@ describe('AssessmentStudentService', () => {
         hasInProgressAttempt: true,
         inProgressAttemptId: 'active',
         latestSubmittedAttemptId: 'submitted',
+        purpose: TestPurpose.IN_CLASS,
+        stage: 'PERIODIC',
+        timeLimitMinutes: 15,
       }),
     ]);
     expect(JSON.stringify(result)).not.toMatch(
@@ -101,7 +113,11 @@ describe('AssessmentStudentService', () => {
     );
     expect(prisma.test.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { courseId, status: TestStatus.PUBLISHED },
+        where: {
+          courseId,
+          status: TestStatus.PUBLISHED,
+          purpose: { in: [TestPurpose.IN_CLASS, TestPurpose.PRACTICE_MOCK] },
+        },
       }),
     );
   });
