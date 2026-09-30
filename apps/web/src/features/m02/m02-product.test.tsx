@@ -40,9 +40,9 @@ describe('M02 public product surface', () => {
       </MemoryRouter>,
     );
     expect(screen.getAllByRole('link', { name: 'Khóa học' }).length).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: 'Kiểm tra đầu vào' })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: 'Kiểm tra đầu vào' })[0]).toHaveAttribute(
       'href',
-      '/guide#placement',
+      '/placement',
     );
     fireEvent.click(screen.getByRole('button', { name: 'Mở menu' }));
     expect(screen.getByRole('navigation', { name: 'Điều hướng di động' })).toBeInTheDocument();

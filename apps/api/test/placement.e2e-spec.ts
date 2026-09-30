@@ -1,0 +1,275 @@
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import * as argon2 from 'argon2';
+import * as request from 'supertest';
+import { AppModule } from '../src/app.module';
+import {
+  PlacementMode,
+  PlacementSelfLevel,
+  TestAttemptStatus,
+  UserRole,
+  UserStatus,
+} from '../src/generated/prisma/client';
+import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import { PLACEMENT_LR_FORM_IDS } from '../src/modules/placement/placement-form.policy';
+import { loginAgent } from './assessment-e2e-helpers';
+
+describe('Placement L&R APIs (e2e)', () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let learner: ReturnType<typeof request.agent>;
+  let otherLearner: ReturnType<typeof request.agent>;
+  let learnerId: string;
+  let otherLearnerId: string;
+  let activeAttemptId: string;
+  const userIds: string[] = [];
+  const sessionIds = new Set<string>();
+  const unique = `${Date.now()}-${process.pid}`;
+  const password = 'PlacementE2e!2026';
+  const learnerEmail = `m03-learner-${unique}@example.test`;
+  const otherEmail = `m03-other-${unique}@example.test`;
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    app = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api');
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
+    await app.init();
+    prisma = app.get(PrismaService);
+
+    const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
+    const users = await Promise.all(
+      [learnerEmail, otherEmail].map((email) =>
+        prisma.user.create({
+          data: {
+            email,
+            fullName: email === learnerEmail ? 'M03 Learner' : 'M03 Other Learner',
+            passwordHash,
+            role: UserRole.STUDENT,
+            status: UserStatus.ACTIVE,
+          },
+        }),
+      ),
+    );
+    [learnerId, otherLearnerId] = users.map(({ id }) => id);
+    userIds.push(learnerId, otherLearnerId);
+    learner = request.agent(app.getHttpServer());
+    otherLearner = request.agent(app.getHttpServer());
+    await loginAgent(learner, learnerEmail, password, sessionIds);
+    await loginAgent(otherLearner, otherEmail, password, sessionIds);
+  });
+
+  afterAll(async () => {
+    if (prisma) {
+      const attempts = await prisma.testAttempt.findMany({
+        where: { learnerId: { in: userIds } },
+        select: { id: true },
+      });
+      const attemptIds = attempts.map(({ id }) => id);
+      await prisma.attemptSkillScore.deleteMany({ where: { attemptId: { in: attemptIds } } });
+      await prisma.testAnswer.deleteMany({ where: { attemptId: { in: attemptIds } } });
+      await prisma.testAttempt.deleteMany({ where: { id: { in: attemptIds } } });
+      await prisma.userSession.deleteMany({ where: { sid: { in: [...sessionIds] } } });
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    }
+    if (app) await app.close();
+  });
+
+  it('publishes product-safe config and rejects guest or FOUR_SKILLS start', async () => {
+    const config = await request(app.getHttpServer()).get('/api/placement/config').expect(200);
+    expect(config.body.modes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'LR', enabled: true }),
+        expect.objectContaining({ code: 'FOUR_SKILLS', enabled: false }),
+      ]),
+    );
+    expect(JSON.stringify(config.body)).not.toContain(PLACEMENT_LR_FORM_IDS.CORE);
+
+    await request(app.getHttpServer())
+      .post('/api/placement/attempts/start')
+      .send({ mode: 'LR', selfLevel: 'UNKNOWN', goalScore: 550 })
+      .expect(401);
+    const unavailable = await learner
+      .post('/api/placement/attempts/start')
+      .send({ mode: 'FOUR_SKILLS', selfLevel: 'GOOD', goalScore: 750 })
+      .expect(409);
+    expect(unavailable.body.code).toBe('PLACEMENT_MODE_NOT_AVAILABLE');
+  });
+
+  it('validates fields and creates one pre-enrollment learner-owned attempt', async () => {
+    await learner
+      .post('/api/placement/attempts/start')
+      .send({ mode: 'LR', selfLevel: 'INVALID', goalScore: 1000 })
+      .expect(400);
+
+    const response = await learner
+      .post('/api/placement/attempts/start')
+      .send({ mode: PlacementMode.LR, selfLevel: PlacementSelfLevel.UNKNOWN, goalScore: 550 })
+      .expect(201);
+    activeAttemptId = response.body.attemptId;
+    expect(response.body.resumed).toBe(false);
+    const row = await prisma.testAttempt.findUniqueOrThrow({ where: { id: activeAttemptId } });
+    expect(row).toEqual(
+      expect.objectContaining({
+        learnerId,
+        enrollmentId: null,
+        classAssessmentId: null,
+        placementSelfLevel: PlacementSelfLevel.UNKNOWN,
+        placementGoalScore: 550,
+      }),
+    );
+  });
+
+  it('resumes the same LR attempt even when self-level changes', async () => {
+    const response = await learner
+      .post('/api/placement/attempts/start')
+      .send({ mode: 'LR', selfLevel: 'GOOD', goalScore: 750 })
+      .expect(201);
+    expect(response.body).toEqual(expect.objectContaining({ attemptId: activeAttemptId, resumed: true }));
+    expect(
+      await prisma.testAttempt.count({
+        where: {
+          learnerId,
+          status: TestAttemptStatus.IN_PROGRESS,
+          enrollmentId: null,
+          classAssessmentId: null,
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('returns an answer-safe grouped exam and enforces owner access', async () => {
+    const response = await learner
+      .get(`/api/placement/attempts/${activeAttemptId}/exam`)
+      .expect(200);
+    expect(response.body.groups).toHaveLength(4);
+    expect(response.body.groups[0]).toEqual(
+      expect.objectContaining({ skill: 'LISTENING', stimulusText: null }),
+    );
+    expect(response.body.groups[2]).toEqual(
+      expect.objectContaining({ skill: 'READING', stimulusText: expect.any(String) }),
+    );
+    const serialized = JSON.stringify(response.body);
+    expect(serialized).not.toContain('isCorrect');
+    expect(serialized).not.toContain('explanation');
+    expect(serialized).not.toContain('pointsAwarded');
+    await otherLearner.get(`/api/placement/attempts/${activeAttemptId}/exam`).expect(404);
+  });
+
+  it('autosaves, restores, rejects foreign options and blocks cross-user mutation', async () => {
+    const testQuestion = await prisma.testQuestion.findFirstOrThrow({
+      where: { testId: PLACEMENT_LR_FORM_IDS.CORE },
+      orderBy: { orderIndex: 'asc' },
+      include: { question: { include: { options: true } } },
+    });
+    const correct = testQuestion.question.options.find(({ isCorrect }) => isCorrect)!;
+    await learner
+      .put(`/api/placement/attempts/${activeAttemptId}/answers/${testQuestion.id}`)
+      .send({ selectedOptionIds: [correct.id] })
+      .expect(200);
+    const reloaded = await learner
+      .get(`/api/placement/attempts/${activeAttemptId}/exam`)
+      .expect(200);
+    expect(JSON.stringify(reloaded.body)).toContain(correct.id);
+
+    await learner
+      .put(`/api/placement/attempts/${activeAttemptId}/answers/${testQuestion.id}`)
+      .send({ selectedOptionIds: ['00000000-0000-4000-8000-000000000001'] })
+      .expect(400);
+    await otherLearner
+      .put(`/api/placement/attempts/${activeAttemptId}/answers/${testQuestion.id}`)
+      .send({ selectedOptionIds: [correct.id] })
+      .expect(404);
+    await otherLearner
+      .post(`/api/placement/attempts/${activeAttemptId}/submit`)
+      .send({ reason: 'MANUAL' })
+      .expect(404);
+    await otherLearner.get(`/api/placement/attempts/${activeAttemptId}/result`).expect(404);
+  });
+
+  it('submits idempotently with exactly two objective skill scores and zero side effects', async () => {
+    const bktBefore = await prisma.learnerSkillState.count();
+    const historyBefore = await prisma.masteryHistory.count();
+    const first = await learner
+      .post(`/api/placement/attempts/${activeAttemptId}/submit`)
+      .send({ reason: 'MANUAL' })
+      .expect(201);
+    const second = await learner
+      .post(`/api/placement/attempts/${activeAttemptId}/submit`)
+      .send({ reason: 'MANUAL' })
+      .expect(201);
+    expect(second.body).toEqual(first.body);
+    expect(first.body.skillScores).toHaveLength(2);
+    expect(first.body.skillScores).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ skill: 'LISTENING', status: 'FINAL', source: 'OBJECTIVE_AUTO' }),
+        expect.objectContaining({ skill: 'READING', status: 'FINAL', source: 'OBJECTIVE_AUTO' }),
+      ]),
+    );
+    expect(await prisma.learnerSkillState.count()).toBe(bktBefore);
+    expect(await prisma.masteryHistory.count()).toBe(historyBefore);
+    expect(await prisma.attemptEvaluation.count({ where: { attemptId: activeAttemptId } })).toBe(0);
+    expect(await prisma.courseRecommendation.count({ where: { attemptId: activeAttemptId } })).toBe(0);
+  });
+
+  it('returns only the current learner completed history', async () => {
+    const history = await learner.get('/api/placement/history').expect(200);
+    expect(history.body).toEqual(
+      expect.arrayContaining([expect.objectContaining({ attemptId: activeAttemptId })]),
+    );
+    const foreignHistory = await otherLearner.get('/api/placement/history').expect(200);
+    expect(foreignHistory.body).toEqual([]);
+  });
+
+  it('lazily finalizes an expired orphan before starting a new attempt', async () => {
+    const count = await prisma.testAttempt.count({
+      where: { learnerId, testId: PLACEMENT_LR_FORM_IDS.ADVANCED },
+    });
+    const expired = await prisma.testAttempt.create({
+      data: {
+        learnerId,
+        testId: PLACEMENT_LR_FORM_IDS.ADVANCED,
+        attemptNumber: count + 1,
+        status: TestAttemptStatus.IN_PROGRESS,
+        placementSelfLevel: PlacementSelfLevel.GOOD,
+        placementGoalScore: 750,
+        startedAt: new Date(Date.now() - 60 * 60 * 1000),
+      },
+    });
+    const response = await learner
+      .post('/api/placement/attempts/start')
+      .send({ mode: 'LR', selfLevel: 'BASIC', goalScore: 450 })
+      .expect(201);
+    expect(response.body.attemptId).not.toBe(expired.id);
+    expect(
+      (await prisma.testAttempt.findUniqueOrThrow({ where: { id: expired.id } })).status,
+    ).toBe(TestAttemptStatus.SUBMITTED);
+    activeAttemptId = response.body.attemptId;
+  });
+
+  it('concurrent double start converges to one active LR attempt', async () => {
+    await prisma.testAttempt.update({
+      where: { id: activeAttemptId },
+      data: { status: TestAttemptStatus.SUBMITTED, submittedAt: new Date(), score: 0, maxScore: 0 },
+    });
+    const [first, second] = await Promise.all([
+      learner.post('/api/placement/attempts/start').send({ mode: 'LR', selfLevel: 'BASIC', goalScore: 550 }),
+      learner.post('/api/placement/attempts/start').send({ mode: 'LR', selfLevel: 'GOOD', goalScore: 650 }),
+    ]);
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(first.body.attemptId).toBe(second.body.attemptId);
+    expect(
+      await prisma.testAttempt.count({
+        where: {
+          learnerId,
+          status: TestAttemptStatus.IN_PROGRESS,
+          enrollmentId: null,
+          classAssessmentId: null,
+        },
+      }),
+    ).toBe(1);
+  });
+});
