@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, CalendarDays, ClipboardList, UserRound } from 'lucide-react';
 import { Link, useOutletContext, useParams } from 'react-router';
+import { assessmentTypeLabel } from '@/features/assessments/display';
 import type { ClassShellContext } from '@/layouts/ClassShellLayout';
 import { learningApi } from '@/features/learning/api';
 import type { CourseContent, CourseProgress } from '@/features/learning/types';
@@ -102,7 +103,10 @@ export function ClassOverviewPage() {
             <div className="mt-4 space-y-3">
               {pendingAssessments.slice(0, 3).map((item) => (
                 <div className="rounded-xl bg-slate-50 p-4" key={item.id}>
-                  <p className="font-semibold">{item.title}</p>
+                  <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">
+                    {assessmentTypeLabel(item.purpose, item.stage)}
+                  </span>
+                  <p className="mt-2 font-semibold">{item.title}</p>
                   <p className="mt-1 text-sm text-slate-500">
                     {item.status === 'IN_PROGRESS' ? 'Đang làm' : 'Chưa bắt đầu'}
                   </p>
@@ -122,7 +126,7 @@ export function ClassOverviewPage() {
       </div>
       <section className="rounded-2xl border bg-white p-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">Curriculum</h2>
+          <h2 className="text-xl font-bold">Nội dung chương trình</h2>
           <Link
             className="font-semibold text-indigo-700"
             to={`/student/enrollments/${enrollmentId}/learn`}
@@ -133,7 +137,7 @@ export function ClassOverviewPage() {
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           {data.content.modules.map((module) => (
             <article className="rounded-xl bg-slate-50 p-4" key={module.id}>
-              <p className="text-xs font-bold text-indigo-700">MODULE {module.orderIndex + 1}</p>
+              <p className="text-xs font-bold text-indigo-700">HỌC PHẦN {module.orderIndex + 1}</p>
               <h3 className="mt-2 font-bold">{module.title}</h3>
               <p className="mt-1 text-sm text-slate-500">{module.lessons.length} bài học</p>
             </article>

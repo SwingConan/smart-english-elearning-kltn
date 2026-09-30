@@ -1,5 +1,7 @@
-import { ArrowRight, BookOpen } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router';
+import { CourseCover } from './CourseCover';
+import { courseLevelLabel, skillScopeLabel } from './display';
 import type { PublicCourse } from './types';
 
 export function CourseCard({ course }: { course: PublicCourse }) {
@@ -14,14 +16,12 @@ export function CourseCard({ course }: { course: PublicCourse }) {
           src={course.thumbnailUrl}
         />
       ) : (
-        <div className="visual-indigo grid h-44 place-items-center">
-          <BookOpen className="text-white/90" size={46} />
-        </div>
+        <CourseCover className="h-44 place-items-center" skillScope={course.skillScope} />
       )}
       <div className="p-5">
         <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide">
           <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-700">
-            {course.level}
+            {courseLevelLabel(course.level)}
           </span>
           <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
             {skillScopeLabel(course.skillScope)}
@@ -43,15 +43,4 @@ export function CourseCard({ course }: { course: PublicCourse }) {
       </div>
     </article>
   );
-}
-
-function skillScopeLabel(scope: PublicCourse['skillScope']): string {
-  return {
-    LR: 'Listening & Reading',
-    FOUR_SKILLS: '4 kỹ năng',
-    LISTENING: 'Listening',
-    READING: 'Reading',
-    SPEAKING: 'Speaking',
-    WRITING: 'Writing',
-  }[scope];
 }

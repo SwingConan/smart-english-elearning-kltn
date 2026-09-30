@@ -187,8 +187,8 @@ function ResourceRow({
       <div className="min-w-0 flex-1">
         <p className="font-semibold">{resource.title}</p>
         <p className="mt-1 text-xs text-slate-500">
-          {resource.originalFileName ?? resource.type}{' '}
-          {resource.mimeType ? `· ${resource.mimeType}` : ''} · cập nhật{' '}
+          {resourceTypeLabel(resource)}
+          {resource.originalFileName ? ` · ${resource.originalFileName}` : ''} · Cập nhật ngày{' '}
           {new Date(resource.updatedAt).toLocaleDateString('vi-VN')}
         </p>
       </div>
@@ -214,4 +214,13 @@ function ResourceRow({
       ) : null}
     </div>
   );
+}
+
+function resourceTypeLabel(resource: LessonResource): string {
+  if (resource.mimeType === 'application/pdf') return 'PDF';
+  return {
+    LINK: 'Liên kết',
+    VIDEO: 'Video',
+    DOCUMENT: 'Tài liệu',
+  }[resource.type];
 }

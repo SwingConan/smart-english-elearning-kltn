@@ -2,6 +2,7 @@ import 'dotenv/config';
 import * as argon2 from 'argon2';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
+  AssessmentStage,
   ClassModality,
   ClassOfferingStatus,
   CourseSkillScope,
@@ -51,6 +52,10 @@ const DEMO_RECOMMENDATION_PROFILE_ID = 'f1000000-0000-4000-8000-000000000001';
 const DEMO_CLASS_ASSESSMENT_ID = 'f2000000-0000-4000-8000-000000000001';
 const DEMO_PRACTICE_TEST_ID = '80000000-0000-4000-8000-000000000003';
 const DEMO_PRACTICE_ASSESSMENT_ID = 'f2000000-0000-4000-8000-000000000002';
+const DEMO_MIDTERM_TEST_ID = '80000000-0000-4000-8000-000000000004';
+const DEMO_FINAL_TEST_ID = '80000000-0000-4000-8000-000000000005';
+const DEMO_MIDTERM_ASSESSMENT_ID = 'f2000000-0000-4000-8000-000000000003';
+const DEMO_FINAL_ASSESSMENT_ID = 'f2000000-0000-4000-8000-000000000004';
 const DEMO_SUBMITTED_ATTEMPT_ID = 'f3000000-0000-4000-8000-000000000001';
 const DEMO_MODULE_3_ID = '20000000-0000-4000-8000-000000000003';
 
@@ -403,22 +408,54 @@ async function main(): Promise<void> {
   });
 
   try {
+    // Development-only hygiene: remove known catalog fixtures left by interrupted E2E runs.
+    // The match is intentionally narrow and never targets arbitrary course data.
+    const leakedFixtureCourses = await prisma.course.findMany({
+      where: {
+        OR: [
+          { title: { startsWith: 'VS01 ' }, description: 'Phase 3 E2E course' },
+          {
+            title: { startsWith: 'Concurrent Course ' },
+            description: 'Concurrent slug verification',
+          },
+        ],
+      },
+      select: { id: true },
+    });
+    const leakedCourseIds = leakedFixtureCourses.map(({ id }) => id);
+    if (leakedCourseIds.length) {
+      await prisma.enrollment.deleteMany({
+        where: { classOffering: { courseId: { in: leakedCourseIds } } },
+      });
+      await prisma.classScheduleSlot.deleteMany({
+        where: { classOffering: { courseId: { in: leakedCourseIds } } },
+      });
+      await prisma.classOffering.deleteMany({ where: { courseId: { in: leakedCourseIds } } });
+      await prisma.course.deleteMany({ where: { id: { in: leakedCourseIds } } });
+    }
+    await prisma.user.deleteMany({
+      where: {
+        email: { startsWith: 'vs01-' },
+        fullName: { startsWith: 'VS01 ' },
+      },
+    });
+
     const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
     const users = await Promise.all(
       [
         {
           email: 'admin.demo@smart-elearning.local',
-          fullName: 'Demo Administrator',
+          fullName: 'Quản trị viên học vụ',
           role: UserRole.ADMIN_COORDINATOR,
         },
         {
           email: 'instructor.demo@smart-elearning.local',
-          fullName: 'Demo Instructor',
+          fullName: 'Trần Thu Hà',
           role: UserRole.INSTRUCTOR,
         },
         {
           email: 'student.demo@smart-elearning.local',
-          fullName: 'Demo Student',
+          fullName: 'Nguyễn Minh Anh',
           role: UserRole.STUDENT,
         },
       ].map((user) =>
@@ -448,17 +485,19 @@ async function main(): Promise<void> {
     const course = await prisma.course.upsert({
       where: { slug: 'demo-english-foundations' },
       update: {
-        title: 'TOEIC Workplace Foundations (Demo)',
-        description: 'A compact Listening and Reading course using workplace TOEIC-style contexts.',
+        title: 'TOEIC Workplace Foundations',
+        description:
+          'Xây dựng nền tảng Listening và Reading qua các tình huống giao tiếp nơi làm việc.',
         level: 'FOUNDATION',
         skillScope: CourseSkillScope.LR,
         isPublished: true,
         createdById: admin.id,
       },
       create: {
-        title: 'TOEIC Workplace Foundations (Demo)',
+        title: 'TOEIC Workplace Foundations',
         slug: 'demo-english-foundations',
-        description: 'A compact Listening and Reading course using workplace TOEIC-style contexts.',
+        description:
+          'Xây dựng nền tảng Listening và Reading qua các tình huống giao tiếp nơi làm việc.',
         level: 'FOUNDATION',
         skillScope: CourseSkillScope.LR,
         isPublished: true,
@@ -600,36 +639,36 @@ async function main(): Promise<void> {
         update: {
           courseId: course.id,
           instructorId: instructor.id,
-          code: 'TOEIC-LR-DEMO-FREE',
-          name: 'Demo Free Cohort',
-          status: ClassOfferingStatus.OPEN,
+          code: 'TOEIC-LR-2609-EVE',
+          name: 'TOEIC L&R Foundation — Tối T3/T5',
+          status: ClassOfferingStatus.IN_PROGRESS,
           modality: ClassModality.ONLINE,
           pricingType: PricingType.FREE,
           tuitionFeeVnd: 0,
           maxStudents: 25,
           totalSessions: 18,
           totalPeriods: 36,
-          enrollmentStart: new Date('2026-09-15T00:00:00Z'),
-          enrollmentEnd: new Date('2026-10-15T23:59:59Z'),
-          classStart: new Date('2026-10-20T00:00:00Z'),
+          enrollmentStart: new Date('2026-08-10T00:00:00Z'),
+          enrollmentEnd: new Date('2026-08-31T23:59:59Z'),
+          classStart: new Date('2026-09-01T00:00:00Z'),
           classEnd: new Date('2026-12-20T00:00:00Z'),
         },
         create: {
           id: FREE_OFFERING_ID,
           courseId: course.id,
           instructorId: instructor.id,
-          code: 'TOEIC-LR-DEMO-FREE',
-          name: 'Demo Free Cohort',
-          status: ClassOfferingStatus.OPEN,
+          code: 'TOEIC-LR-2609-EVE',
+          name: 'TOEIC L&R Foundation — Tối T3/T5',
+          status: ClassOfferingStatus.IN_PROGRESS,
           modality: ClassModality.ONLINE,
           pricingType: PricingType.FREE,
           tuitionFeeVnd: 0,
           maxStudents: 25,
           totalSessions: 18,
           totalPeriods: 36,
-          enrollmentStart: new Date('2026-09-15T00:00:00Z'),
-          enrollmentEnd: new Date('2026-10-15T23:59:59Z'),
-          classStart: new Date('2026-10-20T00:00:00Z'),
+          enrollmentStart: new Date('2026-08-10T00:00:00Z'),
+          enrollmentEnd: new Date('2026-08-31T23:59:59Z'),
+          classStart: new Date('2026-09-01T00:00:00Z'),
           classEnd: new Date('2026-12-20T00:00:00Z'),
         },
       }),
@@ -638,8 +677,8 @@ async function main(): Promise<void> {
         update: {
           courseId: course.id,
           instructorId: instructor.id,
-          code: 'TOEIC-LR-DEMO-PAID',
-          name: 'Demo Paid Cohort',
+          code: 'TOEIC-LR-2611-WE',
+          name: 'TOEIC L&R Foundation — Cuối tuần',
           status: ClassOfferingStatus.OPEN,
           modality: ClassModality.HYBRID,
           pricingType: PricingType.PAID,
@@ -656,8 +695,8 @@ async function main(): Promise<void> {
           id: PAID_OFFERING_ID,
           courseId: course.id,
           instructorId: instructor.id,
-          code: 'TOEIC-LR-DEMO-PAID',
-          name: 'Demo Paid Cohort',
+          code: 'TOEIC-LR-2611-WE',
+          name: 'TOEIC L&R Foundation — Cuối tuần',
           status: ClassOfferingStatus.OPEN,
           modality: ClassModality.HYBRID,
           pricingType: PricingType.PAID,
@@ -1098,19 +1137,11 @@ async function main(): Promise<void> {
       },
     });
 
-    await prisma.enrollment.upsert({
+    // Keep the learner workspace focused: one content-rich ACTIVE class and one paid boundary case.
+    await prisma.enrollment.deleteMany({
       where: {
-        learnerId_classOfferingId: {
-          learnerId: student.id,
-          classOfferingId: '11000000-0000-4000-8000-000000000008',
-        },
-      },
-      update: { status: EnrollmentStatus.ACTIVE },
-      create: {
         id: '50000000-0000-4000-8000-000000000003',
         learnerId: student.id,
-        classOfferingId: '11000000-0000-4000-8000-000000000008',
-        status: EnrollmentStatus.ACTIVE,
       },
     });
 
@@ -1188,8 +1219,8 @@ async function main(): Promise<void> {
         lessonId: null,
         purpose: TestPurpose.PLACEMENT,
         placementMode: PlacementMode.LR,
-        title: 'Demo English Placement Test',
-        description: 'A course-level placement assessment for local demonstrations.',
+        title: 'Kiểm tra đầu vào TOEIC L&R',
+        description: 'Bài đánh giá đầu vào nội bộ cho chương trình Listening và Reading.',
         status: TestStatus.PUBLISHED,
         maxAttempts: 1,
         showResultAfterSubmit: true,
@@ -1200,8 +1231,8 @@ async function main(): Promise<void> {
         lessonId: null,
         purpose: TestPurpose.PLACEMENT,
         placementMode: PlacementMode.LR,
-        title: 'Demo English Placement Test',
-        description: 'A course-level placement assessment for local demonstrations.',
+        title: 'Kiểm tra đầu vào TOEIC L&R',
+        description: 'Bài đánh giá đầu vào nội bộ cho chương trình Listening và Reading.',
         status: TestStatus.PUBLISHED,
         maxAttempts: 1,
         showResultAfterSubmit: true,
@@ -1215,10 +1246,11 @@ async function main(): Promise<void> {
         lessonId: DEMO_LESSON_2_ID,
         purpose: TestPurpose.IN_CLASS,
         placementMode: null,
-        title: 'Demo Greetings Quiz',
-        description: 'A lesson quiz covering greetings and leave-taking expressions.',
+        title: 'Kiểm tra thường kỳ 01 — Greetings & Workplace English',
+        description: 'Ôn tập lời chào, cách kết thúc hội thoại và từ vựng giao tiếp nơi làm việc.',
         status: TestStatus.PUBLISHED,
         maxAttempts: 2,
+        timeLimitMinutes: 15,
         showResultAfterSubmit: true,
       },
       create: {
@@ -1227,10 +1259,11 @@ async function main(): Promise<void> {
         lessonId: DEMO_LESSON_2_ID,
         purpose: TestPurpose.IN_CLASS,
         placementMode: null,
-        title: 'Demo Greetings Quiz',
-        description: 'A lesson quiz covering greetings and leave-taking expressions.',
+        title: 'Kiểm tra thường kỳ 01 — Greetings & Workplace English',
+        description: 'Ôn tập lời chào, cách kết thúc hội thoại và từ vựng giao tiếp nơi làm việc.',
         status: TestStatus.PUBLISHED,
         maxAttempts: 2,
+        timeLimitMinutes: 15,
         showResultAfterSubmit: true,
       },
     });
@@ -1246,6 +1279,7 @@ async function main(): Promise<void> {
         description: 'Phiên luyện ngắn giúp rà soát Listening và Reading trong bối cảnh công sở.',
         status: TestStatus.PUBLISHED,
         maxAttempts: 2,
+        timeLimitMinutes: 30,
         showResultAfterSubmit: true,
       },
       create: {
@@ -1258,6 +1292,65 @@ async function main(): Promise<void> {
         description: 'Phiên luyện ngắn giúp rà soát Listening và Reading trong bối cảnh công sở.',
         status: TestStatus.PUBLISHED,
         maxAttempts: 2,
+        timeLimitMinutes: 30,
+        showResultAfterSubmit: true,
+      },
+    });
+
+    await prisma.test.upsert({
+      where: { id: DEMO_MIDTERM_TEST_ID },
+      update: {
+        courseId: course.id,
+        lessonId: null,
+        purpose: TestPurpose.IN_CLASS,
+        placementMode: null,
+        title: 'Kiểm tra giữa kỳ — Listening & Reading',
+        description: 'Đánh giá mức độ vận dụng kiến thức sau nửa đầu chương trình.',
+        status: TestStatus.PUBLISHED,
+        maxAttempts: 1,
+        timeLimitMinutes: 35,
+        showResultAfterSubmit: true,
+      },
+      create: {
+        id: DEMO_MIDTERM_TEST_ID,
+        courseId: course.id,
+        lessonId: null,
+        purpose: TestPurpose.IN_CLASS,
+        placementMode: null,
+        title: 'Kiểm tra giữa kỳ — Listening & Reading',
+        description: 'Đánh giá mức độ vận dụng kiến thức sau nửa đầu chương trình.',
+        status: TestStatus.PUBLISHED,
+        maxAttempts: 1,
+        timeLimitMinutes: 35,
+        showResultAfterSubmit: true,
+      },
+    });
+
+    await prisma.test.upsert({
+      where: { id: DEMO_FINAL_TEST_ID },
+      update: {
+        courseId: course.id,
+        lessonId: null,
+        purpose: TestPurpose.IN_CLASS,
+        placementMode: null,
+        title: 'Kiểm tra cuối kỳ — Workplace TOEIC',
+        description: 'Bài tổng kết Listening và Reading theo các tình huống giao tiếp công sở.',
+        status: TestStatus.PUBLISHED,
+        maxAttempts: 1,
+        timeLimitMinutes: 45,
+        showResultAfterSubmit: true,
+      },
+      create: {
+        id: DEMO_FINAL_TEST_ID,
+        courseId: course.id,
+        lessonId: null,
+        purpose: TestPurpose.IN_CLASS,
+        placementMode: null,
+        title: 'Kiểm tra cuối kỳ — Workplace TOEIC',
+        description: 'Bài tổng kết Listening và Reading theo các tình huống giao tiếp công sở.',
+        status: TestStatus.PUBLISHED,
+        maxAttempts: 1,
+        timeLimitMinutes: 45,
         showResultAfterSubmit: true,
       },
     });
@@ -1267,7 +1360,9 @@ async function main(): Promise<void> {
       update: {
         classOfferingId: FREE_OFFERING_ID,
         testId: DEMO_QUIZ_TEST_ID,
-        stage: 'PERIODIC',
+        stage: AssessmentStage.PERIODIC,
+        openAt: new Date('2026-09-15T00:00:00Z'),
+        closeAt: new Date('2026-10-15T23:59:59Z'),
         maxAttemptsOverride: 2,
         isActive: true,
       },
@@ -1275,7 +1370,9 @@ async function main(): Promise<void> {
         id: DEMO_CLASS_ASSESSMENT_ID,
         classOfferingId: FREE_OFFERING_ID,
         testId: DEMO_QUIZ_TEST_ID,
-        stage: 'PERIODIC',
+        stage: AssessmentStage.PERIODIC,
+        openAt: new Date('2026-09-15T00:00:00Z'),
+        closeAt: new Date('2026-10-15T23:59:59Z'),
         maxAttemptsOverride: 2,
         isActive: true,
       },
@@ -1286,7 +1383,9 @@ async function main(): Promise<void> {
       update: {
         classOfferingId: FREE_OFFERING_ID,
         testId: DEMO_PRACTICE_TEST_ID,
-        stage: 'MIDTERM',
+        stage: AssessmentStage.PERIODIC,
+        openAt: new Date('2026-09-15T00:00:00Z'),
+        closeAt: new Date('2026-12-20T23:59:59Z'),
         maxAttemptsOverride: 2,
         isActive: true,
       },
@@ -1294,8 +1393,56 @@ async function main(): Promise<void> {
         id: DEMO_PRACTICE_ASSESSMENT_ID,
         classOfferingId: FREE_OFFERING_ID,
         testId: DEMO_PRACTICE_TEST_ID,
-        stage: 'MIDTERM',
+        stage: AssessmentStage.PERIODIC,
+        openAt: new Date('2026-09-15T00:00:00Z'),
+        closeAt: new Date('2026-12-20T23:59:59Z'),
         maxAttemptsOverride: 2,
+        isActive: true,
+      },
+    });
+
+    await prisma.classAssessment.upsert({
+      where: { id: DEMO_MIDTERM_ASSESSMENT_ID },
+      update: {
+        classOfferingId: FREE_OFFERING_ID,
+        testId: DEMO_MIDTERM_TEST_ID,
+        stage: AssessmentStage.MIDTERM,
+        openAt: new Date('2026-10-20T00:00:00Z'),
+        closeAt: new Date('2026-10-25T23:59:59Z'),
+        maxAttemptsOverride: 1,
+        isActive: true,
+      },
+      create: {
+        id: DEMO_MIDTERM_ASSESSMENT_ID,
+        classOfferingId: FREE_OFFERING_ID,
+        testId: DEMO_MIDTERM_TEST_ID,
+        stage: AssessmentStage.MIDTERM,
+        openAt: new Date('2026-10-20T00:00:00Z'),
+        closeAt: new Date('2026-10-25T23:59:59Z'),
+        maxAttemptsOverride: 1,
+        isActive: true,
+      },
+    });
+
+    await prisma.classAssessment.upsert({
+      where: { id: DEMO_FINAL_ASSESSMENT_ID },
+      update: {
+        classOfferingId: FREE_OFFERING_ID,
+        testId: DEMO_FINAL_TEST_ID,
+        stage: AssessmentStage.FINAL,
+        openAt: new Date('2026-12-10T00:00:00Z'),
+        closeAt: new Date('2026-12-15T23:59:59Z'),
+        maxAttemptsOverride: 1,
+        isActive: true,
+      },
+      create: {
+        id: DEMO_FINAL_ASSESSMENT_ID,
+        classOfferingId: FREE_OFFERING_ID,
+        testId: DEMO_FINAL_TEST_ID,
+        stage: AssessmentStage.FINAL,
+        openAt: new Date('2026-12-10T00:00:00Z'),
+        closeAt: new Date('2026-12-15T23:59:59Z'),
+        maxAttemptsOverride: 1,
         isActive: true,
       },
     });
@@ -1336,6 +1483,30 @@ async function main(): Promise<void> {
           points: testQuestion.points,
         },
       });
+    }
+
+    for (const [testId, idPrefix] of [
+      [DEMO_MIDTERM_TEST_ID, '93000000-0000-4000-8000-00000000000'],
+      [DEMO_FINAL_TEST_ID, '94000000-0000-4000-8000-00000000000'],
+    ] as const) {
+      for (const [orderIndex, testQuestion] of quizQuestionSeeds.entries()) {
+        await prisma.testQuestion.upsert({
+          where: { id: `${idPrefix}${orderIndex + 1}` },
+          update: {
+            testId,
+            questionId: testQuestion.questionId,
+            orderIndex,
+            points: testQuestion.points,
+          },
+          create: {
+            id: `${idPrefix}${orderIndex + 1}`,
+            testId,
+            questionId: testQuestion.questionId,
+            orderIndex,
+            points: testQuestion.points,
+          },
+        });
+      }
     }
 
     for (const [orderIndex, testQuestion] of quizQuestionSeeds.entries()) {

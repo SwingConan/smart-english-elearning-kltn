@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, CalendarDays, ChevronRight } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronRight } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { catalogApi } from '@/features/catalog/api';
+import { CourseCover } from '@/features/catalog/CourseCover';
+import { courseLevelLabel, modalityLabel, skillScopeLabel } from '@/features/catalog/display';
 import type { PublicClassOffering, PublicCourse } from '@/features/catalog/types';
 import { ApiError } from '@/lib/api-client';
 
@@ -74,8 +76,12 @@ export function CourseDetailPage() {
           <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
             <div>
               <div className="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wide">
-                <span className="rounded-full bg-white/10 px-3 py-1">{course.level}</span>
-                <span className="rounded-full bg-white/10 px-3 py-1">{course.skillScope}</span>
+                <span className="rounded-full bg-white/10 px-3 py-1">
+                  {courseLevelLabel(course.level)}
+                </span>
+                <span className="rounded-full bg-white/10 px-3 py-1">
+                  {skillScopeLabel(course.skillScope)}
+                </span>
               </div>
               <h1 className="mt-4 text-4xl font-bold sm:text-5xl">{course.title}</h1>
               <p className="mt-5 max-w-3xl text-lg leading-8 text-indigo-100">
@@ -85,16 +91,17 @@ export function CourseDetailPage() {
                 Xem lớp đang mở
               </a>
             </div>
-            <div className="visual-sky grid min-h-52 place-items-center rounded-3xl">
-              <BookOpen size={58} />
-            </div>
+            <CourseCover
+              className="min-h-52 place-items-center rounded-3xl"
+              skillScope={course.skillScope}
+            />
           </div>
         </div>
       </section>
       <section className="section-shell">
         <div className="grid gap-10 lg:grid-cols-[1fr_340px]">
           <div>
-            <p className="eyebrow">Curriculum preview</p>
+            <p className="eyebrow">Nội dung chương trình</p>
             <h2 className="section-title">Nội dung chương trình</h2>
             <div className="mt-7 space-y-4">
               {course.modules?.map((module) => (
@@ -123,8 +130,8 @@ export function CourseDetailPage() {
           <aside className="rounded-2xl bg-slate-100 p-6">
             <h2 className="font-bold">Thông tin nhanh</h2>
             <dl className="mt-4 space-y-3 text-sm">
-              <Row label="Trình độ" value={course.level} />
-              <Row label="Phạm vi kỹ năng" value={course.skillScope} />
+              <Row label="Trình độ" value={courseLevelLabel(course.level)} />
+              <Row label="Phạm vi kỹ năng" value={skillScopeLabel(course.skillScope)} />
               <Row label="Lớp đang mở" value={String(course.openOfferingCount)} />
               <Row label="Học phần" value={String(course.modules?.length ?? 0)} />
             </dl>
@@ -183,7 +190,7 @@ function OfferingRow({ offering }: { offering: PublicClassOffering }) {
           {formatSchedule(offering)}
         </span>
       </td>
-      <td className="px-4 py-4">{offering.modality}</td>
+      <td className="px-4 py-4">{modalityLabel(offering.modality)}</td>
       <td className="px-4 py-4">{formatDate(offering.classStart)}</td>
       <td className="px-4 py-4">{formatDate(offering.classEnd)}</td>
       <td className="px-4 py-4">

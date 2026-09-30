@@ -76,20 +76,40 @@ describe('Course catalog and admin APIs (e2e)', () => {
 
   afterAll(async () => {
     if (prisma) {
+      const fixtureUsers = await prisma.user.findMany({
+        where: { email: { in: [adminEmail, studentEmail, instructorEmail] } },
+        select: { id: true },
+      });
+      const fixtureUserIds = [...new Set([...userIds, ...fixtureUsers.map(({ id }) => id)])];
+      const fixtureCourses = await prisma.course.findMany({
+        where: {
+          OR: [
+            { id: { in: courseIds } },
+            { createdById: { in: fixtureUserIds } },
+            { title: { startsWith: `VS01 ` }, description: 'Phase 3 E2E course' },
+            {
+              title: { startsWith: `Concurrent Course ${unique}` },
+              description: 'Concurrent slug verification',
+            },
+          ],
+        },
+        select: { id: true },
+      });
+      const fixtureCourseIds = fixtureCourses.map(({ id }) => id);
       await prisma.userSession.deleteMany({
         where: { sid: { in: [...sessionIds] } },
       });
       await prisma.enrollment.deleteMany({
-        where: { classOffering: { courseId: { in: courseIds } } },
+        where: { classOffering: { courseId: { in: fixtureCourseIds } } },
       });
       await prisma.classScheduleSlot.deleteMany({
-        where: { classOffering: { courseId: { in: courseIds } } },
+        where: { classOffering: { courseId: { in: fixtureCourseIds } } },
       });
       await prisma.classOffering.deleteMany({
-        where: { courseId: { in: courseIds } },
+        where: { courseId: { in: fixtureCourseIds } },
       });
-      await prisma.course.deleteMany({ where: { id: { in: courseIds } } });
-      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+      await prisma.course.deleteMany({ where: { id: { in: fixtureCourseIds } } });
+      await prisma.user.deleteMany({ where: { id: { in: fixtureUserIds } } });
     }
     if (app) {
       await app.close();

@@ -46,7 +46,7 @@ export function LearningPage() {
   return (
     <section>
       <div className="rounded-2xl border bg-white p-6">
-        <p className="eyebrow">Curriculum</p>
+        <p className="eyebrow">Nội dung chương trình</p>
         <h2 className="mt-2 text-3xl font-bold">Nội dung học tập</h2>
         <p className="mt-3 text-slate-600">
           Mở từng Lesson bằng đường dẫn riêng để theo dõi trạng thái và điều hướng bài trước/bài
@@ -63,7 +63,9 @@ export function LearningPage() {
           {content.modules.map((module) => (
             <article className="overflow-hidden rounded-2xl border bg-white" key={module.id}>
               <header className="border-b bg-slate-50 p-5">
-                <p className="text-xs font-bold text-indigo-700">MODULE {module.orderIndex + 1}</p>
+                <p className="text-xs font-bold text-indigo-700">
+                  HỌC PHẦN {module.orderIndex + 1}
+                </p>
                 <h2 className="mt-1 text-xl font-bold">{module.title}</h2>
                 {module.description ? (
                   <p className="mt-2 text-sm text-slate-600">{module.description}</p>

@@ -41,7 +41,7 @@ export function HomePage() {
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.15fr_.85fr] lg:px-8 lg:py-28">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[.22em] text-indigo-200">
-              TOEIC learning, organized
+              Học TOEIC với lộ trình rõ ràng
             </p>
             <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight sm:text-6xl">
               Xác định hướng đi. Chọn đúng lớp. Học với tiến độ rõ ràng.
@@ -161,7 +161,7 @@ export function HomePage() {
 
       <section className="section-shell">
         <div className="text-center">
-          <p className="eyebrow">Một flow liên tục</p>
+          <p className="eyebrow">Hành trình học liền mạch</p>
           <h2 className="section-title">Học như thế nào trên hệ thống?</h2>
         </div>
         <div className="mt-10 grid gap-5 md:grid-cols-4">
@@ -181,7 +181,7 @@ export function HomePage() {
 
       <section className="bg-slate-950 text-white">
         <div className="section-shell">
-          <p className="eyebrow text-sky-300">TOEIC domains</p>
+          <p className="eyebrow text-sky-300">Kỹ năng TOEIC</p>
           <h2 className="section-title">Phát triển theo từng kỹ năng</h2>
           <p className="mt-4 max-w-3xl text-slate-300">
             Nền tảng hỗ trợ Listening, Reading, Speaking và Writing. Mỗi khóa học thể hiện rõ các kỹ

@@ -8,6 +8,7 @@ import {
   writeCatalogUrlState,
 } from '@/features/catalog/catalog-query';
 import { CourseCard } from '@/features/catalog/CourseCard';
+import { courseLevelLabel } from '@/features/catalog/display';
 import type { CatalogResponse, CourseSkillScope } from '@/features/catalog/types';
 
 type LoadState =
@@ -177,7 +178,7 @@ function Filters({
         label="Trình độ"
         value={initial.level}
         onChange={(value) => onChange({ ...initial, level: value, page: 1 })}
-        options={levels.map((value) => [value, value])}
+        options={levels.map((value) => [value, courseLevelLabel(value)])}
       />
       <Select
         label="Kỹ năng"

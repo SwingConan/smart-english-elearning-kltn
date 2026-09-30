@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { catalogApi } from '@/features/catalog/api';
+import { modalityLabel } from '@/features/catalog/display';
 import type { PublicClassOffering, PublicCourse } from '@/features/catalog/types';
 import { EnrollmentAction } from '@/features/enrollments/EnrollmentAction';
 import { ApiError } from '@/lib/api-client';
@@ -95,7 +96,7 @@ export function ClassOfferingDetailPage() {
               {offering.code}
             </span>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-              {offering.modality}
+              {modalityLabel(offering.modality)}
             </span>
           </div>
           <h1 className="mt-4 text-4xl font-bold">{offering.name}</h1>
@@ -111,7 +112,7 @@ export function ClassOfferingDetailPage() {
               label="Giảng viên"
               value={offering.instructor?.fullName ?? 'Đang cập nhật'}
             />
-            <Info icon={Monitor} label="Hình thức" value={offering.modality} />
+            <Info icon={Monitor} label="Hình thức" value={modalityLabel(offering.modality)} />
             <Info
               icon={CalendarDays}
               label="Thời gian lớp"

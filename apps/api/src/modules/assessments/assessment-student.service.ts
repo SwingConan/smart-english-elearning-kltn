@@ -94,7 +94,22 @@ export class AssessmentStudentService {
         description: true,
         lessonId: true,
         maxAttempts: true,
+        timeLimitMinutes: true,
         showResultAfterSubmit: true,
+        classAssessments: {
+          where: {
+            classOfferingId: enrollment.classOffering.id,
+            isActive: true,
+          },
+          orderBy: { createdAt: 'asc' },
+          take: 1,
+          select: {
+            stage: true,
+            openAt: true,
+            closeAt: true,
+            maxAttemptsOverride: true,
+          },
+        },
         _count: { select: { testQuestions: true } },
         attempts: {
           where: { enrollmentId },
@@ -110,6 +125,7 @@ export class AssessmentStudentService {
     });
 
     return tests.map((test) => {
+      const classAssessment = test.classAssessments[0];
       const inProgress = test.attempts.find(
         ({ status }) => status === TestAttemptStatus.IN_PROGRESS,
       );
@@ -119,11 +135,15 @@ export class AssessmentStudentService {
 
       return {
         id: test.id,
-        type: test.purpose,
+        purpose: test.purpose,
+        stage: classAssessment?.stage ?? null,
         title: test.title,
         description: test.description,
         lessonId: test.lessonId,
-        maxAttempts: test.maxAttempts,
+        maxAttempts: classAssessment?.maxAttemptsOverride ?? test.maxAttempts,
+        timeLimitMinutes: test.timeLimitMinutes,
+        openAt: classAssessment?.openAt ?? null,
+        closeAt: classAssessment?.closeAt ?? null,
         showResultAfterSubmit: test.showResultAfterSubmit,
         questionCount: test._count.testQuestions,
         attemptsUsed: test.attempts.length,
@@ -469,6 +489,7 @@ export class AssessmentStudentService {
             },
           },
         },
+        classAssessment: { select: { stage: true } },
         answers: {
           select: {
             testQuestionId: true,
@@ -505,6 +526,8 @@ export class AssessmentStudentService {
         id: attempt.test.id,
         title: attempt.test.title,
         type: attempt.test.purpose,
+        purpose: attempt.test.purpose,
+        stage: attempt.classAssessment?.stage ?? null,
       },
       questions: attempt.test.testQuestions.map((testQuestion) => {
         const answer = answerMap.get(testQuestion.id);
@@ -551,7 +574,7 @@ export class AssessmentStudentService {
       },
       select: {
         id: true,
-        classOffering: { select: { courseId: true } },
+        classOffering: { select: { id: true, courseId: true } },
       },
     });
     if (!enrollment) {

@@ -226,6 +226,8 @@ describe('M02 class shell and progress', () => {
       '/student/enrollments/enrollment-1/lessons/lesson-1',
     );
     expect(screen.getByText('Practice Test')).toBeInTheDocument();
+    expect(screen.getByText('Luyện tập / Thi thử')).toBeInTheDocument();
+    expect(screen.queryByText('Kiểm tra thường kỳ')).not.toBeInTheDocument();
     expect(screen.queryByText(/mastery|BKT/i)).not.toBeInTheDocument();
   });
 });

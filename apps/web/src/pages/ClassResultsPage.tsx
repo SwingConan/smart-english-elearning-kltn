@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Award } from 'lucide-react';
 import { Link, useParams } from 'react-router';
+import { assessmentTypeLabel } from '@/features/assessments/display';
 import { learningApi } from '@/features/learning/api';
 import type { CourseProgress } from '@/features/learning/types';
 
@@ -29,7 +30,7 @@ export function ClassResultsPage() {
         <p className="eyebrow">Kết quả bài kiểm tra</p>
         <h2 className="mt-2 text-3xl font-bold">Kết quả</h2>
         <p className="mt-3 text-slate-600">
-          Chỉ hiển thị các lượt làm đã nộp và được phép công bố theo VS03.
+          Các bài đã nộp và được phép công bố sẽ xuất hiện tại đây.
         </p>
       </div>
       {completed.length === 0 ? (
@@ -47,7 +48,14 @@ export function ClassResultsPage() {
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           {completed.map((item) => (
             <article className="rounded-2xl border bg-white p-5" key={item.id}>
-              <p className="text-xs font-bold text-emerald-700">ĐÃ NỘP</p>
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">
+                  {assessmentTypeLabel(item.purpose, item.stage)}
+                </span>
+                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                  Đã nộp
+                </span>
+              </div>
               <h3 className="mt-2 text-lg font-bold">{item.title}</h3>
               <p className="mt-2 text-sm text-slate-500">
                 {item.submittedAt

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Circle, ClipboardCheck } from 'lucide-react';
 import { Link, useParams } from 'react-router';
+import { assessmentTypeLabel } from '@/features/assessments/display';
 import { learningApi } from '@/features/learning/api';
 import type { CourseProgress } from '@/features/learning/types';
 
@@ -40,7 +41,7 @@ export function ProgressPage() {
   return (
     <section className="space-y-6">
       <header className="rounded-2xl border bg-white p-6">
-        <p className="eyebrow">Progress</p>
+        <p className="eyebrow">Tiến độ</p>
         <h2 className="mt-2 text-3xl font-bold">Tiến độ lớp học</h2>
         <div className="mt-6 flex items-end justify-between">
           <div>
@@ -62,7 +63,9 @@ export function ProgressPage() {
           <article className="rounded-2xl border bg-white p-6" key={module.id}>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-bold text-indigo-700">MODULE {module.orderIndex + 1}</p>
+                <p className="text-xs font-bold text-indigo-700">
+                  HỌC PHẦN {module.orderIndex + 1}
+                </p>
                 <h3 className="mt-1 text-xl font-bold">{module.title}</h3>
               </div>
               <span className="font-bold text-indigo-700">{module.progressPercent}%</span>
@@ -105,7 +108,10 @@ export function ProgressPage() {
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {progress.assessments.map((item) => (
               <div className="rounded-xl bg-slate-50 p-4" key={item.id}>
-                <p className="font-semibold">{item.title}</p>
+                <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">
+                  {assessmentTypeLabel(item.purpose, item.stage)}
+                </span>
+                <p className="mt-2 font-semibold">{item.title}</p>
                 <p className="mt-1 text-sm text-slate-500">
                   {item.status === 'COMPLETED'
                     ? 'Đã nộp'
