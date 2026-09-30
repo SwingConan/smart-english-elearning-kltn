@@ -54,8 +54,8 @@ export function HomePage() {
               <Link className="btn-light" to="/catalog">
                 Khám phá khóa học <ArrowRight size={18} />
               </Link>
-              <Link className="btn-ghost-light" to="/guide#placement">
-                Tìm hiểu kiểm tra đầu vào
+              <Link className="btn-ghost-light" to="/placement">
+                Kiểm tra trình độ đầu vào
               </Link>
             </div>
           </div>
@@ -97,8 +97,8 @@ export function HomePage() {
           <JourneyCard
             icon={Search}
             title="Chưa biết trình độ"
-            text="Tính năng kiểm tra đầu vào đang được chuẩn bị để hỗ trợ xác định trình độ và gợi ý lớp phù hợp."
-            to="/guide#placement"
+            text="Chọn mục tiêu, tự đánh giá trình độ và làm bài Listening & Reading nội bộ."
+            to="/placement"
           />
           <JourneyCard
             icon={BookOpen}
@@ -149,11 +149,11 @@ export function HomePage() {
             <p className="eyebrow">Kiểm tra đầu vào</p>
             <h2 className="section-title">Hiểu điểm xuất phát trước khi chọn lộ trình</h2>
             <p className="mt-4 leading-7 text-slate-600">
-              Tính năng kiểm tra đầu vào đang được chuẩn bị để hỗ trợ người học xác định trình độ và
-              nhận gợi ý lớp phù hợp.
+              Hoàn thành bài Listening & Reading theo thời gian để xem điểm kỹ năng nội bộ trước khi
+              chọn chương trình học.
             </p>
-            <Link className="btn-primary mt-6" to="/guide#placement">
-              Tìm hiểu kiểm tra đầu vào
+            <Link className="btn-primary mt-6" to="/placement">
+              Bắt đầu Placement L&R
             </Link>
           </div>
         </div>

@@ -1,13 +1,16 @@
 import { FormEvent, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { registerErrorMessage } from '@/features/auth/auth-errors';
 import { useAuth } from '@/features/auth/auth-context';
+import { safeReturnUrl } from '@/features/auth/return-url';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function RegisterPage() {
   const { user, isLoading, register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = safeReturnUrl(searchParams.get('returnUrl'));
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,7 +54,9 @@ export function RegisterPage() {
         email: email.trim(),
         password,
       });
-      navigate('/login?registered=1', { replace: true });
+      navigate(`/login?${new URLSearchParams({ registered: '1', returnUrl }).toString()}`, {
+        replace: true,
+      });
     } catch (error: unknown) {
       setFormError(registerErrorMessage(error));
     } finally {
@@ -117,7 +122,10 @@ export function RegisterPage() {
       </form>
       <p className="mt-4 text-sm">
         Đã có tài khoản?{' '}
-        <Link className="font-medium underline" to="/login">
+        <Link
+          className="font-medium underline"
+          to={`/login?${new URLSearchParams({ returnUrl }).toString()}`}
+        >
           Đăng nhập
         </Link>
       </p>

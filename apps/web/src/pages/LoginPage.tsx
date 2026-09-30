@@ -84,7 +84,12 @@ export function LoginPage() {
       </form>
       <p className="mt-4 text-sm">
         Chưa có tài khoản?{' '}
-        <Link className="font-medium underline" to="/register">
+        <Link
+          className="font-medium underline"
+          to={`/register?${new URLSearchParams({
+            returnUrl: safeReturnUrl(searchParams.get('returnUrl')),
+          }).toString()}`}
+        >
           Đăng ký
         </Link>
       </p>
