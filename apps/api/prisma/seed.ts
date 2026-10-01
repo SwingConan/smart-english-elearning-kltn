@@ -35,6 +35,7 @@ const DEMO_RESOURCE_VIDEO_ID = '40000000-0000-4000-8000-000000000001';
 const DEMO_RESOURCE_DOC_ID = '40000000-0000-4000-8000-000000000002';
 const DEMO_RESOURCE_LINK_ID = '40000000-0000-4000-8000-000000000003';
 const DEMO_ENROLLMENT_ID = '50000000-0000-4000-8000-000000000001';
+const M04_FULL_OFFERING_ENROLLMENT_ID = '50000000-0000-4000-8000-000000000004';
 const DEMO_QUESTION_1_ID = '60000000-0000-4000-8000-000000000001';
 const DEMO_QUESTION_2_ID = '60000000-0000-4000-8000-000000000002';
 const DEMO_QUESTION_3_ID = '60000000-0000-4000-8000-000000000003';
@@ -50,6 +51,7 @@ const DEMO_SKILL_READING_ID = 'a0000000-0000-4000-8000-000000000003';
 const DEMO_SKILL_SENTENCE_ID = 'a0000000-0000-4000-8000-000000000004';
 const DEMO_ADAPTIVE_POLICY_ID = 'e0000000-0000-4000-8000-000000000001';
 const DEMO_EVALUATION_POLICY_ID = 'f0000000-0000-4000-8000-000000000001';
+const M04_EVALUATION_POLICY_ID = 'f0000000-0000-4000-8000-000000000004';
 const DEMO_RECOMMENDATION_PROFILE_ID = 'f1000000-0000-4000-8000-000000000001';
 const DEMO_CLASS_ASSESSMENT_ID = 'f2000000-0000-4000-8000-000000000001';
 const DEMO_PRACTICE_TEST_ID = '80000000-0000-4000-8000-000000000003';
@@ -1080,13 +1082,13 @@ async function main(): Promise<void> {
       },
     });
 
-    const evaluationPolicy = await prisma.evaluationPolicy.upsert({
+    const legacyEvaluationPolicy = await prisma.evaluationPolicy.upsert({
       where: { code: 'DEMO_PLACEMENT_LR_V1' },
       update: {
         name: 'Demo internal L&R placement policy',
         placementMode: PlacementMode.LR,
         ruleConfig: { version: 1, basis: 'internal-demo', officialToeicEquivalence: false },
-        isActive: true,
+        isActive: false,
       },
       create: {
         id: DEMO_EVALUATION_POLICY_ID,
@@ -1094,7 +1096,7 @@ async function main(): Promise<void> {
         name: 'Demo internal L&R placement policy',
         placementMode: PlacementMode.LR,
         ruleConfig: { version: 1, basis: 'internal-demo', officialToeicEquivalence: false },
-        isActive: true,
+        isActive: false,
       },
     });
 
@@ -1129,14 +1131,71 @@ async function main(): Promise<void> {
         where: { id: band.id },
         update: {
           ...band,
-          policyId: evaluationPolicy.id,
+          policyId: legacyEvaluationPolicy.id,
           metric: EvaluationMetric.LR_TOTAL,
           skill: null,
         },
         create: {
           ...band,
-          policyId: evaluationPolicy.id,
+          policyId: legacyEvaluationPolicy.id,
           metric: EvaluationMetric.LR_TOTAL,
+          skill: null,
+        },
+      });
+    }
+
+    await prisma.evaluationPolicy.updateMany({
+      where: {
+        placementMode: PlacementMode.LR,
+        code: { not: 'M04_PLACEMENT_LR_NORMALIZED_V1' },
+      },
+      data: { isActive: false },
+    });
+    const m04EvaluationPolicy = await prisma.evaluationPolicy.upsert({
+      where: { code: 'M04_PLACEMENT_LR_NORMALIZED_V1' },
+      update: {
+        name: 'Đánh giá nội bộ Placement L&R theo tỷ lệ đúng',
+        placementMode: PlacementMode.LR,
+        ruleConfig: {
+          version: 1,
+          basis: 'internal-normalized',
+          officialToeicEquivalence: false,
+          intervalConvention: 'MIN_INCLUSIVE_MAX_EXCLUSIVE_TERMINAL_INCLUSIVE',
+        },
+        isActive: true,
+      },
+      create: {
+        id: M04_EVALUATION_POLICY_ID,
+        code: 'M04_PLACEMENT_LR_NORMALIZED_V1',
+        name: 'Đánh giá nội bộ Placement L&R theo tỷ lệ đúng',
+        placementMode: PlacementMode.LR,
+        ruleConfig: {
+          version: 1,
+          basis: 'internal-normalized',
+          officialToeicEquivalence: false,
+          intervalConvention: 'MIN_INCLUSIVE_MAX_EXCLUSIVE_TERMINAL_INCLUSIVE',
+        },
+        isActive: true,
+      },
+    });
+    const m04Bands = [
+      { id: 'f0400000-0000-4000-8000-000000000001', code: 'FOUNDATION', label: 'Nền tảng', minValue: 0, maxValue: 45, orderIndex: 0 },
+      { id: 'f0400000-0000-4000-8000-000000000002', code: 'DEVELOPING', label: 'Đang phát triển', minValue: 45, maxValue: 70, orderIndex: 1 },
+      { id: 'f0400000-0000-4000-8000-000000000003', code: 'ADVANCING', label: 'Nâng cao', minValue: 70, maxValue: 100, orderIndex: 2 },
+    ] as const;
+    for (const band of m04Bands) {
+      await prisma.evaluationBand.upsert({
+        where: { id: band.id },
+        update: {
+          ...band,
+          policyId: m04EvaluationPolicy.id,
+          metric: EvaluationMetric.LR_NORMALIZED,
+          skill: null,
+        },
+        create: {
+          ...band,
+          policyId: m04EvaluationPolicy.id,
+          metric: EvaluationMetric.LR_NORMALIZED,
           skill: null,
         },
       });
@@ -1156,7 +1215,12 @@ async function main(): Promise<void> {
     for (const [index, skill] of [ToeicSkill.LISTENING, ToeicSkill.READING].entries()) {
       await prisma.courseSkillCriterion.upsert({
         where: { profileId_skill: { profileId: recommendationProfile.id, skill } },
-        update: { minNormalizedScore: 0, maxNormalizedScore: 65 },
+        update: {
+          minNormalizedScore: 0,
+          maxNormalizedScore: 65,
+          minEstimatedToeicScore: null,
+          maxEstimatedToeicScore: null,
+        },
         create: {
           id: `f1100000-0000-4000-8000-00000000000${index + 1}`,
           profileId: recommendationProfile.id,
@@ -1165,6 +1229,76 @@ async function main(): Promise<void> {
           maxNormalizedScore: 65,
         },
       });
+    }
+
+    const profileSeeds = [
+      {
+        id: 'f1000000-0000-4000-8000-000000000002',
+        courseId: additionalCourses[0].id,
+        ruleMode: CriterionRuleMode.ANY,
+        priority: 200,
+        criteria: [
+          { skill: ToeicSkill.LISTENING, min: 0, max: 55 },
+          { skill: ToeicSkill.READING, min: 70, max: 100 },
+        ],
+      },
+      {
+        id: 'f1000000-0000-4000-8000-000000000003',
+        courseId: additionalCourses[1].id,
+        ruleMode: CriterionRuleMode.ANY,
+        priority: 210,
+        criteria: [
+          { skill: ToeicSkill.READING, min: 0, max: 55 },
+          { skill: ToeicSkill.LISTENING, min: 70, max: 100 },
+        ],
+      },
+      {
+        id: 'f1000000-0000-4000-8000-000000000004',
+        courseId: additionalCourses[2].id,
+        ruleMode: CriterionRuleMode.ALL,
+        priority: 50,
+        criteria: [
+          { skill: ToeicSkill.LISTENING, min: 60, max: 100 },
+          { skill: ToeicSkill.READING, min: 60, max: 100 },
+        ],
+      },
+    ] as const;
+    for (const profileSeed of profileSeeds) {
+      const profile = await prisma.courseRecommendationProfile.upsert({
+        where: { courseId: profileSeed.courseId },
+        update: {
+          ruleMode: profileSeed.ruleMode,
+          priority: profileSeed.priority,
+          isActive: true,
+        },
+        create: {
+          id: profileSeed.id,
+          courseId: profileSeed.courseId,
+          ruleMode: profileSeed.ruleMode,
+          priority: profileSeed.priority,
+          isActive: true,
+        },
+      });
+      for (const [index, criterion] of profileSeed.criteria.entries()) {
+        await prisma.courseSkillCriterion.upsert({
+          where: {
+            profileId_skill: { profileId: profile.id, skill: criterion.skill },
+          },
+          update: {
+            minNormalizedScore: criterion.min,
+            maxNormalizedScore: criterion.max,
+            minEstimatedToeicScore: null,
+            maxEstimatedToeicScore: null,
+          },
+          create: {
+            id: `f1400000-0000-4000-8${String(profileSeed.priority).padStart(3, '0')}-${String(index + 1).padStart(12, '0')}`,
+            profileId: profile.id,
+            skill: criterion.skill,
+            minNormalizedScore: criterion.min,
+            maxNormalizedScore: criterion.max,
+          },
+        });
+      }
     }
 
     await Promise.all([
@@ -1295,6 +1429,17 @@ async function main(): Promise<void> {
         },
       });
     }
+    await prisma.classOffering.updateMany({
+      where: {
+        id: {
+          in: [
+            '11000000-0000-4000-8000-000000000005',
+            '11000000-0000-4000-8000-000000000006',
+          ],
+        },
+      },
+      data: { status: ClassOfferingStatus.IN_PROGRESS },
+    });
 
     const allOfferingIds = [
       FREE_OFFERING_ID,
@@ -1651,6 +1796,22 @@ async function main(): Promise<void> {
         id: DEMO_ENROLLMENT_ID,
         learnerId: student.id,
         classOfferingId: FREE_OFFERING_ID,
+        status: EnrollmentStatus.ACTIVE,
+      },
+    });
+
+    await prisma.enrollment.upsert({
+      where: {
+        learnerId_classOfferingId: {
+          learnerId: student.id,
+          classOfferingId: '11000000-0000-4000-8000-000000000008',
+        },
+      },
+      update: { status: EnrollmentStatus.ACTIVE },
+      create: {
+        id: M04_FULL_OFFERING_ENROLLMENT_ID,
+        learnerId: student.id,
+        classOfferingId: '11000000-0000-4000-8000-000000000008',
         status: EnrollmentStatus.ACTIVE,
       },
     });

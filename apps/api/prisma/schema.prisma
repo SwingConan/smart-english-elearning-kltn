@@ -167,6 +167,7 @@ enum AttemptEvaluationStatus {
 
 enum EvaluationMetric {
   LR_TOTAL
+  LR_NORMALIZED
   SKILL_ESTIMATED_TOEIC
   SKILL_NORMALIZED
 }
