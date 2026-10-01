@@ -48,6 +48,8 @@ jobs:
         run: PGPASSWORD=ci_password psql -h 127.0.0.1 -U ci_user -d postgres -c 'CREATE DATABASE smart_elearning_ci_shadow'
       - name: Check migration/schema drift
         run: npm run prisma:drift-check
+      - name: Seed deterministic application data
+        run: npm run prisma:seed
       - run: npm run check:skeleton
       - run: npm run lint
       - run: npm run typecheck

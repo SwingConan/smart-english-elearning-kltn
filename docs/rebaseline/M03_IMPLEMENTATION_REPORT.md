@@ -127,20 +127,26 @@ The idempotent development seed adds three published L&R forms:
 
 Each form has four ordered groups (two Listening and two Reading), eight realistic project-authored objective questions, stable IDs, and four options per question. Listening uses documented browser SpeechSynthesis fallback with project-owned scripts; Reading uses project-authored passages. No official/copyrighted TOEIC item is claimed.
 
+### CI seed prerequisite
+
+- CI requires the deterministic application seed after migrations and schema drift checks, before API E2E, because Placement form selection deliberately depends on the curated Foundation, Core, and Advanced records with stable policy IDs.
+- GitHub Actions on `aa7285530ce0632c2f487e05d9585921fae1b531` applied migrations but did not seed; all nine Placement E2E tests then failed from missing grouped form data, unavailable start policy, and the missing Advanced test foreign key. Other E2E suites passed.
+- The workflow now runs `npm run prisma:seed` before API E2E. Final verification includes two consecutive seed runs followed by the complete API E2E suite.
+
 ## Verification
 
 | Command | Result |
 | --- | --- |
 | `npm run prisma:validate` | PASS |
 | `npm run prisma:generate` | PASS |
-| `npm run prisma:migrate:deploy` | PASS — applied to representative existing development DB |
+| `npm run prisma:migrate:deploy` | PASS — all eight migrations applied to a clean isolated verification schema |
 | `npx prisma migrate diff --config prisma.config.ts --from-empty --to-migrations prisma/migrations --script` | PASS — clean migration replay |
 | `npm run prisma:drift-check` | PASS — no difference detected |
-| `npm run prisma:seed` (twice consecutively) | PASS — idempotent |
+| `npm run prisma:seed` (twice consecutively) | PASS — idempotent on the clean isolated verification schema |
 | `npm run lint` | PASS |
 | `npm run typecheck` | PASS |
-| `npm run test` | PASS — API 267/267; Web 183/183 |
-| `npm run test:e2e -w @smart-elearning/api` | PASS — 79/79 |
+| `npm run test` | PASS — API 267/267; Web 189/189 |
+| `npm run test:e2e -w @smart-elearning/api` | PASS — 80/80 after migrations and two seed runs on the clean isolated verification schema |
 | `npm run build` | PASS |
 | `git diff --check` | PASS |
 
