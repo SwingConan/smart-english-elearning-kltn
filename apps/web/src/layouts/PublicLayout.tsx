@@ -6,7 +6,7 @@ import { AuthNavigation } from '@/features/auth/AuthNavigation';
 const publicLinks = [
   ['/', 'Trang chủ'],
   ['/catalog', 'Khóa học'],
-  ['/guide#placement', 'Kiểm tra đầu vào'],
+  ['/placement', 'Kiểm tra đầu vào'],
   ['/guide', 'Hướng dẫn học'],
   ['/news-events', 'Tin tức & Sự kiện'],
   ['/about', 'Về chúng tôi'],
@@ -96,6 +96,7 @@ export function PublicLayout() {
             <h2 className="font-semibold text-white">Khám phá</h2>
             <div className="mt-3 flex flex-col gap-2 text-sm">
               <Link to="/catalog">Khóa học</Link>
+              <Link to="/placement">Kiểm tra đầu vào</Link>
               <Link to="/guide">Hướng dẫn học</Link>
               <Link to="/news-events">Tin tức & Sự kiện</Link>
             </div>

@@ -41,6 +41,8 @@ const DEMO_QUESTION_3_ID = '60000000-0000-4000-8000-000000000003';
 const DEMO_QUESTION_4_ID = '60000000-0000-4000-8000-000000000004';
 const DEMO_QUESTION_5_ID = '60000000-0000-4000-8000-000000000005';
 const DEMO_PLACEMENT_TEST_ID = '80000000-0000-4000-8000-000000000001';
+const M03_PLACEMENT_CORE_TEST_ID = '80000000-0000-4000-8000-000000000011';
+const M03_PLACEMENT_ADVANCED_TEST_ID = '80000000-0000-4000-8000-000000000012';
 const DEMO_QUIZ_TEST_ID = '80000000-0000-4000-8000-000000000002';
 const DEMO_SKILL_GRAMMAR_ID = 'a0000000-0000-4000-8000-000000000001';
 const DEMO_SKILL_VOCABULARY_ID = 'a0000000-0000-4000-8000-000000000002';
@@ -260,13 +262,545 @@ const questionSeeds = [
   },
 ] as const;
 
-const placementQuestionSeeds = [
-  { id: '90000000-0000-4000-8000-000000000001', questionId: DEMO_QUESTION_1_ID, points: 1 },
-  { id: '90000000-0000-4000-8000-000000000002', questionId: DEMO_QUESTION_2_ID, points: 1 },
-  { id: '90000000-0000-4000-8000-000000000003', questionId: DEMO_QUESTION_3_ID, points: 1 },
-  { id: '90000000-0000-4000-8000-000000000004', questionId: DEMO_QUESTION_4_ID, points: 2 },
-  { id: '90000000-0000-4000-8000-000000000005', questionId: DEMO_QUESTION_5_ID, points: 1 },
+const m03PlacementFoundationQuestionSeeds = [
+  {
+    id: '62000000-0000-4000-8000-000000000001',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'Where should new employees enter the building?',
+    explanation: 'The announcement asks new employees to use the lobby entrance.',
+    options: [
+      { id: '72000000-0000-4000-8000-000000000001', content: 'The lobby entrance', isCorrect: true },
+      { id: '72000000-0000-4000-8000-000000000002', content: 'The loading area', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000003', content: 'The staff cafeteria', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000004', content: 'The parking garage', isCorrect: false },
+    ],
+  },
+  {
+    id: '62000000-0000-4000-8000-000000000002',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'When will the welcome desk open?',
+    explanation: 'The welcome desk opens at eight forty-five.',
+    options: [
+      { id: '72000000-0000-4000-8000-000000000005', content: '8:15', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000006', content: '8:30', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000007', content: '8:45', isCorrect: true },
+      { id: '72000000-0000-4000-8000-000000000008', content: '9:15', isCorrect: false },
+    ],
+  },
+  {
+    id: '62000000-0000-4000-8000-000000000003',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'Why is the caller leaving a message?',
+    explanation: 'The caller says that the appointment time has changed.',
+    options: [
+      { id: '72000000-0000-4000-8000-000000000009', content: 'To change an appointment', isCorrect: true },
+      { id: '72000000-0000-4000-8000-000000000010', content: 'To order office supplies', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000011', content: 'To request a refund', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000012', content: 'To invite a new customer', isCorrect: false },
+    ],
+  },
+  {
+    id: '62000000-0000-4000-8000-000000000004',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'What should the listener do next?',
+    explanation: 'The caller asks the listener to call back and confirm the new time.',
+    options: [
+      { id: '72000000-0000-4000-8000-000000000013', content: 'Call back to confirm', isCorrect: true },
+      { id: '72000000-0000-4000-8000-000000000014', content: 'Visit the office today', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000015', content: 'Send a payment receipt', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000016', content: 'Book a meeting room', isCorrect: false },
+    ],
+  },
+  {
+    id: '62000000-0000-4000-8000-000000000005',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'What will arrive on Wednesday?',
+    explanation: 'The email says that printer paper will arrive on Wednesday morning.',
+    options: [
+      { id: '72000000-0000-4000-8000-000000000017', content: 'Printer paper', isCorrect: true },
+      { id: '72000000-0000-4000-8000-000000000018', content: 'New computers', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000019', content: 'Office chairs', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000020', content: 'Staff uniforms', isCorrect: false },
+    ],
+  },
+  {
+    id: '62000000-0000-4000-8000-000000000006',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'Where should the supplies be stored?',
+    explanation: 'The message asks staff to place the supplies in the cabinet beside the printer.',
+    options: [
+      { id: '72000000-0000-4000-8000-000000000021', content: 'In the cabinet beside the printer', isCorrect: true },
+      { id: '72000000-0000-4000-8000-000000000022', content: 'At the reception desk', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000023', content: 'In the meeting room', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000024', content: 'Near the main entrance', isCorrect: false },
+    ],
+  },
+  {
+    id: '62000000-0000-4000-8000-000000000007',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'Why will the cafeteria be closed?',
+    explanation: 'The notice says that the cafeteria will close for cleaning.',
+    options: [
+      { id: '72000000-0000-4000-8000-000000000025', content: 'For cleaning', isCorrect: true },
+      { id: '72000000-0000-4000-8000-000000000026', content: 'For a staff meeting', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000027', content: 'For new equipment', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000028', content: 'For a private event', isCorrect: false },
+    ],
+  },
+  {
+    id: '62000000-0000-4000-8000-000000000008',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'What alternative does the notice suggest?',
+    explanation: 'Employees can use the vending machines on the first floor.',
+    options: [
+      { id: '72000000-0000-4000-8000-000000000029', content: 'Use the first-floor vending machines', isCorrect: true },
+      { id: '72000000-0000-4000-8000-000000000030', content: 'Bring food to reception', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000031', content: 'Order from the finance office', isCorrect: false },
+      { id: '72000000-0000-4000-8000-000000000032', content: 'Visit the training center', isCorrect: false },
+    ],
+  },
 ] as const;
+
+const m03PlacementCoreQuestionSeeds = [
+  {
+    id: '61000000-0000-4000-8000-000000000001',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'Where should visitors collect their name badges?',
+    explanation: 'The announcement directs visitors to collect badges at reception.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000001', content: 'At reception', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000002', content: 'In the cafeteria', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000003', content: 'Beside the elevator', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000004', content: 'Inside the meeting room', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000002',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'What time will the orientation begin?',
+    explanation: 'The announcement states that orientation begins at nine thirty.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000005', content: '8:30', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000006', content: '9:00', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000007', content: '9:30', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000008', content: '10:00', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000003',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'Why is the delivery delayed?',
+    explanation: 'The caller explains that severe weather delayed the delivery truck.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000009', content: 'The address was incorrect', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000010', content: 'The weather affected transport', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000011', content: 'The warehouse was closed', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000012', content: 'The order was cancelled', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000004',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'What does the caller offer to do?',
+    explanation: 'The caller offers to email an updated delivery schedule.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000013', content: 'Refund the order', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000014', content: 'Send an updated schedule', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000015', content: 'Change the delivery address', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000016', content: 'Call the warehouse manager', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000005',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'What is the purpose of the email?',
+    explanation: 'The email confirms the room and time for a scheduled meeting.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000017', content: 'To confirm meeting details', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000018', content: 'To request annual leave', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000019', content: 'To advertise a conference', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000020', content: 'To cancel a reservation', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000006',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.EASY,
+    content: 'Where will the meeting take place?',
+    explanation: 'The email names Conference Room B as the meeting location.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000021', content: 'Conference Room A', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000022', content: 'Conference Room B', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000023', content: 'The training center', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000024', content: 'The main lobby', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000007',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'What must employees do before Friday?',
+    explanation: 'The notice asks employees to update their emergency contact information.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000025', content: 'Submit a travel request', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000026', content: 'Update emergency contact details', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000027', content: 'Complete a safety course', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000028', content: 'Return office equipment', isCorrect: false },
+    ],
+  },
+  {
+    id: '61000000-0000-4000-8000-000000000008',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'Who should employees contact if they need help?',
+    explanation: 'The final sentence directs questions to the Human Resources desk.',
+    options: [
+      { id: '71000000-0000-4000-8000-000000000029', content: 'The finance team', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000030', content: 'The building manager', isCorrect: false },
+      { id: '71000000-0000-4000-8000-000000000031', content: 'The Human Resources desk', isCorrect: true },
+      { id: '71000000-0000-4000-8000-000000000032', content: 'The security office', isCorrect: false },
+    ],
+  },
+] as const;
+
+const m03PlacementAdvancedQuestionSeeds = [
+  {
+    id: '63000000-0000-4000-8000-000000000001',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'What caused the supplier to revise its quotation?',
+    explanation: 'The supplier revised the quotation after transportation costs increased.',
+    options: [
+      { id: '73000000-0000-4000-8000-000000000001', content: 'Higher transportation costs', isCorrect: true },
+      { id: '73000000-0000-4000-8000-000000000002', content: 'A change in product design', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000003', content: 'A smaller order quantity', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000004', content: 'New payment regulations', isCorrect: false },
+    ],
+  },
+  {
+    id: '63000000-0000-4000-8000-000000000002',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.HARD,
+    content: 'What is the manager most likely trying to determine?',
+    explanation: 'Comparing purchase price and three-year maintenance reveals the best long-term value.',
+    options: [
+      { id: '73000000-0000-4000-8000-000000000005', content: 'Which offer provides better long-term value', isCorrect: true },
+      { id: '73000000-0000-4000-8000-000000000006', content: 'Which employee placed the first order', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000007', content: 'Whether the office needs more storage', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000008', content: 'When the current contract was signed', isCorrect: false },
+    ],
+  },
+  {
+    id: '63000000-0000-4000-8000-000000000003',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'What should employees do before Friday evening?',
+    explanation: 'Employees are told to download any cloud files needed during maintenance.',
+    options: [
+      { id: '73000000-0000-4000-8000-000000000009', content: 'Download files needed for weekend work', isCorrect: true },
+      { id: '73000000-0000-4000-8000-000000000010', content: 'Replace their office computers', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000011', content: 'Submit a travel expense form', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000012', content: 'Change their account password', isCorrect: false },
+    ],
+  },
+  {
+    id: '63000000-0000-4000-8000-000000000004',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.LISTENING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'Why might an employee contact the help desk on Monday?',
+    explanation: 'The announcement says to contact the help desk if access does not return after restarting.',
+    options: [
+      { id: '73000000-0000-4000-8000-000000000013', content: 'Cloud access is still unavailable after a restart', isCorrect: true },
+      { id: '73000000-0000-4000-8000-000000000014', content: 'A meeting room is double-booked', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000015', content: 'A printed report is missing', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000016', content: 'The cafeteria opens late', isCorrect: false },
+    ],
+  },
+  {
+    id: '63000000-0000-4000-8000-000000000005',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'What is the purpose of the proposed pilot?',
+    explanation: 'The pilot will test whether staggered hours improve coverage without reducing collaboration.',
+    options: [
+      { id: '73000000-0000-4000-8000-000000000017', content: 'To evaluate a staggered-hours arrangement', isCorrect: true },
+      { id: '73000000-0000-4000-8000-000000000018', content: 'To reduce the number of project teams', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000019', content: 'To select a new office location', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000020', content: 'To replace the attendance system', isCorrect: false },
+    ],
+  },
+  {
+    id: '63000000-0000-4000-8000-000000000006',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.HARD,
+    content: 'What concern does the email imply the pilot must address?',
+    explanation: 'The email emphasizes maintaining client coverage and collaboration while allowing flexible hours.',
+    options: [
+      { id: '73000000-0000-4000-8000-000000000021', content: 'Service and teamwork must remain reliable', isCorrect: true },
+      { id: '73000000-0000-4000-8000-000000000022', content: 'Employees may need larger desks', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000023', content: 'The company lacks training rooms', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000024', content: 'Managers cannot access payroll records', isCorrect: false },
+    ],
+  },
+  {
+    id: '63000000-0000-4000-8000-000000000007',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'When are two competitive quotations normally required?',
+    explanation: 'The policy requires two quotations for purchases above the stated threshold.',
+    options: [
+      { id: '73000000-0000-4000-8000-000000000025', content: 'When a purchase exceeds the stated threshold', isCorrect: true },
+      { id: '73000000-0000-4000-8000-000000000026', content: 'When an invoice arrives early', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000027', content: 'When supplies are delivered locally', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000028', content: 'When a department hires new staff', isCorrect: false },
+    ],
+  },
+  {
+    id: '63000000-0000-4000-8000-000000000008',
+    type: QuestionResponseType.SINGLE_CHOICE,
+    toeicSkill: ToeicSkill.READING,
+    difficulty: QuestionDifficulty.MEDIUM,
+    content: 'What must accompany a request to renew an existing service?',
+    explanation: 'A renewal request must explain why changing providers would disrupt operations.',
+    options: [
+      { id: '73000000-0000-4000-8000-000000000029', content: 'A written operational justification', isCorrect: true },
+      { id: '73000000-0000-4000-8000-000000000030', content: 'A copy of every previous invoice', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000031', content: 'A new employee schedule', isCorrect: false },
+      { id: '73000000-0000-4000-8000-000000000032', content: 'A customer satisfaction survey', isCorrect: false },
+    ],
+  },
+] as const;
+
+const m03PlacementForms = [
+  {
+    id: DEMO_PLACEMENT_TEST_ID,
+    title: 'Kiểm tra đầu vào L&R — Nền tảng',
+    description: 'Bài đánh giá nội bộ Listening và Reading dành cho người mới bắt đầu.',
+    duration: 20,
+    questionIds: [
+      '90000000-0000-4000-8000-000000000001',
+      '90000000-0000-4000-8000-000000000002',
+      '90000000-0000-4000-8000-000000000003',
+      '90000000-0000-4000-8000-000000000004',
+      '90000000-0000-4000-8000-000000000005',
+      '9c000000-0000-4000-8000-000000000006',
+      '9c000000-0000-4000-8000-000000000007',
+      '9c000000-0000-4000-8000-000000000008',
+    ],
+    groupPrefix: '81000000-0000-4000-8000-00000000000',
+  },
+  {
+    id: M03_PLACEMENT_CORE_TEST_ID,
+    title: 'Kiểm tra đầu vào L&R — Cốt lõi',
+    description: 'Bài đánh giá nội bộ Listening và Reading ở mức cơ bản đến trung bình.',
+    duration: 25,
+    questionIds: [
+      '9a000000-0000-4000-8000-000000000001',
+      '9a000000-0000-4000-8000-000000000002',
+      '9a000000-0000-4000-8000-000000000003',
+      '9a000000-0000-4000-8000-000000000004',
+      '9a000000-0000-4000-8000-000000000005',
+      '9a000000-0000-4000-8000-000000000006',
+      '9a000000-0000-4000-8000-000000000007',
+      '9a000000-0000-4000-8000-000000000008',
+    ],
+    groupPrefix: '82000000-0000-4000-8000-00000000000',
+  },
+  {
+    id: M03_PLACEMENT_ADVANCED_TEST_ID,
+    title: 'Kiểm tra đầu vào L&R — Nâng cao',
+    description: 'Bài đánh giá nội bộ Listening và Reading cho người học đã có nền tảng tốt.',
+    duration: 30,
+    questionIds: [
+      '9b000000-0000-4000-8000-000000000001',
+      '9b000000-0000-4000-8000-000000000002',
+      '9b000000-0000-4000-8000-000000000003',
+      '9b000000-0000-4000-8000-000000000004',
+      '9b000000-0000-4000-8000-000000000005',
+      '9b000000-0000-4000-8000-000000000006',
+      '9b000000-0000-4000-8000-000000000007',
+      '9b000000-0000-4000-8000-000000000008',
+    ],
+    groupPrefix: '83000000-0000-4000-8000-00000000000',
+  },
+] as const;
+
+const m03PlacementCoreGroupContent = [
+  {
+    skill: ToeicSkill.LISTENING,
+    title: 'Thông báo tại văn phòng',
+    instructions: 'Nghe thông báo và trả lời câu 1–2.',
+    stimulusText:
+      'Welcome to Northstar Consulting. Please collect your name badge at reception. The orientation begins at nine thirty in Conference Room A.',
+    audioUrl:
+      'tts:Welcome to Northstar Consulting. Please collect your name badge at reception. The orientation begins at nine thirty in Conference Room A.',
+  },
+  {
+    skill: ToeicSkill.LISTENING,
+    title: 'Tin nhắn giao hàng',
+    instructions: 'Nghe tin nhắn và trả lời câu 3–4.',
+    stimulusText:
+      'This is Maya from City Delivery. Severe weather has delayed your order until Thursday afternoon. I will email you an updated schedule today.',
+    audioUrl:
+      'tts:This is Maya from City Delivery. Severe weather has delayed your order until Thursday afternoon. I will email you an updated schedule today.',
+  },
+  {
+    skill: ToeicSkill.READING,
+    title: 'Email xác nhận cuộc họp',
+    instructions: 'Đọc email và trả lời câu 5–6.',
+    stimulusText:
+      'Subject: Project meeting confirmation\nHello team, our project meeting is confirmed for Tuesday at 2:00 p.m. in Conference Room B. Please bring the revised timeline.\nRegards, Elena',
+    audioUrl: null,
+  },
+  {
+    skill: ToeicSkill.READING,
+    title: 'Thông báo nhân sự',
+    instructions: 'Đọc thông báo và trả lời câu 7–8.',
+    stimulusText:
+      'All employees must update their emergency contact information in the staff portal before Friday. If you need assistance, contact the Human Resources desk on the second floor.',
+    audioUrl: null,
+  },
+] as const;
+
+const m03PlacementFoundationGroupContent = [
+  {
+    skill: ToeicSkill.LISTENING,
+    title: 'Hướng dẫn ngày đầu làm việc',
+    instructions: 'Nghe thông báo ngắn và trả lời câu 1–2.',
+    stimulusText:
+      'Good morning, new employees. Please enter through the lobby entrance. The welcome desk opens at eight forty-five beside reception.',
+    audioUrl:
+      'tts:Good morning, new employees. Please enter through the lobby entrance. The welcome desk opens at eight forty-five beside reception.',
+  },
+  {
+    skill: ToeicSkill.LISTENING,
+    title: 'Tin nhắn đổi lịch hẹn',
+    instructions: 'Nghe tin nhắn và trả lời câu 3–4.',
+    stimulusText:
+      'Hello, this is Anna from Green Dental Clinic. Your Tuesday appointment has moved to two p.m. Please call us back to confirm the new time.',
+    audioUrl:
+      'tts:Hello, this is Anna from Green Dental Clinic. Your Tuesday appointment has moved to two p.m. Please call us back to confirm the new time.',
+  },
+  {
+    skill: ToeicSkill.READING,
+    title: 'Email giao văn phòng phẩm',
+    instructions: 'Đọc email ngắn và trả lời câu 5–6.',
+    stimulusText:
+      'Subject: Paper delivery\nThe printer paper will arrive on Wednesday morning. Please put the boxes in the cabinet beside the printer.\nThank you, Minh',
+    audioUrl: null,
+  },
+  {
+    skill: ToeicSkill.READING,
+    title: 'Thông báo đóng cửa căn-tin',
+    instructions: 'Đọc thông báo và trả lời câu 7–8.',
+    stimulusText:
+      'The staff cafeteria will be closed this Friday for cleaning. Drinks and snacks are available from the vending machines on the first floor.',
+    audioUrl: null,
+  },
+] as const;
+
+const m03PlacementAdvancedGroupContent = [
+  {
+    skill: ToeicSkill.LISTENING,
+    title: 'Trao đổi về báo giá nhà cung cấp',
+    instructions: 'Nghe cập nhật dự án và trả lời câu 1–2.',
+    stimulusText:
+      'The supplier revised its quotation after transportation costs increased. Before we respond, compare both proposals, including their three-year maintenance plans, and send me your recommendation by Friday.',
+    audioUrl:
+      'tts:The supplier revised its quotation after transportation costs increased. Before we respond, compare both proposals, including their three-year maintenance plans, and send me your recommendation by Friday.',
+  },
+  {
+    skill: ToeicSkill.LISTENING,
+    title: 'Thông báo bảo trì hệ thống',
+    instructions: 'Nghe thông báo kỹ thuật và trả lời câu 3–4.',
+    stimulusText:
+      'Cloud services will be unavailable from Friday at seven p.m. until Sunday afternoon. Download files needed for weekend work in advance. On Monday, restart your computer before contacting the help desk if access has not returned.',
+    audioUrl:
+      'tts:Cloud services will be unavailable from Friday at seven p.m. until Sunday afternoon. Download files needed for weekend work in advance. On Monday, restart your computer before contacting the help desk if access has not returned.',
+  },
+  {
+    skill: ToeicSkill.READING,
+    title: 'Đề xuất giờ làm việc linh hoạt',
+    instructions: 'Đọc đề xuất và trả lời câu 5–6.',
+    stimulusText:
+      'Subject: Staggered-hours pilot\nBeginning next month, two project teams will test staggered starting times for six weeks. The pilot is intended to extend client coverage while preserving daily collaboration. Managers should nominate participants whose responsibilities can be handed over clearly between shifts and report any service delays during the trial.',
+    audioUrl: null,
+  },
+  {
+    skill: ToeicSkill.READING,
+    title: 'Quy định lựa chọn nhà cung cấp',
+    instructions: 'Đọc quy định và trả lời câu 7–8.',
+    stimulusText:
+      'Purchases above 80 million VND normally require quotations from at least two qualified suppliers. A department requesting renewal with an existing service provider may seek an exception, but it must attach a written explanation of how changing providers would disrupt current operations. Procurement approval is still required before any commitment is made.',
+    audioUrl: null,
+  },
+] as const;
+
+type M03PlacementQuestionSeed =
+  | (typeof m03PlacementFoundationQuestionSeeds)[number]
+  | (typeof m03PlacementCoreQuestionSeeds)[number]
+  | (typeof m03PlacementAdvancedQuestionSeeds)[number];
+type M03PlacementGroupSeed =
+  | (typeof m03PlacementFoundationGroupContent)[number]
+  | (typeof m03PlacementCoreGroupContent)[number]
+  | (typeof m03PlacementAdvancedGroupContent)[number];
+
+const m03PlacementContentByFormId = new Map<
+  string,
+  { questions: readonly M03PlacementQuestionSeed[]; groups: readonly M03PlacementGroupSeed[] }
+>([
+  [
+    DEMO_PLACEMENT_TEST_ID,
+    {
+      questions: m03PlacementFoundationQuestionSeeds,
+      groups: m03PlacementFoundationGroupContent,
+    },
+  ],
+  [
+    M03_PLACEMENT_CORE_TEST_ID,
+    { questions: m03PlacementCoreQuestionSeeds, groups: m03PlacementCoreGroupContent },
+  ],
+  [
+    M03_PLACEMENT_ADVANCED_TEST_ID,
+    { questions: m03PlacementAdvancedQuestionSeeds, groups: m03PlacementAdvancedGroupContent },
+  ],
+]);
 
 const quizQuestionSeeds = [
   { id: '90000000-0000-4000-8000-000000000006', questionId: DEMO_QUESTION_1_ID, points: 1 },
@@ -1170,7 +1704,12 @@ async function main(): Promise<void> {
     }
 
     // VS03/M02: stable assessment data plus one submitted demo attempt for the Result flow.
-    for (const questionSeed of questionSeeds) {
+    for (const questionSeed of [
+      ...questionSeeds,
+      ...m03PlacementFoundationQuestionSeeds,
+      ...m03PlacementCoreQuestionSeeds,
+      ...m03PlacementAdvancedQuestionSeeds,
+    ]) {
       await prisma.question.upsert({
         where: { id: questionSeed.id },
         update: {
@@ -1212,32 +1751,36 @@ async function main(): Promise<void> {
       }
     }
 
-    await prisma.test.upsert({
-      where: { id: DEMO_PLACEMENT_TEST_ID },
-      update: {
-        courseId: course.id,
-        lessonId: null,
-        purpose: TestPurpose.PLACEMENT,
-        placementMode: PlacementMode.LR,
-        title: 'Kiểm tra đầu vào TOEIC L&R',
-        description: 'Bài đánh giá đầu vào nội bộ cho chương trình Listening và Reading.',
-        status: TestStatus.PUBLISHED,
-        maxAttempts: 1,
-        showResultAfterSubmit: true,
-      },
-      create: {
-        id: DEMO_PLACEMENT_TEST_ID,
-        courseId: course.id,
-        lessonId: null,
-        purpose: TestPurpose.PLACEMENT,
-        placementMode: PlacementMode.LR,
-        title: 'Kiểm tra đầu vào TOEIC L&R',
-        description: 'Bài đánh giá đầu vào nội bộ cho chương trình Listening và Reading.',
-        status: TestStatus.PUBLISHED,
-        maxAttempts: 1,
-        showResultAfterSubmit: true,
-      },
-    });
+    for (const form of m03PlacementForms) {
+      await prisma.test.upsert({
+        where: { id: form.id },
+        update: {
+          courseId: course.id,
+          lessonId: null,
+          purpose: TestPurpose.PLACEMENT,
+          placementMode: PlacementMode.LR,
+          title: form.title,
+          description: form.description,
+          status: TestStatus.PUBLISHED,
+          maxAttempts: 10,
+          timeLimitMinutes: form.duration,
+          showResultAfterSubmit: true,
+        },
+        create: {
+          id: form.id,
+          courseId: course.id,
+          lessonId: null,
+          purpose: TestPurpose.PLACEMENT,
+          placementMode: PlacementMode.LR,
+          title: form.title,
+          description: form.description,
+          status: TestStatus.PUBLISHED,
+          maxAttempts: 10,
+          timeLimitMinutes: form.duration,
+          showResultAfterSubmit: true,
+        },
+      });
+    }
 
     await prisma.test.upsert({
       where: { id: DEMO_QUIZ_TEST_ID },
@@ -1447,23 +1990,59 @@ async function main(): Promise<void> {
       },
     });
 
-    for (const [orderIndex, testQuestion] of placementQuestionSeeds.entries()) {
-      await prisma.testQuestion.upsert({
-        where: { id: testQuestion.id },
-        update: {
-          testId: DEMO_PLACEMENT_TEST_ID,
-          questionId: testQuestion.questionId,
-          orderIndex,
-          points: testQuestion.points,
-        },
-        create: {
-          id: testQuestion.id,
-          testId: DEMO_PLACEMENT_TEST_ID,
-          questionId: testQuestion.questionId,
-          orderIndex,
-          points: testQuestion.points,
-        },
-      });
+    for (const form of m03PlacementForms) {
+      const formContent = m03PlacementContentByFormId.get(form.id);
+      if (!formContent) throw new Error(`Missing Placement content for form ${form.id}`);
+      const groups = [];
+      for (const [orderIndex, group] of formContent.groups.entries()) {
+        const id = `${form.groupPrefix}${orderIndex + 1}`;
+        groups.push(
+          await prisma.testQuestionGroup.upsert({
+            where: { id },
+            update: {
+              testId: form.id,
+              skill: group.skill,
+              orderIndex,
+              title: group.title,
+              instructions: group.instructions,
+              stimulusText: group.stimulusText,
+              audioUrl: group.audioUrl,
+            },
+            create: {
+              id,
+              testId: form.id,
+              skill: group.skill,
+              orderIndex,
+              title: group.title,
+              instructions: group.instructions,
+              stimulusText: group.stimulusText,
+              audioUrl: group.audioUrl,
+            },
+          }),
+        );
+      }
+
+      for (const [orderIndex, question] of formContent.questions.entries()) {
+        const id = form.questionIds[orderIndex];
+        await prisma.testQuestion.upsert({
+          where: { id },
+          update: {
+            testId: form.id,
+            questionId: question.id,
+            groupId: groups[Math.floor(orderIndex / 2)].id,
+            orderIndex,
+            points: 1,
+          },
+          create: {
+            id,
+            testId: form.id,
+            questionId: question.id,
+            groupId: groups[Math.floor(orderIndex / 2)].id,
+            orderIndex,
+            points: 1,
+          },
+        });
+      }
     }
 
     for (const [orderIndex, testQuestion] of quizQuestionSeeds.entries()) {

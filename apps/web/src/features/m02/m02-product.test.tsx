@@ -40,9 +40,9 @@ describe('M02 public product surface', () => {
       </MemoryRouter>,
     );
     expect(screen.getAllByRole('link', { name: 'Khóa học' }).length).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: 'Kiểm tra đầu vào' })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: 'Kiểm tra đầu vào' })[0]).toHaveAttribute(
       'href',
-      '/guide#placement',
+      '/placement',
     );
     fireEvent.click(screen.getByRole('button', { name: 'Mở menu' }));
     expect(screen.getByRole('navigation', { name: 'Điều hướng di động' })).toBeInTheDocument();
@@ -63,8 +63,14 @@ describe('M02 public product surface', () => {
     expect(screen.getByRole('heading', { name: /Bạn muốn bắt đầu từ đâu/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Học như thế nào/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Tin tức & Sự kiện/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Bắt đầu kiểm tra đầu vào' })).toHaveAttribute(
+      'href',
+      '/placement',
+    );
     expect(await screen.findByText(/Chưa có khóa học được công bố/i)).toBeInTheDocument();
-    expect(view.container).not.toHaveTextContent(/M02|M03|ClassOffering|LessonProgress/i);
+    expect(view.container).not.toHaveTextContent(
+      /milestone|M02|M03|M04|M05|ClassOffering|LessonProgress/i,
+    );
   });
 
   it('renders typed news list, detail and not-found state', () => {
@@ -164,7 +170,9 @@ describe('M02 public product surface', () => {
     expect(await screen.findByRole('heading', { name: /Lớp học của tôi/i })).toBeInTheDocument();
     expect(screen.getAllByText('Không gian học tập')).toHaveLength(2);
     expect(screen.queryByRole('link', { name: /Tin tức & Sự kiện/i })).not.toBeInTheDocument();
-    expect(view.container).not.toHaveTextContent(/M02|M03|ClassOffering|LessonProgress/i);
+    expect(view.container).not.toHaveTextContent(
+      /milestone|M02|M03|M04|M05|ClassOffering|LessonProgress/i,
+    );
   });
 });
 

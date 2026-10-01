@@ -44,11 +44,11 @@ export function GuidePage() {
       <div className="mt-12 rounded-3xl bg-indigo-950 p-8 text-white" id="placement">
         <h2 className="text-2xl font-bold">Kiểm tra đầu vào</h2>
         <p className="mt-3 max-w-3xl leading-7 text-indigo-100">
-          Tính năng kiểm tra đầu vào đang được chuẩn bị để hỗ trợ xác định trình độ và gợi ý lớp phù
-          hợp. Trong thời gian này, bạn vẫn có thể xem chương trình và đăng ký các lớp đang mở.
+          Chọn mục tiêu và trình độ tự đánh giá, sau đó làm bài Listening & Reading để xem kết quả
+          nội bộ trước khi khám phá chương trình học.
         </p>
-        <Link className="btn-light mt-6" to="/catalog">
-          Khám phá khóa học
+        <Link className="btn-light mt-6" to="/placement">
+          Bắt đầu kiểm tra đầu vào
         </Link>
       </div>
     </section>

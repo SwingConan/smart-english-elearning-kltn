@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router';
 import { RoleRoute } from '@/features/auth/RoleRoute';
 import { ClassShellLayout } from '@/layouts/ClassShellLayout';
 import { PublicLayout } from '@/layouts/PublicLayout';
+import { PlacementExamLayout } from '@/layouts/PlacementExamLayout';
 import { StudentLayout } from '@/layouts/StudentLayout';
 import { AboutPage } from '@/pages/AboutPage';
 import { AdaptivePolicyPage } from '@/pages/AdaptivePolicyPage';
@@ -28,6 +29,9 @@ import { NewsEventDetailPage } from '@/pages/NewsEventDetailPage';
 import { NewsEventsPage } from '@/pages/NewsEventsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { ProgressPage } from '@/pages/ProgressPage';
+import { PlacementExamPage } from '@/pages/PlacementExamPage';
+import { PlacementPage } from '@/pages/PlacementPage';
+import { PlacementResultPage } from '@/pages/PlacementResultPage';
 import { QuestionBankPage } from '@/pages/QuestionBankPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { StudentAdaptivePathPage } from '@/pages/StudentAdaptivePathPage';
@@ -56,6 +60,7 @@ export function App() {
         <Route path="catalog/:slug" element={<CourseDetailPage />} />
         <Route path="classes/:id" element={<ClassOfferingDetailPage />} />
         <Route path="guide" element={<GuidePage />} />
+        <Route path="placement" element={<PlacementPage />} />
         <Route path="news-events" element={<NewsEventsPage />} />
         <Route path="news-events/:slug" element={<NewsEventDetailPage />} />
         <Route path="about" element={<AboutPage />} />
@@ -97,6 +102,10 @@ export function App() {
 
       <Route element={student(<StudentLayout />)}>
         <Route path="student/enrollments" element={<MyEnrollmentsPage />} />
+      </Route>
+      <Route element={student(<PlacementExamLayout />)}>
+        <Route path="placement/attempts/:attemptId/exam" element={<PlacementExamPage />} />
+        <Route path="placement/attempts/:attemptId/result" element={<PlacementResultPage />} />
       </Route>
       <Route path="student/enrollments/:enrollmentId" element={student(<ClassShellLayout />)}>
         <Route index element={<ClassOverviewPage />} />

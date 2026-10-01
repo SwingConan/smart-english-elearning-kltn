@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
@@ -122,6 +122,39 @@ describe('LoginPage', () => {
 });
 
 describe('RegisterPage', () => {
+  it('forwards a sanitized Placement returnUrl to Login after registration', async () => {
+    vi.spyOn(authApi, 'me').mockRejectedValueOnce(new ApiError(401, null));
+    vi.spyOn(authApi, 'register').mockResolvedValueOnce(student);
+
+    function LocationProbe() {
+      const location = useLocation();
+      return <p data-testid="location">{location.pathname}{location.search}</p>;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/register?returnUrl=/placement']}>
+        <AuthProvider>
+          <LocationProbe />
+          <Routes>
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/login" element={<LoginPage />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    fireEvent.change(await screen.findByLabelText('Họ và tên'), { target: { value: student.fullName } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: student.email } });
+    fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'valid-password' } });
+    fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu'), { target: { value: 'valid-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng ký' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        '/login?registered=1&returnUrl=%2Fplacement',
+      ),
+    );
+  });
+
   it('registers without authenticating and redirects to the login success state', async () => {
     vi.spyOn(authApi, 'me').mockRejectedValueOnce(new ApiError(401, null));
     vi.spyOn(authApi, 'register').mockResolvedValueOnce(student);

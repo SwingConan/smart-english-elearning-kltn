@@ -113,6 +113,14 @@ enum PlacementMode {
   FOUR_SKILLS
 }
 
+enum PlacementSelfLevel {
+  UNKNOWN
+  BEGINNER
+  BASIC
+  INTERMEDIATE
+  GOOD
+}
+
 enum TestStatus {
   DRAFT
   PUBLISHED
@@ -437,25 +445,26 @@ model QuestionOption {
 }
 
 model Test {
-  id                    String            @id @default(uuid()) @db.Uuid
-  courseId              String?           @db.Uuid
-  lessonId              String?           @db.Uuid
+  id                    String              @id @default(uuid()) @db.Uuid
+  courseId              String?             @db.Uuid
+  lessonId              String?             @db.Uuid
   purpose               TestPurpose
-  legacyType            TestType?         @map("type")
+  legacyType            TestType?           @map("type")
   placementMode         PlacementMode?
   title                 String
-  description           String?           @db.Text
-  status                TestStatus        @default(DRAFT)
-  maxAttempts           Int               @default(1)
+  description           String?             @db.Text
+  status                TestStatus          @default(DRAFT)
+  maxAttempts           Int                 @default(1)
   timeLimitMinutes      Int?
-  showResultAfterSubmit Boolean           @default(true)
-  course                Course?           @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  lesson                Lesson?           @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  showResultAfterSubmit Boolean             @default(true)
+  course                Course?             @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  lesson                Lesson?             @relation(fields: [lessonId], references: [id], onDelete: Restrict)
   testQuestions         TestQuestion[]
+  questionGroups        TestQuestionGroup[]
   attempts              TestAttempt[]
   classAssessments      ClassAssessment[]
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   @@index([courseId])
   @@index([courseId, status])
@@ -488,21 +497,43 @@ model ClassAssessment {
 }
 
 model TestQuestion {
-  id         String       @id @default(uuid()) @db.Uuid
-  testId     String       @db.Uuid
-  questionId String       @db.Uuid
+  id         String             @id @default(uuid()) @db.Uuid
+  testId     String             @db.Uuid
+  questionId String             @db.Uuid
+  groupId    String?            @db.Uuid
   orderIndex Int
-  points     Int          @default(1)
-  test       Test         @relation(fields: [testId], references: [id], onDelete: Restrict)
-  question   Question     @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  points     Int                @default(1)
+  test       Test               @relation(fields: [testId], references: [id], onDelete: Restrict)
+  question   Question           @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  group      TestQuestionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
   answers    TestAnswer[]
-  createdAt  DateTime     @default(now())
+  createdAt  DateTime           @default(now())
 
   @@unique([testId, questionId])
   @@unique([testId, orderIndex])
   @@index([testId])
   @@index([questionId])
+  @@index([groupId])
   @@map("test_questions")
+}
+
+model TestQuestionGroup {
+  id            String         @id @default(uuid()) @db.Uuid
+  testId        String         @db.Uuid
+  skill         ToeicSkill
+  orderIndex    Int
+  title         String?
+  instructions  String?        @db.Text
+  stimulusText  String?        @db.Text
+  audioUrl      String?
+  test          Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
+  testQuestions TestQuestion[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([testId, orderIndex])
+  @@index([testId])
+  @@map("test_question_groups")
 }
 
 model TestAttempt {
@@ -515,6 +546,8 @@ model TestAttempt {
   status                TestAttemptStatus      @default(IN_PROGRESS)
   score                 Int?
   maxScore              Int?
+  placementSelfLevel    PlacementSelfLevel?
+  placementGoalScore    Int?
   startedAt             DateTime               @default(now())
   submittedAt           DateTime?
   test                  Test                   @relation(fields: [testId], references: [id], onDelete: Restrict)
