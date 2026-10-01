@@ -177,7 +177,7 @@ export interface PlacementRecommendation {
     title: string;
     description: string;
     level: string;
-    skillScope: string;
+    skillScope: 'LR' | 'FOUR_SKILLS' | 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING';
     thumbnailUrl: string | null;
   };
   reason: PlacementRecommendationReason | null;

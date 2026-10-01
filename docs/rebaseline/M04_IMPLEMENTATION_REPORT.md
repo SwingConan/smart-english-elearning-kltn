@@ -139,9 +139,22 @@ Security/regression coverage includes guest protection, owner filters, guessed/f
 - Recommendation snapshots preserve Course matching, while Course copy and offering availability are live projections by design.
 - Vite reports a non-blocking main bundle size warning around 532 kB; future route-level splitting can reduce it.
 - Concurrent PostgreSQL E2E activity emits an upstream `pg` deprecation warning; all suites pass.
+- During this review-fix verification, two full E2E attempts observed the existing M03 concurrent-start test surface PostgreSQL serialization `40001` as an adapter error; the isolated Placement suite then passed 12/12 and the final unchanged full suite passed 82/82. No M03 concurrency/business code was altered in this targeted M04 pass.
 - The tested partial-failure path intentionally logs the semantic M04 error code server-side without leaking internals to the learner.
 
 No blocking issue remains. There was no deviation from the specified M04 business boundary. The migration additionally updates the pre-existing metric/skill CHECK constraint because adding `LR_NORMALIZED` without it would make valid aggregate bands impossible.
+
+## GPT implementation review fixes
+
+- Reviewed old HEAD: `6b8fe3e52d0e3264347091ad598b269fe831453d`.
+- Final fix HEAD: recorded in the immutable final handoff response because the commit cannot embed its own hash.
+- F-01: PRIMARY learner copy changed from the evaluative “Khóa học phù hợp nhất” to “Khóa học phù hợp chính”. The Placement frontend regression asserts the approved wording and forbids the old wording.
+- F-02: persisted recommendations now parse `ruleReason` once and project by kind, saved `profile.priority`, then Course ID. Malformed reasons use a deterministic last-priority fallback without regeneration. A RecommendationService test proves priority 100 Course Z precedes priority 200 Course A among supplementary rows.
+- F-03: recommendation Course level, skill scope, and offering modality reuse `courseLevelLabel`, `skillScopeLabel`, and `modalityLabel` from the M02 catalog display helpers. Frontend assertions verify `Nền tảng · Listening & Reading` and forbid `FOUNDATION · LR` product copy.
+- F-04: live offerings now sort actionable AVAILABLE classes first, followed deterministically by registration state, class start, and ID. An existing enrollment remains non-actionable and stays visible; it is not elevated above a newly actionable class. A service test proves a later AVAILABLE/actionable class precedes an earlier CLOSED class.
+- Focused verification: RecommendationService 4/4 and Placement frontend 13/13 PASS.
+- Full verification after the fixes: API 305/305, Web 190/190, E2E 82/82 PASS, together with Prisma, seed, lint, typecheck, build, and diff checks listed in the final handoff.
+- No schema change, migration, recommendation regeneration, enrollment-rule change, or M05/M06/M08 boundary expansion was introduced by this review-fix pass.
 
 ## Manual Visual Gate handoff
 

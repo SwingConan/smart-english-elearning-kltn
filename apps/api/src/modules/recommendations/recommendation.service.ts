@@ -182,13 +182,18 @@ export class RecommendationService {
       },
     });
     const kindOrder = { PRIMARY: 0, SUPPLEMENTARY: 1 } as const;
+    const registrationStateOrder = { AVAILABLE: 0, UPCOMING: 1, FULL: 2, CLOSED: 3 } as const;
+    const now = new Date();
     return rows
+      .map((row) => ({ row, reason: parseRuleReason(row.ruleReason) }))
       .sort(
         (left, right) =>
-          kindOrder[left.kind] - kindOrder[right.kind] ||
-          left.courseId.localeCompare(right.courseId),
+          kindOrder[left.row.kind] - kindOrder[right.row.kind] ||
+          (left.reason?.profile.priority ?? Number.MAX_SAFE_INTEGER) -
+            (right.reason?.profile.priority ?? Number.MAX_SAFE_INTEGER) ||
+          left.row.courseId.localeCompare(right.row.courseId),
       )
-      .map((row) => ({
+      .map(({ row, reason }) => ({
         kind: row.kind,
         course: {
           id: row.course.id,
@@ -199,44 +204,54 @@ export class RecommendationService {
           skillScope: row.course.skillScope,
           thumbnailUrl: row.course.thumbnailUrl,
         },
-        reason: parseRuleReason(row.ruleReason),
-        reasonStatus: parseRuleReason(row.ruleReason) ? ('AVAILABLE' as const) : ('UNAVAILABLE' as const),
-        classOfferings: row.course.classOfferings.map((offering) => {
-          const currentEnrollment = offering.enrollments[0] ?? null;
-          const availability = computeRegistrationState({
-            status: offering.status,
-            courseIsPublished: row.course.isPublished,
-            enrollmentStart: offering.enrollmentStart,
-            enrollmentEnd: offering.enrollmentEnd,
-            maxStudents: offering.maxStudents,
-            registeredCount: offering._count.enrollments,
-            currentEnrollmentStatus: currentEnrollment?.status,
-            now: new Date(),
-          });
-          return {
-            id: offering.id,
-            code: offering.code,
-            name: offering.name,
-            instructor: offering.instructor,
-            modality: offering.modality,
-            pricingType: offering.pricingType,
-            tuitionFeeVnd: offering.tuitionFeeVnd,
-            totalSessions: offering.totalSessions,
-            totalPeriods: offering.totalPeriods,
-            enrollmentStart: offering.enrollmentStart,
-            enrollmentEnd: offering.enrollmentEnd,
-            classStart: offering.classStart,
-            classEnd: offering.classEnd,
-            scheduleSlots: offering.scheduleSlots,
-            maxStudents: offering.maxStudents,
-            registeredCount: availability.registeredCount,
-            remainingSeats: availability.remainingSeats,
-            registrationState: availability.registrationState,
-            actionable: availability.actionable,
-            currentEnrollmentId: currentEnrollment?.id ?? null,
-            currentEnrollmentStatus: currentEnrollment?.status ?? null,
-          };
-        }),
+        reason,
+        reasonStatus: reason ? ('AVAILABLE' as const) : ('UNAVAILABLE' as const),
+        classOfferings: row.course.classOfferings
+          .map((offering) => {
+            const currentEnrollment = offering.enrollments[0] ?? null;
+            const availability = computeRegistrationState({
+              status: offering.status,
+              courseIsPublished: row.course.isPublished,
+              enrollmentStart: offering.enrollmentStart,
+              enrollmentEnd: offering.enrollmentEnd,
+              maxStudents: offering.maxStudents,
+              registeredCount: offering._count.enrollments,
+              currentEnrollmentStatus: currentEnrollment?.status,
+              now,
+            });
+            return {
+              id: offering.id,
+              code: offering.code,
+              name: offering.name,
+              instructor: offering.instructor,
+              modality: offering.modality,
+              pricingType: offering.pricingType,
+              tuitionFeeVnd: offering.tuitionFeeVnd,
+              totalSessions: offering.totalSessions,
+              totalPeriods: offering.totalPeriods,
+              enrollmentStart: offering.enrollmentStart,
+              enrollmentEnd: offering.enrollmentEnd,
+              classStart: offering.classStart,
+              classEnd: offering.classEnd,
+              scheduleSlots: offering.scheduleSlots,
+              maxStudents: offering.maxStudents,
+              registeredCount: availability.registeredCount,
+              remainingSeats: availability.remainingSeats,
+              registrationState: availability.registrationState,
+              actionable: availability.actionable,
+              currentEnrollmentId: currentEnrollment?.id ?? null,
+              currentEnrollmentStatus: currentEnrollment?.status ?? null,
+            };
+          })
+          .sort(
+            (left, right) =>
+              Number(right.actionable) - Number(left.actionable) ||
+              registrationStateOrder[left.registrationState] -
+                registrationStateOrder[right.registrationState] ||
+              (left.classStart?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+                (right.classStart?.getTime() ?? Number.MAX_SAFE_INTEGER) ||
+              left.id.localeCompare(right.id),
+          ),
       }));
   }
 

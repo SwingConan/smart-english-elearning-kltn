@@ -312,6 +312,10 @@ describe('Placement exam and result', () => {
     expect(screen.getByText('Nền tảng')).toBeInTheDocument();
     expect(screen.getByText('Kỹ năng nổi trội')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'TOEIC Foundation' })).toBeInTheDocument();
+    expect(screen.getByText('Khóa học phù hợp chính')).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('Khóa học phù hợp nhất');
+    expect(screen.getByText('Nền tảng · Listening & Reading')).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('FOUNDATION · LR');
     expect(screen.getByText('Vì sao khóa học này phù hợp?')).toBeInTheDocument();
     expect(screen.getByText(/Listening 25%.*0–65%/)).toBeInTheDocument();
     expectNoDeveloperJargon();

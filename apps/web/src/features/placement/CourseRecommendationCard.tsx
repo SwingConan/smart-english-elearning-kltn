@@ -1,11 +1,11 @@
 import { CalendarDays, MapPin, Users } from 'lucide-react';
 import { Link } from 'react-router';
+import { courseLevelLabel, modalityLabel, skillScopeLabel } from '@/features/catalog/display';
 import { pricingLabel } from '@/features/enrollments/display';
 import type { PlacementRecommendation, PlacementRecommendationOffering } from './types';
 
 const skillLabel = (skill: string) => ({ LISTENING: 'Listening', READING: 'Reading', SPEAKING: 'Speaking', WRITING: 'Writing' })[skill] ?? skill;
 const stateLabel = { AVAILABLE: 'Đang nhận đăng ký', FULL: 'Đủ chỗ', UPCOMING: 'Chưa mở đăng ký', CLOSED: 'Đã đóng đăng ký' };
-const modalityLabel = { ONLINE: 'Trực tuyến', OFFLINE: 'Tại lớp', HYBRID: 'Kết hợp' };
 const date = (value: string | null) => value ? new Date(value).toLocaleDateString('vi-VN') : 'Chưa cập nhật';
 const dayLabel = (day: number) => ({ 1: 'Thứ Hai', 2: 'Thứ Ba', 3: 'Thứ Tư', 4: 'Thứ Năm', 5: 'Thứ Sáu', 6: 'Thứ Bảy', 7: 'Chủ nhật' })[day] ?? `Ngày ${day}`;
 const time = (value: string) => new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
@@ -41,7 +41,7 @@ function OfferingCard({ offering }: { offering: PlacementRecommendationOffering 
       </div>
       <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
         <p><CalendarDays className="mr-1 inline" size={15} />{date(offering.classStart)} – {date(offering.classEnd)}</p>
-        <p><MapPin className="mr-1 inline" size={15} />{modalityLabel[offering.modality]}</p>
+        <p><MapPin className="mr-1 inline" size={15} />{modalityLabel(offering.modality)}</p>
         <p><Users className="mr-1 inline" size={15} />{offering.registeredCount} đã đăng ký{offering.remainingSeats === null ? '' : ` · còn ${offering.remainingSeats} chỗ`}</p>
         <p>{pricingLabel(offering.pricingType, offering.tuitionFeeVnd)}</p>
         {offering.instructor ? <p>Giảng viên: {offering.instructor.fullName}</p> : null}
@@ -58,9 +58,9 @@ export function CourseRecommendationCard({ recommendation }: { recommendation: P
   const actionable = recommendation.classOfferings.some((offering) => offering.actionable);
   return (
     <article className="card">
-      <p className="text-sm font-semibold uppercase tracking-wide text-indigo-600">{recommendation.kind === 'PRIMARY' ? 'Khóa học phù hợp nhất' : 'Lựa chọn bổ sung'}</p>
+      <p className="text-sm font-semibold uppercase tracking-wide text-indigo-600">{recommendation.kind === 'PRIMARY' ? 'Khóa học phù hợp chính' : 'Lựa chọn bổ sung'}</p>
       <h3 className="mt-2 text-2xl font-bold text-slate-950">{recommendation.course.title}</h3>
-      <p className="mt-2 text-sm font-medium text-slate-500">{recommendation.course.level} · {recommendation.course.skillScope}</p>
+      <p className="mt-2 text-sm font-medium text-slate-500">{courseLevelLabel(recommendation.course.level)} · {skillScopeLabel(recommendation.course.skillScope)}</p>
       <p className="mt-4 leading-7 text-slate-700">{recommendation.course.description}</p>
       <Link className="mt-4 inline-block font-semibold text-indigo-700 underline" to={`/catalog/${recommendation.course.slug}`}>Xem chi tiết khóa học</Link>
       <RuleExplanation recommendation={recommendation} />
