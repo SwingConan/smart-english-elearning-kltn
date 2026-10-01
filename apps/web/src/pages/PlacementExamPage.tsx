@@ -30,6 +30,8 @@ export function PlacementExamPage() {
     void placementApi
       .exam(attemptId, controller.signal)
       .then((payload) => {
+        if (controller.signal.aborted) return;
+        setError(null);
         setExam(payload);
         if (payload.state === 'IN_PROGRESS') {
           const restored: Record<string, string[]> = {};
@@ -49,7 +51,11 @@ export function PlacementExamPage() {
           }
         }
       })
-      .catch(() => setError('Không thể tải bài kiểm tra hoặc bạn không có quyền truy cập.'));
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setError('Không thể tải bài kiểm tra hoặc bạn không có quyền truy cập.');
+      });
     return () => controller.abort();
   }, [attemptId]);
 

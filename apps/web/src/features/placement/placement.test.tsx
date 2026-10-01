@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { StrictMode } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -119,7 +120,36 @@ function expectNoDeveloperJargon() {
   expect(document.body).not.toHaveTextContent(/milestone|\bM03\b|\bM04\b|\bM05\b/i);
 }
 
+function abortFirstThenResolve<T>(value: T) {
+  let callCount = 0;
+  return (signal?: AbortSignal): Promise<T> => {
+    callCount += 1;
+    if (callCount > 1) return Promise.resolve(value);
+    return new Promise((_resolve, reject) => {
+      signal?.addEventListener(
+        'abort',
+        () => reject(new DOMException('The request was aborted.', 'AbortError')),
+        { once: true },
+      );
+    });
+  };
+}
+
 describe('Placement wizard', () => {
+  it('ignores the first aborted config request under StrictMode when the next request succeeds', async () => {
+    vi.spyOn(authApi, 'me').mockRejectedValue(new ApiError(401, null));
+    vi.spyOn(placementApi, 'config').mockImplementation(abortFirstThenResolve(config));
+
+    render(
+      <StrictMode>
+        <MemoryRouter><AuthProvider><PlacementPage /></AuthProvider></MemoryRouter>
+      </StrictMode>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Mục tiêu của bạn' })).toBeInTheDocument();
+    expect(screen.queryByText('Chưa thể tải cấu hình kiểm tra đầu vào. Vui lòng thử lại.')).not.toBeInTheDocument();
+  });
+
   it('renders three locked steps, validates custom goal and keeps FOUR_SKILLS disabled', async () => {
     vi.spyOn(authApi, 'me').mockRejectedValue(new ApiError(401, null));
     vi.spyOn(placementApi, 'config').mockResolvedValue(config);
@@ -163,6 +193,38 @@ describe('Placement wizard', () => {
 });
 
 describe('Placement exam and result', () => {
+  it('ignores an aborted exam request under StrictMode and renders the successful payload', async () => {
+    const request = abortFirstThenResolve(exam);
+    vi.spyOn(placementApi, 'exam').mockImplementation((_attemptId, signal) => request(signal));
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/placement/attempts/attempt-1/exam']}>
+          <Routes><Route path="/placement/attempts/:attemptId/exam" element={<PlacementExamPage />} /></Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Thông báo' })).toBeInTheDocument();
+    expect(screen.queryByText('Không thể tải bài kiểm tra hoặc bạn không có quyền truy cập.')).not.toBeInTheDocument();
+  });
+
+  it('ignores an aborted result request under StrictMode and renders the successful result', async () => {
+    const request = abortFirstThenResolve(result);
+    vi.spyOn(placementApi, 'result').mockImplementation((_attemptId, signal) => request(signal));
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/placement/attempts/attempt-1/result']}>
+          <Routes><Route path="/placement/attempts/:attemptId/result" element={<PlacementResultPage />} /></Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Kết quả kiểm tra đầu vào L&R' })).toBeInTheDocument();
+    expect(screen.queryByText('Không thể tải kết quả hoặc bài kiểm tra chưa được nộp.')).not.toBeInTheDocument();
+  });
+
   it('renders grouped Listening/Reading without a Listening transcript and autosaves answers', async () => {
     vi.spyOn(placementApi, 'exam').mockResolvedValue(exam);
     const save = vi.spyOn(placementApi, 'saveAnswer').mockResolvedValue({

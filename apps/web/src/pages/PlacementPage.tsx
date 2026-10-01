@@ -51,9 +51,19 @@ export function PlacementPage() {
     const controller = new AbortController();
     void placementApi
       .config(controller.signal)
-      .then(setConfig)
-      .catch(() => setMessage('Chưa thể tải cấu hình kiểm tra đầu vào. Vui lòng thử lại.'))
-      .finally(() => setLoading(false));
+      .then((payload) => {
+        if (controller.signal.aborted) return;
+        setMessage(null);
+        setConfig(payload);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setMessage('Chưa thể tải cấu hình kiểm tra đầu vào. Vui lòng thử lại.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
   }, []);
 

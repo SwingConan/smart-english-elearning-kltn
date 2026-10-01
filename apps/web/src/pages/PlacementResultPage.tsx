@@ -11,10 +11,21 @@ export function PlacementResultPage() {
   useEffect(() => {
     if (!attemptId) return;
     const controller = new AbortController();
-    void placementApi.result(attemptId, controller.signal).then(setResult).catch(() => setError('Không thể tải kết quả hoặc bài kiểm tra chưa được nộp.'));
+    void placementApi
+      .result(attemptId, controller.signal)
+      .then((payload) => {
+        if (controller.signal.aborted) return;
+        setError(null);
+        setResult(payload);
+      })
+      .catch((requestError: unknown) => {
+        if (controller.signal.aborted) return;
+        if (requestError instanceof DOMException && requestError.name === 'AbortError') return;
+        setError('Không thể tải kết quả hoặc bài kiểm tra chưa được nộp.');
+      });
     return () => controller.abort();
   }, [attemptId]);
-  if (error) return <section className="mx-auto max-w-3xl p-8"><div className="state-error">{error}</div></section>;
+  if (error && !result) return <section className="mx-auto max-w-3xl p-8"><div className="state-error">{error}</div></section>;
   if (!result) return <p className="mx-auto max-w-3xl p-8" role="status">Đang tải kết quả…</p>;
   return (
     <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
