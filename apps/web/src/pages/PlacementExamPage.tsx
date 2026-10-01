@@ -163,7 +163,7 @@ export function PlacementExamPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <div className="sticky top-0 z-30 mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-white p-4 shadow-sm">
-        <div><p className="text-sm text-slate-500">Placement L&R</p><h1 className="font-bold">{exam.test.title}</h1></div>
+        <div><p className="text-sm text-slate-500">Kiểm tra đầu vào L&R</p><h1 className="font-bold">{exam.test.title}</h1></div>
         <div className="flex items-center gap-3">
           <span aria-live="polite" className={`flex items-center gap-2 rounded-full px-4 py-2 font-mono font-bold ${remainingSeconds !== null && remainingSeconds <= 60 ? 'bg-red-100 text-red-800' : 'bg-slate-100'}`}><Clock3 size={18} /> {timerText}</span>
           <button className="btn-primary" onClick={() => setConfirmOpen(true)} type="button">Nộp bài</button>
@@ -222,16 +222,30 @@ function GroupCard({ group, answers, marks, saveStates, onSave, onMark, onFocus 
   onMark: (questionId: string) => void;
   onFocus: (questionId: string) => void;
 }) {
+  const [audioError, setAudioError] = useState<string | null>(null);
   const playAudio = () => {
     if (!group.audioUrl) return;
-    if (group.audioUrl.startsWith('tts:') && 'speechSynthesis' in window) {
-      speechSynthesis.cancel();
-      speechSynthesis.speak(new SpeechSynthesisUtterance(group.audioUrl.slice(4)));
+    setAudioError(null);
+    if (
+      typeof window.speechSynthesis === 'undefined' ||
+      typeof window.SpeechSynthesisUtterance === 'undefined'
+    ) {
+      setAudioError('Trình duyệt này không hỗ trợ phát audio. Vui lòng dùng trình duyệt khác để tiếp tục phần Listening.');
+      return;
+    }
+    if (group.audioUrl.startsWith('tts:')) {
+      const utterance = new SpeechSynthesisUtterance(group.audioUrl.slice(4));
+      utterance.lang = 'en-US';
+      utterance.rate = 0.95;
+      utterance.onerror = () => setAudioError('Không thể phát audio trong trình duyệt này. Vui lòng thử lại hoặc dùng trình duyệt khác.');
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
     }
   };
   return (
     <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-7">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><span className="text-xs font-bold uppercase tracking-wider text-indigo-600">{group.skill === 'LISTENING' ? 'Listening' : 'Reading'}</span><h2 className="mt-1 text-xl font-bold">{group.title}</h2><p className="mt-1 text-sm text-slate-600">{group.instructions}</p></div>{group.skill === 'LISTENING' ? <button className="btn-secondary" onClick={playAudio} type="button"><Volume2 size={18} /> Phát audio</button> : null}</div>
+      {audioError ? <p className="mt-3 text-sm text-red-700" role="alert">{audioError}</p> : null}
       {group.skill === 'READING' && group.stimulusText ? <div className="mt-6 whitespace-pre-line rounded-xl bg-slate-50 p-5 leading-7 text-slate-800">{group.stimulusText}</div> : null}
       <div className="mt-6 space-y-6">
         {group.questions.map((question) => {

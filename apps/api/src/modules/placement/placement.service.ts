@@ -85,7 +85,7 @@ export class PlacementService {
 
     return {
       modes: [
-        { code: PlacementMode.LR, label: 'Listening & Reading', enabled: true },
+        { code: PlacementMode.LR, label: 'Kiểm tra đầu vào Listening & Reading', enabled: true },
         { code: PlacementMode.FOUR_SKILLS, label: '4 kỹ năng', enabled: false, note: 'Sắp có' },
       ],
       goalPresets: [450, 550, 650, 750],

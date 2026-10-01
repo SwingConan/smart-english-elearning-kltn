@@ -153,7 +153,7 @@ export function HomePage() {
               chọn chương trình học.
             </p>
             <Link className="btn-primary mt-6" to="/placement">
-              Bắt đầu Placement L&R
+              Bắt đầu kiểm tra đầu vào
             </Link>
           </div>
         </div>

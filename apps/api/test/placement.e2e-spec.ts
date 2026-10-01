@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 import {
   PlacementMode,
   PlacementSelfLevel,
+  QuestionDifficulty,
   TestAttemptStatus,
   UserRole,
   UserStatus,
@@ -96,6 +97,42 @@ describe('Placement L&R APIs (e2e)', () => {
       .send({ mode: 'FOUR_SKILLS', selfLevel: 'GOOD', goalScore: 750 })
       .expect(409);
     expect(unavailable.body.code).toBe('PLACEMENT_MODE_NOT_AVAILABLE');
+  });
+
+  it('seeds distinct Foundation, Core and Advanced grouped content', async () => {
+    const formIds = [
+      PLACEMENT_LR_FORM_IDS.FOUNDATION,
+      PLACEMENT_LR_FORM_IDS.CORE,
+      PLACEMENT_LR_FORM_IDS.ADVANCED,
+    ];
+    const forms = await prisma.test.findMany({
+      where: { id: { in: formIds } },
+      include: {
+        questionGroups: true,
+        testQuestions: { include: { question: { select: { id: true, difficulty: true } } } },
+      },
+    });
+    const byId = new Map(forms.map((form) => [form.id, form]));
+    const questionIds = formIds.map(
+      (id) => new Set(byId.get(id)?.testQuestions.map(({ question }) => question.id)),
+    );
+
+    for (const id of formIds) {
+      expect(byId.get(id)?.questionGroups).toHaveLength(4);
+      expect(byId.get(id)?.testQuestions).toHaveLength(8);
+    }
+    expect([...questionIds[0]].some((id) => questionIds[1].has(id))).toBe(false);
+    expect([...questionIds[1]].some((id) => questionIds[2].has(id))).toBe(false);
+    expect([...questionIds[0]].some((id) => questionIds[2].has(id))).toBe(false);
+    expect(
+      byId.get(PLACEMENT_LR_FORM_IDS.FOUNDATION)?.testQuestions.map(({ question }) => question.difficulty),
+    ).toEqual(expect.arrayContaining([QuestionDifficulty.EASY, QuestionDifficulty.MEDIUM]));
+    expect(
+      byId.get(PLACEMENT_LR_FORM_IDS.CORE)?.testQuestions.map(({ question }) => question.difficulty),
+    ).toEqual(expect.arrayContaining([QuestionDifficulty.EASY, QuestionDifficulty.MEDIUM]));
+    expect(
+      byId.get(PLACEMENT_LR_FORM_IDS.ADVANCED)?.testQuestions.map(({ question }) => question.difficulty),
+    ).toEqual(expect.arrayContaining([QuestionDifficulty.MEDIUM, QuestionDifficulty.HARD]));
   });
 
   it('validates fields and creates one pre-enrollment learner-owned attempt', async () => {

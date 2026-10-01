@@ -167,7 +167,7 @@ export function PlacementPage() {
     <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div>
-          <p className="eyebrow">Placement Listening & Reading</p>
+          <p className="eyebrow">Kiểm tra đầu vào Listening & Reading</p>
           <h1 className="page-title">Xác định điểm xuất phát của bạn</h1>
           <p className="page-lead max-w-3xl">
             Chọn mục tiêu và trình độ tự đánh giá trước khi làm bài Listening & Reading nội bộ.
@@ -181,7 +181,7 @@ export function PlacementPage() {
       {message ? <p className="mt-6 rounded-xl bg-amber-50 p-4 text-amber-900" role="status">{message}</p> : null}
 
       {!config ? (
-        <div className="state-error mt-8">Cấu hình Placement hiện không khả dụng.</div>
+        <div className="state-error mt-8">Cấu hình kiểm tra đầu vào hiện không khả dụng.</div>
       ) : draft.step === 1 ? (
         <div className="mt-10">
           <div className="flex items-center gap-3">
@@ -280,8 +280,8 @@ export function PlacementPage() {
           <aside className="space-y-5">
             <div className="card border-dashed">
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Sắp có</span>
-              <h2 className="mt-4 text-xl font-bold">Placement 4 kỹ năng</h2>
-              <p className="mt-2 text-slate-600">Speaking và Writing sẽ được mở ở milestone sau khi quy trình chấm được phê duyệt.</p>
+              <h2 className="mt-4 text-xl font-bold">Kiểm tra đầu vào 4 kỹ năng</h2>
+              <p className="mt-2 text-slate-600">Speaking và Writing sẽ được mở khi quy trình đánh giá 4 kỹ năng được hoàn thiện.</p>
             </div>
           </aside>
         </div>
@@ -289,7 +289,7 @@ export function PlacementPage() {
 
       {user?.role === 'STUDENT' ? (
         <section className="mt-16 border-t pt-10">
-          <div className="flex items-center gap-3"><History className="text-indigo-600" /><h2 className="text-2xl font-bold">Lịch sử Placement</h2></div>
+          <div className="flex items-center gap-3"><History className="text-indigo-600" /><h2 className="text-2xl font-bold">Lịch sử kiểm tra đầu vào</h2></div>
           {history.length ? (
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               {history.map((item) => (
@@ -299,7 +299,7 @@ export function PlacementPage() {
                 </Link>
               ))}
             </div>
-          ) : <p className="mt-4 text-slate-600">Bạn chưa có kết quả Placement nào.</p>}
+          ) : <p className="mt-4 text-slate-600">Bạn chưa có kết quả kiểm tra đầu vào nào.</p>}
         </section>
       ) : null}
     </section>

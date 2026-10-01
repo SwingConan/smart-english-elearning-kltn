@@ -110,9 +110,14 @@ const result: PlacementResult = {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   sessionStorage.clear();
   localStorage.clear();
 });
+
+function expectNoDeveloperJargon() {
+  expect(document.body).not.toHaveTextContent(/milestone|\bM03\b|\bM04\b|\bM05\b/i);
+}
 
 describe('Placement wizard', () => {
   it('renders three locked steps, validates custom goal and keeps FOUR_SKILLS disabled', async () => {
@@ -130,8 +135,12 @@ describe('Placement wizard', () => {
     fireEvent.click(screen.getByRole('button', { name: /Tôi chưa biết trình độ/ }));
     fireEvent.click(screen.getByRole('button', { name: /Tiếp tục/ }));
     expect(screen.getByRole('heading', { name: 'Xác nhận và hướng dẫn' })).toBeInTheDocument();
-    expect(screen.getByText('Placement 4 kỹ năng')).toBeInTheDocument();
+    expect(screen.getByText('Kiểm tra đầu vào 4 kỹ năng')).toBeInTheDocument();
+    expect(
+      screen.getByText('Speaking và Writing sẽ được mở khi quy trình đánh giá 4 kỹ năng được hoàn thiện.'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Sắp có')).toBeInTheDocument();
+    expectNoDeveloperJargon();
     const start = screen.getByRole('button', { name: 'Đăng nhập để bắt đầu' });
     expect(start).toBeDisabled();
     fireEvent.click(screen.getByLabelText('Tôi đã đọc hướng dẫn và sẵn sàng bắt đầu.'));
@@ -168,6 +177,7 @@ describe('Placement exam and result', () => {
     expect(await screen.findByRole('heading', { name: 'Thông báo' })).toBeInTheDocument();
     expect(screen.getByText('The meeting is in Conference Room B.')).toBeInTheDocument();
     expect(screen.queryByText('Private listening transcript')).not.toBeInTheDocument();
+    expectNoDeveloperJargon();
     fireEvent.click(screen.getByLabelText('Reception'));
     await waitFor(() => expect(save).toHaveBeenCalledWith('attempt-1', 'tq-1', ['o-1']));
     expect(await screen.findByText('Đã lưu')).toBeInTheDocument();
@@ -177,16 +187,57 @@ describe('Placement exam and result', () => {
     expect(within(dialog).getByText(/1 câu chưa trả lời và 1 câu đánh dấu/)).toBeInTheDocument();
   });
 
-  it('renders only the M03 objective result boundary', async () => {
+  it('renders only the objective result boundary without developer jargon', async () => {
     vi.spyOn(placementApi, 'result').mockResolvedValue(result);
     render(
       <MemoryRouter initialEntries={['/placement/attempts/attempt-1/result']}>
         <Routes><Route path="/placement/attempts/:attemptId/result" element={<PlacementResultPage />} /></Routes>
       </MemoryRouter>,
     );
-    expect(await screen.findByRole('heading', { name: 'Kết quả Placement L&R' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Kết quả kiểm tra đầu vào L&R' })).toBeInTheDocument();
     expect(screen.getByText(/không phải điểm TOEIC chính thức/)).toBeInTheDocument();
     expect(screen.queryByText(/mạnh nhất|yếu nhất|khuyến nghị|đề xuất khóa học/i)).not.toBeInTheDocument();
+    expectNoDeveloperJargon();
+  });
+
+  it('configures English speech playback at a natural rate', async () => {
+    class FakeUtterance {
+      lang = '';
+      rate = 1;
+      onerror: (() => void) | null = null;
+      constructor(readonly text: string) {}
+    }
+    const speak = vi.fn();
+    vi.stubGlobal('SpeechSynthesisUtterance', FakeUtterance);
+    vi.stubGlobal('speechSynthesis', { cancel: vi.fn(), speak });
+    vi.spyOn(placementApi, 'exam').mockResolvedValue(exam);
+    render(
+      <MemoryRouter initialEntries={['/placement/attempts/attempt-1/exam']}>
+        <Routes><Route path="/placement/attempts/:attemptId/exam" element={<PlacementExamPage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Phát audio' }));
+
+    const utterance = speak.mock.calls[0][0] as FakeUtterance;
+    expect(utterance.text).toBe('Private listening transcript');
+    expect(utterance.lang).toBe('en-US');
+    expect(utterance.rate).toBe(0.95);
+  });
+
+  it('shows a truthful message when browser speech playback is unavailable', async () => {
+    vi.stubGlobal('SpeechSynthesisUtterance', undefined);
+    vi.stubGlobal('speechSynthesis', undefined);
+    vi.spyOn(placementApi, 'exam').mockResolvedValue(exam);
+    render(
+      <MemoryRouter initialEntries={['/placement/attempts/attempt-1/exam']}>
+        <Routes><Route path="/placement/attempts/:attemptId/exam" element={<PlacementExamPage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Phát audio' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('không hỗ trợ phát audio');
   });
 });
 
