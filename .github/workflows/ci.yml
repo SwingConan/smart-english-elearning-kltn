@@ -49,6 +49,8 @@ jobs:
       - name: Check migration/schema drift
         run: npm run prisma:drift-check
       - name: Seed deterministic application data
+        env:
+          SEED_DEFAULT_PASSWORD: ci-only-seed-password
         run: npm run prisma:seed
       - run: npm run check:skeleton
       - run: npm run lint

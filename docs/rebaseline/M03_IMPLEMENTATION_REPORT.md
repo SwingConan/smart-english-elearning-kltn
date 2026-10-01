@@ -131,7 +131,8 @@ Each form has four ordered groups (two Listening and two Reading), eight realist
 
 - CI requires the deterministic application seed after migrations and schema drift checks, before API E2E, because Placement form selection deliberately depends on the curated Foundation, Core, and Advanced records with stable policy IDs.
 - GitHub Actions on `aa7285530ce0632c2f487e05d9585921fae1b531` applied migrations but did not seed; all nine Placement E2E tests then failed from missing grouped form data, unavailable start policy, and the missing Advanced test foreign key. Other E2E suites passed.
-- The workflow now runs `npm run prisma:seed` before API E2E. Final verification includes two consecutive seed runs followed by the complete API E2E suite.
+- GitHub Actions run #24 on `c403830afccb1e3d99601187a486a217de529116` reached the new seed step but exposed that CI had not configured the required `SEED_DEFAULT_PASSWORD`; later quality and E2E steps therefore did not run.
+- The seed step now scopes a CI-only password to that step. Local verification includes two consecutive seed runs followed by the complete API E2E suite; the final GitHub result remains pending until the new Actions run completes.
 
 ## Verification
 
