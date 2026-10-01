@@ -305,7 +305,7 @@ export function PlacementPage() {
               {history.map((item) => (
                 <Link className="card transition hover:border-indigo-300" key={item.attemptId} to={item.resultPath}>
                   <div className="flex items-center justify-between gap-3"><span className="font-bold">{item.title}</span><Check className="text-emerald-600" /></div>
-                  <p className="mt-2 text-sm text-slate-600">Đã nộp {new Date(item.submittedAt).toLocaleString('vi-VN')} · {item.score}/{item.maxScore} điểm thô</p>
+                  <p className="mt-2 text-sm text-slate-600">Đã nộp {new Date(item.submittedAt).toLocaleString('vi-VN')} · {item.score}/{item.maxScore} câu đúng</p>
                 </Link>
               ))}
             </div>

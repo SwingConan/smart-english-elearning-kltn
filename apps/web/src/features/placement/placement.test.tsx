@@ -99,11 +99,11 @@ const result: PlacementResult = {
   selfLevel: 'UNKNOWN',
   startedAt: '2026-10-01T00:00:00Z',
   submittedAt: '2026-10-01T00:20:00Z',
-  score: 6,
+  score: 4,
   maxScore: 8,
   skillScores: [
-    { skill: 'LISTENING', rawScore: 3, maxRawScore: 4, normalizedScore: 75, estimatedToeicScore: null, status: 'FINAL', source: 'OBJECTIVE_AUTO' },
-    { skill: 'READING', rawScore: 3, maxRawScore: 4, normalizedScore: 75, estimatedToeicScore: null, status: 'FINAL', source: 'OBJECTIVE_AUTO' },
+    { skill: 'LISTENING', rawScore: 1, maxRawScore: 4, normalizedScore: 25, estimatedToeicScore: null, status: 'FINAL', source: 'OBJECTIVE_AUTO' },
+    { skill: 'READING', rawScore: 3, maxRawScore: 4, normalizedScore: 75.25, estimatedToeicScore: null, status: 'FINAL', source: 'OBJECTIVE_AUTO' },
   ],
   disclaimer: 'Kết quả này là đánh giá nội bộ phục vụ xếp lớp, không phải điểm TOEIC chính thức.',
 };
@@ -136,6 +136,36 @@ function abortFirstThenResolve<T>(value: T) {
 }
 
 describe('Placement wizard', () => {
+  it('describes placement history scores as correct answers', async () => {
+    vi.spyOn(authApi, 'me').mockResolvedValue({
+      id: 'student-1',
+      email: 'student@example.com',
+      fullName: 'Người học',
+      role: 'STUDENT',
+      status: 'ACTIVE',
+    });
+    vi.spyOn(placementApi, 'config').mockResolvedValue(config);
+    vi.spyOn(placementApi, 'history').mockResolvedValue([
+      {
+        attemptId: result.attemptId,
+        title: result.title,
+        mode: result.mode,
+        goalScore: result.goalScore,
+        startedAt: result.startedAt,
+        submittedAt: result.submittedAt,
+        score: result.score,
+        maxScore: result.maxScore,
+        skillScores: result.skillScores,
+        resultPath: `/placement/attempts/${result.attemptId}/result`,
+      },
+    ]);
+
+    render(<MemoryRouter><AuthProvider><PlacementPage /></AuthProvider></MemoryRouter>);
+
+    expect(await screen.findByText('4/8 câu đúng', { exact: false })).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('điểm thô');
+  });
+
   it('ignores the first aborted config request under StrictMode when the next request succeeds', async () => {
     vi.spyOn(authApi, 'me').mockRejectedValue(new ApiError(401, null));
     vi.spyOn(placementApi, 'config').mockImplementation(abortFirstThenResolve(config));
@@ -257,6 +287,12 @@ describe('Placement exam and result', () => {
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: 'Kết quả kiểm tra đầu vào L&R' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '1/4 câu đúng' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '3/4 câu đúng' })).toBeInTheDocument();
+    expect(screen.getByText('Tỷ lệ đúng: 25%')).toBeInTheDocument();
+    expect(screen.getByText('Tỷ lệ đúng: 75,3%')).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('điểm thô');
+    expect(document.body).not.toHaveTextContent('Điểm chuẩn hóa nội bộ');
     expect(screen.getByText(/không phải điểm TOEIC chính thức/)).toBeInTheDocument();
     expect(screen.queryByText(/mạnh nhất|yếu nhất|khuyến nghị|đề xuất khóa học/i)).not.toBeInTheDocument();
     expectNoDeveloperJargon();
