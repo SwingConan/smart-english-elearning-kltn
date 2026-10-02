@@ -53,6 +53,7 @@ jobs:
           SEED_DEFAULT_PASSWORD: ci-only-seed-password
         run: npm run prisma:seed
       - run: npm run check:skeleton
+      - run: npm run check:m05-manifest
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test

@@ -23,6 +23,7 @@ import {
   UserRole,
   UserStatus,
 } from '../src/generated/prisma/client';
+import { seedM05 } from './m05-seed';
 
 const FREE_OFFERING_ID = '10000000-0000-4000-8000-000000000001';
 const PAID_OFFERING_ID = '10000000-0000-4000-8000-000000000002';
@@ -1040,6 +1041,8 @@ async function main(): Promise<void> {
         createdById: admin.id,
       },
     });
+
+    await seedM05(prisma, course.id);
 
     const additionalCourses = [];
     for (const seed of additionalCourseSeeds) {

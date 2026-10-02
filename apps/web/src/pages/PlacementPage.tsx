@@ -6,6 +6,7 @@ import {
   Headphones,
   History,
   LockKeyhole,
+  Mic,
   Save,
   Target,
 } from 'lucide-react';
@@ -46,6 +47,9 @@ export function PlacementPage() {
   const [starting, setStarting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [history, setHistory] = useState<PlacementHistoryItem[]>([]);
+  const [microphoneState, setMicrophoneState] = useState<
+    'UNCHECKED' | 'CHECKING' | 'READY' | 'DENIED' | 'UNSUPPORTED'
+  >('UNCHECKED');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -145,17 +149,21 @@ export function PlacementPage() {
       setMessage('Chỉ tài khoản học viên mới có thể bắt đầu bài kiểm tra đầu vào.');
       return;
     }
+    if (draft.mode === 'FOUR_SKILLS' && microphoneState !== 'READY') {
+      setMessage('Hãy kiểm tra và cho phép microphone trước khi bắt đầu bài kiểm tra 4 kỹ năng.');
+      return;
+    }
     setStarting(true);
     setMessage(null);
     try {
       const attempt = await startPlacementInNewTab({
-        mode: 'LR',
+        mode: draft.mode,
         selfLevel: draft.selfLevel,
         goalScore: draft.goalScore,
       });
       setMessage(
         attempt.resumed
-          ? 'Bạn có một bài L&R đang làm. Hệ thống đã mở lại đúng bài đó trong tab mới.'
+          ? `Bạn có một bài ${attempt.test.mode === 'FOUR_SKILLS' ? '4 kỹ năng' : 'L&R'} đang làm. Hệ thống đã mở lại đúng bài đó trong tab mới.`
           : 'Bài kiểm tra đã được mở trong tab mới. Giữ tab này để xem kết quả sau khi nộp.',
       );
     } catch (error) {
@@ -169,6 +177,21 @@ export function PlacementPage() {
     }
   };
 
+  const checkMicrophone = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setMicrophoneState('UNSUPPORTED');
+      return;
+    }
+    setMicrophoneState('CHECKING');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      setMicrophoneState('READY');
+    } catch {
+      setMicrophoneState('DENIED');
+    }
+  };
+
   if (loading || authLoading) {
     return <p className="section-shell" role="status">Đang chuẩn bị kiểm tra đầu vào…</p>;
   }
@@ -177,10 +200,10 @@ export function PlacementPage() {
     <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div>
-          <p className="eyebrow">Kiểm tra đầu vào Listening & Reading</p>
+          <p className="eyebrow">Kiểm tra đầu vào TOEIC</p>
           <h1 className="page-title">Xác định điểm xuất phát của bạn</h1>
           <p className="page-lead max-w-3xl">
-            Chọn mục tiêu và trình độ tự đánh giá trước khi làm bài Listening & Reading nội bộ.
+            Chọn mục tiêu, trình độ tự đánh giá và chế độ Listening & Reading hoặc 4 kỹ năng.
           </p>
         </div>
         <span className="rounded-full bg-indigo-100 px-4 py-2 text-sm font-semibold text-indigo-800">
@@ -257,9 +280,29 @@ export function PlacementPage() {
         <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_.8fr]">
           <div className="card">
             <h2 className="text-2xl font-bold">Xác nhận và hướng dẫn</h2>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                aria-pressed={draft.mode === 'LR'}
+                className={`rounded-xl border p-4 text-left ${draft.mode === 'LR' ? 'border-indigo-600 bg-indigo-50' : 'bg-white'}`}
+                onClick={() => setDraft((current) => ({ ...current, mode: 'LR' }))}
+                type="button"
+              >
+                <strong>Listening &amp; Reading</strong>
+                <span className="mt-2 block text-sm text-slate-600">Chấm tự động và có đánh giá, gợi ý khóa học sau khi nộp.</span>
+              </button>
+              <button
+                aria-pressed={draft.mode === 'FOUR_SKILLS'}
+                className={`rounded-xl border p-4 text-left ${draft.mode === 'FOUR_SKILLS' ? 'border-indigo-600 bg-indigo-50' : 'bg-white'}`}
+                onClick={() => setDraft((current) => ({ ...current, mode: 'FOUR_SKILLS' }))}
+                type="button"
+              >
+                <strong>4 kỹ năng</strong>
+                <span className="mt-2 block text-sm text-slate-600">Listening, Reading, Speaking và Writing. Speaking/Writing chờ đánh giá.</span>
+              </button>
+            </div>
             <dl className="mt-6 grid gap-4 sm:grid-cols-2">
-              <Summary label="Bài kiểm tra" value="Listening & Reading" />
-              <Summary label="Thời lượng" value={selectedLevel?.durationMinutes ? `${selectedLevel.durationMinutes} phút` : 'Theo cấu hình bài'} />
+              <Summary label="Bài kiểm tra" value={draft.mode === 'LR' ? 'Listening & Reading' : '4 kỹ năng'} />
+              <Summary label="Thời lượng" value={draft.mode === 'FOUR_SKILLS' ? '45 phút' : selectedLevel?.durationMinutes ? `${selectedLevel.durationMinutes} phút` : 'Theo cấu hình bài'} />
               <Summary label="Mục tiêu" value={draft.goalScore === 750 ? '750+' : String(draft.goalScore)} />
               <Summary label="Tự đánh giá" value={selectedLevel?.label ?? ''} />
             </dl>
@@ -282,16 +325,22 @@ export function PlacementPage() {
             </label>
             <div className="mt-6 flex flex-wrap gap-3">
               <button className="btn-secondary" onClick={() => setDraft((current) => ({ ...current, step: 2 }))} type="button">Quay lại</button>
-              <button className="btn-primary" disabled={!ready || starting} onClick={() => void start()} type="button">
+              <button className="btn-primary" disabled={!ready || starting || (draft.mode === 'FOUR_SKILLS' && microphoneState !== 'READY')} onClick={() => void start()} type="button">
                 {starting ? 'Đang chuẩn bị…' : user ? 'Mở bài kiểm tra' : 'Đăng nhập để bắt đầu'}
               </button>
             </div>
           </div>
           <aside className="space-y-5">
             <div className="card border-dashed">
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Sắp có</span>
-              <h2 className="mt-4 text-xl font-bold">Kiểm tra đầu vào 4 kỹ năng</h2>
-              <p className="mt-2 text-slate-600">Speaking và Writing sẽ được mở khi quy trình đánh giá 4 kỹ năng được hoàn thiện.</p>
+              <Mic className="text-indigo-600" />
+              <h2 className="mt-4 text-xl font-bold">Kiểm tra microphone</h2>
+              <p className="mt-2 text-slate-600">Chỉ chế độ 4 kỹ năng cần microphone. Trình duyệt chỉ hỏi quyền khi bạn bấm nút kiểm tra.</p>
+              <button className="btn-secondary mt-4" disabled={microphoneState === 'CHECKING'} onClick={() => void checkMicrophone()} type="button">
+                {microphoneState === 'CHECKING' ? 'Đang kiểm tra…' : 'Kiểm tra micro'}
+              </button>
+              {microphoneState === 'READY' ? <p className="mt-3 text-sm font-semibold text-emerald-700">Microphone đã sẵn sàng.</p> : null}
+              {microphoneState === 'DENIED' ? <p className="mt-3 text-sm text-red-700" role="alert">Quyền microphone bị từ chối. Hãy cấp quyền trong cài đặt trình duyệt rồi thử lại.</p> : null}
+              {microphoneState === 'UNSUPPORTED' ? <p className="mt-3 text-sm text-red-700" role="alert">Trình duyệt này không hỗ trợ ghi âm. Bạn vẫn có thể chọn Listening &amp; Reading.</p> : null}
             </div>
           </aside>
         </div>
@@ -305,7 +354,8 @@ export function PlacementPage() {
               {history.map((item) => (
                 <Link className="card transition hover:border-indigo-300" key={item.attemptId} to={item.resultPath}>
                   <div className="flex items-center justify-between gap-3"><span className="font-bold">{item.title}</span><Check className="text-emerald-600" /></div>
-                  <p className="mt-2 text-sm text-slate-600">Đã nộp {new Date(item.submittedAt).toLocaleString('vi-VN')} · {item.score}/{item.maxScore} câu đúng</p>
+                  <p className="mt-2 text-sm text-slate-600">Đã nộp {new Date(item.submittedAt).toLocaleString('vi-VN')} · {item.mode === 'LR' ? `${item.score}/${item.maxScore} câu đúng` : '4 kỹ năng'}</p>
+                  {item.mode === 'FOUR_SKILLS' ? <div className="mt-2 flex flex-wrap gap-2 text-xs">{item.skillScores.map((skill) => <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-800" key={skill.skill}>{skill.skill === 'LISTENING' ? 'Listening' : 'Reading'}: {Number(skill.normalizedScore).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}% · Đã chấm</span>)}{item.skillResults?.map((skill) => <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-800" key={skill.skill}>{skill.skill === 'SPEAKING' ? 'Speaking' : 'Writing'}: {skill.submittedResponseCount}/{skill.requiredResponseCount} · Chờ đánh giá</span>)}</div> : null}
                   {item.placementLevelLabel ? <p className="mt-2 text-sm font-semibold text-indigo-700">Đánh giá nội bộ: {item.placementLevelLabel}</p> : null}
                 </Link>
               ))}

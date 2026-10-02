@@ -1,8 +1,14 @@
-import { ArrayUnique, IsArray, IsUUID } from 'class-validator';
+import { ArrayUnique, IsArray, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class SavePlacementAnswerDto {
+  @IsOptional()
   @IsArray()
   @ArrayUnique()
   @IsUUID('all', { each: true })
-  selectedOptionIds: string[];
+  selectedOptionIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20_000)
+  textResponse?: string;
 }

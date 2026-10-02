@@ -21,11 +21,23 @@ export const placementApi = {
     apiFetch('/placement/attempts/start', { method: 'POST', body: JSON.stringify(input) }),
   exam: (attemptId: string, signal?: AbortSignal): Promise<PlacementExamResponse> =>
     apiFetch(`/placement/attempts/${segment(attemptId)}/exam`, { signal }),
-  saveAnswer: (attemptId: string, testQuestionId: string, selectedOptionIds: string[]) =>
+  saveAnswer: (
+    attemptId: string,
+    testQuestionId: string,
+    answer: { selectedOptionIds: string[] } | { textResponse: string },
+  ) =>
     apiFetch<{ savedAt: string; state: 'SAVED' }>(
       `/placement/attempts/${segment(attemptId)}/answers/${segment(testQuestionId)}`,
-      { method: 'PUT', body: JSON.stringify({ selectedOptionIds }) },
+      { method: 'PUT', body: JSON.stringify(answer) },
     ),
+  uploadAudio: (attemptId: string, testQuestionId: string, blob: Blob) => {
+    const body = new FormData();
+    body.append('file', blob, 'speaking-response.webm');
+    return apiFetch<{ savedAt: string; state: 'UPLOADED'; playbackUrl: string }>(
+      `/placement/attempts/${segment(attemptId)}/answers/${segment(testQuestionId)}/audio`,
+      { method: 'POST', body },
+    );
+  },
   submit: (attemptId: string, reason: 'MANUAL' | 'TIMEOUT'): Promise<PlacementResult> =>
     apiFetch(`/placement/attempts/${segment(attemptId)}/submit`, {
       method: 'POST',

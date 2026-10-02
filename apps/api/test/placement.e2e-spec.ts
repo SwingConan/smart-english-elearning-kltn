@@ -1,6 +1,9 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as argon2 from 'argon2';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import {
@@ -12,7 +15,10 @@ import {
   UserStatus,
 } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
-import { PLACEMENT_LR_FORM_IDS } from '../src/modules/placement/placement-form.policy';
+import {
+  PLACEMENT_FOUR_SKILLS_FORM_ID,
+  PLACEMENT_LR_FORM_IDS,
+} from '../src/modules/placement/placement-form.policy';
 import { loginAgent } from './assessment-e2e-helpers';
 
 describe('Placement L&R APIs (e2e)', () => {
@@ -23,6 +29,7 @@ describe('Placement L&R APIs (e2e)', () => {
   let learnerId: string;
   let otherLearnerId: string;
   let activeAttemptId: string;
+  let responseStorageRoot: string;
   const userIds: string[] = [];
   const sessionIds = new Set<string>();
   const unique = `${Date.now()}-${process.pid}`;
@@ -31,6 +38,8 @@ describe('Placement L&R APIs (e2e)', () => {
   const otherEmail = `m03-other-${unique}@example.test`;
 
   beforeAll(async () => {
+    responseStorageRoot = await mkdtemp(join(tmpdir(), 'm05-placement-e2e-'));
+    process.env.ASSESSMENT_RESPONSE_STORAGE_ROOT = responseStorageRoot;
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
@@ -78,14 +87,16 @@ describe('Placement L&R APIs (e2e)', () => {
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     }
     if (app) await app.close();
+    if (responseStorageRoot) await rm(responseStorageRoot, { recursive: true, force: true });
+    delete process.env.ASSESSMENT_RESPONSE_STORAGE_ROOT;
   });
 
-  it('publishes product-safe config and rejects guest or FOUR_SKILLS start', async () => {
+  it('publishes both Placement modes and rejects a guest start', async () => {
     const config = await request(app.getHttpServer()).get('/api/placement/config').expect(200);
     expect(config.body.modes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'LR', enabled: true }),
-        expect.objectContaining({ code: 'FOUR_SKILLS', enabled: false }),
+        expect.objectContaining({ code: 'FOUR_SKILLS', enabled: true }),
       ]),
     );
     expect(JSON.stringify(config.body)).not.toContain(PLACEMENT_LR_FORM_IDS.CORE);
@@ -94,11 +105,10 @@ describe('Placement L&R APIs (e2e)', () => {
       .post('/api/placement/attempts/start')
       .send({ mode: 'LR', selfLevel: 'UNKNOWN', goalScore: 550 })
       .expect(401);
-    const unavailable = await learner
+    await request(app.getHttpServer())
       .post('/api/placement/attempts/start')
       .send({ mode: 'FOUR_SKILLS', selfLevel: 'GOOD', goalScore: 750 })
-      .expect(409);
-    expect(unavailable.body.code).toBe('PLACEMENT_MODE_NOT_AVAILABLE');
+      .expect(401);
   });
 
   it('seeds distinct Foundation, Core and Advanced grouped content', async () => {
@@ -177,6 +187,169 @@ describe('Placement L&R APIs (e2e)', () => {
         },
       }),
     ).toBe(1);
+  });
+
+  it('runs a real FOUR_SKILLS flow alongside LR with secure media and truthful pending results', async () => {
+    const [firstStart, secondStart] = await Promise.all([
+      learner.post('/api/placement/attempts/start').send({ mode: 'FOUR_SKILLS', selfLevel: 'UNKNOWN', goalScore: 650 }),
+      learner.post('/api/placement/attempts/start').send({ mode: 'FOUR_SKILLS', selfLevel: 'GOOD', goalScore: 750 }),
+    ]);
+    expect(firstStart.status).toBe(201);
+    expect(secondStart.status).toBe(201);
+    expect(firstStart.body.attemptId).toBe(secondStart.body.attemptId);
+    const fourAttemptId = firstStart.body.attemptId as string;
+    await request(app.getHttpServer())
+      .get(`/api/placement/attempts/${fourAttemptId}/exam`)
+      .expect(401);
+    await request(app.getHttpServer())
+      .put(`/api/placement/attempts/${fourAttemptId}/answers/00000000-0000-4000-8000-000000000001`)
+      .send({ textResponse: 'guest' })
+      .expect(401);
+    await request(app.getHttpServer())
+      .post(`/api/placement/attempts/${fourAttemptId}/answers/00000000-0000-4000-8000-000000000001/audio`)
+      .attach('file', Buffer.from('guest'), { filename: 'guest.webm', contentType: 'audio/webm' })
+      .expect(401);
+    expect(
+      await prisma.testAttempt.count({
+        where: {
+          learnerId,
+          status: TestAttemptStatus.IN_PROGRESS,
+          enrollmentId: null,
+          classAssessmentId: null,
+        },
+      }),
+    ).toBe(2);
+
+    const examResponse = await learner
+      .get(`/api/placement/attempts/${fourAttemptId}/exam`)
+      .expect(200);
+    const groups = examResponse.body.groups as Array<{
+      stimuli: Array<{ id: string; type: string; mediaUrl: string | null }>;
+      questions: Array<{ testQuestionId: string; responseType: string }>;
+    }>;
+    const tasks = groups.flatMap(({ questions }) => questions);
+    expect(tasks).toHaveLength(21);
+    expect(tasks.filter(({ responseType }) => responseType === 'AUDIO_RESPONSE')).toHaveLength(3);
+    expect(tasks.filter(({ responseType }) => responseType === 'TEXT_RESPONSE')).toHaveLength(2);
+    const serialized = JSON.stringify(examResponse.body);
+    expect(serialized).not.toContain('isCorrect');
+    expect(serialized).not.toContain('LISTENING_TRANSCRIPT');
+    expect(serialized).not.toContain('Will you translate an e-mail into Spanish for me?');
+
+    const media = groups.flatMap(({ stimuli }) => stimuli).find(({ mediaUrl }) => mediaUrl);
+    expect(media).toBeDefined();
+    await learner.get(media!.mediaUrl!).expect(200);
+    await otherLearner.get(media!.mediaUrl!).expect(404);
+
+    const incomplete = await learner
+      .post(`/api/placement/attempts/${fourAttemptId}/submit`)
+      .send({ reason: 'MANUAL' })
+      .expect(409);
+    expect(incomplete.body.code).toBe('AUDIO_UPLOAD_INCOMPLETE');
+
+    const objective = await prisma.testQuestion.findFirstOrThrow({
+      where: {
+        testId: PLACEMENT_FOUR_SKILLS_FORM_ID,
+        question: { responseType: 'SINGLE_CHOICE' },
+      },
+      include: { question: { include: { options: true } } },
+      orderBy: { orderIndex: 'asc' },
+    });
+    const objectiveOption = objective.question.options[0];
+    await learner
+      .put(`/api/placement/attempts/${fourAttemptId}/answers/${objective.id}`)
+      .send({ selectedOptionIds: [objectiveOption.id] })
+      .expect(200);
+    await learner
+      .put(`/api/placement/attempts/${fourAttemptId}/answers/${objective.id}`)
+      .send({ textResponse: 'invalid' })
+      .expect(400);
+
+    const writingTasks = tasks.filter(({ responseType }) => responseType === 'TEXT_RESPONSE');
+    for (const [index, task] of writingTasks.entries()) {
+      await learner
+        .put(`/api/placement/attempts/${fourAttemptId}/answers/${task.testQuestionId}`)
+        .send({ textResponse: `Persisted Writing response ${index + 1}.` })
+        .expect(200);
+    }
+
+    const speakingTasks = tasks.filter(({ responseType }) => responseType === 'AUDIO_RESPONSE');
+    await learner
+      .post(`/api/placement/attempts/${fourAttemptId}/answers/${objective.id}/audio`)
+      .attach('file', Buffer.from('invalid target'), { filename: 'answer.webm', contentType: 'audio/webm' })
+      .expect(400);
+    for (const task of speakingTasks) {
+      await learner
+        .post(`/api/placement/attempts/${fourAttemptId}/answers/${task.testQuestionId}/audio`)
+        .attach('file', Buffer.from('small deterministic e2e audio fixture'), {
+          filename: 'answer.webm',
+          contentType: 'audio/webm',
+        })
+        .expect(201);
+    }
+    await learner
+      .get(`/api/placement/attempts/${fourAttemptId}/answers/${speakingTasks[0].testQuestionId}/audio`)
+      .expect(200);
+    await otherLearner
+      .get(`/api/placement/attempts/${fourAttemptId}/answers/${speakingTasks[0].testQuestionId}/audio`)
+      .expect(404);
+
+    const submitted = await learner
+      .post(`/api/placement/attempts/${fourAttemptId}/submit`)
+      .send({ reason: 'MANUAL' })
+      .expect(201);
+    const repeatedSubmit = await learner
+      .post(`/api/placement/attempts/${fourAttemptId}/submit`)
+      .send({ reason: 'MANUAL' })
+      .expect(201);
+    expect(repeatedSubmit.body).toEqual(submitted.body);
+    expect(submitted.body.enhancement.status).toBe('PENDING_SKILL_EVALUATION');
+    expect(submitted.body.evaluation).toBeNull();
+    expect(submitted.body.recommendations).toEqual([]);
+    expect(submitted.body.skillResults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ skill: 'LISTENING', status: 'FINAL' }),
+        expect.objectContaining({ skill: 'READING', status: 'FINAL' }),
+        expect.objectContaining({ skill: 'SPEAKING', status: 'PENDING_EVALUATION', submittedResponseCount: 3 }),
+        expect.objectContaining({ skill: 'WRITING', status: 'PENDING_EVALUATION', submittedResponseCount: 2 }),
+      ]),
+    );
+    expect(
+      await prisma.attemptSkillScore.count({
+        where: { attemptId: fourAttemptId, skill: { in: ['SPEAKING', 'WRITING'] } },
+      }),
+    ).toBe(0);
+    expect(await prisma.attemptEvaluation.count({ where: { attemptId: fourAttemptId } })).toBe(0);
+    expect(await prisma.courseRecommendation.count({ where: { attemptId: fourAttemptId } })).toBe(0);
+
+    await learner
+      .post(`/api/placement/attempts/${fourAttemptId}/answers/${speakingTasks[0].testQuestionId}/audio`)
+      .attach('file', Buffer.from('late upload'), { filename: 'late.webm', contentType: 'audio/webm' })
+      .expect(409);
+    const history = await learner.get('/api/placement/history').expect(200);
+    expect(history.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ attemptId: fourAttemptId, mode: 'FOUR_SKILLS' }),
+      ]),
+    );
+
+    const timeoutStart = await otherLearner
+      .post('/api/placement/attempts/start')
+      .send({ mode: 'FOUR_SKILLS', selfLevel: 'BASIC', goalScore: 550 })
+      .expect(201);
+    await prisma.testAttempt.update({
+      where: { id: timeoutStart.body.attemptId },
+      data: { startedAt: new Date(Date.now() - 46 * 60_000) },
+    });
+    const timeoutResult = await otherLearner
+      .get(`/api/placement/attempts/${timeoutStart.body.attemptId}/result`)
+      .expect(200);
+    expect(timeoutResult.body.skillResults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ skill: 'SPEAKING', submittedResponseCount: 0, requiredResponseCount: 3 }),
+        expect.objectContaining({ skill: 'WRITING', submittedResponseCount: 0, requiredResponseCount: 2 }),
+      ]),
+    );
   });
 
   it('returns an answer-safe grouped exam and enforces owner access', async () => {
@@ -351,7 +524,9 @@ describe('Placement L&R APIs (e2e)', () => {
       expect.arrayContaining([expect.objectContaining({ attemptId: activeAttemptId })]),
     );
     const foreignHistory = await otherLearner.get('/api/placement/history').expect(200);
-    expect(foreignHistory.body).toEqual([]);
+    expect(foreignHistory.body.map((item: { attemptId: string }) => item.attemptId)).not.toContain(
+      activeAttemptId,
+    );
   });
 
   it('lazily finalizes an expired orphan before starting a new attempt', async () => {

@@ -16,7 +16,7 @@ export interface PlacementConfig {
 
 export interface PlacementDraft {
   version: 1;
-  mode: 'LR';
+  mode: PlacementMode;
   goalScore: number | null;
   selfLevel: PlacementSelfLevel | null;
   step: 1 | 2 | 3;
@@ -25,7 +25,7 @@ export interface PlacementDraft {
 export interface PlacementStartResponse {
   attemptId: string;
   resumed: boolean;
-  test: { title: string; mode: 'LR'; durationMinutes: number };
+  test: { title: string; mode: PlacementMode; durationMinutes: number };
   goalScore: number;
   selfLevel: PlacementSelfLevel;
   startedAt: string;
@@ -36,20 +36,39 @@ export interface PlacementExamQuestion {
   testQuestionId: string;
   orderIndex: number;
   content: string;
-  responseType: 'SINGLE_CHOICE' | 'TRUE_FALSE' | 'MULTIPLE_CHOICE';
-  toeicSkill: 'LISTENING' | 'READING';
+  responseType: 'SINGLE_CHOICE' | 'TRUE_FALSE' | 'MULTIPLE_CHOICE' | 'TEXT_RESPONSE' | 'AUDIO_RESPONSE';
+  toeicSkill: 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING';
   options: Array<{ id: string; content: string; orderIndex: number }>;
   selectedOptionIds: string[];
+  textResponse?: string | null;
+  audioUploaded?: boolean;
+  audioUrl?: string | null;
+}
+
+export interface PlacementStimulus {
+  id: string;
+  type: 'TEXT' | 'IMAGE' | 'AUDIO';
+  orderIndex: number;
+  textContent: string | null;
+  mediaUrl: string | null;
+  mimeType: string | null;
+  altText: string | null;
 }
 
 export interface PlacementExamGroup {
   id: string;
-  skill: 'LISTENING' | 'READING';
+  skill: 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING';
   orderIndex: number;
   title: string | null;
   instructions: string | null;
   stimulusText: string | null;
   audioUrl: string | null;
+  taskCode?: string | null;
+  preparationSeconds?: number | null;
+  responseSeconds?: number | null;
+  recommendedSeconds?: number | null;
+  maxRecordingSeconds?: number | null;
+  stimuli?: PlacementStimulus[];
   questions: PlacementExamQuestion[];
 }
 
@@ -72,7 +91,7 @@ export type PlacementExamResponse =
       test: {
         title: string;
         description: string | null;
-        mode: 'LR';
+        mode: PlacementMode;
         durationMinutes: number;
       };
       groups: PlacementExamGroup[];
@@ -92,7 +111,7 @@ export interface PlacementResult {
   attemptId: string;
   status: 'SUBMITTED';
   title: string;
-  mode: 'LR';
+  mode: PlacementMode;
   goalScore: number;
   selfLevel: PlacementSelfLevel;
   durationMinutes: number;
@@ -101,10 +120,26 @@ export interface PlacementResult {
   score: number;
   maxScore: number;
   skillScores: PlacementSkillScore[];
+  skillResults?: Array<
+    | {
+        skill: 'LISTENING' | 'READING';
+        status: 'FINAL';
+        rawScore: string | number | null;
+        maxRawScore: string | number | null;
+        normalizedScore: string | number;
+      }
+    | {
+        skill: 'SPEAKING' | 'WRITING';
+        status: 'PENDING_EVALUATION';
+        submittedResponseCount: number;
+        requiredResponseCount: number;
+      }
+  >;
   disclaimer: string;
   enhancement: {
-    status: 'READY' | 'ERROR';
+    status: 'READY' | 'ERROR' | 'PENDING_SKILL_EVALUATION';
     error: { code: string; message: string } | null;
+    message?: string;
   };
   evaluation: PlacementEvaluation | null;
   recommendations: PlacementRecommendation[];
@@ -188,13 +223,19 @@ export interface PlacementRecommendation {
 export interface PlacementHistoryItem {
   attemptId: string;
   title: string;
-  mode: 'LR';
+  mode: PlacementMode;
   goalScore: number;
   startedAt: string;
   submittedAt: string;
   score: number;
   maxScore: number;
   skillScores: PlacementSkillScore[];
+  skillResults?: Array<{
+    skill: 'SPEAKING' | 'WRITING';
+    status: 'PENDING_EVALUATION';
+    submittedResponseCount: number;
+    requiredResponseCount: number;
+  }>;
   placementLevelCode?: string | null;
   placementLevelLabel?: string | null;
   resultPath: string;
