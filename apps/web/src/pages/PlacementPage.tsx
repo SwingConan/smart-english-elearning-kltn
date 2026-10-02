@@ -59,6 +59,13 @@ export function PlacementPage() {
         if (controller.signal.aborted) return;
         setMessage(null);
         setConfig(payload);
+        setDraft((current) => {
+          const selectedMode = payload.modes.find(({ code }) => code === current.mode);
+          if (selectedMode?.enabled) return current;
+          const fallback = payload.modes.find(({ code, enabled }) => code === 'LR' && enabled)
+            ?? payload.modes.find(({ enabled }) => enabled);
+          return fallback ? { ...current, mode: fallback.code } : current;
+        });
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
@@ -114,6 +121,9 @@ export function PlacementPage() {
 
   const selectedLevel = config?.selfLevels.find(({ code }) => code === draft.selfLevel);
   const goalIsPreset = config?.goalPresets.includes(draft.goalScore ?? -1) ?? false;
+  const selectedMode = config?.modes.find(({ code }) => code === draft.mode);
+  const lrMode = config?.modes.find(({ code }) => code === 'LR');
+  const fourSkillsMode = config?.modes.find(({ code }) => code === 'FOUR_SKILLS');
   const progress = useMemo(() => `${draft.step}/3`, [draft.step]);
 
   const chooseGoal = (goalScore: number) => {
@@ -140,6 +150,10 @@ export function PlacementPage() {
 
   const start = async () => {
     if (!draft.goalScore || !draft.selfLevel || !ready) return;
+    if (!selectedMode?.enabled) {
+      setMessage('Chế độ kiểm tra này hiện không khả dụng. Vui lòng chọn chế độ khác.');
+      return;
+    }
     writePlacementDraft(sessionStorage, draft);
     if (!user) {
       navigate(`/login?${new URLSearchParams({ returnUrl: '/placement' }).toString()}`);
@@ -283,21 +297,25 @@ export function PlacementPage() {
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <button
                 aria-pressed={draft.mode === 'LR'}
-                className={`rounded-xl border p-4 text-left ${draft.mode === 'LR' ? 'border-indigo-600 bg-indigo-50' : 'bg-white'}`}
+                className={`rounded-xl border p-4 text-left ${draft.mode === 'LR' ? 'border-indigo-600 bg-indigo-50' : 'bg-white'} ${lrMode?.enabled ? '' : 'cursor-not-allowed opacity-60'}`}
+                disabled={!lrMode?.enabled}
                 onClick={() => setDraft((current) => ({ ...current, mode: 'LR' }))}
                 type="button"
               >
                 <strong>Listening &amp; Reading</strong>
                 <span className="mt-2 block text-sm text-slate-600">Chấm tự động và có đánh giá, gợi ý khóa học sau khi nộp.</span>
+                {!lrMode?.enabled ? <span className="mt-2 block text-sm font-semibold text-amber-700">{lrMode?.note ?? 'Chế độ này hiện không khả dụng.'}</span> : null}
               </button>
               <button
                 aria-pressed={draft.mode === 'FOUR_SKILLS'}
-                className={`rounded-xl border p-4 text-left ${draft.mode === 'FOUR_SKILLS' ? 'border-indigo-600 bg-indigo-50' : 'bg-white'}`}
+                className={`rounded-xl border p-4 text-left ${draft.mode === 'FOUR_SKILLS' ? 'border-indigo-600 bg-indigo-50' : 'bg-white'} ${fourSkillsMode?.enabled ? '' : 'cursor-not-allowed opacity-60'}`}
+                disabled={!fourSkillsMode?.enabled}
                 onClick={() => setDraft((current) => ({ ...current, mode: 'FOUR_SKILLS' }))}
                 type="button"
               >
                 <strong>4 kỹ năng</strong>
                 <span className="mt-2 block text-sm text-slate-600">Listening, Reading, Speaking và Writing. Speaking/Writing chờ đánh giá.</span>
+                {!fourSkillsMode?.enabled ? <span className="mt-2 block text-sm font-semibold text-amber-700">{fourSkillsMode?.note ?? 'Chế độ này hiện không khả dụng.'}</span> : null}
               </button>
             </div>
             <dl className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -325,7 +343,7 @@ export function PlacementPage() {
             </label>
             <div className="mt-6 flex flex-wrap gap-3">
               <button className="btn-secondary" onClick={() => setDraft((current) => ({ ...current, step: 2 }))} type="button">Quay lại</button>
-              <button className="btn-primary" disabled={!ready || starting || (draft.mode === 'FOUR_SKILLS' && microphoneState !== 'READY')} onClick={() => void start()} type="button">
+              <button className="btn-primary" disabled={!ready || starting || !selectedMode?.enabled || (draft.mode === 'FOUR_SKILLS' && microphoneState !== 'READY')} onClick={() => void start()} type="button">
                 {starting ? 'Đang chuẩn bị…' : user ? 'Mở bài kiểm tra' : 'Đăng nhập để bắt đầu'}
               </button>
             </div>

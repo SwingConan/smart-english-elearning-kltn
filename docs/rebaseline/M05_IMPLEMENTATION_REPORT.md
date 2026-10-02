@@ -105,3 +105,36 @@ Tests cover guest/foreign ownership boundaries, guessed or wrong response target
 9. Exercise timeout with a missing productive response and verify the truthful missing state.
 10. Reopen the result from mixed Placement history.
 11. Submit an LR attempt and verify the existing M04 result/evaluation/recommendation/ClassOffering flow is unchanged.
+
+## GPT implementation review fixes
+
+Previous reviewed HEAD: `1270b76948840c51885fdb6fc8b82041b6515e7d`.
+
+- F-01 closed: Writing now reports dirty/saving/error state to the exam parent, manual submit remains locked until the current revision is confirmed by the server, and completion of an older request cannot mark a newer revision as saved. Timeout submission remains server-authoritative and unaffected. The confirmation dialog includes pending and failed Writing status.
+- F-02 closed: active `MediaRecorder` callbacks are neutralized during teardown, an active recorder is stopped, every acquired media track is stopped, refs are cleared, parent locks are released, and late permission/upload completions do not update unmounted UI or trigger an upload.
+- F-03 closed: a new Speaking recording is an explicit uncommitted local draft even when an older server recording exists. The UI says `Bản ghi mới chưa được lưu`, manual submit stays locked through recording/local-draft/upload-error/uploading states, successful upload clears the draft lock, and the learner may discard the draft to keep the prior committed recording.
+- F-04 closed: both desktop and mobile navigators group global question numbers under Listening, Reading, Speaking, and Writing while preserving answered/current/marked semantics and the LR flow.
+- F-05 closed: Placement mode cards honor `config.modes[].enabled`; disabled modes cannot be selected or started, display the configured availability note, and a restored disabled draft deterministically falls back to enabled LR (or the first enabled mode).
+
+Focused verification:
+
+- Placement frontend regression suite: PASS — 20/20, including current-revision Writing save locking, committed-vs-local Speaking draft behavior, recorder teardown, four-skill navigator grouping, and disabled-mode normalization.
+- Web typecheck: PASS.
+
+Full verification after the fixes:
+
+- `npm run check:m05-manifest`: PASS — 8 Listening, 8 Reading, 3 Speaking, 2 Writing, 5 rubrics, 8 assets; malformed fixture rejected.
+- `npm run prisma:validate`: PASS.
+- `npm run prisma:generate`: PASS.
+- `npm run prisma:migrate:deploy`: PASS — 10 migrations, no pending migration.
+- `npm run prisma:drift-check`: PASS — no difference detected.
+- Prisma migration status: PASS — database schema is up to date.
+- `npm run prisma:seed` twice: PASS both times; seed remains idempotent.
+- `npm run lint`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run test`: PASS — API 319/319 and Web 197/197.
+- `npm run test:e2e -w @smart-elearning/api`: PASS — 83/83.
+- `npm run build`: PASS — API and Web; the pre-existing Web bundle-size warning remains (547.14 kB minified, 152.91 kB gzip).
+- `git diff --check`: PASS.
+
+This corrective pass changes only frontend state management, learner-facing availability behavior, regression tests, and this report. It introduces no schema, migration, seed-content, API contract, or scoring/business-rule change.

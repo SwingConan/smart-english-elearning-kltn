@@ -8,6 +8,7 @@ import { ApiError } from '@/lib/api-client';
 import type { PlacementExamGroup, PlacementExamResponse } from '@/features/placement/types';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+type ProductiveSaveState = 'DIRTY' | 'SAVING' | 'ERROR' | 'RECORDING' | 'LOCAL_DRAFT' | 'UPLOADING';
 
 export function PlacementExamPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
@@ -17,6 +18,7 @@ export function PlacementExamPage() {
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
   const [productiveAnswered, setProductiveAnswered] = useState<Record<string, boolean>>({});
   const [uploading, setUploading] = useState<Set<string>>(new Set());
+  const [productiveSaveStates, setProductiveSaveStates] = useState<Record<string, ProductiveSaveState>>({});
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +148,33 @@ export function PlacementExamPage() {
   const missingSpeakingCount = questions.filter(
     (question) => question.responseType === 'AUDIO_RESPONSE' && !productiveAnswered[question.testQuestionId],
   ).length;
+  const pendingWritingCount = Object.values(productiveSaveStates).filter(
+    (state) => state === 'DIRTY' || state === 'SAVING',
+  ).length;
+  const failedWritingCount = Object.values(productiveSaveStates).filter(
+    (state) => state === 'ERROR',
+  ).length;
+  const manualSubmitBlocked = Object.keys(productiveSaveStates).length > 0;
+
+  const handleProductiveSaved = useCallback((questionId: string, saved: boolean) => {
+    setProductiveAnswered((current) => ({ ...current, [questionId]: saved }));
+  }, []);
+  const handleUploading = useCallback((questionId: string, active: boolean) => {
+    setUploading((current) => {
+      const next = new Set(current);
+      if (active) next.add(questionId);
+      else next.delete(questionId);
+      return next;
+    });
+  }, []);
+  const handleProductiveSaveState = useCallback((questionId: string, state: ProductiveSaveState | null) => {
+    setProductiveSaveStates((current) => {
+      const next = { ...current };
+      if (state) next[questionId] = state;
+      else delete next[questionId];
+      return next;
+    });
+  }, []);
 
   const save = async (testQuestionId: string, selectedOptionIds: string[]) => {
     if (!attemptId) return;
@@ -196,7 +225,7 @@ export function PlacementExamPage() {
         <div><p className="text-sm text-slate-500">{exam.test.mode === 'FOUR_SKILLS' ? 'Kiểm tra đầu vào 4 kỹ năng' : 'Kiểm tra đầu vào L&R'}</p><h1 className="font-bold">{exam.test.title}</h1></div>
         <div className="flex items-center gap-3">
           <span aria-live="polite" className={`flex items-center gap-2 rounded-full px-4 py-2 font-mono font-bold ${remainingSeconds !== null && remainingSeconds <= 60 ? 'bg-red-100 text-red-800' : 'bg-slate-100'}`}><Clock3 size={18} /> {timerText}</span>
-          <button className="btn-primary" disabled={uploading.size > 0} onClick={() => setConfirmOpen(true)} type="button">Nộp bài</button>
+          <button className="btn-primary" disabled={manualSubmitBlocked} onClick={() => setConfirmOpen(true)} type="button">Nộp bài</button>
         </div>
       </div>
       {warning ? <div className="mb-5 rounded-xl bg-amber-100 p-4 text-amber-900" role="alert">{warning}</div> : null}
@@ -204,7 +233,7 @@ export function PlacementExamPage() {
 
       <details className="mb-5 rounded-xl border bg-white p-4 lg:hidden">
         <summary className="flex cursor-pointer items-center gap-2 font-semibold"><ListChecks size={18} /> Danh sách câu hỏi</summary>
-        <Navigator answers={answers} current={currentQuestion} locked={uploading.size > 0} marks={marks} productiveAnswered={productiveAnswered} questions={questions} />
+        <Navigator answers={answers} current={currentQuestion} groups={exam.groups} locked={uploading.size > 0} marks={marks} productiveAnswered={productiveAnswered} />
       </details>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -219,17 +248,9 @@ export function PlacementExamPage() {
               onMark={toggleMark}
               onSave={(questionId, selected) => void save(questionId, selected)}
               attemptId={attemptId!}
-              onProductiveSaved={(questionId, saved) =>
-                setProductiveAnswered((current) => ({ ...current, [questionId]: saved }))
-              }
-              onUploading={(questionId, active) =>
-                setUploading((current) => {
-                  const next = new Set(current);
-                  if (active) next.add(questionId);
-                  else next.delete(questionId);
-                  return next;
-                })
-              }
+              onProductiveSaved={handleProductiveSaved}
+              onProductiveSaveState={handleProductiveSaveState}
+              onUploading={handleUploading}
               saveStates={saveStates}
             />
           ))}
@@ -237,7 +258,7 @@ export function PlacementExamPage() {
         <aside className="hidden lg:block">
           <div className="sticky top-28 rounded-2xl border bg-white p-5 shadow-sm">
             <h2 className="flex items-center gap-2 font-bold"><ListChecks size={19} /> Câu hỏi</h2>
-            <Navigator answers={answers} current={currentQuestion} locked={uploading.size > 0} marks={marks} productiveAnswered={productiveAnswered} questions={questions} />
+            <Navigator answers={answers} current={currentQuestion} groups={exam.groups} locked={uploading.size > 0} marks={marks} productiveAnswered={productiveAnswered} />
             <div className="mt-5 border-t pt-4 text-sm text-slate-600"><p>{questions.length - unansweredCount}/{questions.length} câu đã trả lời</p><p>{marks.size} câu đánh dấu xem lại</p></div>
           </div>
         </aside>
@@ -248,8 +269,10 @@ export function PlacementExamPage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-4"><div><h2 className="text-xl font-bold">Xác nhận nộp bài</h2><p className="mt-2 text-slate-600">Bạn còn {unansweredCount} câu chưa trả lời và {marks.size} câu đánh dấu xem lại.</p></div><button aria-label="Đóng" onClick={() => setConfirmOpen(false)} type="button"><X /></button></div>
             {uploading.size ? <p className="mt-4 text-sm text-amber-800">Còn {uploading.size} câu Speaking đang tải lên. Vui lòng đợi hoàn tất.</p> : null}
+            {pendingWritingCount ? <p className="mt-4 text-sm text-amber-800">Còn {pendingWritingCount} câu Writing có thay đổi đang chờ lưu. Vui lòng đợi hoàn tất.</p> : null}
+            {failedWritingCount ? <p className="mt-4 text-sm text-red-700">Còn {failedWritingCount} câu Writing chưa lưu được. Vui lòng chỉnh sửa để thử lưu lại.</p> : null}
             {missingSpeakingCount ? <p className="mt-2 text-sm text-amber-800">Còn {missingSpeakingCount} câu Speaking chưa được ghi và tải lên. Bài chỉ có thể nộp thủ công sau khi các bản ghi được lưu.</p> : null}
-            <div className="mt-6 flex justify-end gap-3"><button className="btn-secondary" onClick={() => setConfirmOpen(false)} type="button">Tiếp tục kiểm tra</button><button className="btn-primary" disabled={submitting || uploading.size > 0} onClick={() => void submit('MANUAL')} type="button">{submitting ? 'Đang nộp…' : 'Nộp bài'}</button></div>
+            <div className="mt-6 flex justify-end gap-3"><button className="btn-secondary" onClick={() => setConfirmOpen(false)} type="button">Tiếp tục kiểm tra</button><button className="btn-primary" disabled={submitting || manualSubmitBlocked} onClick={() => void submit('MANUAL')} type="button">{submitting ? 'Đang nộp…' : 'Nộp bài'}</button></div>
           </div>
         </div>
       ) : null}
@@ -257,7 +280,7 @@ export function PlacementExamPage() {
   );
 }
 
-function GroupCard({ group, answers, marks, saveStates, onSave, onMark, onFocus, attemptId, onProductiveSaved, onUploading }: {
+function GroupCard({ group, answers, marks, saveStates, onSave, onMark, onFocus, attemptId, onProductiveSaved, onProductiveSaveState, onUploading }: {
   group: PlacementExamGroup;
   answers: Record<string, string[]>;
   marks: Set<string>;
@@ -267,6 +290,7 @@ function GroupCard({ group, answers, marks, saveStates, onSave, onMark, onFocus,
   onFocus: (questionId: string) => void;
   attemptId: string;
   onProductiveSaved: (questionId: string, saved: boolean) => void;
+  onProductiveSaveState: (questionId: string, state: ProductiveSaveState | null) => void;
   onUploading: (questionId: string, active: boolean) => void;
 }) {
   const [audioError, setAudioError] = useState<string | null>(null);
@@ -307,7 +331,8 @@ function GroupCard({ group, answers, marks, saveStates, onSave, onMark, onFocus,
                 <WritingAnswer
                   attemptId={attemptId}
                   initialValue={question.textResponse ?? ''}
-                  onSaved={(saved) => onProductiveSaved(question.testQuestionId, saved)}
+                  onSaved={onProductiveSaved}
+                  onSaveState={onProductiveSaveState}
                   testQuestionId={question.testQuestionId}
                 />
               ) : question.responseType === 'AUDIO_RESPONSE' ? (
@@ -316,8 +341,9 @@ function GroupCard({ group, answers, marks, saveStates, onSave, onMark, onFocus,
                   initialAudioUrl={question.audioUrl ?? null}
                   maxSeconds={group.maxRecordingSeconds ?? group.responseSeconds ?? 60}
                   preparationSeconds={group.preparationSeconds ?? 0}
-                  onSaved={(saved) => onProductiveSaved(question.testQuestionId, saved)}
-                  onUploading={(active) => onUploading(question.testQuestionId, active)}
+                  onSaved={onProductiveSaved}
+                  onSaveState={onProductiveSaveState}
+                  onUploading={onUploading}
                   testQuestionId={question.testQuestionId}
                 />
               ) : <div className="mt-4 grid gap-2">
@@ -347,31 +373,46 @@ function Stimuli({ group, onError }: { group: PlacementExamGroup; onError: (mess
   })}</div>;
 }
 
-function WritingAnswer({ attemptId, testQuestionId, initialValue, onSaved }: {
-  attemptId: string; testQuestionId: string; initialValue: string; onSaved: (saved: boolean) => void;
+function WritingAnswer({ attemptId, testQuestionId, initialValue, onSaved, onSaveState }: {
+  attemptId: string;
+  testQuestionId: string;
+  initialValue: string;
+  onSaved: (questionId: string, saved: boolean) => void;
+  onSaveState: (questionId: string, state: ProductiveSaveState | null) => void;
 }) {
   const [value, setValue] = useState(initialValue);
   const [state, setState] = useState<SaveState>(initialValue.trim() ? 'saved' : 'idle');
-  const dirty = useRef(false);
+  const revision = useRef(0);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
   useEffect(() => {
-    if (!dirty.current) return;
+    if (revision.current === 0) return;
+    const savingRevision = revision.current;
     setState('saving');
+    onSaveState(testQuestionId, 'SAVING');
     const timer = window.setTimeout(() => {
       void placementApi.saveAnswer(attemptId, testQuestionId, { textResponse: value }).then(() => {
+        if (!mounted.current || revision.current !== savingRevision) return;
         setState('saved');
-        dirty.current = false;
-        onSaved(Boolean(value.trim()));
-      }).catch(() => setState('error'));
+        onSaved(testQuestionId, Boolean(value.trim()));
+        onSaveState(testQuestionId, null);
+      }).catch(() => {
+        if (!mounted.current || revision.current !== savingRevision) return;
+        setState('error');
+        onSaveState(testQuestionId, 'ERROR');
+      });
     }, 650);
     return () => window.clearTimeout(timer);
-  }, [attemptId, onSaved, testQuestionId, value]);
-  return <div className="mt-4"><label className="font-medium" htmlFor={`writing-${testQuestionId}`}>Câu trả lời Writing</label><textarea className="mt-2 min-h-56 w-full rounded-xl border p-4" id={`writing-${testQuestionId}`} onChange={(event) => { dirty.current = true; setValue(event.target.value); }} value={value} /><div className="mt-2 flex justify-between text-xs text-slate-600"><span role="status">{state === 'saving' ? 'Đang lưu…' : state === 'saved' ? 'Đã lưu' : state === 'error' ? 'Lỗi lưu — thử lại' : 'Chưa nhập'}</span><span>{value.trim() ? value.trim().split(/\s+/).length : 0} từ</span></div></div>;
+  }, [attemptId, onSaveState, onSaved, testQuestionId, value]);
+  return <div className="mt-4"><label className="font-medium" htmlFor={`writing-${testQuestionId}`}>Câu trả lời Writing</label><textarea className="mt-2 min-h-56 w-full rounded-xl border p-4" id={`writing-${testQuestionId}`} onChange={(event) => { revision.current += 1; setState('idle'); onSaveState(testQuestionId, 'DIRTY'); setValue(event.target.value); }} value={value} /><div className="mt-2 flex justify-between text-xs text-slate-600"><span role="status">{state === 'saving' ? 'Đang lưu…' : state === 'saved' ? 'Đã lưu' : state === 'error' ? 'Lỗi lưu — thử lại' : value ? 'Có thay đổi chưa lưu' : 'Chưa nhập'}</span><span>{value.trim() ? value.trim().split(/\s+/).length : 0} từ</span></div></div>;
 }
 
-function SpeakingAnswer({ attemptId, testQuestionId, initialAudioUrl, maxSeconds, preparationSeconds, onSaved, onUploading }: {
+function SpeakingAnswer({ attemptId, testQuestionId, initialAudioUrl, maxSeconds, preparationSeconds, onSaved, onSaveState, onUploading }: {
   attemptId: string; testQuestionId: string; initialAudioUrl: string | null; maxSeconds: number;
   preparationSeconds: number;
-  onSaved: (saved: boolean) => void; onUploading: (active: boolean) => void;
+  onSaved: (questionId: string, saved: boolean) => void;
+  onSaveState: (questionId: string, state: ProductiveSaveState | null) => void;
+  onUploading: (questionId: string, active: boolean) => void;
 }) {
   const [state, setState] = useState<'NOT_RECORDED' | 'PREPARING' | 'READY' | 'RECORDING' | 'RECORDED_LOCAL' | 'UPLOADING' | 'UPLOADED' | 'UPLOAD_ERROR'>(initialAudioUrl ? 'UPLOADED' : 'NOT_RECORDED');
   const [blob, setBlob] = useState<Blob | null>(null);
@@ -382,7 +423,24 @@ function SpeakingAnswer({ attemptId, testQuestionId, initialAudioUrl, maxSeconds
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const chunks = useRef<Blob[]>([]);
+  const mounted = useRef(true);
   useEffect(() => () => { if (localUrl) URL.revokeObjectURL(localUrl); }, [localUrl]);
+  useEffect(() => () => {
+    mounted.current = false;
+    const activeRecorder = recorder.current;
+    if (activeRecorder) {
+      activeRecorder.ondataavailable = null;
+      activeRecorder.onstop = null;
+      activeRecorder.onerror = null;
+      if (activeRecorder.state !== 'inactive') activeRecorder.stop();
+    }
+    stream.current?.getTracks().forEach((track) => track.stop());
+    recorder.current = null;
+    stream.current = null;
+    chunks.current = [];
+    onUploading(testQuestionId, false);
+    onSaveState(testQuestionId, null);
+  }, [onSaveState, onUploading, testQuestionId]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (state === 'RECORDING') { event.preventDefault(); event.returnValue = ''; }
@@ -415,46 +473,86 @@ function SpeakingAnswer({ attemptId, testQuestionId, initialAudioUrl, maxSeconds
   const start = async () => {
     try {
       const media = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!mounted.current) {
+        media.getTracks().forEach((track) => track.stop());
+        return;
+      }
       const type = ['audio/webm', 'audio/ogg', 'audio/mp4'].find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? '';
       const next = new MediaRecorder(media, type ? { mimeType: type } : undefined);
       stream.current = media; recorder.current = next; chunks.current = []; setSeconds(0);
       next.ondataavailable = (event) => { if (event.data.size) chunks.current.push(event.data); };
       next.onstop = () => {
         media.getTracks().forEach((track) => track.stop());
+        stream.current = null;
+        recorder.current = null;
+        if (!mounted.current) return;
         const recorded = new Blob(chunks.current, { type: next.mimeType || 'audio/webm' });
         setBlob(recorded);
         setLocalUrl((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(recorded); });
         setState('RECORDED_LOCAL');
-        onUploading(false);
+        onUploading(testQuestionId, false);
+        onSaveState(testQuestionId, 'LOCAL_DRAFT');
       };
       next.onerror = () => {
         media.getTracks().forEach((track) => track.stop());
+        stream.current = null;
+        recorder.current = null;
+        if (!mounted.current) return;
         setState('UPLOAD_ERROR');
-        onUploading(false);
+        onUploading(testQuestionId, false);
+        onSaveState(testQuestionId, 'ERROR');
       };
-      next.start(); setState('RECORDING'); onUploading(true);
-    } catch { setState('UPLOAD_ERROR'); }
+      next.start(); setState('RECORDING'); onUploading(testQuestionId, true); onSaveState(testQuestionId, 'RECORDING');
+    } catch {
+      stream.current?.getTracks().forEach((track) => track.stop());
+      stream.current = null;
+      recorder.current = null;
+      if (mounted.current) {
+        setState('UPLOAD_ERROR');
+        onSaveState(testQuestionId, null);
+      }
+    }
   };
   const stop = () => recorder.current?.stop();
   const upload = async () => {
     if (!blob) return;
-    setState('UPLOADING'); onUploading(true);
+    setState('UPLOADING'); onUploading(testQuestionId, true); onSaveState(testQuestionId, 'UPLOADING');
     try {
       const saved = await placementApi.uploadAudio(attemptId, testQuestionId, blob);
-      setPlaybackUrl(saved.playbackUrl); setState('UPLOADED'); onSaved(true);
-    } catch { setState('UPLOAD_ERROR'); }
-    finally { onUploading(false); }
+      if (!mounted.current) return;
+      setPlaybackUrl(saved.playbackUrl);
+      setLocalUrl((old) => { if (old) URL.revokeObjectURL(old); return null; });
+      setBlob(null);
+      setState('UPLOADED');
+      onSaved(testQuestionId, true);
+      onSaveState(testQuestionId, null);
+    } catch {
+      if (!mounted.current) return;
+      setState('UPLOAD_ERROR');
+      onSaveState(testQuestionId, 'ERROR');
+    } finally {
+      if (mounted.current) onUploading(testQuestionId, false);
+    }
+  };
+  const discardLocalDraft = () => {
+    setLocalUrl((old) => { if (old) URL.revokeObjectURL(old); return null; });
+    setBlob(null);
+    setState(playbackUrl ? 'UPLOADED' : 'NOT_RECORDED');
+    onSaved(testQuestionId, Boolean(playbackUrl));
+    onSaveState(testQuestionId, null);
   };
   const beginPreparation = () => {
     setPreparationRemaining(preparationSeconds);
     setState(preparationSeconds > 0 ? 'PREPARING' : 'READY');
   };
   const canPrepare = state === 'NOT_RECORDED' || state === 'UPLOADED' || state === 'RECORDED_LOCAL' || state === 'UPLOAD_ERROR';
-  return <div className="mt-4 rounded-xl bg-slate-50 p-4"><div className="flex flex-wrap items-center gap-3">{canPrepare ? <button className="btn-secondary" onClick={beginPreparation} type="button"><Mic size={17} />{state === 'UPLOADED' || state === 'RECORDED_LOCAL' ? 'Ghi lại' : 'Bắt đầu chuẩn bị'}</button> : null}{state === 'READY' ? <button className="btn-primary" onClick={() => void start()} type="button"><Mic size={17} /> Bắt đầu ghi âm</button> : null}{state === 'RECORDING' ? <button className="btn-primary" onClick={stop} type="button"><Square size={16} /> Dừng</button> : null}<span aria-live="polite" className="text-sm">{state === 'PREPARING' ? `Thời gian chuẩn bị: ${preparationRemaining}s` : state === 'READY' ? 'Sẵn sàng ghi âm. Bản ghi chỉ bắt đầu khi bạn bấm nút.' : state === 'RECORDING' ? `Đang ghi âm ${seconds}/${maxSeconds}s` : state === 'UPLOADING' ? 'Đang tải câu trả lời lên…' : state === 'UPLOADED' ? 'Đã lưu câu trả lời' : state === 'UPLOAD_ERROR' ? 'Lỗi ghi âm hoặc tải lên — thử lại' : 'Chưa ghi âm'}</span></div>{localUrl || playbackUrl ? <audio className="mt-4 w-full" controls src={localUrl ?? playbackUrl ?? ''} /> : null}{state === 'RECORDED_LOCAL' || state === 'UPLOAD_ERROR' && blob ? <button className="btn-primary mt-4" onClick={() => void upload()} type="button">Lưu câu trả lời</button> : null}</div>;
+  return <div className="mt-4 rounded-xl bg-slate-50 p-4"><div className="flex flex-wrap items-center gap-3">{canPrepare ? <button className="btn-secondary" onClick={beginPreparation} type="button"><Mic size={17} />{state === 'UPLOADED' || state === 'RECORDED_LOCAL' ? 'Ghi lại' : 'Bắt đầu chuẩn bị'}</button> : null}{state === 'READY' ? <button className="btn-primary" onClick={() => void start()} type="button"><Mic size={17} /> Bắt đầu ghi âm</button> : null}{state === 'RECORDING' ? <button className="btn-primary" onClick={stop} type="button"><Square size={16} /> Dừng</button> : null}<span aria-live="polite" className="text-sm">{state === 'PREPARING' ? `Thời gian chuẩn bị: ${preparationRemaining}s` : state === 'READY' ? 'Sẵn sàng ghi âm. Bản ghi chỉ bắt đầu khi bạn bấm nút.' : state === 'RECORDING' ? `Đang ghi âm ${seconds}/${maxSeconds}s` : state === 'RECORDED_LOCAL' ? 'Bản ghi mới chưa được lưu' : state === 'UPLOADING' ? 'Đang tải câu trả lời lên…' : state === 'UPLOADED' ? 'Đã lưu câu trả lời' : state === 'UPLOAD_ERROR' ? blob ? 'Bản ghi mới chưa được lưu — tải lên thất bại' : 'Lỗi ghi âm — thử lại' : 'Chưa ghi âm'}</span></div>{localUrl || playbackUrl ? <audio className="mt-4 w-full" controls src={localUrl ?? playbackUrl ?? ''} /> : null}{state === 'RECORDED_LOCAL' || state === 'UPLOAD_ERROR' && blob ? <div className="mt-4 flex flex-wrap gap-3"><button className="btn-primary" onClick={() => void upload()} type="button">Lưu câu trả lời</button>{playbackUrl ? <button className="btn-secondary" onClick={discardLocalDraft} type="button">Bỏ bản ghi mới</button> : null}</div> : null}</div>;
 }
 
-function Navigator({ questions, answers, productiveAnswered, marks, current, locked }: { questions: PlacementExamGroup['questions']; answers: Record<string, string[]>; productiveAnswered: Record<string, boolean>; marks: Set<string>; current: string | null; locked: boolean }) {
-  return <div className="mt-4 grid grid-cols-5 gap-2">{questions.map((question, index) => { const answered = (answers[question.testQuestionId] ?? []).length > 0 || Boolean(productiveAnswered[question.testQuestionId]); const marked = marks.has(question.testQuestionId); return <a aria-label={`Câu ${index + 1}${answered ? ', đã trả lời' : ', chưa trả lời'}${marked ? ', đánh dấu' : ''}`} className={`grid size-10 place-items-center rounded-lg border text-sm font-semibold ${current === question.testQuestionId ? 'ring-2 ring-indigo-500' : ''} ${marked ? 'border-amber-500 bg-amber-50' : answered ? 'border-emerald-500 bg-emerald-50' : 'bg-white'}`} href={`#question-${question.testQuestionId}`} key={question.testQuestionId} onClick={(event) => { if (locked) { event.preventDefault(); return; } document.getElementById(`question-${question.testQuestionId}`)?.focus(); }}>{index + 1}</a>; })}</div>;
+function Navigator({ groups, answers, productiveAnswered, marks, current, locked }: { groups: PlacementExamGroup[]; answers: Record<string, string[]>; productiveAnswered: Record<string, boolean>; marks: Set<string>; current: string | null; locked: boolean }) {
+  const questions = groups.flatMap((group) => group.questions);
+  const skills = [...new Set(groups.map((group) => group.skill))];
+  return <div className="mt-4 space-y-4">{skills.map((skill) => <section aria-label={`${skillLabel(skill)} questions`} key={skill}><p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">{skillLabel(skill)}</p><div className="grid grid-cols-5 gap-2">{groups.filter((group) => group.skill === skill).flatMap((group) => group.questions).map((question) => { const index = questions.findIndex((candidate) => candidate.testQuestionId === question.testQuestionId); const answered = (answers[question.testQuestionId] ?? []).length > 0 || Boolean(productiveAnswered[question.testQuestionId]); const marked = marks.has(question.testQuestionId); return <a aria-label={`Câu ${index + 1}${answered ? ', đã trả lời' : ', chưa trả lời'}${marked ? ', đánh dấu' : ''}`} className={`grid size-10 place-items-center rounded-lg border text-sm font-semibold ${current === question.testQuestionId ? 'ring-2 ring-indigo-500' : ''} ${marked ? 'border-amber-500 bg-amber-50' : answered ? 'border-emerald-500 bg-emerald-50' : 'bg-white'}`} href={`#question-${question.testQuestionId}`} key={question.testQuestionId} onClick={(event) => { if (locked) { event.preventDefault(); return; } document.getElementById(`question-${question.testQuestionId}`)?.focus(); }}>{index + 1}</a>; })}</div></section>)}</div>;
 }
 
 function ExamState({ title, text, children }: { title: string; text: string; children?: React.ReactNode }) {
