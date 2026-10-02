@@ -129,9 +129,12 @@ function summaryFor(levelCode: string, weakestSkill: ToeicSkill | null): string 
       : levelCode === 'DEVELOPING'
         ? 'Bạn đã có nền tảng và đang phát triển kỹ năng Listening và Reading.'
         : 'Bạn thể hiện năng lực Listening và Reading nội bộ ở mức nâng cao.';
-  return weakestSkill === null
-    ? `${levelSummary} Hai kỹ năng đang ở trạng thái cân bằng.`
-    : `${levelSummary} ${weakestSkill === ToeicSkill.LISTENING ? 'Listening' : 'Reading'} là kỹ năng nên được ưu tiên tiếp theo.`;
+  if (weakestSkill === null) {
+    return levelCode === 'FOUNDATION'
+      ? `${levelSummary} Cả hai kỹ năng đều cần được củng cố từ nền tảng.`
+      : `${levelSummary} Kết quả Listening và Reading hiện tương đương.`;
+  }
+  return `${levelSummary} ${weakestSkill === ToeicSkill.LISTENING ? 'Listening' : 'Reading'} là kỹ năng nên được ưu tiên tiếp theo.`;
 }
 
 function roundScore(value: number): number {

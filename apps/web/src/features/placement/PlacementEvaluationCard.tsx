@@ -19,7 +19,7 @@ export function PlacementEvaluationCard({ evaluation }: { evaluation: PlacementE
         <BarChart3 className="shrink-0 text-indigo-600" size={36} />
       </div>
       {evaluation.balanceState === 'BALANCED' ? (
-        <p className="mt-5 flex items-center gap-2 font-semibold text-emerald-700"><Scale size={18} />Listening và Reading đang cân bằng.</p>
+        <p className="mt-5 flex items-center gap-2 font-semibold text-indigo-700"><Scale size={18} />Kết quả Listening và Reading hiện tương đương.</p>
       ) : (
         <dl className="mt-5 grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-white p-4"><dt className="text-sm text-slate-500">Kỹ năng nổi trội</dt><dd className="mt-1 font-bold">{skillLabel(evaluation.strongestSkill)}</dd></div>

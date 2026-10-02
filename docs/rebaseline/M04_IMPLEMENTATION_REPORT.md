@@ -126,7 +126,7 @@ The required seed password is supplied only through `SEED_DEFAULT_PASSWORD`; no 
 | `npm run prisma:seed` twice with local `SEED_DEFAULT_PASSWORD` | PASS — idempotent |
 | `npm run lint` | PASS |
 | `npm run typecheck` | PASS |
-| `npm run test` | PASS — API 303/303; Web 190/190 |
+| `npm run test` | PASS — API 307/307; Web 191/191 |
 | `npm run test:e2e -w @smart-elearning/api` | PASS — 82/82 |
 | `npm run build` | PASS |
 | `git diff --check` | PASS |
@@ -155,6 +155,17 @@ No blocking issue remains. There was no deviation from the specified M04 busines
 - Focused verification: RecommendationService 4/4 and Placement frontend 13/13 PASS.
 - Full verification after the fixes: API 305/305, Web 190/190, E2E 82/82 PASS, together with Prisma, seed, lint, typecheck, build, and diff checks listed in the final handoff.
 - No schema change, migration, recommendation regeneration, enrollment-rule change, or M05/M06/M08 boundary expansion was introduced by this review-fix pass.
+
+## Manual Visual Gate fixes
+
+- Initial Product Owner Visual Gate verdict: **FAIL** at reviewed HEAD `de1f30f4c8e424e36306e5524b53edf6d3e3d4b0`; this section records the corrective implementation, not a replacement Visual Gate approval.
+- VG-F01: equal Listening/Reading results no longer tell learners that their skills are “đang cân bằng” or “ở trạng thái cân bằng”. The result card now says “Kết quả Listening và Reading hiện tương đương.” A 0/0 FOUNDATION evaluation summary says “Cả hai kỹ năng đều cần được củng cố từ nền tảng.” Strongest/weakest remain unset, while internal `BALANCED` semantics and all score/level calculations remain unchanged.
+- VG-F02: the Student workspace brand now links to `/`, and the header exposes a visible “Trang chủ” link to `/`. “Khóa học của tôi” remains available at `/student/enrollments`; authentication navigation and the Placement exam layout were not changed.
+- Focused regression verification: evaluation engine 21/21 PASS; Placement plus M02 frontend 22/22 PASS. Tests explicitly reject the old learner-facing balance phrases and assert the home/workspace link destinations.
+- Full verification after the fixes: Prisma validate/generate/migrate/drift/status PASS; seed twice PASS; lint PASS; typecheck PASS; API 307/307 PASS; Web 191/191 PASS; final full E2E retry 82/82 PASS; build PASS; diff check PASS.
+- E2E observation: the first full run reached 81/82 and an isolated Placement retry reached 11/12 because the existing M03 concurrent-start case surfaced PostgreSQL `40001 TransactionWriteConflict`. An unchanged full-suite retry passed 82/82. No M03 concurrency or Placement business logic was modified.
+- Final corrective commit HEAD is recorded in the immutable handoff response because a commit cannot embed its own hash.
+- No schema, migration, API, evaluation scoring, recommendation, enrollment, M05, M06, or M08 scope was added.
 
 ## Manual Visual Gate handoff
 

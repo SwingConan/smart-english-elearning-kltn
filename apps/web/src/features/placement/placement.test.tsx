@@ -321,6 +321,39 @@ describe('Placement exam and result', () => {
     expectNoDeveloperJargon();
   });
 
+  it('renders equal Listening and Reading results with neutral learner-facing wording', async () => {
+    vi.spyOn(placementApi, 'result').mockResolvedValue({
+      ...result,
+      score: 0,
+      skillScores: result.skillScores.map((skillScore) => ({
+        ...skillScore,
+        rawScore: 0,
+        normalizedScore: 0,
+      })),
+      evaluation: {
+        ...result.evaluation!,
+        overallNormalizedScore: 0,
+        strongestSkill: null,
+        weakestSkill: null,
+        balanceState: 'BALANCED',
+        summary:
+          'Bạn đang xây dựng nền tảng Listening và Reading. Cả hai kỹ năng đều cần được củng cố từ nền tảng.',
+      },
+    });
+    render(
+      <MemoryRouter initialEntries={['/placement/attempts/attempt-1/result']}>
+        <Routes><Route path="/placement/attempts/:attemptId/result" element={<PlacementResultPage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText('Kết quả Listening và Reading hiện tương đương.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Cả hai kỹ năng đều cần được củng cố từ nền tảng/)).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('Listening và Reading đang cân bằng.');
+    expect(document.body).not.toHaveTextContent('ở trạng thái cân bằng');
+  });
+
   it('keeps the objective result visible when enrichment fails and offers retry', async () => {
     vi.spyOn(placementApi, 'result').mockResolvedValue({
       ...result,

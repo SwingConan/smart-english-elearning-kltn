@@ -53,6 +53,47 @@ describe('M04 evaluation engine', () => {
     ] })).toEqual(result);
   });
 
+  it('describes a 0/0 FOUNDATION tie as two skills needing reinforcement', () => {
+    const result = evaluatePlacement({
+      score: 0,
+      maxScore: 8,
+      bands,
+      skillScores: [
+        { skill: ToeicSkill.LISTENING, normalizedScore: 0, status: 'FINAL' },
+        { skill: ToeicSkill.READING, normalizedScore: 0, status: 'FINAL' },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      strongestSkill: null,
+      weakestSkill: null,
+      balanceState: 'BALANCED',
+      summary:
+        'Bạn đang xây dựng nền tảng Listening và Reading. Cả hai kỹ năng đều cần được củng cố từ nền tảng.',
+    });
+    expect(result.summary).not.toContain('cân bằng');
+  });
+
+  it('describes a non-zero tie neutrally without assigning strongest or weakest', () => {
+    const result = evaluatePlacement({
+      score: 4,
+      maxScore: 8,
+      bands,
+      skillScores: [
+        { skill: ToeicSkill.LISTENING, normalizedScore: 50, status: 'FINAL' },
+        { skill: ToeicSkill.READING, normalizedScore: 50, status: 'FINAL' },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      strongestSkill: null,
+      weakestSkill: null,
+      balanceState: 'BALANCED',
+    });
+    expect(result.summary).toContain('Kết quả Listening và Reading hiện tương đương.');
+    expect(result.summary).not.toContain('cân bằng');
+  });
+
   it.each([
     [[{ skill: ToeicSkill.READING, normalizedScore: 50, status: 'FINAL' }]],
     [[{ skill: ToeicSkill.LISTENING, normalizedScore: 50, status: 'FINAL' }]],
