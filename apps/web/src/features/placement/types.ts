@@ -95,12 +95,94 @@ export interface PlacementResult {
   mode: 'LR';
   goalScore: number;
   selfLevel: PlacementSelfLevel;
+  durationMinutes: number;
   startedAt: string;
   submittedAt: string;
   score: number;
   maxScore: number;
   skillScores: PlacementSkillScore[];
   disclaimer: string;
+  enhancement: {
+    status: 'READY' | 'ERROR';
+    error: { code: string; message: string } | null;
+  };
+  evaluation: PlacementEvaluation | null;
+  recommendations: PlacementRecommendation[];
+}
+
+export interface PlacementEvaluation {
+  status: 'FINAL';
+  levelCode: string | null;
+  levelLabel: string | null;
+  overallNormalizedScore: number;
+  strongestSkill: 'LISTENING' | 'READING' | null;
+  weakestSkill: 'LISTENING' | 'READING' | null;
+  balanceState: 'BALANCED' | 'IMBALANCED';
+  summary: string | null;
+  lrTotalScore: number | null;
+  aiExplanation: string | null;
+  evaluationPolicyId: string | null;
+}
+
+export interface PlacementRecommendationReason {
+  schemaVersion: 1;
+  evaluationPolicyCode: string;
+  evaluationLevel: string;
+  profile: { ruleMode: 'ALL' | 'ANY'; priority: number };
+  criteria: Array<{
+    skill: 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING';
+    value: number | null;
+    min: number | null;
+    max: number | null;
+    matched: boolean;
+  }>;
+}
+
+export interface PlacementRecommendationOffering {
+  id: string;
+  code: string;
+  name: string;
+  instructor: { id: string; fullName: string } | null;
+  modality: 'ONLINE' | 'OFFLINE' | 'HYBRID';
+  pricingType: 'FREE' | 'PAID';
+  tuitionFeeVnd: number | null;
+  totalSessions: number | null;
+  totalPeriods: number | null;
+  enrollmentStart: string | null;
+  enrollmentEnd: string | null;
+  classStart: string | null;
+  classEnd: string | null;
+  scheduleSlots: Array<{
+    id: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    locationText: string | null;
+    meetingUrl: string | null;
+  }>;
+  maxStudents: number | null;
+  registeredCount: number;
+  remainingSeats: number | null;
+  registrationState: 'AVAILABLE' | 'FULL' | 'UPCOMING' | 'CLOSED';
+  actionable: boolean;
+  currentEnrollmentId: string | null;
+  currentEnrollmentStatus: 'ACTIVE' | 'PENDING_PAYMENT' | 'COMPLETED' | 'DROPPED' | 'CANCELLED' | null;
+}
+
+export interface PlacementRecommendation {
+  kind: 'PRIMARY' | 'SUPPLEMENTARY';
+  course: {
+    id: string;
+    slug: string;
+    title: string;
+    description: string;
+    level: string;
+    skillScope: 'LR' | 'FOUR_SKILLS' | 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING';
+    thumbnailUrl: string | null;
+  };
+  reason: PlacementRecommendationReason | null;
+  reasonStatus: 'AVAILABLE' | 'UNAVAILABLE';
+  classOfferings: PlacementRecommendationOffering[];
 }
 
 export interface PlacementHistoryItem {
@@ -113,5 +195,7 @@ export interface PlacementHistoryItem {
   score: number;
   maxScore: number;
   skillScores: PlacementSkillScore[];
+  placementLevelCode?: string | null;
+  placementLevelLabel?: string | null;
   resultPath: string;
 }

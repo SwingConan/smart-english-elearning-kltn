@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -17,6 +18,8 @@ import {
   ToeicSkill,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { M04DomainError } from '../evaluation/m04-domain.error';
+import { RecommendationService } from '../recommendations/recommendation.service';
 import { SavePlacementAnswerDto } from './dto/save-placement-answer.dto';
 import { StartPlacementAttemptDto } from './dto/start-placement-attempt.dto';
 import {
@@ -30,7 +33,7 @@ import {
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
 const RESULT_DISCLAIMER =
-  'Kết quả này là đánh giá nội bộ phục vụ xếp lớp, không phải điểm TOEIC chính thức.';
+  'Kết quả này là đánh giá nội bộ phục vụ định hướng và xếp lớp, không phải điểm TOEIC chính thức.';
 
 const placementAttemptInclude = {
   test: {
@@ -68,7 +71,12 @@ type PlacementAttempt = Prisma.TestAttemptGetPayload<{
 
 @Injectable()
 export class PlacementService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(PlacementService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly recommendationService: RecommendationService,
+  ) {}
 
   async getConfig() {
     const policy = placementFormPolicyEntries();
@@ -299,7 +307,7 @@ export class PlacementService {
   }
 
   async submit(learnerId: string, attemptId: string, dto: SubmitPlacementAttemptDto) {
-    return this.runTransaction(async (transaction) => {
+    const objectiveResult = await this.runTransaction(async (transaction) => {
       const attempt = await this.requireAttempt(transaction, learnerId, attemptId);
       if (attempt.status === TestAttemptStatus.SUBMITTED) {
         return this.buildResult(attempt);
@@ -313,10 +321,11 @@ export class PlacementService {
       }
       return this.finalizeAttempt(transaction, learnerId, attemptId);
     }, 'Bài kiểm tra đang được nộp ở một phiên khác. Vui lòng thử lại.');
+    return this.enrichResult(learnerId, attemptId, objectiveResult);
   }
 
   async getResult(learnerId: string, attemptId: string) {
-    return this.runTransaction(async (transaction) => {
+    const objectiveResult = await this.runTransaction(async (transaction) => {
       let attempt = await this.requireAttempt(transaction, learnerId, attemptId);
       if (
         attempt.status === TestAttemptStatus.IN_PROGRESS &&
@@ -333,6 +342,7 @@ export class PlacementService {
       }
       return this.buildResult(attempt);
     }, 'Kết quả đang được cập nhật ở một phiên khác. Vui lòng thử lại.');
+    return this.enrichResult(learnerId, attemptId, objectiveResult);
   }
 
   async getHistory(learnerId: string) {
@@ -353,6 +363,9 @@ export class PlacementService {
         maxScore: true,
         placementGoalScore: true,
         test: { select: { title: true, placementMode: true } },
+        evaluation: {
+          select: { placementLevelCode: true, placementLevelLabel: true },
+        },
         skillScores: {
           orderBy: { skill: 'asc' },
           select: {
@@ -374,6 +387,8 @@ export class PlacementService {
       score: attempt.score,
       maxScore: attempt.maxScore,
       skillScores: attempt.skillScores,
+      placementLevelCode: attempt.evaluation?.placementLevelCode ?? null,
+      placementLevelLabel: attempt.evaluation?.placementLevelLabel ?? null,
       resultPath: `/placement/attempts/${attempt.id}/result`,
     }));
   }
@@ -496,6 +511,7 @@ export class PlacementService {
       mode: attempt.test.placementMode,
       goalScore: attempt.placementGoalScore,
       selfLevel: attempt.placementSelfLevel,
+      durationMinutes: attempt.test.timeLimitMinutes,
       startedAt: attempt.startedAt,
       submittedAt: attempt.submittedAt,
       score: attempt.score,
@@ -515,6 +531,42 @@ export class PlacementService {
         })),
       disclaimer: RESULT_DISCLAIMER,
     };
+  }
+
+  private async enrichResult<T extends ReturnType<PlacementService['buildResult']>>(
+    learnerId: string,
+    attemptId: string,
+    objectiveResult: T,
+  ) {
+    try {
+      const generated = await this.recommendationService.ensureAndProject(attemptId, learnerId);
+      return {
+        ...objectiveResult,
+        enhancement: { status: 'READY' as const, error: null },
+        evaluation: generated.evaluation,
+        recommendations: generated.recommendations,
+      };
+    } catch (error: unknown) {
+      const domainError =
+        error instanceof M04DomainError
+          ? error
+          : new M04DomainError(
+              'RECOMMENDATION_CONFIG_INVALID',
+              'Chưa thể tạo đánh giá và gợi ý khóa học lúc này.',
+            );
+      this.logger.error(
+        `Placement insight generation failed for attempt ${attemptId}: ${domainError.code}`,
+      );
+      return {
+        ...objectiveResult,
+        enhancement: {
+          status: 'ERROR' as const,
+          error: { code: domainError.code, message: domainError.message },
+        },
+        evaluation: null,
+        recommendations: [],
+      };
+    }
   }
 
   private startResponse(

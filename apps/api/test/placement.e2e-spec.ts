@@ -69,6 +69,8 @@ describe('Placement L&R APIs (e2e)', () => {
         select: { id: true },
       });
       const attemptIds = attempts.map(({ id }) => id);
+      await prisma.courseRecommendation.deleteMany({ where: { attemptId: { in: attemptIds } } });
+      await prisma.attemptEvaluation.deleteMany({ where: { attemptId: { in: attemptIds } } });
       await prisma.attemptSkillScore.deleteMany({ where: { attemptId: { in: attemptIds } } });
       await prisma.testAnswer.deleteMany({ where: { attemptId: { in: attemptIds } } });
       await prisma.testAttempt.deleteMany({ where: { id: { in: attemptIds } } });
@@ -226,7 +228,7 @@ describe('Placement L&R APIs (e2e)', () => {
     await otherLearner.get(`/api/placement/attempts/${activeAttemptId}/result`).expect(404);
   });
 
-  it('submits idempotently with exactly two objective skill scores and zero side effects', async () => {
+  it('submits idempotently, evaluates deterministically and recommends seeded courses', async () => {
     const bktBefore = await prisma.learnerSkillState.count();
     const historyBefore = await prisma.masteryHistory.count();
     const first = await learner
@@ -247,8 +249,100 @@ describe('Placement L&R APIs (e2e)', () => {
     );
     expect(await prisma.learnerSkillState.count()).toBe(bktBefore);
     expect(await prisma.masteryHistory.count()).toBe(historyBefore);
-    expect(await prisma.attemptEvaluation.count({ where: { attemptId: activeAttemptId } })).toBe(0);
-    expect(await prisma.courseRecommendation.count({ where: { attemptId: activeAttemptId } })).toBe(0);
+    expect(first.body.enhancement).toEqual({ status: 'READY', error: null });
+    expect(first.body.evaluation).toEqual(
+      expect.objectContaining({
+        status: 'FINAL',
+        levelCode: 'FOUNDATION',
+        levelLabel: 'Nền tảng',
+        overallNormalizedScore: 12.5,
+        strongestSkill: 'LISTENING',
+        weakestSkill: 'READING',
+        lrTotalScore: null,
+        aiExplanation: null,
+      }),
+    );
+    expect(first.body.recommendations.length).toBeGreaterThan(0);
+    expect(first.body.recommendations[0]).toEqual(
+      expect.objectContaining({
+        kind: 'PRIMARY',
+        course: expect.objectContaining({ id: expect.any(String), slug: expect.any(String) }),
+        reason: expect.objectContaining({ schemaVersion: 1, criteria: expect.any(Array) }),
+        classOfferings: expect.any(Array),
+      }),
+    );
+    expect(await prisma.attemptEvaluation.count({ where: { attemptId: activeAttemptId } })).toBe(1);
+    expect(await prisma.courseRecommendation.count({ where: { attemptId: activeAttemptId } })).toBe(
+      first.body.recommendations.length,
+    );
+  });
+
+  it('concurrent historical result access converges to one snapshot', async () => {
+    const attemptNumber =
+      (await prisma.testAttempt.count({ where: { learnerId, testId: PLACEMENT_LR_FORM_IDS.ADVANCED } })) + 1;
+    const historical = await prisma.testAttempt.create({
+      data: {
+        learnerId,
+        testId: PLACEMENT_LR_FORM_IDS.ADVANCED,
+        attemptNumber,
+        status: TestAttemptStatus.SUBMITTED,
+        placementSelfLevel: PlacementSelfLevel.GOOD,
+        placementGoalScore: 750,
+        submittedAt: new Date(),
+        score: 6,
+        maxScore: 8,
+        skillScores: {
+          create: [
+            { skill: 'LISTENING', rawScore: 3, maxRawScore: 4, normalizedScore: 75, status: 'FINAL', source: 'OBJECTIVE_AUTO' },
+            { skill: 'READING', rawScore: 3, maxRawScore: 4, normalizedScore: 75, status: 'FINAL', source: 'OBJECTIVE_AUTO' },
+          ],
+        },
+      },
+    });
+    const [first, second] = await Promise.all([
+      learner.get(`/api/placement/attempts/${historical.id}/result`),
+      learner.get(`/api/placement/attempts/${historical.id}/result`),
+    ]);
+    expect([first.status, second.status]).toEqual([200, 200]);
+    expect(first.body.evaluation).toEqual(second.body.evaluation);
+    expect(first.body.recommendations).toEqual(second.body.recommendations);
+    expect(await prisma.attemptEvaluation.count({ where: { attemptId: historical.id } })).toBe(1);
+    await otherLearner.get(`/api/placement/attempts/${historical.id}/result`).expect(404);
+  });
+
+  it('keeps a valid objective result usable when evaluation input is invalid', async () => {
+    const attemptNumber =
+      (await prisma.testAttempt.count({ where: { learnerId, testId: PLACEMENT_LR_FORM_IDS.FOUNDATION } })) + 1;
+    const historical = await prisma.testAttempt.create({
+      data: {
+        learnerId,
+        testId: PLACEMENT_LR_FORM_IDS.FOUNDATION,
+        attemptNumber,
+        status: TestAttemptStatus.SUBMITTED,
+        placementSelfLevel: PlacementSelfLevel.BEGINNER,
+        placementGoalScore: 450,
+        submittedAt: new Date(),
+        score: 0,
+        maxScore: 0,
+        skillScores: {
+          create: [
+            { skill: 'LISTENING', rawScore: 0, maxRawScore: 0, normalizedScore: 0, status: 'FINAL', source: 'OBJECTIVE_AUTO' },
+            { skill: 'READING', rawScore: 0, maxRawScore: 0, normalizedScore: 0, status: 'FINAL', source: 'OBJECTIVE_AUTO' },
+          ],
+        },
+      },
+    });
+    const response = await learner.get(`/api/placement/attempts/${historical.id}/result`).expect(200);
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        attemptId: historical.id,
+        score: 0,
+        maxScore: 0,
+        enhancement: expect.objectContaining({ status: 'ERROR' }),
+        evaluation: null,
+        recommendations: [],
+      }),
+    );
   });
 
   it('returns only the current learner completed history', async () => {

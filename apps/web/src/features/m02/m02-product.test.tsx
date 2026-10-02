@@ -169,6 +169,15 @@ describe('M02 public product surface', () => {
     );
     expect(await screen.findByRole('heading', { name: /Lớp học của tôi/i })).toBeInTheDocument();
     expect(screen.getAllByText('Không gian học tập')).toHaveLength(2);
+    expect(screen.getByRole('link', { name: /Smart English\s*Không gian học tập/i })).toHaveAttribute(
+      'href',
+      '/',
+    );
+    expect(screen.getByRole('link', { name: 'Trang chủ' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Khóa học của tôi' })).toHaveAttribute(
+      'href',
+      '/student/enrollments',
+    );
     expect(screen.queryByRole('link', { name: /Tin tức & Sự kiện/i })).not.toBeInTheDocument();
     expect(view.container).not.toHaveTextContent(
       /milestone|M02|M03|M04|M05|ClassOffering|LessonProgress/i,

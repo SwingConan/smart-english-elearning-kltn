@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateClassOfferingDto } from './dto/create-class-offering.dto';
 import { UpdateClassOfferingDto } from './dto/update-class-offering.dto';
+import { computeRegistrationState } from './registration-state';
 
 interface OfferingRules {
   pricingType: PricingType;
@@ -103,21 +104,15 @@ export class ClassOfferingsService {
       throw new NotFoundException('Class offering not found');
     }
 
-    const registeredCount = offering._count.enrollments;
-    const remainingSeats =
-      offering.maxStudents === null ? null : Math.max(0, offering.maxStudents - registeredCount);
-    const isFull = remainingSeats === 0;
-    const now = new Date();
-    const registrationState =
-      offering.status !== ClassOfferingStatus.OPEN
-        ? 'CLOSED'
-        : offering.enrollmentStart && now < offering.enrollmentStart
-          ? 'UPCOMING'
-          : offering.enrollmentEnd && now > offering.enrollmentEnd
-            ? 'CLOSED'
-            : isFull
-              ? 'FULL'
-              : 'AVAILABLE';
+    const availability = computeRegistrationState({
+      status: offering.status,
+      courseIsPublished: true,
+      enrollmentStart: offering.enrollmentStart,
+      enrollmentEnd: offering.enrollmentEnd,
+      maxStudents: offering.maxStudents,
+      registeredCount: offering._count.enrollments,
+      now: new Date(),
+    });
 
     return {
       ...offering,
@@ -130,10 +125,10 @@ export class ClassOfferingsService {
           lessonCount: module._count.lessons,
         })),
       },
-      registeredCount,
-      remainingSeats,
-      isFull,
-      registrationState,
+      registeredCount: availability.registeredCount,
+      remainingSeats: availability.remainingSeats,
+      isFull: availability.isFull,
+      registrationState: availability.registrationState,
       _count: undefined,
     };
   }

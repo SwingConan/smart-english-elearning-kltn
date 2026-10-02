@@ -99,11 +99,25 @@ function harness() {
     testAttempt: { findMany: jest.fn() },
     test: { findMany: jest.fn() },
   };
+  const recommendationService = {
+    ensureAndProject: jest.fn().mockResolvedValue({
+      evaluation: {
+        evaluationPolicyId: 'evaluation-policy-1',
+        levelCode: 'FOUNDATION',
+        levelLabel: 'Nền tảng',
+        strongestSkill: ToeicSkill.LISTENING,
+        weakestSkill: ToeicSkill.READING,
+        summary: 'Kết quả đánh giá nội bộ.',
+      },
+      recommendations: [],
+    }),
+  };
   return {
-    service: new PlacementService(prisma as never),
+    service: new PlacementService(prisma as never, recommendationService as never),
     prisma,
     transaction,
     sideEffectCreate,
+    recommendationService,
   };
 }
 
@@ -167,8 +181,8 @@ describe('PlacementService', () => {
     expect(transaction.testAnswer.upsert).not.toHaveBeenCalled();
   });
 
-  it('scores by skill deterministically without BKT or M04 side effects', async () => {
-    const { service, transaction, sideEffectCreate } = harness();
+  it('scores by skill deterministically, keeps BKT isolated, then enriches the result', async () => {
+    const { service, transaction, sideEffectCreate, recommendationService } = harness();
     const inProgress = attempt({
       answers: [{ testQuestionId: TEST_QUESTION_ID, selectedOptionIds: [CORRECT_OPTION_ID] }],
     });
@@ -224,6 +238,32 @@ describe('PlacementService', () => {
     );
     expect(result).toEqual(expect.objectContaining({ score: 2, maxScore: 2 }));
     expect(sideEffectCreate).not.toHaveBeenCalled();
+    expect(recommendationService.ensureAndProject).toHaveBeenCalledWith(
+      ATTEMPT_ID,
+      'learner-1',
+    );
+    expect(result).toEqual(
+      expect.objectContaining({ enhancement: { status: 'READY', error: null } }),
+    );
+  });
+
+  it('preserves the submitted objective result when M04 enrichment is unavailable', async () => {
+    const { service, transaction, recommendationService } = harness();
+    transaction.testAttempt.findFirst.mockResolvedValue(
+      attempt({ status: TestAttemptStatus.SUBMITTED, submittedAt: new Date() }),
+    );
+    recommendationService.ensureAndProject.mockRejectedValue(new Error('configuration unavailable'));
+
+    const result = await service.getResult('learner-1', ATTEMPT_ID);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: TestAttemptStatus.SUBMITTED,
+        evaluation: null,
+        recommendations: [],
+        enhancement: expect.objectContaining({ status: 'ERROR' }),
+      }),
+    );
   });
 
   it('returns an already-submitted result without writing again', async () => {

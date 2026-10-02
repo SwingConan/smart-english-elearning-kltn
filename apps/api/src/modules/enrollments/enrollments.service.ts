@@ -11,6 +11,7 @@ import {
   Prisma,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { computeRegistrationState } from '../classes/registration-state';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
@@ -193,16 +194,23 @@ export class EnrollmentsService {
     },
     now: Date,
   ): void {
-    if (offering.status !== ClassOfferingStatus.OPEN || !offering.course.isPublished) {
-      throw new BadRequestException('Class offering is not available');
-    }
-
-    if (offering.enrollmentStart && now < offering.enrollmentStart) {
+    const { registrationState } = computeRegistrationState({
+      status: offering.status,
+      courseIsPublished: offering.course.isPublished,
+      enrollmentStart: offering.enrollmentStart,
+      enrollmentEnd: offering.enrollmentEnd,
+      maxStudents: null,
+      registeredCount: 0,
+      now,
+    });
+    if (registrationState === 'UPCOMING') {
       throw new BadRequestException('Enrollment has not opened yet');
     }
-
-    if (offering.enrollmentEnd && now > offering.enrollmentEnd) {
-      throw new BadRequestException('Enrollment has closed');
+    if (registrationState === 'CLOSED') {
+      if (offering.enrollmentEnd && now > offering.enrollmentEnd) {
+        throw new BadRequestException('Enrollment has closed');
+      }
+      throw new BadRequestException('Class offering is not available');
     }
   }
 

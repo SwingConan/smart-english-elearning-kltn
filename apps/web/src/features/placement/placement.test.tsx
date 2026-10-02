@@ -97,6 +97,7 @@ const result: PlacementResult = {
   mode: 'LR',
   goalScore: 550,
   selfLevel: 'UNKNOWN',
+  durationMinutes: 25,
   startedAt: '2026-10-01T00:00:00Z',
   submittedAt: '2026-10-01T00:20:00Z',
   score: 4,
@@ -106,6 +107,20 @@ const result: PlacementResult = {
     { skill: 'READING', rawScore: 3, maxRawScore: 4, normalizedScore: 75.25, estimatedToeicScore: null, status: 'FINAL', source: 'OBJECTIVE_AUTO' },
   ],
   disclaimer: 'Kết quả này là đánh giá nội bộ phục vụ xếp lớp, không phải điểm TOEIC chính thức.',
+  enhancement: { status: 'READY', error: null },
+  evaluation: {
+    status: 'FINAL', levelCode: 'FOUNDATION', levelLabel: 'Nền tảng',
+    overallNormalizedScore: 50, strongestSkill: 'READING', weakestSkill: 'LISTENING',
+    balanceState: 'IMBALANCED', summary: 'Reading đang nổi trội; nên ưu tiên củng cố Listening.',
+    lrTotalScore: null, aiExplanation: null, evaluationPolicyId: 'policy-1',
+  },
+  recommendations: [{
+    kind: 'PRIMARY',
+    course: { id: 'course-1', slug: 'toeic-foundation', title: 'TOEIC Foundation', description: 'Xây dựng nền tảng Listening và Reading.', level: 'FOUNDATION', skillScope: 'LR', thumbnailUrl: null },
+    reasonStatus: 'AVAILABLE',
+    reason: { schemaVersion: 1, evaluationPolicyCode: 'policy', evaluationLevel: 'FOUNDATION', profile: { ruleMode: 'ALL', priority: 100 }, criteria: [{ skill: 'LISTENING', value: 25, min: 0, max: 65, matched: true }] },
+    classOfferings: [],
+  }],
 };
 
 afterEach(() => {
@@ -279,7 +294,7 @@ describe('Placement exam and result', () => {
     expect(within(dialog).getByText(/1 câu chưa trả lời và 1 câu đánh dấu/)).toBeInTheDocument();
   });
 
-  it('renders only the objective result boundary without developer jargon', async () => {
+  it('renders the objective result, internal evaluation and deterministic recommendation', async () => {
     vi.spyOn(placementApi, 'result').mockResolvedValue(result);
     render(
       <MemoryRouter initialEntries={['/placement/attempts/attempt-1/result']}>
@@ -294,8 +309,66 @@ describe('Placement exam and result', () => {
     expect(document.body).not.toHaveTextContent('điểm thô');
     expect(document.body).not.toHaveTextContent('Điểm chuẩn hóa nội bộ');
     expect(screen.getByText(/không phải điểm TOEIC chính thức/)).toBeInTheDocument();
-    expect(screen.queryByText(/mạnh nhất|yếu nhất|khuyến nghị|đề xuất khóa học/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Nền tảng')).toBeInTheDocument();
+    expect(screen.getByText('Kỹ năng nổi trội')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'TOEIC Foundation' })).toBeInTheDocument();
+    expect(screen.getByText('Khóa học phù hợp chính')).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('Khóa học phù hợp nhất');
+    expect(screen.getByText('Nền tảng · Listening & Reading')).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('FOUNDATION · LR');
+    expect(screen.getByText('Vì sao khóa học này phù hợp?')).toBeInTheDocument();
+    expect(screen.getByText(/Listening 25%.*0–65%/)).toBeInTheDocument();
     expectNoDeveloperJargon();
+  });
+
+  it('renders equal Listening and Reading results with neutral learner-facing wording', async () => {
+    vi.spyOn(placementApi, 'result').mockResolvedValue({
+      ...result,
+      score: 0,
+      skillScores: result.skillScores.map((skillScore) => ({
+        ...skillScore,
+        rawScore: 0,
+        normalizedScore: 0,
+      })),
+      evaluation: {
+        ...result.evaluation!,
+        overallNormalizedScore: 0,
+        strongestSkill: null,
+        weakestSkill: null,
+        balanceState: 'BALANCED',
+        summary:
+          'Bạn đang xây dựng nền tảng Listening và Reading. Cả hai kỹ năng đều cần được củng cố từ nền tảng.',
+      },
+    });
+    render(
+      <MemoryRouter initialEntries={['/placement/attempts/attempt-1/result']}>
+        <Routes><Route path="/placement/attempts/:attemptId/result" element={<PlacementResultPage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText('Kết quả Listening và Reading hiện tương đương.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Cả hai kỹ năng đều cần được củng cố từ nền tảng/)).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('Listening và Reading đang cân bằng.');
+    expect(document.body).not.toHaveTextContent('ở trạng thái cân bằng');
+  });
+
+  it('keeps the objective result visible when enrichment fails and offers retry', async () => {
+    vi.spyOn(placementApi, 'result').mockResolvedValue({
+      ...result,
+      enhancement: { status: 'ERROR', error: { code: 'EVALUATION_POLICY_NOT_CONFIGURED', message: 'unavailable' } },
+      evaluation: null,
+      recommendations: [],
+    });
+    render(
+      <MemoryRouter initialEntries={['/placement/attempts/attempt-1/result']}>
+        <Routes><Route path="/placement/attempts/:attemptId/result" element={<PlacementResultPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('heading', { name: '1/4 câu đúng' })).toBeInTheDocument();
+    expect(screen.getByText(/phần đánh giá và gợi ý khóa học tạm thời chưa khả dụng/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Thử tải lại gợi ý/ })).toBeInTheDocument();
   });
 
   it('configures English speech playback at a natural rate', async () => {
