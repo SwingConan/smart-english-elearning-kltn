@@ -972,9 +972,26 @@ export class PlacementService {
   }
 
   private isRetryableConflict(error: unknown): boolean {
-    return (
+    if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       ['P2002', 'P2003', 'P2034'].includes(error.code)
+    ) {
+      return true;
+    }
+
+    if (!error || typeof error !== 'object' || !('name' in error) || !('cause' in error)) {
+      return false;
+    }
+
+    const adapterError = error as {
+      name?: unknown;
+      cause?: { kind?: unknown; originalCode?: unknown };
+    };
+    return (
+      adapterError.name === 'DriverAdapterError' &&
+      adapterError.cause?.kind === 'TransactionWriteConflict' &&
+      (adapterError.cause.originalCode === '40001' ||
+        adapterError.cause.originalCode === '40P01')
     );
   }
 }

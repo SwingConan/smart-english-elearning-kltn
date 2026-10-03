@@ -4,6 +4,7 @@ import { validate } from 'class-validator';
 import {
   PlacementMode,
   PlacementSelfLevel,
+  Prisma,
   QuestionResponseType,
   SkillScoreSource,
   SkillScoreStatus,
@@ -136,6 +137,17 @@ function harness() {
   };
 }
 
+function driverAdapterError(originalCode: string, kind = 'TransactionWriteConflict') {
+  return Object.assign(new Error('Driver adapter transaction failure'), {
+    name: 'DriverAdapterError',
+    cause: {
+      kind,
+      originalCode,
+      originalMessage: 'could not serialize access due to read/write dependencies among transactions',
+    },
+  });
+}
+
 describe('PlacementService', () => {
   it('resolves FOUR_SKILLS through the canonical form policy inside the transaction', async () => {
     const { service, prisma } = harness();
@@ -164,6 +176,78 @@ describe('PlacementService', () => {
 
     expect(await validate(invalid)).toHaveLength(3);
     expect(await validate(valid)).toHaveLength(0);
+  });
+
+  it('retries the existing Prisma P2034 conflict and returns the successful transaction result', async () => {
+    const { service, prisma, transaction } = harness();
+    const conflict = new Prisma.PrismaClientKnownRequestError('Transaction write conflict', {
+      code: 'P2034',
+      clientVersion: '7.10.0',
+    });
+    prisma.$transaction
+      .mockRejectedValueOnce(conflict)
+      .mockImplementationOnce(async (operation: (tx: unknown) => unknown) => operation(transaction));
+    transaction.testAttempt.findFirst.mockResolvedValue(attempt());
+
+    await expect(
+      service.startOrResume('learner-1', {
+        mode: PlacementMode.LR,
+        selfLevel: PlacementSelfLevel.UNKNOWN,
+        goalScore: 550,
+      }),
+    ).resolves.toEqual(expect.objectContaining({ attemptId: ATTEMPT_ID, resumed: true }));
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['40001', '40P01'])(
+    'retries a structured DriverAdapterError transaction conflict with PostgreSQL code %s',
+    async (originalCode) => {
+      const { service, prisma, transaction } = harness();
+      prisma.$transaction
+        .mockRejectedValueOnce(driverAdapterError(originalCode))
+        .mockImplementationOnce(async (operation: (tx: unknown) => unknown) => operation(transaction));
+      transaction.testAttempt.findFirst.mockResolvedValue(attempt());
+
+      await expect(
+        service.startOrResume('learner-1', {
+          mode: PlacementMode.LR,
+          selfLevel: PlacementSelfLevel.UNKNOWN,
+          goalScore: 550,
+        }),
+      ).resolves.toEqual(expect.objectContaining({ attemptId: ATTEMPT_ID, resumed: true }));
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('does not retry unrelated driver adapter failures', async () => {
+    const { service, prisma } = harness();
+    const databaseError = driverAdapterError('3D000', 'DatabaseDoesNotExist');
+    prisma.$transaction.mockRejectedValue(databaseError);
+
+    await expect(
+      service.startOrResume('learner-1', {
+        mode: PlacementMode.LR,
+        selfLevel: PlacementSelfLevel.UNKNOWN,
+        goalScore: 550,
+      }),
+    ).rejects.toBe(databaseError);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the controlled domain conflict after adapter transaction retries are exhausted', async () => {
+    const { service, prisma } = harness();
+    prisma.$transaction.mockRejectedValue(driverAdapterError('40001'));
+
+    await expect(
+      service.startOrResume('learner-1', {
+        mode: PlacementMode.LR,
+        selfLevel: PlacementSelfLevel.UNKNOWN,
+        goalScore: 550,
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'PLACEMENT_CONCURRENT_CHANGE' }),
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(3);
   });
 
   it('scopes exam lookup to the owner and strips correctness data', async () => {
