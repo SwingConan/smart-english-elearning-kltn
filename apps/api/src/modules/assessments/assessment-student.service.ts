@@ -3,22 +3,38 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  Optional,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   EnrollmentStatus,
   Prisma,
   QuestionResponseType,
+  SkillScoreSource,
+  SkillScoreStatus,
   TestAttemptStatus,
   TestPurpose,
   TestStatus,
+  ToeicSkill,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { computeBktUpdate } from '../knowledge-model/bkt';
 import { AnswerSelectionDto, SaveAttemptAnswersDto } from './dto/save-attempt-answers.dto';
 import { SubmitAttemptDto } from './dto/submit-attempt.dto';
+import {
+  AssessmentResponseStorage,
+} from '../placement/assessment-response.storage';
+import {
+  AssessmentStimulusMediaStorage,
+  AssessmentStimulusMediaUnavailableError,
+  InvalidAssessmentStimulusMediaKeyError,
+} from '../placement/assessment-stimulus-media.storage';
 
 const MAX_STUDENT_TRANSACTION_ATTEMPTS = 3;
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
+const ACCEPTED_AUDIO_TYPES = new Set(['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg']);
 
 const answerableTestQuestionSelect = {
   id: true,
@@ -28,6 +44,7 @@ const answerableTestQuestionSelect = {
     select: {
       id: true,
       responseType: true,
+      toeicSkill: true,
       difficulty: true,
       content: true,
       explanation: true,
@@ -62,6 +79,126 @@ type AnswerableTestQuestion = Prisma.TestQuestionGetPayload<{
   select: typeof answerableTestQuestionSelect;
 }>;
 
+const studentAttemptSelect = {
+  id: true,
+  learnerId: true,
+  enrollmentId: true,
+  classAssessmentId: true,
+  attemptNumber: true,
+  status: true,
+  score: true,
+  maxScore: true,
+  startedAt: true,
+  submittedAt: true,
+  classAssessment: {
+    select: {
+      id: true,
+      stage: true,
+      openAt: true,
+      closeAt: true,
+      isActive: true,
+      maxAttemptsOverride: true,
+      classOfferingId: true,
+    },
+  },
+  test: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      purpose: true,
+      showResultAfterSubmit: true,
+      timeLimitMinutes: true,
+      testQuestions: {
+        orderBy: { orderIndex: 'asc' as const },
+        select: answerableTestQuestionSelect,
+      },
+      questionGroups: {
+        orderBy: { orderIndex: 'asc' as const },
+        select: {
+          id: true,
+          skill: true,
+          orderIndex: true,
+          title: true,
+          instructions: true,
+          stimulusText: true,
+          taskCode: true,
+          preparationSeconds: true,
+          responseSeconds: true,
+          recommendedSeconds: true,
+          maxRecordingSeconds: true,
+          stimuli: {
+            where: { isProtected: false },
+            orderBy: { orderIndex: 'asc' as const },
+            select: {
+              id: true,
+              type: true,
+              orderIndex: true,
+              textContent: true,
+              storageKey: true,
+              mimeType: true,
+              altText: true,
+              isProtected: true,
+            },
+          },
+          testQuestions: {
+            orderBy: { orderIndex: 'asc' as const },
+            select: answerableTestQuestionSelect,
+          },
+        },
+      },
+    },
+  },
+  answers: {
+    select: {
+      id: true,
+      testQuestionId: true,
+      selectedOptionIds: true,
+      textResponse: true,
+      audioStorageKey: true,
+      isCorrect: true,
+      pointsAwarded: true,
+      updatedAt: true,
+      evaluations: {
+        where: { source: 'INSTRUCTOR' },
+        orderBy: { updatedAt: 'desc' as const },
+        take: 1,
+        select: {
+          status: true,
+          totalScore: true,
+          feedback: true,
+          criterionScores: {
+            orderBy: { rubricCriterion: { orderIndex: 'asc' as const } },
+            select: {
+              score: true,
+              feedback: true,
+              rubricCriterion: {
+                select: { id: true, name: true, maxScore: true, orderIndex: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  skillScores: {
+    orderBy: { skill: 'asc' as const },
+    select: {
+      skill: true,
+      rawScore: true,
+      maxRawScore: true,
+      normalizedScore: true,
+      estimatedToeicScore: true,
+      status: true,
+      source: true,
+    },
+  },
+} satisfies Prisma.TestAttemptSelect;
+
+type StudentAttemptRecord = Prisma.TestAttemptGetPayload<{
+  select: typeof studentAttemptSelect;
+}>;
+
 interface GradedBktObservation {
   testAnswerId: string;
   isCorrect: boolean;
@@ -76,86 +213,142 @@ interface GradedBktObservation {
 
 @Injectable()
 export class AssessmentStudentService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(AssessmentStudentService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly responseStorage?: AssessmentResponseStorage,
+    @Optional() private readonly stimulusMediaStorage?: AssessmentStimulusMediaStorage,
+  ) {}
 
   async listTests(learnerId: string, enrollmentId: string) {
     const enrollment = await this.requireActiveEnrollment(this.prisma, learnerId, enrollmentId);
 
-    const tests = await this.prisma.test.findMany({
-      where: {
-        courseId: enrollment.classOffering.courseId,
-        status: TestStatus.PUBLISHED,
-        purpose: { in: [TestPurpose.IN_CLASS, TestPurpose.PRACTICE_MOCK] },
-      },
-      select: {
-        id: true,
-        purpose: true,
-        title: true,
-        description: true,
-        lessonId: true,
-        maxAttempts: true,
-        timeLimitMinutes: true,
-        showResultAfterSubmit: true,
-        classAssessments: {
-          where: {
-            classOfferingId: enrollment.classOffering.id,
-            isActive: true,
+    const [assignments, practiceTests] = await Promise.all([
+      this.prisma.classAssessment.findMany({
+        where: {
+          classOfferingId: enrollment.classOffering.id,
+          isActive: true,
+          test: { status: TestStatus.PUBLISHED, purpose: TestPurpose.IN_CLASS },
+        },
+        orderBy: [{ openAt: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          stage: true,
+          openAt: true,
+          closeAt: true,
+          maxAttemptsOverride: true,
+          test: {
+            select: {
+              id: true,
+              purpose: true,
+              title: true,
+              description: true,
+              lessonId: true,
+              maxAttempts: true,
+              timeLimitMinutes: true,
+              showResultAfterSubmit: true,
+              questionGroups: { distinct: ['skill'], select: { skill: true } },
+              _count: { select: { testQuestions: true } },
+            },
           },
-          orderBy: { createdAt: 'asc' },
-          take: 1,
-          select: {
-            stage: true,
-            openAt: true,
-            closeAt: true,
-            maxAttemptsOverride: true,
+          attempts: {
+            where: { enrollmentId },
+            orderBy: { attemptNumber: 'asc' },
+            select: { id: true, attemptNumber: true, status: true, submittedAt: true },
           },
         },
-        _count: { select: { testQuestions: true } },
-        attempts: {
-          where: { enrollmentId },
-          orderBy: { attemptNumber: 'asc' },
-          select: {
-            id: true,
-            attemptNumber: true,
-            status: true,
+      }),
+      this.prisma.test.findMany({
+        where: {
+          courseId: enrollment.classOffering.courseId,
+          status: TestStatus.PUBLISHED,
+          purpose: TestPurpose.PRACTICE_MOCK,
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: {
+          id: true,
+          purpose: true,
+          title: true,
+          description: true,
+          lessonId: true,
+          maxAttempts: true,
+          timeLimitMinutes: true,
+          showResultAfterSubmit: true,
+          _count: { select: { testQuestions: true } },
+          attempts: {
+            where: { enrollmentId, classAssessmentId: null },
+            orderBy: { attemptNumber: 'asc' },
+            select: { id: true, attemptNumber: true, status: true, submittedAt: true },
           },
         },
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    });
+      }),
+    ]);
 
-    return tests.map((test) => {
-      const classAssessment = test.classAssessments[0];
-      const inProgress = test.attempts.find(
+    const inClass = assignments.map((assignment) => {
+      const test = assignment.test;
+      const inProgress = assignment.attempts.find(
         ({ status }) => status === TestAttemptStatus.IN_PROGRESS,
       );
-      const submitted = [...test.attempts]
+      const submitted = [...assignment.attempts]
         .reverse()
         .find(({ status }) => status === TestAttemptStatus.SUBMITTED);
 
       return {
+        classAssessmentId: assignment.id,
         id: test.id,
         purpose: test.purpose,
-        stage: classAssessment?.stage ?? null,
+        stage: assignment.stage,
         title: test.title,
         description: test.description,
         lessonId: test.lessonId,
-        maxAttempts: classAssessment?.maxAttemptsOverride ?? test.maxAttempts,
+        maxAttempts: assignment.maxAttemptsOverride ?? test.maxAttempts,
         timeLimitMinutes: test.timeLimitMinutes,
-        openAt: classAssessment?.openAt ?? null,
-        closeAt: classAssessment?.closeAt ?? null,
+        openAt: assignment.openAt,
+        closeAt: assignment.closeAt,
         showResultAfterSubmit: test.showResultAfterSubmit,
         questionCount: test._count.testQuestions,
+        skills: test.questionGroups.map(({ skill }) => skill),
+        attemptsUsed: assignment.attempts.length,
+        hasInProgressAttempt: Boolean(inProgress),
+        inProgressAttemptId: inProgress?.id ?? null,
+        latestSubmittedAttemptId: submitted?.id ?? null,
+        latestSubmittedAt: submitted?.submittedAt ?? null,
+      };
+    });
+
+    const practice = practiceTests.map((test) => {
+      const inProgress = test.attempts.find(({ status }) => status === TestAttemptStatus.IN_PROGRESS);
+      const submitted = [...test.attempts]
+        .reverse()
+        .find(({ status }) => status === TestAttemptStatus.SUBMITTED);
+      return {
+        classAssessmentId: null,
+        id: test.id,
+        purpose: test.purpose,
+        stage: null,
+        title: test.title,
+        description: test.description,
+        lessonId: test.lessonId,
+        maxAttempts: test.maxAttempts,
+        timeLimitMinutes: test.timeLimitMinutes,
+        openAt: null,
+        closeAt: null,
+        showResultAfterSubmit: test.showResultAfterSubmit,
+        questionCount: test._count.testQuestions,
+        skills: [],
         attemptsUsed: test.attempts.length,
         hasInProgressAttempt: Boolean(inProgress),
         inProgressAttemptId: inProgress?.id ?? null,
         latestSubmittedAttemptId: submitted?.id ?? null,
+        latestSubmittedAt: submitted?.submittedAt ?? null,
       };
     });
+    return [...inClass, ...practice];
   }
 
   async startOrResumeAttempt(learnerId: string, enrollmentId: string, testId: string) {
-    return this.runStudentTransaction(async (transaction) => {
+    const outcome = await this.runStudentTransaction(async (transaction) => {
       const enrollment = await this.requireActiveEnrollment(transaction, learnerId, enrollmentId);
       const test = await transaction.test.findFirst({
         where: {
@@ -165,7 +358,9 @@ export class AssessmentStudentService {
         },
         select: {
           id: true,
+          purpose: true,
           maxAttempts: true,
+          timeLimitMinutes: true,
           testQuestions: {
             select: {
               id: true,
@@ -186,73 +381,115 @@ export class AssessmentStudentService {
         throw new NotFoundException('Test not found');
       }
 
+      const classAssessment =
+        test.purpose === TestPurpose.IN_CLASS
+          ? await transaction.classAssessment.findFirst({
+              where: {
+                classOfferingId: enrollment.classOffering.id,
+                testId,
+                isActive: true,
+              },
+              select: {
+                id: true,
+                openAt: true,
+                closeAt: true,
+                maxAttemptsOverride: true,
+              },
+            })
+          : null;
+      if (test.purpose === TestPurpose.IN_CLASS && !classAssessment) {
+        throw new NotFoundException('Class assessment not found');
+      }
+      const now = new Date();
+      if (classAssessment?.openAt && now < classAssessment.openAt) {
+        throw new ConflictException({ code: 'ASSESSMENT_NOT_OPEN', message: 'BÃ i kiá»ƒm tra chÆ°a Ä‘áº¿n thá»i gian má»Ÿ.' });
+      }
+      if (classAssessment?.closeAt && now >= classAssessment.closeAt) {
+        throw new ConflictException({ code: 'ASSESSMENT_CLOSED', message: 'BÃ i kiá»ƒm tra Ä‘Ã£ Ä‘Ã³ng.' });
+      }
+
       const inProgress = await transaction.testAttempt.findFirst({
         where: {
           testId,
           learnerId,
           enrollmentId,
+          classAssessmentId: classAssessment?.id ?? null,
           status: TestAttemptStatus.IN_PROGRESS,
         },
         orderBy: { attemptNumber: 'desc' },
         select: this.attemptStartSelect(),
       });
       if (inProgress) {
-        return inProgress;
+        if (this.isDeadlineReached(inProgress.startedAt, test.timeLimitMinutes, classAssessment?.closeAt ?? null)) {
+          await this.finalizeAttempt(transaction, enrollmentId, inProgress.id);
+          return { state: 'EXPIRED' as const };
+        }
+        return { state: 'READY' as const, attempt: inProgress };
       }
 
       const attemptsUsed = await transaction.testAttempt.count({
-        where: { testId, enrollmentId },
+        where: {
+          testId,
+          enrollmentId,
+          classAssessmentId: classAssessment?.id ?? null,
+        },
       });
-      if (attemptsUsed >= test.maxAttempts) {
+      const maxAttempts = classAssessment?.maxAttemptsOverride ?? test.maxAttempts;
+      if (attemptsUsed >= maxAttempts) {
         throw new ConflictException('Maximum number of attempts has been reached');
       }
 
-      return transaction.testAttempt.create({
+      const attempt = await transaction.testAttempt.create({
         data: {
           testId,
           learnerId,
           enrollmentId,
+          classAssessmentId: classAssessment?.id ?? null,
           attemptNumber: attemptsUsed + 1,
           status: TestAttemptStatus.IN_PROGRESS,
         },
         select: this.attemptStartSelect(),
       });
+      return { state: 'READY' as const, attempt };
     }, 'Attempt start changed concurrently; please try again');
+    if (outcome.state === 'EXPIRED') {
+      throw new ConflictException({
+        code: 'ATTEMPT_EXPIRED',
+        message: 'Lượt làm đã hết hạn và được nộp tự động.',
+      });
+    }
+    return outcome.attempt;
   }
 
   async getAttempt(learnerId: string, enrollmentId: string, attemptId: string) {
-    const enrollment = await this.requireActiveEnrollment(this.prisma, learnerId, enrollmentId);
-    const attempt = await this.prisma.testAttempt.findFirst({
-      where: {
-        id: attemptId,
+    const attempt = await this.runStudentTransaction(async (transaction) => {
+      const enrollment = await this.requireActiveEnrollment(transaction, learnerId, enrollmentId);
+      let current = await this.findStudentAttempt(
+        transaction,
+        learnerId,
+        enrollment.classOffering.courseId,
         enrollmentId,
-        test: { courseId: enrollment.classOffering.courseId },
-      },
-      select: {
-        id: true,
-        attemptNumber: true,
-        status: true,
-        startedAt: true,
-        submittedAt: true,
-        test: {
-          select: {
-            id: true,
-            title: true,
-            purpose: true,
-            testQuestions: {
-              orderBy: { orderIndex: 'asc' },
-              select: answerableTestQuestionSelect,
-            },
-          },
-        },
-        answers: {
-          select: { testQuestionId: true, selectedOptionIds: true },
-        },
-      },
-    });
-    if (!attempt) {
-      throw new NotFoundException('Attempt not found');
-    }
+        attemptId,
+      );
+      if (
+        current.status === TestAttemptStatus.IN_PROGRESS &&
+        this.isDeadlineReached(
+          current.startedAt,
+          current.test.timeLimitMinutes,
+          current.classAssessment?.closeAt ?? null,
+        )
+      ) {
+        await this.finalizeAttempt(transaction, enrollmentId, attemptId);
+        current = await this.findStudentAttempt(
+          transaction,
+          learnerId,
+          enrollment.classOffering.courseId,
+          enrollmentId,
+          attemptId,
+        );
+      }
+      return current;
+    }, 'LÆ°á»£t lÃ m Ä‘ang Ä‘Æ°á»£c cáº­p nháº­t. Vui lÃ²ng thá»­ láº¡i.');
 
     const attemptMetadata = {
       id: attempt.id,
@@ -260,38 +497,80 @@ export class AssessmentStudentService {
       status: attempt.status,
       startedAt: attempt.startedAt,
       submittedAt: attempt.submittedAt,
+      expiresAt: this.effectiveDeadline(
+        attempt.startedAt,
+        attempt.test.timeLimitMinutes,
+        attempt.classAssessment?.closeAt ?? null,
+      ),
     };
     const testMetadata = {
       id: attempt.test.id,
       title: attempt.test.title,
+      description: attempt.test.description,
       type: attempt.test.purpose,
+      purpose: attempt.test.purpose,
+      stage: attempt.classAssessment?.stage ?? null,
+      timeLimitMinutes: attempt.test.timeLimitMinutes,
     };
 
     if (attempt.status === TestAttemptStatus.SUBMITTED) {
       return { attempt: attemptMetadata, test: testMetadata };
     }
 
-    const savedSelections = new Map(
-      attempt.answers.map((answer) => [answer.testQuestionId, answer.selectedOptionIds]),
-    );
+    const saved = new Map(attempt.answers.map((answer) => [answer.testQuestionId, answer]));
+    const projectQuestion = (testQuestion: AnswerableTestQuestion) => ({
+      testQuestionId: testQuestion.id,
+      orderIndex: testQuestion.orderIndex,
+      points: testQuestion.points,
+      question: {
+        id: testQuestion.question.id,
+        type: testQuestion.question.responseType,
+        responseType: testQuestion.question.responseType,
+        toeicSkill: testQuestion.question.toeicSkill,
+        difficulty: testQuestion.question.difficulty,
+        content: testQuestion.question.content,
+        options: testQuestion.question.options.map((option) => ({
+          id: option.id,
+          content: option.content,
+          orderIndex: option.orderIndex,
+        })),
+      },
+      selectedOptionIds: saved.get(testQuestion.id)?.selectedOptionIds ?? [],
+      textResponse: saved.get(testQuestion.id)?.textResponse ?? null,
+      audioUploaded: Boolean(saved.get(testQuestion.id)?.audioStorageKey),
+      audioUrl: saved.get(testQuestion.id)?.audioStorageKey
+        ? `/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/answers/${testQuestion.id}/audio`
+        : null,
+    });
     return {
       attempt: attemptMetadata,
       test: testMetadata,
-      questions: attempt.test.testQuestions.map((testQuestion) => ({
-        testQuestionId: testQuestion.id,
-        points: testQuestion.points,
-        question: {
-          id: testQuestion.question.id,
-          type: testQuestion.question.responseType,
-          difficulty: testQuestion.question.difficulty,
-          content: testQuestion.question.content,
-          options: testQuestion.question.options.map((option) => ({
-            id: option.id,
-            content: option.content,
-            orderIndex: option.orderIndex,
-          })),
-        },
-        selectedOptionIds: savedSelections.get(testQuestion.id) ?? [],
+      questions: attempt.test.testQuestions.map(projectQuestion),
+      groups: attempt.test.questionGroups.map((group) => ({
+        id: group.id,
+        skill: group.skill,
+        orderIndex: group.orderIndex,
+        title: group.title,
+        instructions: group.instructions,
+        taskCode: group.taskCode,
+        preparationSeconds: group.preparationSeconds,
+        responseSeconds: group.responseSeconds,
+        recommendedSeconds: group.recommendedSeconds,
+        maxRecordingSeconds: group.maxRecordingSeconds,
+        stimulusText: group.skill === ToeicSkill.READING ? group.stimulusText : null,
+        stimuli: group.stimuli.map((stimulus) => ({
+          id: stimulus.id,
+          type: stimulus.type,
+          orderIndex: stimulus.orderIndex,
+          textContent: stimulus.type === 'TEXT' ? stimulus.textContent : null,
+          mediaUrl:
+            stimulus.type === 'TEXT'
+              ? null
+              : `/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/stimuli/${stimulus.id}/media`,
+          mimeType: stimulus.mimeType,
+          altText: stimulus.altText,
+        })),
+        questions: group.testQuestions.map(projectQuestion),
       })),
     };
   }
@@ -302,10 +581,11 @@ export class AssessmentStudentService {
     attemptId: string,
     dto: SaveAttemptAnswersDto,
   ) {
-    return this.runStudentTransaction(async (transaction) => {
+    const outcome = await this.runStudentTransaction(async (transaction) => {
       const enrollment = await this.requireActiveEnrollment(transaction, learnerId, enrollmentId);
-      const attempt = await this.loadAnswerableAttempt(
+      const attempt = await this.findStudentAttempt(
         transaction,
+        learnerId,
         enrollment.classOffering.courseId,
         enrollmentId,
         attemptId,
@@ -313,36 +593,257 @@ export class AssessmentStudentService {
       if (attempt.status === TestAttemptStatus.SUBMITTED) {
         throw new ConflictException('Submitted attempts cannot be changed');
       }
+      if (
+        this.isDeadlineReached(
+          attempt.startedAt,
+          attempt.test.timeLimitMinutes,
+          attempt.classAssessment?.closeAt ?? null,
+        )
+      ) {
+        await this.finalizeAttempt(transaction, enrollmentId, attemptId);
+        return { state: 'EXPIRED' as const };
+      }
 
-      const selections = this.validateAnswerSelections(dto.answers, attempt.test.testQuestions);
-      for (const [testQuestionId, selectedOptionIds] of selections) {
-        await transaction.testAnswer.upsert({
+      const testQuestionMap = new Map(
+        attempt.test.testQuestions.map((testQuestion) => [testQuestion.id, testQuestion]),
+      );
+      const seen = new Set<string>();
+      const savedAnswers = [];
+      for (const answer of dto.answers) {
+        if (seen.has(answer.testQuestionId)) {
+          throw new BadRequestException('Each TestQuestion may appear only once in an answer batch');
+        }
+        seen.add(answer.testQuestionId);
+        const testQuestion = testQuestionMap.get(answer.testQuestionId);
+        if (!testQuestion) throw new BadRequestException('TestQuestion does not belong to this Test');
+        const responseType = testQuestion.question.responseType;
+        let selectedOptionIds: string[] = [];
+        let textResponse: string | null = null;
+        if (responseType === QuestionResponseType.TEXT_RESPONSE) {
+          if (answer.textResponse === undefined || answer.selectedOptionIds !== undefined) {
+            throw new BadRequestException('Writing answers require textResponse only');
+          }
+          textResponse = answer.textResponse;
+        } else if (responseType === QuestionResponseType.AUDIO_RESPONSE) {
+          throw new BadRequestException('Speaking answers must use the audio upload endpoint');
+        } else {
+          if (answer.selectedOptionIds === undefined || answer.textResponse !== undefined) {
+            throw new BadRequestException('Objective answers require selectedOptionIds only');
+          }
+          selectedOptionIds = this.validateSingleSelection(answer, testQuestion);
+        }
+        const saved = await transaction.testAnswer.upsert({
           where: {
-            attemptId_testQuestionId: { attemptId, testQuestionId },
+            attemptId_testQuestionId: { attemptId, testQuestionId: testQuestion.id },
           },
           update: {
             selectedOptionIds,
+            textResponse,
+            audioStorageKey: null,
+            isCorrect: null,
+            pointsAwarded: null,
+          },
+          create: {
+            attemptId,
+            testQuestionId: testQuestion.id,
+            selectedOptionIds,
+            textResponse,
+            isCorrect: null,
+            pointsAwarded: null,
+          },
+          select: { updatedAt: true },
+        });
+        savedAnswers.push({
+          testQuestionId: testQuestion.id,
+          selectedOptionIds,
+          textResponse,
+          savedAt: saved.updatedAt,
+        });
+      }
+
+      return { state: 'SAVED' as const, attemptId, answers: savedAnswers };
+    }, 'Answer save changed concurrently; please try again');
+    if (outcome.state === 'EXPIRED') {
+      throw new ConflictException({
+        code: 'ATTEMPT_EXPIRED',
+        message: 'Lượt làm đã hết hạn và được nộp tự động.',
+      });
+    }
+    return { attemptId: outcome.attemptId, answers: outcome.answers };
+  }
+
+  async uploadAudio(
+    learnerId: string,
+    enrollmentId: string,
+    attemptId: string,
+    testQuestionId: string,
+    file?: { buffer: Buffer; mimetype: string; size: number },
+  ) {
+    if (!file?.buffer?.length || file.size <= 0) {
+      throw new BadRequestException({ code: 'AUDIO_FILE_REQUIRED', message: 'Tá»‡p ghi Ã¢m Ä‘ang trá»‘ng.' });
+    }
+    if (!ACCEPTED_AUDIO_TYPES.has(file.mimetype) || file.size > MAX_AUDIO_BYTES) {
+      throw new BadRequestException({
+        code: 'AUDIO_FILE_INVALID',
+        message: 'Äá»‹nh dáº¡ng hoáº·c dung lÆ°á»£ng tá»‡p ghi Ã¢m khÃ´ng Ä‘Æ°á»£c há»— trá»£.',
+      });
+    }
+    if (!this.responseStorage) {
+      throw new ServiceUnavailableException('Assessment response storage is unavailable');
+    }
+    const stored = await this.responseStorage.put(
+      { learnerId, attemptId, testQuestionId },
+      file.buffer,
+      file.mimetype,
+    );
+    try {
+      const committed = await this.runStudentTransaction(async (transaction) => {
+        const enrollment = await this.requireActiveEnrollment(transaction, learnerId, enrollmentId);
+        const attempt = await this.findStudentAttempt(
+          transaction,
+          learnerId,
+          enrollment.classOffering.courseId,
+          enrollmentId,
+          attemptId,
+        );
+        if (attempt.status === TestAttemptStatus.SUBMITTED) {
+          return { state: 'REJECTED' as const, code: 'ATTEMPT_ALREADY_SUBMITTED' };
+        }
+        if (
+          this.isDeadlineReached(
+            attempt.startedAt,
+            attempt.test.timeLimitMinutes,
+            attempt.classAssessment?.closeAt ?? null,
+          )
+        ) {
+          await this.finalizeAttempt(transaction, enrollmentId, attemptId);
+          return { state: 'REJECTED' as const, code: 'ATTEMPT_EXPIRED' };
+        }
+        const testQuestion = attempt.test.testQuestions.find(({ id }) => id === testQuestionId);
+        if (
+          !testQuestion ||
+          testQuestion.question.responseType !== QuestionResponseType.AUDIO_RESPONSE
+        ) {
+          throw new BadRequestException('This question does not accept an audio response');
+        }
+        const previous = attempt.answers.find(
+          (answer) => answer.testQuestionId === testQuestionId,
+        )?.audioStorageKey;
+        const answer = await transaction.testAnswer.upsert({
+          where: { attemptId_testQuestionId: { attemptId, testQuestionId } },
+          update: {
+            selectedOptionIds: [],
+            textResponse: null,
+            audioStorageKey: stored.key,
             isCorrect: null,
             pointsAwarded: null,
           },
           create: {
             attemptId,
             testQuestionId,
-            selectedOptionIds,
-            isCorrect: null,
-            pointsAwarded: null,
+            selectedOptionIds: [],
+            audioStorageKey: stored.key,
           },
+          select: { updatedAt: true },
+        });
+        return { state: 'SAVED' as const, previous, savedAt: answer.updatedAt };
+      }, 'Báº£n ghi Ã¢m Ä‘ang Ä‘Æ°á»£c lÆ°u á»Ÿ phiÃªn khÃ¡c. Vui lÃ²ng thá»­ láº¡i.');
+      if (committed.state === 'REJECTED') {
+        await this.responseStorage.delete(stored.key).catch(() => undefined);
+        throw new ConflictException({
+          code: committed.code,
+          message: committed.code === 'ATTEMPT_EXPIRED'
+            ? 'LÆ°á»£t lÃ m Ä‘Ã£ háº¿t háº¡n vÃ  Ä‘Æ°á»£c ná»™p tá»± Ä‘á»™ng.'
+            : 'BÃ i kiá»ƒm tra Ä‘Ã£ Ä‘Æ°á»£c ná»™p.',
         });
       }
-
+      if (committed.previous && committed.previous !== stored.key) {
+        await this.responseStorage.delete(committed.previous).catch(() => undefined);
+      }
       return {
         attemptId,
-        answers: [...selections].map(([testQuestionId, selectedOptionIds]) => ({
-          testQuestionId,
-          selectedOptionIds,
-        })),
+        testQuestionId,
+        state: 'UPLOADED',
+        savedAt: committed.savedAt,
+        playbackUrl: `/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/answers/${testQuestionId}/audio`,
       };
-    }, 'Answer save changed concurrently; please try again');
+    } catch (error: unknown) {
+      await this.responseStorage.delete(stored.key).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async openAudioResponse(
+    learnerId: string,
+    enrollmentId: string,
+    attemptId: string,
+    testQuestionId: string,
+  ) {
+    if (!this.responseStorage) throw new NotFoundException('Audio response not found');
+    const enrollment = await this.requireActiveEnrollment(this.prisma, learnerId, enrollmentId);
+    const attempt = await this.findStudentAttempt(
+      this.prisma,
+      learnerId,
+      enrollment.classOffering.courseId,
+      enrollmentId,
+      attemptId,
+    );
+    const testQuestion = attempt.test.testQuestions.find(({ id }) => id === testQuestionId);
+    const answer = attempt.answers.find(({ testQuestionId: id }) => id === testQuestionId);
+    if (
+      !testQuestion ||
+      testQuestion.question.responseType !== QuestionResponseType.AUDIO_RESPONSE ||
+      !answer?.audioStorageKey
+    ) {
+      throw new NotFoundException('Audio response not found');
+    }
+    return {
+      stream: this.responseStorage.open(answer.audioStorageKey),
+      mimeType: this.audioMimeForKey(answer.audioStorageKey),
+    };
+  }
+
+  async openStimulusMedia(
+    learnerId: string,
+    enrollmentId: string,
+    attemptId: string,
+    stimulusId: string,
+  ) {
+    if (!this.stimulusMediaStorage) {
+      throw new ServiceUnavailableException('Assessment stimulus storage is unavailable');
+    }
+    const enrollment = await this.requireActiveEnrollment(this.prisma, learnerId, enrollmentId);
+    const attempt = await this.findStudentAttempt(
+      this.prisma,
+      learnerId,
+      enrollment.classOffering.courseId,
+      enrollmentId,
+      attemptId,
+    );
+    const stimulus = attempt.test.questionGroups
+      .flatMap(({ stimuli }) => stimuli)
+      .find(({ id }) => id === stimulusId && !id.startsWith('protected:'));
+    if (!stimulus?.storageKey || !stimulus.mimeType || stimulus.isProtected) {
+      throw new NotFoundException('Assessment stimulus not found');
+    }
+    try {
+      return {
+        body: await this.stimulusMediaStorage.read(stimulus.storageKey),
+        mimeType: stimulus.mimeType,
+      };
+    } catch (error: unknown) {
+      if (error instanceof InvalidAssessmentStimulusMediaKeyError) {
+        throw new NotFoundException('Assessment stimulus not found');
+      }
+      if (error instanceof AssessmentStimulusMediaUnavailableError) {
+        this.logger.error(error.message);
+        throw new ServiceUnavailableException({
+          code: 'STIMULUS_MEDIA_UNAVAILABLE',
+          message: 'Ná»™i dung Ä‘a phÆ°Æ¡ng tiá»‡n hiá»‡n khÃ´ng kháº£ dá»¥ng.',
+        });
+      }
+      throw error;
+    }
   }
 
   async submitAttempt(
@@ -353,154 +854,92 @@ export class AssessmentStudentService {
   ) {
     return this.runStudentTransaction(async (transaction) => {
       const enrollment = await this.requireActiveEnrollment(transaction, learnerId, enrollmentId);
-      const attempt = await transaction.testAttempt.findFirst({
-        where: {
-          id: attemptId,
-          enrollmentId,
-          test: { courseId: enrollment.classOffering.courseId },
-        },
-        select: {
-          id: true,
-          attemptNumber: true,
-          status: true,
-          score: true,
-          maxScore: true,
-          startedAt: true,
-          submittedAt: true,
-          test: {
-            select: {
-              id: true,
-              title: true,
-              purpose: true,
-              showResultAfterSubmit: true,
-              testQuestions: {
-                orderBy: { orderIndex: 'asc' },
-                select: answerableTestQuestionSelect,
-              },
-            },
-          },
-        },
-      });
-      if (!attempt) {
-        throw new NotFoundException('Attempt not found');
-      }
+      let attempt = await this.findStudentAttempt(
+        transaction,
+        learnerId,
+        enrollment.classOffering.courseId,
+        enrollmentId,
+        attemptId,
+      );
       if (attempt.status === TestAttemptStatus.SUBMITTED) {
         return this.buildSubmissionResponse(attempt);
       }
 
-      const selections = this.validateAnswerSelections(dto.answers, attempt.test.testQuestions);
-      let score = 0;
-      let maxScore = 0;
-      const bktObservations: GradedBktObservation[] = [];
-
-      for (const testQuestion of attempt.test.testQuestions) {
-        const selectedOptionIds = selections.get(testQuestion.id) ?? [];
-        const correctOptionIds = testQuestion.question.options
-          .filter(({ isCorrect }) => isCorrect)
-          .map(({ id }) => id.toLowerCase())
-          .sort();
-        const isCorrect = this.sameSet(selectedOptionIds, correctOptionIds);
-        const pointsAwarded = isCorrect ? testQuestion.points : 0;
-        score += pointsAwarded;
-        maxScore += testQuestion.points;
-
-        const testAnswer = await transaction.testAnswer.upsert({
-          where: {
-            attemptId_testQuestionId: {
-              attemptId,
-              testQuestionId: testQuestion.id,
-            },
-          },
-          update: { selectedOptionIds, isCorrect, pointsAwarded },
-          create: {
-            attemptId,
-            testQuestionId: testQuestion.id,
-            selectedOptionIds,
-            isCorrect,
-            pointsAwarded,
-          },
-          select: { id: true },
-        });
-        bktObservations.push({
-          testAnswerId: testAnswer.id,
-          isCorrect,
-          skills: testQuestion.question.skills.map(({ skill }) => skill),
-        });
+      if (dto.answers.length > 0) {
+        await this.saveSubmissionAnswers(transaction, attemptId, dto.answers, attempt.test.testQuestions);
+        attempt = await this.findStudentAttempt(
+          transaction,
+          learnerId,
+          enrollment.classOffering.courseId,
+          enrollmentId,
+          attemptId,
+        );
+      }
+      const expired = this.isDeadlineReached(
+        attempt.startedAt,
+        attempt.test.timeLimitMinutes,
+        attempt.classAssessment?.closeAt ?? null,
+      );
+      if (!expired && attempt.test.purpose === TestPurpose.IN_CLASS) {
+        const missingSpeaking = attempt.test.testQuestions.filter(
+          ({ id, question }) =>
+            question.responseType === QuestionResponseType.AUDIO_RESPONSE &&
+            !attempt.answers.some(
+              (answer) => answer.testQuestionId === id && Boolean(answer.audioStorageKey),
+            ),
+        );
+        const missingWriting = attempt.test.testQuestions.filter(
+          ({ id, question }) =>
+            question.responseType === QuestionResponseType.TEXT_RESPONSE &&
+            !attempt.answers.some(
+              (answer) => answer.testQuestionId === id && Boolean(answer.textResponse?.trim()),
+            ),
+        );
+        if (missingSpeaking.length || missingWriting.length) {
+          throw new ConflictException({
+            code: 'PRODUCTIVE_RESPONSES_INCOMPLETE',
+            message: 'Cáº§n lÆ°u Ä‘áº§y Ä‘á»§ cÃ¢u tráº£ lá»i Speaking vÃ  Writing trÆ°á»›c khi ná»™p bÃ i.',
+            speakingTestQuestionIds: missingSpeaking.map(({ id }) => id),
+            writingTestQuestionIds: missingWriting.map(({ id }) => id),
+          });
+        }
       }
 
-      await this.applyBktObservations(transaction, enrollmentId, attemptId, bktObservations);
-
-      const submitted = await transaction.testAttempt.update({
-        where: { id: attemptId },
-        data: {
-          status: TestAttemptStatus.SUBMITTED,
-          score,
-          maxScore,
-          submittedAt: new Date(),
-        },
-        select: {
-          id: true,
-          attemptNumber: true,
-          status: true,
-          score: true,
-          maxScore: true,
-          startedAt: true,
-          submittedAt: true,
-        },
-      });
-
-      return this.buildSubmissionResponse({
-        ...submitted,
-        test: {
-          id: attempt.test.id,
-          title: attempt.test.title,
-          purpose: attempt.test.purpose,
-          showResultAfterSubmit: attempt.test.showResultAfterSubmit,
-        },
-      });
+      const submitted = await this.finalizeAttempt(transaction, enrollmentId, attemptId);
+      return this.buildSubmissionResponse(submitted);
     }, 'Attempt submission changed concurrently; please try again');
   }
 
   async getResult(learnerId: string, enrollmentId: string, attemptId: string) {
-    const enrollment = await this.requireActiveEnrollment(this.prisma, learnerId, enrollmentId);
-    const attempt = await this.prisma.testAttempt.findFirst({
-      where: {
-        id: attemptId,
+    const attempt = await this.runStudentTransaction(async (transaction) => {
+      const enrollment = await this.requireActiveEnrollment(transaction, learnerId, enrollmentId);
+      let current = await this.findStudentAttempt(
+        transaction,
+        learnerId,
+        enrollment.classOffering.courseId,
         enrollmentId,
-        test: { courseId: enrollment.classOffering.courseId },
-      },
-      select: {
-        id: true,
-        attemptNumber: true,
-        status: true,
-        score: true,
-        maxScore: true,
-        startedAt: true,
-        submittedAt: true,
-        test: {
-          select: {
-            id: true,
-            title: true,
-            purpose: true,
-            showResultAfterSubmit: true,
-            testQuestions: {
-              orderBy: { orderIndex: 'asc' },
-              select: answerableTestQuestionSelect,
-            },
-          },
-        },
-        classAssessment: { select: { stage: true } },
-        answers: {
-          select: {
-            testQuestionId: true,
-            selectedOptionIds: true,
-            isCorrect: true,
-            pointsAwarded: true,
-          },
-        },
-      },
-    });
-    if (!attempt || attempt.status !== TestAttemptStatus.SUBMITTED) {
+        attemptId,
+      );
+      if (
+        current.status === TestAttemptStatus.IN_PROGRESS &&
+        this.isDeadlineReached(
+          current.startedAt,
+          current.test.timeLimitMinutes,
+          current.classAssessment?.closeAt ?? null,
+        )
+      ) {
+        await this.finalizeAttempt(transaction, enrollmentId, attemptId);
+        current = await this.findStudentAttempt(
+          transaction,
+          learnerId,
+          enrollment.classOffering.courseId,
+          enrollmentId,
+          attemptId,
+        );
+      }
+      return current;
+    }, 'Káº¿t quáº£ Ä‘ang Ä‘Æ°á»£c cáº­p nháº­t. Vui lÃ²ng thá»­ láº¡i.');
+    if (attempt.status !== TestAttemptStatus.SUBMITTED) {
       throw new NotFoundException('Result not found');
     }
     if (!attempt.test.showResultAfterSubmit) {
@@ -510,6 +949,59 @@ export class AssessmentStudentService {
     const answerMap = new Map(attempt.answers.map((answer) => [answer.testQuestionId, answer]));
     const score = attempt.score ?? 0;
     const maxScore = attempt.maxScore ?? 0;
+    const skills = [...new Set(attempt.test.testQuestions.map(({ question }) => question.toeicSkill))];
+    const skillResults = skills.map((skill) => {
+      const persisted = attempt.skillScores.find((item) => item.skill === skill);
+      const productive = skill === ToeicSkill.SPEAKING || skill === ToeicSkill.WRITING;
+      const skillQuestions = attempt.test.testQuestions.filter(
+        ({ question }) => question.toeicSkill === skill,
+      );
+      const hasResponse = skillQuestions.some(({ id }) => {
+        const answer = answerMap.get(id);
+        return Boolean(answer?.textResponse?.trim() || answer?.audioStorageKey || answer?.selectedOptionIds.length);
+      });
+      return persisted
+        ? {
+            skill,
+            status: persisted.status,
+            source: persisted.source,
+            rawScore: Number(persisted.rawScore ?? 0),
+            maxRawScore: Number(persisted.maxRawScore ?? 0),
+            normalizedScore: Number(persisted.normalizedScore),
+            state: 'FINAL',
+          }
+        : {
+            skill,
+            status: null,
+            source: null,
+            rawScore: null,
+            maxRawScore: skillQuestions.reduce((sum, question) => sum + question.points, 0),
+            normalizedScore: null,
+            state: productive && hasResponse ? 'PENDING_REVIEW' : 'MISSING_RESPONSE',
+          };
+    });
+    const allSkillsFinal = skillResults.length > 0 && skillResults.every(({ state }) => state === 'FINAL');
+    const totalAwarded = attempt.answers.reduce(
+      (sum, answer) => sum.plus(answer.pointsAwarded ?? 0),
+      new Prisma.Decimal(0),
+    );
+    const totalConfigured = attempt.test.testQuestions.reduce(
+      (sum, question) => sum.plus(question.points),
+      new Prisma.Decimal(0),
+    );
+    const total = allSkillsFinal
+      ? {
+          awardedPoints: Number(totalAwarded.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)),
+          maxPoints: Number(totalConfigured.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)),
+          percentage: Number(
+            totalAwarded
+              .div(totalConfigured)
+              .mul(100)
+              .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+          ),
+          label: 'Tá»•ng Ä‘iá»ƒm bÃ i kiá»ƒm tra',
+        }
+      : null;
 
     return {
       attempt: {
@@ -529,6 +1021,14 @@ export class AssessmentStudentService {
         purpose: attempt.test.purpose,
         stage: attempt.classAssessment?.stage ?? null,
       },
+      gradingState: allSkillsFinal ? 'REVIEWED_FINAL' : 'SUBMITTED_PENDING_REVIEW',
+      skills: skillResults,
+      total: attempt.test.purpose === TestPurpose.IN_CLASS ? total : {
+        awardedPoints: score,
+        maxPoints: maxScore,
+        percentage: this.percentage(score, maxScore),
+        label: 'Äiá»ƒm',
+      },
       questions: attempt.test.testQuestions.map((testQuestion) => {
         const answer = answerMap.get(testQuestion.id);
         const selectedOptionIds = answer?.selectedOptionIds ?? [];
@@ -543,6 +1043,7 @@ export class AssessmentStudentService {
             difficulty: testQuestion.question.difficulty,
             content: testQuestion.question.content,
             explanation: testQuestion.question.explanation,
+            toeicSkill: testQuestion.question.toeicSkill,
             options: testQuestion.question.options.map((option) => ({
               id: option.id,
               content: option.content,
@@ -553,8 +1054,30 @@ export class AssessmentStudentService {
           },
           answer: {
             selectedOptionIds,
-            isCorrect: answer?.isCorrect ?? false,
-            pointsAwarded: answer?.pointsAwarded ?? 0,
+            textResponse: answer?.textResponse ?? null,
+            audioUrl: answer?.audioStorageKey
+              ? `/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/answers/${testQuestion.id}/audio`
+              : null,
+            isCorrect: answer?.isCorrect ?? null,
+            pointsAwarded: answer?.pointsAwarded === null || answer?.pointsAwarded === undefined
+              ? null
+              : Number(answer.pointsAwarded),
+            evaluation: answer?.evaluations[0]
+              ? {
+                  status: answer.evaluations[0].status,
+                  totalScore: answer.evaluations[0].totalScore === null
+                    ? null
+                    : Number(answer.evaluations[0].totalScore),
+                  feedback: answer.evaluations[0].feedback,
+                  criteria: answer.evaluations[0].criterionScores.map((criterion) => ({
+                    id: criterion.rubricCriterion.id,
+                    name: criterion.rubricCriterion.name,
+                    score: Number(criterion.score),
+                    maxScore: Number(criterion.rubricCriterion.maxScore),
+                    feedback: criterion.feedback,
+                  })),
+                }
+              : null,
           },
         };
       }),
@@ -583,35 +1106,212 @@ export class AssessmentStudentService {
     return enrollment;
   }
 
-  private async loadAnswerableAttempt(
-    transaction: Prisma.TransactionClient,
+  private async findStudentAttempt(
+    database: PrismaService | Prisma.TransactionClient,
+    learnerId: string,
     courseId: string,
     enrollmentId: string,
     attemptId: string,
-  ) {
-    const attempt = await transaction.testAttempt.findFirst({
+  ): Promise<StudentAttemptRecord> {
+    const attempt = await database.testAttempt.findFirst({
       where: {
         id: attemptId,
+        learnerId,
         enrollmentId,
         test: { courseId },
       },
-      select: {
-        id: true,
-        status: true,
-        test: {
-          select: {
-            testQuestions: {
-              orderBy: { orderIndex: 'asc' },
-              select: answerableTestQuestionSelect,
-            },
-          },
-        },
-      },
+      select: studentAttemptSelect,
     });
     if (!attempt) {
       throw new NotFoundException('Attempt not found');
     }
     return attempt;
+  }
+
+  private async finalizeAttempt(
+    transaction: Prisma.TransactionClient,
+    enrollmentId: string,
+    attemptId: string,
+  ): Promise<StudentAttemptRecord> {
+    const attempt = await transaction.testAttempt.findFirst({
+      where: { id: attemptId, enrollmentId },
+      select: studentAttemptSelect,
+    });
+    if (!attempt) throw new NotFoundException('Attempt not found');
+    if (attempt.status === TestAttemptStatus.SUBMITTED) return attempt;
+
+    let objectiveScore = 0;
+    let objectiveMax = 0;
+    const bySkill = new Map<
+      ToeicSkill,
+      { raw: Prisma.Decimal; max: Prisma.Decimal }
+    >();
+    const bktObservations: GradedBktObservation[] = [];
+    const answerMap = new Map(attempt.answers.map((answer) => [answer.testQuestionId, answer]));
+
+    for (const testQuestion of attempt.test.testQuestions) {
+      const responseType = testQuestion.question.responseType;
+      if (
+        responseType === QuestionResponseType.TEXT_RESPONSE ||
+        responseType === QuestionResponseType.AUDIO_RESPONSE
+      ) {
+        continue;
+      }
+      const selectedOptionIds = [...(answerMap.get(testQuestion.id)?.selectedOptionIds ?? [])]
+        .map((id) => id.toLowerCase())
+        .sort();
+      const correctOptionIds = testQuestion.question.options
+        .filter(({ isCorrect }) => isCorrect)
+        .map(({ id }) => id.toLowerCase())
+        .sort();
+      const isCorrect = this.sameSet(selectedOptionIds, correctOptionIds);
+      const awarded = isCorrect ? testQuestion.points : 0;
+      objectiveScore += awarded;
+      objectiveMax += testQuestion.points;
+      const current = bySkill.get(testQuestion.question.toeicSkill) ?? {
+        raw: new Prisma.Decimal(0),
+        max: new Prisma.Decimal(0),
+      };
+      current.raw = current.raw.plus(awarded);
+      current.max = current.max.plus(testQuestion.points);
+      bySkill.set(testQuestion.question.toeicSkill, current);
+
+      const saved = await transaction.testAnswer.upsert({
+        where: { attemptId_testQuestionId: { attemptId, testQuestionId: testQuestion.id } },
+        update: { selectedOptionIds, isCorrect, pointsAwarded: new Prisma.Decimal(awarded) },
+        create: {
+          attemptId,
+          testQuestionId: testQuestion.id,
+          selectedOptionIds,
+          isCorrect,
+          pointsAwarded: new Prisma.Decimal(awarded),
+        },
+        select: { id: true },
+      });
+      bktObservations.push({
+        testAnswerId: saved.id,
+        isCorrect,
+        skills: testQuestion.question.skills.map(({ skill }) => skill),
+      });
+    }
+
+    for (const [skill, totals] of bySkill) {
+      const normalized = totals.max.equals(0)
+        ? new Prisma.Decimal(0)
+        : totals.raw
+            .div(totals.max)
+            .mul(100)
+            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+      await transaction.attemptSkillScore.upsert({
+        where: { attemptId_skill: { attemptId, skill } },
+        update: {
+          rawScore: totals.raw,
+          maxRawScore: totals.max,
+          normalizedScore: normalized,
+          estimatedToeicScore: null,
+          status: SkillScoreStatus.FINAL,
+          source: SkillScoreSource.OBJECTIVE_AUTO,
+        },
+        create: {
+          attemptId,
+          skill,
+          rawScore: totals.raw,
+          maxRawScore: totals.max,
+          normalizedScore: normalized,
+          estimatedToeicScore: null,
+          status: SkillScoreStatus.FINAL,
+          source: SkillScoreSource.OBJECTIVE_AUTO,
+        },
+      });
+    }
+
+    if (attempt.test.purpose === TestPurpose.PRACTICE_MOCK) {
+      await this.applyBktObservations(transaction, enrollmentId, attemptId, bktObservations);
+    }
+
+    await transaction.testAttempt.update({
+      where: { id: attemptId },
+      data: {
+        status: TestAttemptStatus.SUBMITTED,
+        score: objectiveScore,
+        maxScore: objectiveMax,
+        submittedAt: new Date(),
+      },
+    });
+    const submitted = await transaction.testAttempt.findFirst({
+      where: { id: attemptId, enrollmentId },
+      select: studentAttemptSelect,
+    });
+    if (!submitted) throw new NotFoundException('Attempt not found');
+    return submitted;
+  }
+
+  private async saveSubmissionAnswers(
+    transaction: Prisma.TransactionClient,
+    attemptId: string,
+    answers: AnswerSelectionDto[],
+    testQuestions: AnswerableTestQuestion[],
+  ) {
+    const questionMap = new Map(testQuestions.map((question) => [question.id, question]));
+    const seen = new Set<string>();
+    for (const answer of answers) {
+      if (seen.has(answer.testQuestionId)) {
+        throw new BadRequestException('Each TestQuestion may appear only once in an answer batch');
+      }
+      seen.add(answer.testQuestionId);
+      const testQuestion = questionMap.get(answer.testQuestionId);
+      if (!testQuestion) throw new BadRequestException('TestQuestion does not belong to this Test');
+      const responseType = testQuestion.question.responseType;
+      if (responseType === QuestionResponseType.AUDIO_RESPONSE) {
+        throw new BadRequestException('Speaking answers must use the audio upload endpoint');
+      }
+      const selectedOptionIds =
+        responseType === QuestionResponseType.TEXT_RESPONSE
+          ? []
+          : this.validateSingleSelection(answer, testQuestion);
+      const textResponse =
+        responseType === QuestionResponseType.TEXT_RESPONSE ? answer.textResponse : null;
+      if (
+        responseType === QuestionResponseType.TEXT_RESPONSE &&
+        (answer.textResponse === undefined || answer.selectedOptionIds !== undefined)
+      ) {
+        throw new BadRequestException('Writing answers require textResponse only');
+      }
+      await transaction.testAnswer.upsert({
+        where: { attemptId_testQuestionId: { attemptId, testQuestionId: testQuestion.id } },
+        update: { selectedOptionIds, textResponse, isCorrect: null, pointsAwarded: null },
+        create: { attemptId, testQuestionId: testQuestion.id, selectedOptionIds, textResponse },
+      });
+    }
+  }
+
+  private validateSingleSelection(
+    answer: AnswerSelectionDto,
+    testQuestion: AnswerableTestQuestion,
+  ): string[] {
+    if (answer.selectedOptionIds === undefined || answer.textResponse !== undefined) {
+      throw new BadRequestException('Objective answers require selectedOptionIds only');
+    }
+    const selectedOptionIds = answer.selectedOptionIds.map((id) => id.toLowerCase()).sort();
+    if (new Set(selectedOptionIds).size !== selectedOptionIds.length) {
+      throw new BadRequestException('selectedOptionIds must not contain duplicates');
+    }
+    if (
+      (testQuestion.question.responseType === QuestionResponseType.SINGLE_CHOICE ||
+        testQuestion.question.responseType === QuestionResponseType.TRUE_FALSE) &&
+      selectedOptionIds.length > 1
+    ) {
+      throw new BadRequestException(
+        `${testQuestion.question.responseType} accepts at most one selected option`,
+      );
+    }
+    const validOptionIds = new Set(
+      testQuestion.question.options.map(({ id }) => id.toLowerCase()),
+    );
+    if (!selectedOptionIds.every((id) => validOptionIds.has(id))) {
+      throw new BadRequestException('Every selected option must belong to the answered Question');
+    }
+    return selectedOptionIds;
   }
 
   private validateAnswerSelections(
@@ -633,7 +1333,7 @@ export class AssessmentStudentService {
         throw new BadRequestException('TestQuestion does not belong to this Test');
       }
 
-      const selectedOptionIds = answer.selectedOptionIds.map((id) => id.toLowerCase()).sort();
+      const selectedOptionIds = (answer.selectedOptionIds ?? []).map((id) => id.toLowerCase()).sort();
       if (new Set(selectedOptionIds).size !== selectedOptionIds.length) {
         throw new BadRequestException('selectedOptionIds must not contain duplicates');
       }
@@ -789,6 +1489,34 @@ export class AssessmentStudentService {
     return maxScore === 0 ? 0 : Math.round((score / maxScore) * 10_000) / 100;
   }
 
+  private effectiveDeadline(
+    startedAt: Date,
+    timeLimitMinutes: number | null,
+    closeAt: Date | null,
+  ): Date | null {
+    const timed = timeLimitMinutes
+      ? new Date(startedAt.getTime() + timeLimitMinutes * 60_000)
+      : null;
+    if (timed && closeAt) return timed < closeAt ? timed : closeAt;
+    return timed ?? closeAt;
+  }
+
+  private isDeadlineReached(
+    startedAt: Date,
+    timeLimitMinutes: number | null,
+    closeAt: Date | null,
+  ): boolean {
+    const deadline = this.effectiveDeadline(startedAt, timeLimitMinutes, closeAt);
+    return Boolean(deadline && Date.now() >= deadline.getTime());
+  }
+
+  private audioMimeForKey(key: string): string {
+    if (key.endsWith('.ogg')) return 'audio/ogg';
+    if (key.endsWith('.m4a') || key.endsWith('.mp4')) return 'audio/mp4';
+    if (key.endsWith('.mp3')) return 'audio/mpeg';
+    return 'audio/webm';
+  }
+
   private async runStudentTransaction<T>(
     operation: (transaction: Prisma.TransactionClient) => Promise<T>,
     conflictMessage: string,
@@ -812,9 +1540,23 @@ export class AssessmentStudentService {
   }
 
   private isRetryableConflict(error: unknown): boolean {
-    return (
+    if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       ['P2002', 'P2003', 'P2034'].includes(error.code)
+    ) {
+      return true;
+    }
+    if (!error || typeof error !== 'object' || !('name' in error) || !('cause' in error)) {
+      return false;
+    }
+    const adapterError = error as {
+      name?: unknown;
+      cause?: { kind?: unknown; originalCode?: unknown };
+    };
+    return (
+      adapterError.name === 'DriverAdapterError' &&
+      adapterError.cause?.kind === 'TransactionWriteConflict' &&
+      ['40001', '40P01'].includes(String(adapterError.cause.originalCode))
     );
   }
 }

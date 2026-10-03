@@ -130,7 +130,6 @@ describe('StudentTestAttemptPage', () => {
     const submit = vi
       .spyOn(studentAssessmentApi, 'submit')
       .mockReturnValueOnce(submitPending.promise);
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderAttempt();
     await screen.findByText('SC question');
     vi.useFakeTimers();
@@ -139,14 +138,14 @@ describe('StudentTestAttemptPage', () => {
     fireEvent.click(screen.getByLabelText('TF A'));
     fireEvent.click(screen.getByLabelText('MC A'));
     fireEvent.click(screen.getByRole('button', { name: /^Nộp bài$/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Đang nộp bài/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Xác nhận nộp/i }));
     expect(submit).toHaveBeenCalledOnce();
     const payload = submit.mock.calls[0][2];
     expect(payload).toEqual(expectedAnswers({ sc: ['sc-b'], tf: ['tf-a'], mc: ['mc-b'] }));
     expect(JSON.stringify(payload)).not.toMatch(
       /score|maxScore|isCorrect|pointsAwarded|percentage/i,
     );
-    expect(screen.getByRole('button', { name: /Đang nộp bài/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Đang nộp/i })).toBeDisabled();
     expect(screen.getAllByRole('radio')[0]).toBeDisabled();
     await act(async () => {
       vi.advanceTimersByTime(1000);
@@ -162,16 +161,14 @@ describe('StudentTestAttemptPage', () => {
   it('supports confirmation cancellation and unanswered submission without client grading', async () => {
     vi.spyOn(studentAssessmentApi, 'getAttempt').mockResolvedValue(attemptContent({ empty: true }));
     const submit = vi.spyOn(studentAssessmentApi, 'submit').mockResolvedValue(submission());
-    const confirm = vi
-      .spyOn(window, 'confirm')
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true);
     renderAttempt();
     await screen.findByText('SC question');
     fireEvent.click(screen.getByRole('button', { name: /^Nộp bài$/i }));
     expect(submit).not.toHaveBeenCalled();
-    expect(confirm.mock.calls[0][0]).toMatch(/3 câu chưa trả lời/i);
+    expect(screen.getByRole('dialog')).toHaveTextContent(/0\/3 câu/i);
+    fireEvent.click(screen.getByRole('button', { name: /Kiểm tra lại/i }));
     fireEvent.click(screen.getByRole('button', { name: /^Nộp bài$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Xác nhận nộp/i }));
     await waitFor(() =>
       expect(submit).toHaveBeenCalledWith(
         enrollmentId,
@@ -186,11 +183,11 @@ describe('StudentTestAttemptPage', () => {
     vi.spyOn(studentAssessmentApi, 'submit').mockRejectedValueOnce(
       new ApiError(500, { stack: 'raw submit stack' }),
     );
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderAttempt();
     await screen.findByText('SC question');
     fireEvent.click(screen.getByLabelText('SC B'));
     fireEvent.click(screen.getByRole('button', { name: /^Nộp bài$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Xác nhận nộp/i }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/Câu trả lời.*vẫn được giữ/i);
     expect(screen.queryByText(/raw submit stack/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText('SC B')).toBeChecked();
@@ -231,10 +228,10 @@ describe('StudentTestAttemptPage', () => {
         },
       });
     vi.spyOn(studentAssessmentApi, 'submit').mockRejectedValueOnce(new ApiError(409, null));
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderAttempt();
     await screen.findByText('SC question');
     fireEvent.click(screen.getByRole('button', { name: /^Nộp bài$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Xác nhận nộp/i }));
     expect(await screen.findByTestId('location')).toHaveTextContent(
       `/student/enrollments/${enrollmentId}/attempts/${attemptId}/result`,
     );

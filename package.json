@@ -27,7 +27,9 @@
     "prisma:drift-check": "npm run prisma:drift-check -w @smart-elearning/api",
     "prisma:migrate": "npm run prisma:migrate -w @smart-elearning/api",
     "prisma:migrate:deploy": "npm run prisma:migrate:deploy -w @smart-elearning/api",
+    "prisma:status": "npm run prisma:status -w @smart-elearning/api",
     "prisma:seed": "npm run prisma:seed -w @smart-elearning/api",
+    "seed": "npm run prisma:seed",
     "prisma:studio": "npm run prisma:studio -w @smart-elearning/api",
     "check:skeleton": "node scripts/check-skeleton.mjs",
     "check:m05-manifest": "node scripts/check-m05-manifest.mjs"

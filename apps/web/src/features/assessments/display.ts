@@ -7,7 +7,7 @@ import type {
   TestType,
 } from './types';
 
-export const questionTypeLabel: Record<QuestionType, string> = {
+export const questionTypeLabel: Partial<Record<QuestionType, string>> = {
   SINGLE_CHOICE: 'Một đáp án',
   TRUE_FALSE: 'Đúng / Sai',
   MULTIPLE_CHOICE: 'Nhiều đáp án',

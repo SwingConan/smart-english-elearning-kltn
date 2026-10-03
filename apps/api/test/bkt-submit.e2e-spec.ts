@@ -124,6 +124,7 @@ describe('BKT assessment submit integration (e2e)', () => {
 
       await prisma.masteryHistory.deleteMany({ where: { enrollmentId } });
       await prisma.learnerSkillState.deleteMany({ where: { enrollmentId } });
+      await prisma.attemptSkillScore.deleteMany({ where: { attemptId: { in: attemptIds } } });
       await prisma.testAnswer.deleteMany({ where: { attemptId: { in: attemptIds } } });
       await prisma.testAttempt.deleteMany({ where: { id: { in: attemptIds } } });
       await prisma.testQuestion.deleteMany({ where: { testId: { in: testIds } } });
@@ -459,8 +460,8 @@ describe('BKT assessment submit integration (e2e)', () => {
     const assessment = await prisma.test.create({
       data: {
         courseId,
-        purpose: TestPurpose.PLACEMENT,
-        placementMode: 'LR',
+        purpose: TestPurpose.PRACTICE_MOCK,
+        placementMode: null,
         title: `VS04 C2 Test ${crypto.randomUUID()}`,
         status: TestStatus.PUBLISHED,
         maxAttempts: 1,

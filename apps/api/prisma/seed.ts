@@ -24,6 +24,7 @@ import {
   UserStatus,
 } from '../src/generated/prisma/client';
 import { seedM05 } from './m05-seed';
+import { seedM06 } from './m06-seed';
 
 const FREE_OFFERING_ID = '10000000-0000-4000-8000-000000000001';
 const PAID_OFFERING_ID = '10000000-0000-4000-8000-000000000002';
@@ -2406,6 +2407,14 @@ async function main(): Promise<void> {
         create: mapping,
       });
     }
+
+    await seedM06(prisma, {
+      courseId: course.id,
+      classOfferingId: FREE_OFFERING_ID,
+      enrollmentId: DEMO_ENROLLMENT_ID,
+      learnerId: student.id,
+      instructorId: instructor.id,
+    });
 
     console.log(
       'Development seed completed with demo users, catalog, learning, assessment, and knowledge-model data.',

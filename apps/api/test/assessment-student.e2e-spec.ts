@@ -175,6 +175,9 @@ describe('Student assessment APIs (e2e)', () => {
         where: { testId: { in: testIds } },
         select: { id: true },
       });
+      await prisma.attemptSkillScore.deleteMany({
+        where: { attemptId: { in: attempts.map(({ id }) => id) } },
+      });
       await prisma.testAnswer.deleteMany({
         where: { attemptId: { in: attempts.map(({ id }) => id) } },
       });
@@ -545,7 +548,7 @@ describe('Student assessment APIs (e2e)', () => {
         expect(
           omitted.every(
             ({ selectedOptionIds, pointsAwarded }) =>
-              selectedOptionIds.length === 0 && pointsAwarded === 0,
+              selectedOptionIds.length === 0 && Number(pointsAwarded) === 0,
           ),
         ).toBe(true);
       }
@@ -764,7 +767,7 @@ describe('Student assessment APIs (e2e)', () => {
     const assessment = await prisma.test.create({
       data: {
         courseId,
-        purpose: TestPurpose.IN_CLASS,
+        purpose: TestPurpose.PRACTICE_MOCK,
         title: `${title} ${unique}`,
         status,
         maxAttempts,

@@ -19,6 +19,7 @@
     "prisma:drift-check": "prisma migrate diff --config prisma.config.ts --exit-code --from-migrations prisma/migrations --to-schema prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --config prisma.config.ts",
     "prisma:migrate:deploy": "prisma migrate deploy --config prisma.config.ts",
+    "prisma:status": "prisma migrate status --config prisma.config.ts",
     "prisma:seed": "prisma db seed --config prisma.config.ts",
     "prisma:studio": "prisma studio --config prisma.config.ts"
   },

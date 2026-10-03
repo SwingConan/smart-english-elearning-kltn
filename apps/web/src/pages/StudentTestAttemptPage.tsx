@@ -1,256 +1,143 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { studentAssessmentApi } from '@/features/assessments/api';
-import { difficultyLabel, testTypeLabel } from '@/features/assessments/display';
 import { studentAssessmentErrorMessage } from '@/features/assessments/errors';
-import type {
-  StudentAnswerSelection,
-  StudentAttemptContent,
-  StudentAttemptQuestion,
-} from '@/features/assessments/types';
+import type { StudentAnswerSelection, StudentAttemptContent, StudentAttemptQuestion, StudentAttemptStimulus, ToeicSkill } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { ApiError } from '@/lib/api-client';
 
-type AnswerState = Record<string, string[]>;
+type Draft = { selectedOptionIds: string[]; textResponse: string; audioUploaded: boolean };
+type Drafts = Record<string, Draft>;
 type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
+const skillLabels: Record<ToeicSkill, string> = { LISTENING: 'Listening', READING: 'Reading', SPEAKING: 'Speaking', WRITING: 'Writing' };
 
 export function StudentTestAttemptPage() {
   const { enrollmentId, attemptId } = useParams<{ enrollmentId: string; attemptId: string }>();
   const navigate = useNavigate();
   const redirectExpiredSession = useSessionExpiry();
   const [content, setContent] = useState<StudentAttemptContent | null>(null);
-  const [answers, setAnswers] = useState<AnswerState>({});
-  const answersRef = useRef<AnswerState>({});
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const saveGenerationRef = useRef(0);
-  const submitInFlight = useRef(false);
-  const activeRef = useRef(true);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Drafts>({});
+  const draftsRef = useRef<Drafts>({});
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveGeneration = useRef(0);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [confirming, setConfirming] = useState(false);
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    activeRef.current = true;
-    async function fetchAttempt() {
-      if (!enrollmentId || !attemptId) return;
-      try {
-        const data = await studentAssessmentApi.getAttempt(enrollmentId, attemptId, controller.signal);
-        if (data.attempt.status === 'SUBMITTED') {
-          navigate(`/student/enrollments/${enrollmentId}/attempts/${attemptId}/result`, { replace: true });
-          return;
-        }
-        if (!data.questions) {
-          setLoadError('Nội dung lượt làm chưa sẵn sàng.');
-          return;
-        }
-        const restored = Object.fromEntries(
-          data.questions.map((item) => [item.testQuestionId, [...item.selectedOptionIds]]),
-        );
-        answersRef.current = restored;
-        setAnswers(restored);
-        setContent(data);
-        setLoadError(null);
-        setSaveStatus('idle');
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        if (await redirectExpiredSession(error)) return;
-        setLoadError(studentAssessmentErrorMessage(error, 'Không thể tải lượt làm bài.'));
-      } finally {
-        setLoading(false);
+    if (!enrollmentId || !attemptId) return;
+    void studentAssessmentApi.getAttempt(enrollmentId, attemptId, controller.signal).then((data) => {
+      if (data.attempt.status === 'SUBMITTED') {
+        navigate(`/student/enrollments/${enrollmentId}/attempts/${attemptId}/result`, { replace: true });
+        return;
       }
-    }
-    void fetchAttempt();
-    return () => {
-      activeRef.current = false;
-      controller.abort();
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [attemptId, enrollmentId, navigate, redirectExpiredSession, reloadKey]);
+      const questions = data.groups?.flatMap((group) => group.questions) ?? data.questions ?? [];
+      const restored = Object.fromEntries(questions.map((item) => [item.testQuestionId, { selectedOptionIds: item.selectedOptionIds ?? [], textResponse: item.textResponse ?? '', audioUploaded: Boolean(item.audioUploaded) }]));
+      draftsRef.current = restored;
+      setDrafts(restored);
+      setContent(data);
+    }).catch(async (requestError) => {
+      if (requestError instanceof Error && requestError.name === 'AbortError') return;
+      if (await redirectExpiredSession(requestError)) return;
+      setError(studentAssessmentErrorMessage(requestError, 'Không thể tải lượt làm bài.'));
+    }).finally(() => setLoading(false));
+    return () => controller.abort();
+  }, [attemptId, enrollmentId, navigate, redirectExpiredSession]);
 
-  const queueAutosave = (nextAnswers: AnswerState) => {
-    if (!content?.questions || !enrollmentId || !attemptId || submitInFlight.current) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const generation = ++saveGenerationRef.current;
+  useEffect(() => {
+    if (!content?.attempt.expiresAt) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [content?.attempt.expiresAt]);
+
+  const questions = useMemo(() => content?.groups?.flatMap((group) => group.questions) ?? content?.questions ?? [], [content]);
+  const answered = questions.filter((question) => isAnswered(question, drafts[question.testQuestionId])).length;
+  const secondsLeft = content?.attempt.expiresAt ? Math.max(0, Math.ceil((new Date(content.attempt.expiresAt).getTime() - now) / 1000)) : null;
+
+  const persist = (next: Drafts) => {
+    if (!enrollmentId || !attemptId) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    const generation = ++saveGeneration.current;
     setSaveStatus('pending');
-    const payload = answerPayload(content.questions, nextAnswers);
-
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-      if (!activeRef.current || submitInFlight.current || generation !== saveGenerationRef.current) return;
+    saveTimer.current = setTimeout(() => {
       setSaveStatus('saving');
-      void studentAssessmentApi.saveAnswers(enrollmentId, attemptId, payload)
-        .then(() => {
-          if (activeRef.current && generation === saveGenerationRef.current) setSaveStatus('saved');
-        })
-        .catch(async (error: unknown) => {
-          if (!activeRef.current || generation !== saveGenerationRef.current) return;
-          if (await redirectExpiredSession(error)) return;
-          setSaveStatus('error');
-          setActionError(studentAssessmentErrorMessage(error, 'Không thể tự động lưu câu trả lời.'));
-        });
+      void studentAssessmentApi.saveAnswers(enrollmentId, attemptId, answerPayload(questions, next)).then(() => { if (generation === saveGeneration.current) setSaveStatus('saved'); }).catch(async (requestError: unknown) => {
+        if (generation !== saveGeneration.current) return;
+        if (await redirectExpiredSession(requestError)) return;
+        setSaveStatus('error');
+        setError(studentAssessmentErrorMessage(requestError, 'Không thể tự động lưu câu trả lời.'));
+      });
     }, 500);
   };
-
-  const updateSelection = (question: StudentAttemptQuestion, optionId: string, checked: boolean) => {
-    if (submitting) return;
-    const previous = answersRef.current[question.testQuestionId] ?? [];
-    const selected = question.question.type === 'MULTIPLE_CHOICE'
-      ? checked
-        ? [...new Set([...previous, optionId])]
-        : previous.filter((id) => id !== optionId)
-      : [optionId];
-    const next = { ...answersRef.current, [question.testQuestionId]: selected };
-    answersRef.current = next;
-    setAnswers(next);
-    setActionError(null);
-    queueAutosave(next);
+  const updateDraft = (id: string, update: Partial<Draft>) => {
+    const next = { ...draftsRef.current, [id]: { ...draftsRef.current[id], ...update } };
+    draftsRef.current = next; setDrafts(next); persist(next);
   };
-
-  const clearSelection = (question: StudentAttemptQuestion) => {
-    if (submitting) return;
-    const next = { ...answersRef.current, [question.testQuestionId]: [] };
-    answersRef.current = next;
-    setAnswers(next);
-    setActionError(null);
-    queueAutosave(next);
-  };
-
-  const submit = async () => {
-    if (!content?.questions || !enrollmentId || !attemptId || submitInFlight.current) return;
-    const unanswered = content.questions.filter(
-      (question) => (answersRef.current[question.testQuestionId] ?? []).length === 0,
-    ).length;
-    const message = unanswered > 0
-      ? `Bạn có chắc chắn muốn nộp bài? Bạn còn ${unanswered} câu chưa trả lời.`
-      : 'Bạn có chắc chắn muốn nộp bài?';
-    if (!window.confirm(message)) return;
-
-    submitInFlight.current = true;
-    setSubmitting(true);
-    setActionError(null);
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-    }
-    saveGenerationRef.current += 1;
-    const finalPayload = answerPayload(content.questions, answersRef.current);
-
+  const uploadAudio = async (questionId: string, blob: Blob) => {
+    if (!enrollmentId || !attemptId) return;
+    setSaveStatus('saving');
     try {
-      await studentAssessmentApi.submit(enrollmentId, attemptId, finalPayload);
-      navigate(`/student/enrollments/${enrollmentId}/attempts/${attemptId}/result`, { replace: true });
-    } catch (error) {
-      if (await redirectExpiredSession(error)) return;
-      if (error instanceof ApiError && error.status === 409) {
+      await studentAssessmentApi.uploadAudio(enrollmentId, attemptId, questionId, blob);
+      const next = { ...draftsRef.current, [questionId]: { ...draftsRef.current[questionId], audioUploaded: true } };
+      draftsRef.current = next; setDrafts(next); setSaveStatus('saved');
+    } catch (requestError) {
+      if (await redirectExpiredSession(requestError)) return;
+      setSaveStatus('error'); setError(studentAssessmentErrorMessage(requestError, 'Không thể tải bản ghi âm lên.'));
+    }
+  };
+  const submit = async () => {
+    if (!enrollmentId || !attemptId || submitting) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveGeneration.current += 1;
+    setSubmitting(true); setError(null);
+    try {
+      const result = await studentAssessmentApi.submit(enrollmentId, attemptId, answerPayload(questions, draftsRef.current));
+      navigate(`/student/enrollments/${enrollmentId}/attempts/${result.attempt.id}/result`, { replace: true });
+    } catch (requestError) {
+      if (await redirectExpiredSession(requestError)) return;
+      if (requestError instanceof ApiError && requestError.status === 409) {
         try {
-          const latest = await studentAssessmentApi.getAttempt(enrollmentId, attemptId);
-          if (latest.attempt.status === 'SUBMITTED') {
+          const current = await studentAssessmentApi.getAttempt(enrollmentId, attemptId);
+          if (current.attempt.status === 'SUBMITTED') {
             navigate(`/student/enrollments/${enrollmentId}/attempts/${attemptId}/result`, { replace: true });
             return;
           }
-        } catch (verificationError) {
-          if (await redirectExpiredSession(verificationError)) return;
-          // Preserve the original safe submission error below.
-        }
+        } catch { /* retain the safe submission error below */ }
       }
-      setActionError(studentAssessmentErrorMessage(error, 'Không thể nộp bài. Câu trả lời của bạn vẫn được giữ trên trang.'));
-    } finally {
-      submitInFlight.current = false;
-      if (activeRef.current) setSubmitting(false);
+      setError(studentAssessmentErrorMessage(requestError, 'Không thể nộp bài. Câu trả lời của bạn vẫn được giữ để thử lại.'));
+      setConfirming(false); setSubmitting(false);
     }
   };
 
-  if (loading) return <p className="py-10 text-center text-slate-500" role="status">Đang tải lượt làm bài...</p>;
-  if (loadError || !content?.questions) {
-    return (
-      <div className="mx-auto max-w-3xl rounded border border-red-200 bg-red-50 p-4 text-red-700" role="alert">
-        <p>{loadError ?? 'Không thể tải nội dung lượt làm.'}</p>
-        <div className="mt-3 flex gap-2">
-          <button className="rounded border px-3 py-1 text-sm" onClick={() => { setLoading(true); setLoadError(null); setReloadKey((current) => current + 1); }} type="button">Thử lại</button>
-          <Link className="rounded border px-3 py-1 text-sm" to={`/student/enrollments/${enrollmentId}/tests`}>Danh sách bài kiểm tra</Link>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="rounded-lg border bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <span className="rounded bg-indigo-100 px-2 py-1 text-xs text-indigo-800">{testTypeLabel[content.test.type]}</span>
-            <h1 className="mt-2 text-2xl font-bold">{content.test.title}</h1>
-            <p className="mt-1 text-sm text-slate-600">Lượt làm số {content.attempt.attemptNumber}</p>
-          </div>
-          <SaveIndicator status={saveStatus} />
-        </div>
-      </header>
-
-      {actionError && <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{actionError}</div>}
-
-      <fieldset className="space-y-5" disabled={submitting}>
-        {content.questions.map((item, index) => {
-          const selectedIds = answers[item.testQuestionId] ?? [];
-          const multiple = item.question.type === 'MULTIPLE_CHOICE';
-          return (
-            <article className="rounded-lg border bg-white p-5 shadow-sm" key={item.testQuestionId}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-500">Câu {index + 1} · {difficultyLabel[item.question.difficulty]}</p>
-                  <h2 className="mt-2 whitespace-pre-wrap text-lg font-medium">{item.question.content}</h2>
-                </div>
-                <span className="whitespace-nowrap text-sm text-slate-500">{item.points} điểm</span>
-              </div>
-              <div className="mt-4 space-y-2">
-                {item.question.options.map((option) => (
-                  <label className="flex cursor-pointer items-start gap-3 rounded border p-3 hover:bg-slate-50" key={option.id}>
-                    <input
-                      checked={selectedIds.includes(option.id)}
-                      className="mt-1"
-                      name={multiple ? undefined : item.testQuestionId}
-                      onChange={(event) => updateSelection(item, option.id, event.target.checked)}
-                      type={multiple ? 'checkbox' : 'radio'}
-                    />
-                    <span>{option.content}</span>
-                  </label>
-                ))}
-              </div>
-              {selectedIds.length > 0 && (
-                <button className="mt-3 text-sm text-slate-600 underline" onClick={() => clearSelection(item)} type="button">Xóa lựa chọn</button>
-              )}
-            </article>
-          );
-        })}
-      </fieldset>
-
-      <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white p-4 shadow-lg">
-        <Link className={`rounded border px-4 py-2 text-sm ${submitting ? 'pointer-events-none opacity-50' : ''}`} to={`/student/enrollments/${enrollmentId}/tests`}>Danh sách bài kiểm tra</Link>
-        <button className="rounded bg-blue-600 px-6 py-2.5 font-medium text-white disabled:opacity-50" disabled={submitting} onClick={() => void submit()} type="button">{submitting ? 'Đang nộp bài...' : 'Nộp bài'}</button>
-      </div>
-    </div>
-  );
+  if (loading) return <p className="py-12 text-center text-slate-500" role="status">Đang tải bài kiểm tra...</p>;
+  if (!content) return <ErrorPanel message={error ?? 'Không tìm thấy lượt làm bài.'} />;
+  return <div className="mx-auto max-w-6xl space-y-5 pb-24">
+    <header className="sticky top-0 z-20 rounded-xl border bg-white/95 p-4 shadow-sm backdrop-blur"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Bài kiểm tra trên lớp</p><h1 className="text-xl font-bold">{content.test.title}</h1></div><div className="flex gap-3 text-sm"><span>{answered}/{questions.length} đã trả lời</span><SaveIndicator status={saveStatus} />{secondsLeft !== null && <span className={secondsLeft < 300 ? 'font-bold text-red-700' : 'font-semibold'}>{formatTime(secondsLeft)}</span>}</div></div></header>
+    {error && <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</div>}
+    {(content.groups ?? []).map((group) => <section className="rounded-2xl border bg-slate-50 p-4 sm:p-6" key={group.id}><div className="mb-4"><span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-800">{skillLabels[group.skill]}</span><h2 className="mt-2 text-xl font-semibold">{group.title ?? skillLabels[group.skill]}</h2>{group.instructions && <p className="mt-1 text-sm text-slate-600">{group.instructions}</p>}</div><Stimuli stimuli={group.stimuli} stimulusText={group.stimulusText} /><div className="mt-5 space-y-4">{group.questions.map((question) => <QuestionCard key={question.testQuestionId} question={question} draft={drafts[question.testQuestionId]} disabled={submitting} onChange={(update) => updateDraft(question.testQuestionId, update)} onAudio={(blob) => void uploadAudio(question.testQuestionId, blob)} />)}</div></section>)}
+    {!content.groups?.length && <div className="space-y-4">{questions.map((question) => <QuestionCard key={question.testQuestionId} question={question} draft={drafts[question.testQuestionId]} disabled={submitting} onChange={(update) => updateDraft(question.testQuestionId, update)} onAudio={(blob) => void uploadAudio(question.testQuestionId, blob)} />)}</div>}
+    <footer className="fixed inset-x-0 bottom-0 z-20 border-t bg-white p-3 shadow-lg"><div className="mx-auto flex max-w-6xl items-center justify-between gap-3"><Link className="rounded border px-4 py-2 text-sm" to={`/student/enrollments/${enrollmentId}/tests`}>Danh sách bài kiểm tra</Link><button className="rounded bg-blue-600 px-6 py-2.5 font-semibold text-white disabled:opacity-50" disabled={submitting} onClick={() => setConfirming(true)} type="button">Nộp bài</button></div></footer>
+    {confirming && <div className="fixed inset-0 z-40 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><h2 className="text-xl font-bold">Xác nhận nộp bài</h2><p className="mt-2 text-sm text-slate-600">Bạn đã trả lời {answered}/{questions.length} câu. Sau khi nộp, câu trả lời không thể chỉnh sửa.</p><div className="mt-5 flex justify-end gap-2"><button className="rounded border px-4 py-2" disabled={submitting} onClick={() => setConfirming(false)}>Kiểm tra lại</button><button className="rounded bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-50" disabled={submitting} onClick={() => void submit()}>{submitting ? 'Đang nộp...' : 'Xác nhận nộp'}</button></div></div></div>}
+  </div>;
 }
 
-function answerPayload(
-  questions: StudentAttemptQuestion[],
-  answers: AnswerState,
-): StudentAnswerSelection[] {
-  return questions.map((question) => ({
-    testQuestionId: question.testQuestionId,
-    selectedOptionIds: [...(answers[question.testQuestionId] ?? [])],
-  }));
+function QuestionCard({ question, draft, disabled, onChange, onAudio }: { question: StudentAttemptQuestion; draft?: Draft; disabled: boolean; onChange: (value: Partial<Draft>) => void; onAudio: (blob: Blob) => void }) {
+  const type = question.question.responseType ?? question.question.type; const selected = draft?.selectedOptionIds ?? [];
+  return <article className="rounded-xl border bg-white p-5 shadow-sm"><div className="flex justify-between gap-3"><h3 className="whitespace-pre-wrap font-medium">{question.question.content}</h3><span className="whitespace-nowrap text-sm text-slate-500">{question.points} điểm</span></div>{['SINGLE_CHOICE', 'TRUE_FALSE', 'MULTIPLE_CHOICE'].includes(type) && <div className="mt-4 space-y-2">{question.question.options.map((option) => { const multiple = type === 'MULTIPLE_CHOICE'; return <label className="flex cursor-pointer gap-3 rounded-lg border p-3 hover:bg-slate-50" key={option.id}><input className="mt-1" disabled={disabled} type={multiple ? 'checkbox' : 'radio'} name={multiple ? undefined : question.testQuestionId} checked={selected.includes(option.id)} onChange={(event) => onChange({ selectedOptionIds: multiple ? (event.target.checked ? [...new Set([...selected, option.id])] : selected.filter((id) => id !== option.id)) : [option.id] })}/><span>{option.content}</span></label>; })}</div>}{type === 'TEXT_RESPONSE' && <textarea className="mt-4 min-h-40 w-full rounded-lg border p-3" disabled={disabled} maxLength={5000} placeholder="Nhập câu trả lời của bạn..." value={draft?.textResponse ?? ''} onChange={(event) => onChange({ textResponse: event.target.value })} />}{type === 'AUDIO_RESPONSE' && <AudioRecorder disabled={disabled} uploaded={Boolean(draft?.audioUploaded)} onAudio={onAudio} />}</article>;
 }
-
-function SaveIndicator({ status }: { status: SaveStatus }) {
-  const label: Record<SaveStatus, string> = {
-    idle: 'Chưa có thay đổi',
-    pending: 'Chờ tự động lưu...',
-    saving: 'Đang lưu...',
-    saved: 'Đã lưu',
-    error: 'Lưu chưa thành công',
-  };
-  return <span className={`text-sm ${status === 'error' ? 'text-red-700' : 'text-slate-500'}`}>{label[status]}</span>;
+function AudioRecorder({ disabled, uploaded, onAudio }: { disabled: boolean; uploaded: boolean; onAudio: (blob: Blob) => void }) {
+  const recorder = useRef<MediaRecorder | null>(null); const chunks = useRef<Blob[]>([]); const [recording, setRecording] = useState(false); const [error, setError] = useState<string | null>(null);
+  const start = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); const next = new MediaRecorder(stream); chunks.current = []; next.ondataavailable = (event) => { if (event.data.size) chunks.current.push(event.data); }; next.onstop = () => { onAudio(new Blob(chunks.current, { type: next.mimeType || 'audio/webm' })); stream.getTracks().forEach((track) => track.stop()); }; recorder.current = next; next.start(); setRecording(true); setError(null); } catch { setError('Trình duyệt chưa cấp quyền sử dụng micro.'); } };
+  const stop = () => { recorder.current?.stop(); setRecording(false); };
+  return <div className="mt-4 rounded-lg border border-dashed p-4"><p className="text-sm text-slate-600">Ghi âm câu trả lời bằng micro của thiết bị.</p><button className={`mt-3 rounded px-4 py-2 font-medium text-white ${recording ? 'bg-red-600' : 'bg-indigo-600'}`} disabled={disabled} onClick={() => recording ? stop() : void start()} type="button">{recording ? 'Dừng và tải lên' : uploaded ? 'Ghi âm lại' : 'Bắt đầu ghi âm'}</button>{uploaded && !recording && <p className="mt-2 text-sm font-medium text-emerald-700">Đã lưu bản ghi âm.</p>}{error && <p className="mt-2 text-sm text-red-700">{error}</p>}</div>;
 }
+function Stimuli({ stimuli, stimulusText }: { stimuli: StudentAttemptStimulus[]; stimulusText?: string | null }) { return <div className="space-y-3">{stimulusText && <div className="whitespace-pre-wrap rounded-xl border bg-white p-4 text-sm leading-7">{stimulusText}</div>}{stimuli.map((stimulus) => <div className="rounded-xl border bg-white p-3" key={stimulus.id}>{stimulus.type === 'TEXT' ? <p className="whitespace-pre-wrap">{stimulus.textContent}</p> : stimulus.type === 'IMAGE' ? <img className="mx-auto max-h-96 rounded object-contain" src={stimulus.mediaUrl ?? ''} alt={stimulus.altText ?? 'Nội dung câu hỏi'} /> : <audio className="w-full" controls preload="metadata" src={stimulus.mediaUrl ?? ''}>Trình duyệt không hỗ trợ phát âm thanh.</audio>}</div>)}</div>; }
+function answerPayload(questions: StudentAttemptQuestion[], drafts: Drafts): StudentAnswerSelection[] { return questions.reduce<StudentAnswerSelection[]>((payload, question) => { const draft = drafts[question.testQuestionId]; const type = question.question.responseType ?? question.question.type; if (type === 'AUDIO_RESPONSE') return payload; if (type === 'TEXT_RESPONSE') payload.push({ testQuestionId: question.testQuestionId, textResponse: draft?.textResponse ?? '' }); else payload.push({ testQuestionId: question.testQuestionId, selectedOptionIds: draft?.selectedOptionIds ?? [] }); return payload; }, []); }
+function isAnswered(question: StudentAttemptQuestion, draft?: Draft) { const type = question.question.responseType ?? question.question.type; return type === 'TEXT_RESPONSE' ? Boolean(draft?.textResponse.trim()) : type === 'AUDIO_RESPONSE' ? Boolean(draft?.audioUploaded) : Boolean(draft?.selectedOptionIds.length); }
+function formatTime(seconds: number) { return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`; }
+function SaveIndicator({ status }: { status: SaveStatus }) { const labels = { idle: 'Sẵn sàng', pending: 'Chờ tự động lưu...', saving: 'Đang lưu...', saved: 'Đã lưu', error: 'Lưu chưa thành công' }; return <span className={status === 'error' ? 'text-red-700' : 'text-slate-500'}>{labels[status]}</span>; }
+function ErrorPanel({ message }: { message: string }) { return <div className="mx-auto max-w-2xl rounded-xl border border-red-200 bg-red-50 p-6 text-red-700" role="alert">{message}</div>; }

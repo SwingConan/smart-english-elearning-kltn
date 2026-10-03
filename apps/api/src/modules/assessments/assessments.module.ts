@@ -4,13 +4,27 @@ import { AssessmentCompatibilityInterceptor } from './assessment-compatibility.i
 import { AssessmentInstructorService } from './assessment-instructor.service';
 import { AssessmentStudentController } from './assessment-student.controller';
 import { AssessmentStudentService } from './assessment-student.service';
+import { ClassAssessmentController } from './class-assessment.controller';
+import { ClassAssessmentService } from './class-assessment.service';
+import {
+  AssessmentResponseStorage,
+  LocalAssessmentResponseStorage,
+} from '../placement/assessment-response.storage';
+import { AssessmentStimulusMediaStorage } from '../placement/assessment-stimulus-media.storage';
 
 @Module({
-  controllers: [AssessmentInstructorController, AssessmentStudentController],
+  controllers: [
+    AssessmentInstructorController,
+    AssessmentStudentController,
+    ClassAssessmentController,
+  ],
   providers: [
     AssessmentCompatibilityInterceptor,
     AssessmentInstructorService,
     AssessmentStudentService,
+    ClassAssessmentService,
+    AssessmentStimulusMediaStorage,
+    { provide: AssessmentResponseStorage, useClass: LocalAssessmentResponseStorage },
   ],
 })
 export class AssessmentsModule {}

@@ -87,8 +87,14 @@ export function InstructorTeachingPage() {
                     <h3 className="text-sm font-semibold text-gray-900 mb-2">Lớp đang dạy:</h3>
                     <ul className="space-y-2">
                       {classOfferings.map((offering) => (
-                        <li key={offering.id} className="text-sm flex items-center gap-2">
+                        <li key={offering.id} className="text-sm flex items-center justify-between gap-2">
                           <span className="text-gray-700">{offering.name}</span>
+                          <Link
+                            className="font-medium text-indigo-700 hover:underline"
+                            to={`/instructor/classes/${offering.id}/assessments`}
+                          >
+                            Bài kiểm tra
+                          </Link>
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                             {offering.status}
                           </span>

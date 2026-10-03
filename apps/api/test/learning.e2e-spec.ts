@@ -241,8 +241,8 @@ describe('Student learning APIs (e2e)', () => {
     const hiddenResultTest = await prisma.test.create({
       data: {
         courseId,
-        purpose: TestPurpose.PLACEMENT,
-        placementMode: 'LR',
+        purpose: TestPurpose.PRACTICE_MOCK,
+        placementMode: null,
         title: 'Hidden result mastery test',
         status: TestStatus.PUBLISHED,
         maxAttempts: 2,
@@ -294,6 +294,7 @@ describe('Student learning APIs (e2e)', () => {
       await prisma.learnerSkillState.deleteMany({
         where: { enrollment: { classOffering: { courseId: { in: courseIds } } } },
       });
+      await prisma.attemptSkillScore.deleteMany({ where: { attemptId: { in: attemptIds } } });
       await prisma.testAnswer.deleteMany({ where: { attemptId: { in: attemptIds } } });
       await prisma.testAttempt.deleteMany({ where: { id: { in: attemptIds } } });
       await prisma.testQuestion.deleteMany({ where: { testId: { in: testIds } } });
