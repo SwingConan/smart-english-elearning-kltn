@@ -192,3 +192,26 @@ Manual Visual Gate remains pending retest; this section records corrective imple
 - `git diff --check`: PASS.
 
 No schema/migration, scoring/recommendation, AI grading, instructor grading, or M06/M07/M08 change was introduced. Manual FOUR_SKILLS submission still requires committed audio for every Speaking task and preserves `AUDIO_UPLOAD_INCOMPLETE`.
+
+## CI concurrency stabilization
+
+- PR: #12.
+- Previous HEAD: `1af21eeac0fd0a2e7946b1913b24eee52bfc2977`.
+- Classifier fix commit: `564c9ae47c1753f2f416109ab2feffa50f37321d`.
+- GitHub Actions CI #29 failed on run attempts 1 and 2 in `concurrent double start converges to one active LR attempt`: one request returned HTTP 500 instead of 201.
+- Exact diagnosis: the PostgreSQL driver adapter surfaced a serialization failure as `DriverAdapterError` with `cause.kind = 'TransactionWriteConflict'`, `cause.originalCode = '40001'`, and `cause.originalMessage = 'could not serialize access due to read/write dependencies among transactions'`. The existing classifier only accepted `PrismaClientKnownRequestError` codes `P2002`, `P2003`, and `P2034`, so this structured adapter error bypassed the existing bounded retry loop.
+- Fix: retain the existing known Prisma-code handling and additionally classify only `DriverAdapterError` values whose structured cause is `TransactionWriteConflict` with PostgreSQL code `40001` (serialization failure) or `40P01` (deadlock). Arbitrary adapter/database errors remain non-retryable. Serializable isolation, the three-attempt bound, uniqueness protections, and the controlled `409 PLACEMENT_CONCURRENT_CHANGE` exhaustion response are unchanged. No backoff was added because repeated local concurrency runs passed with classification as the primary defect.
+- Focused unit regression: PASS, 18/18. This includes P2034 conflict-then-success, adapter `40001` conflict-then-success, adapter `40P01`, non-retryable adapter failure, and adapter retry exhaustion returning the controlled domain conflict.
+- Focused Placement E2E before editing: PASS, 13/13. Local PostgreSQL did not reproduce the adapter escape in that run.
+- Repeated Placement E2E after the fix: PASS, 10/10 consecutive complete spec runs (130/130 assertions across the runs). Every run retained the LR and FOUR_SKILLS concurrent-start tests and their same-attempt/exactly-one-active-attempt semantics.
+- `npm run check:m05-manifest`: PASS — 8 Listening, 8 Reading, 3 Speaking, 2 Writing, 5 rubrics, 8 assets; malformed fixture rejected.
+- `npm run prisma:validate`: PASS.
+- `npm run prisma:drift-check`: PASS — no difference detected.
+- `npm run lint`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run test`: PASS — API 327/327 and Web 197/197.
+- `npm run test:e2e -w @smart-elearning/api`: PASS — 83/83.
+- `npm run build`: PASS — API and Web; the existing Web chunk-size warning remains (547.17 kB minified, 152.91 kB gzip).
+- `git diff --check`: PASS.
+
+This correction changes no schema, migration, seed data, UI, scoring/recommendation behavior, Visual Gate behavior, or M06/M07/M08 scope. A fresh GitHub Actions run on PR #12 is required; this report does not claim remote CI green before that run completes.
