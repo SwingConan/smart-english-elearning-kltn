@@ -384,7 +384,10 @@ function WritingAnswer({ attemptId, testQuestionId, initialValue, onSaved, onSav
   const [state, setState] = useState<SaveState>(initialValue.trim() ? 'saved' : 'idle');
   const revision = useRef(0);
   const mounted = useRef(true);
-  useEffect(() => () => { mounted.current = false; }, []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   useEffect(() => {
     if (revision.current === 0) return;
     const savingRevision = revision.current;
@@ -425,21 +428,24 @@ function SpeakingAnswer({ attemptId, testQuestionId, initialAudioUrl, maxSeconds
   const chunks = useRef<Blob[]>([]);
   const mounted = useRef(true);
   useEffect(() => () => { if (localUrl) URL.revokeObjectURL(localUrl); }, [localUrl]);
-  useEffect(() => () => {
-    mounted.current = false;
-    const activeRecorder = recorder.current;
-    if (activeRecorder) {
-      activeRecorder.ondataavailable = null;
-      activeRecorder.onstop = null;
-      activeRecorder.onerror = null;
-      if (activeRecorder.state !== 'inactive') activeRecorder.stop();
-    }
-    stream.current?.getTracks().forEach((track) => track.stop());
-    recorder.current = null;
-    stream.current = null;
-    chunks.current = [];
-    onUploading(testQuestionId, false);
-    onSaveState(testQuestionId, null);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      const activeRecorder = recorder.current;
+      if (activeRecorder) {
+        activeRecorder.ondataavailable = null;
+        activeRecorder.onstop = null;
+        activeRecorder.onerror = null;
+        if (activeRecorder.state !== 'inactive') activeRecorder.stop();
+      }
+      stream.current?.getTracks().forEach((track) => track.stop());
+      recorder.current = null;
+      stream.current = null;
+      chunks.current = [];
+      onUploading(testQuestionId, false);
+      onSaveState(testQuestionId, null);
+    };
   }, [onSaveState, onUploading, testQuestionId]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {

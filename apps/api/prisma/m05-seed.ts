@@ -14,6 +14,21 @@ import {
 
 export const M05_FOUR_SKILLS_TEST_ID = '80000000-0000-4000-8000-000000000021';
 
+const learnerFacingTaskTitles: Record<string, string> = {
+  L1_PHOTOGRAPH: 'Part 1 — Mô tả hình ảnh',
+  L2_QUESTION_RESPONSE: 'Part 2 — Hỏi và đáp',
+  L3_CONVERSATION: 'Part 3 — Hội thoại',
+  L4_TALK: 'Part 4 — Bài nói ngắn',
+  R5_INCOMPLETE_SENTENCE: 'Part 5 — Hoàn thành câu',
+  R6_TEXT_COMPLETION: 'Part 6 — Hoàn thành đoạn văn',
+  R7_READING_COMPREHENSION: 'Part 7 — Đọc hiểu',
+  S_READ_ALOUD: 'Speaking — Đọc thành tiếng',
+  S_DESCRIBE_PICTURE: 'Speaking — Mô tả hình ảnh',
+  S_OPINION: 'Speaking — Trình bày ý kiến',
+  W_WRITTEN_REQUEST: 'Writing — Phản hồi yêu cầu',
+  W_OPINION: 'Writing — Trình bày quan điểm',
+};
+
 interface StimulusSeed {
   type: keyof typeof AssessmentStimulusType;
   orderIndex: number;
@@ -137,13 +152,15 @@ export async function seedM05(prisma: PrismaClient, courseId: string): Promise<v
   for (const [groupOrder, group] of groups.entries()) {
     const groupId = stableUuid(`group:${group.contentKey}`);
     const learnerInstructions = group.instructions ?? group.instructionsVi;
+    const learnerFacingTitle = learnerFacingTaskTitles[group.taskCode];
+    if (!learnerFacingTitle) throw new Error(`Missing learner-facing title for ${group.taskCode}`);
     await prisma.testQuestionGroup.upsert({
       where: { id: groupId },
       update: {
         testId: M05_FOUR_SKILLS_TEST_ID,
         skill: group.skill,
         orderIndex: groupOrder,
-        title: group.taskCode,
+        title: learnerFacingTitle,
         instructions: learnerInstructions,
         taskCode: group.taskCode,
         preparationSeconds: group.preparationSeconds,
@@ -156,7 +173,7 @@ export async function seedM05(prisma: PrismaClient, courseId: string): Promise<v
         testId: M05_FOUR_SKILLS_TEST_ID,
         skill: group.skill,
         orderIndex: groupOrder,
-        title: group.taskCode,
+        title: learnerFacingTitle,
         instructions: learnerInstructions,
         taskCode: group.taskCode,
         preparationSeconds: group.preparationSeconds,

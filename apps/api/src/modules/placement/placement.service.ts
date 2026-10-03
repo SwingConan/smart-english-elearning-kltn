@@ -4,9 +4,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
-import { createReadStream } from 'node:fs';
-import { resolve, sep } from 'node:path';
 import {
   PlacementMode,
   PlacementSelfLevel,
@@ -33,6 +32,11 @@ import {
   selectPlacementFormId,
 } from './placement-form.policy';
 import { AssessmentResponseStorage } from './assessment-response.storage';
+import {
+  AssessmentStimulusMediaStorage,
+  AssessmentStimulusMediaUnavailableError,
+  InvalidAssessmentStimulusMediaKeyError,
+} from './assessment-stimulus-media.storage';
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
@@ -100,6 +104,7 @@ export class PlacementService {
     private readonly prisma: PrismaService,
     private readonly recommendationService: RecommendationService,
     private readonly responseStorage: AssessmentResponseStorage,
+    private readonly stimulusMediaStorage: AssessmentStimulusMediaStorage,
   ) {}
 
   async getConfig() {
@@ -476,12 +481,24 @@ export class PlacementService {
     if (!stimulus?.storageKey || !stimulus.mimeType) {
       throw new NotFoundException({ code: 'STIMULUS_NOT_FOUND', message: 'Không tìm thấy nội dung.' });
     }
-    const root = resolve(__dirname, '../../../assets/assessment/m05');
-    const path = resolve(root, ...stimulus.storageKey.split('/'));
-    if (path !== root && !path.startsWith(`${root}${sep}`)) {
+    try {
+      return {
+        body: await this.stimulusMediaStorage.read(stimulus.storageKey),
+        mimeType: stimulus.mimeType,
+      };
+    } catch (error: unknown) {
+      if (error instanceof InvalidAssessmentStimulusMediaKeyError) {
+        throw new NotFoundException({ code: 'STIMULUS_NOT_FOUND', message: 'Không tìm thấy nội dung.' });
+      }
+      if (error instanceof AssessmentStimulusMediaUnavailableError) {
+        this.logger.error(error.message);
+        throw new ServiceUnavailableException({
+          code: 'STIMULUS_MEDIA_UNAVAILABLE',
+          message: 'Nội dung đa phương tiện hiện không khả dụng. Vui lòng thử lại sau.',
+        });
+      }
       throw new NotFoundException({ code: 'STIMULUS_NOT_FOUND', message: 'Không tìm thấy nội dung.' });
     }
-    return { stream: createReadStream(path), mimeType: stimulus.mimeType };
   }
 
   async submit(learnerId: string, attemptId: string, dto: SubmitPlacementAttemptDto) {

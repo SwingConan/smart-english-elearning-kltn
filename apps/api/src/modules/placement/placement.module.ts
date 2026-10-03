@@ -6,12 +6,14 @@ import {
   AssessmentResponseStorage,
   LocalAssessmentResponseStorage,
 } from './assessment-response.storage';
+import { AssessmentStimulusMediaStorage } from './assessment-stimulus-media.storage';
 
 @Module({
   imports: [RecommendationModule],
   controllers: [PlacementController],
   providers: [
     PlacementService,
+    AssessmentStimulusMediaStorage,
     { provide: AssessmentResponseStorage, useClass: LocalAssessmentResponseStorage },
   ],
 })

@@ -119,17 +119,20 @@ function harness() {
     open: jest.fn(),
     delete: jest.fn().mockResolvedValue(undefined),
   };
+  const stimulusMediaStorage = { read: jest.fn() };
   return {
     service: new PlacementService(
       prisma as never,
       recommendationService as never,
       responseStorage as never,
+      stimulusMediaStorage as never,
     ),
     prisma,
     transaction,
     sideEffectCreate,
     recommendationService,
     responseStorage,
+    stimulusMediaStorage,
   };
 }
 

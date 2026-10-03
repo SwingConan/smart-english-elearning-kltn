@@ -224,6 +224,7 @@ describe('Placement L&R APIs (e2e)', () => {
       .get(`/api/placement/attempts/${fourAttemptId}/exam`)
       .expect(200);
     const groups = examResponse.body.groups as Array<{
+      title: string;
       stimuli: Array<{ id: string; type: string; mediaUrl: string | null }>;
       questions: Array<{ testQuestionId: string; responseType: string }>;
     }>;
@@ -235,11 +236,38 @@ describe('Placement L&R APIs (e2e)', () => {
     expect(serialized).not.toContain('isCorrect');
     expect(serialized).not.toContain('LISTENING_TRANSCRIPT');
     expect(serialized).not.toContain('Will you translate an e-mail into Spanish for me?');
+    expect(groups.map(({ title }) => title)).toEqual(
+      expect.arrayContaining([
+        'Part 1 — Mô tả hình ảnh',
+        'Part 7 — Đọc hiểu',
+        'Speaking — Đọc thành tiếng',
+        'Writing — Trình bày quan điểm',
+      ]),
+    );
+    expect(groups.some(({ title }) => /^(L[1-4]|R[5-7]|S|W)_/.test(title))).toBe(false);
 
-    const media = groups.flatMap(({ stimuli }) => stimuli).find(({ mediaUrl }) => mediaUrl);
-    expect(media).toBeDefined();
-    await learner.get(media!.mediaUrl!).expect(200);
-    await otherLearner.get(media!.mediaUrl!).expect(404);
+    const visibleMedia = groups.flatMap(({ stimuli }) => stimuli);
+    const image = visibleMedia.find(({ type, mediaUrl }) => type === 'IMAGE' && mediaUrl);
+    const audio = visibleMedia.find(({ type, mediaUrl }) => type === 'AUDIO' && mediaUrl);
+    expect(image).toBeDefined();
+    expect(audio).toBeDefined();
+    const imageResponse = await learner
+      .get(image!.mediaUrl!)
+      .expect('Content-Type', /image\/jpeg/)
+      .expect(200);
+    expect(Buffer.isBuffer(imageResponse.body)).toBe(true);
+    expect(imageResponse.body.length).toBeGreaterThan(0);
+    const audioResponse = await learner
+      .get(audio!.mediaUrl!)
+      .expect('Content-Type', /audio\/mpeg/)
+      .expect(200);
+    expect(Buffer.isBuffer(audioResponse.body)).toBe(true);
+    expect(audioResponse.body.length).toBeGreaterThan(0);
+    await otherLearner.get(image!.mediaUrl!).expect(404);
+    await otherLearner.get(audio!.mediaUrl!).expect(404);
+    await learner
+      .get(`/api/placement/attempts/${fourAttemptId}/stimuli/00000000-0000-4000-8000-000000000001/media`)
+      .expect(404);
 
     const incomplete = await learner
       .post(`/api/placement/attempts/${fourAttemptId}/submit`)

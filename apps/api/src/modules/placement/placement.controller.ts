@@ -100,7 +100,7 @@ export class PlacementController {
     const media = await this.placementService.openStimulusMedia(user.id, id, stimulusId);
     response.setHeader('Content-Type', media.mimeType);
     response.setHeader('Cache-Control', 'private, max-age=300');
-    return new StreamableFile(media.stream);
+    return new StreamableFile(media.body);
   }
 
   @Roles(UserRole.STUDENT)

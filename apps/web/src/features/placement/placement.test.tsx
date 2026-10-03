@@ -365,7 +365,7 @@ describe('Placement exam and result', () => {
     expect(within(dialog).getByText(/1 câu chưa trả lời và 1 câu đánh dấu/)).toBeInTheDocument();
   });
 
-  it('renders ordered M05 stimuli and autosaves a Writing response', async () => {
+  it('autosaves only the current Writing revision under StrictMode', async () => {
     const fourSkillsExam: PlacementExamResponse = {
       ...exam,
       test: { title: 'Kiểm tra đầu vào 4 kỹ năng', description: null, mode: 'FOUR_SKILLS', durationMinutes: 45 },
@@ -401,9 +401,11 @@ describe('Placement exam and result', () => {
     }));
 
     render(
-      <MemoryRouter initialEntries={['/placement/attempts/attempt-1/exam']}>
-        <Routes><Route path="/placement/attempts/:attemptId/exam" element={<PlacementExamPage />} /></Routes>
-      </MemoryRouter>,
+      <StrictMode>
+        <MemoryRouter initialEntries={['/placement/attempts/attempt-1/exam']}>
+          <Routes><Route path="/placement/attempts/:attemptId/exam" element={<PlacementExamPage />} /></Routes>
+        </MemoryRouter>
+      </StrictMode>,
     );
 
     expect(await screen.findByText('From: Workshop Team')).toBeInTheDocument();
@@ -430,7 +432,7 @@ describe('Placement exam and result', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeEnabled());
   });
 
-  it('records explicitly after preparation and uploads a Speaking response', async () => {
+  it('records explicitly and uploads a Speaking response under StrictMode', async () => {
     class FakeMediaRecorder {
       static isTypeSupported() { return true; }
       mimeType = 'audio/webm';
@@ -471,14 +473,18 @@ describe('Placement exam and result', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/placement/attempts/attempt-1/exam']}>
-        <Routes><Route path="/placement/attempts/:attemptId/exam" element={<PlacementExamPage />} /></Routes>
-      </MemoryRouter>,
+      <StrictMode>
+        <MemoryRouter initialEntries={['/placement/attempts/attempt-1/exam']}>
+          <Routes><Route path="/placement/attempts/:attemptId/exam" element={<PlacementExamPage />} /></Routes>
+        </MemoryRouter>
+      </StrictMode>,
     );
 
     fireEvent.click(await screen.findByRole('button', { name: 'Ghi lại' }));
     expect(screen.getByText(/Bản ghi chỉ bắt đầu khi bạn bấm nút/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu ghi âm' }));
+    expect(await screen.findByText(/Đang ghi âm/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dừng' })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: 'Dừng' }));
     expect(await screen.findByRole('button', { name: 'Lưu câu trả lời' })).toBeInTheDocument();
