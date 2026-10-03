@@ -21,13 +21,13 @@ export const emptyPlacementDraft: PlacementDraft = {
 export function readPlacementDraft(storage: Pick<Storage, 'getItem'>): PlacementDraft {
   try {
     const parsed = JSON.parse(storage.getItem(PLACEMENT_DRAFT_KEY) ?? 'null') as Partial<PlacementDraft> | null;
-    if (!parsed || parsed.version !== 1 || parsed.mode !== 'LR') return emptyPlacementDraft;
+    if (!parsed || parsed.version !== 1 || (parsed.mode !== 'LR' && parsed.mode !== 'FOUR_SKILLS')) return emptyPlacementDraft;
     const goalScore = Number.isInteger(parsed.goalScore) && Number(parsed.goalScore) >= 10 && Number(parsed.goalScore) <= 990
       ? Number(parsed.goalScore)
       : null;
     const selfLevel = parsed.selfLevel && levels.has(parsed.selfLevel) ? parsed.selfLevel : null;
     const step = parsed.step === 2 || parsed.step === 3 ? parsed.step : 1;
-    return { version: 1, mode: 'LR', goalScore, selfLevel, step };
+    return { version: 1, mode: parsed.mode, goalScore, selfLevel, step };
   } catch {
     return emptyPlacementDraft;
   }

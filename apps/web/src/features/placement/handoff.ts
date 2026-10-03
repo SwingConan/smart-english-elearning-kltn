@@ -2,7 +2,7 @@ import { placementApi } from './api';
 import type { PlacementSelfLevel, PlacementStartResponse } from './types';
 
 export async function startPlacementInNewTab(
-  input: { mode: 'LR'; selfLevel: PlacementSelfLevel; goalScore: number },
+  input: { mode: 'LR' | 'FOUR_SKILLS'; selfLevel: PlacementSelfLevel; goalScore: number },
   openWindow: () => Window | null = () => window.open('', '_blank'),
 ): Promise<PlacementStartResponse> {
   const examWindow = openWindow();

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "artifact": "M05_Writing_Content_Pack",
+  "status": "PROJECT_AUTHORED_CONTENT_READY",
+  "language": "en",
+  "uiInstructionLanguage": "vi",
+  "tasks": [
+    {
+      "contentKey": "M05-W-WRITTEN-REQUEST-001",
+      "taskCode": "W_WRITTEN_REQUEST",
+      "skill": "WRITING",
+      "responseType": "TEXT_RESPONSE",
+      "recommendedSeconds": 480,
+      "rubricCode": "M05_WRITE_REQUEST_V1",
+      "instructionsVi": "Viết e-mail trả lời yêu cầu dưới đây. Trả lời đủ các ý được hỏi và đặt một câu hỏi phù hợp.",
+      "stimuli": [
+        {
+          "type": "TEXT",
+          "orderIndex": 0,
+          "isProtected": false,
+          "textContent": "From: English Workshop Coordinator\nSubject: Saturday Workshop Preferences\n\nThank you for registering for our Saturday English workshop. To help us organize the sessions, please tell us whether you prefer the morning or afternoon session and which skill you most want to practice. You may also ask us one question about the workshop.\n\nBest regards,\nWorkshop Team"
+        }
+      ],
+      "taskRequirements": [
+        "State a preference for morning or afternoon.",
+        "Identify one English skill the writer wants to practice.",
+        "Ask one relevant question about the workshop."
+      ]
+    },
+    {
+      "contentKey": "M05-W-OPINION-001",
+      "taskCode": "W_OPINION",
+      "skill": "WRITING",
+      "responseType": "TEXT_RESPONSE",
+      "recommendedSeconds": 720,
+      "rubricCode": "M05_WRITE_OPINION_V1",
+      "instructionsVi": "Viết một bài ngắn trình bày quan điểm. Dùng lý do và ví dụ để hỗ trợ ý kiến của bạn.",
+      "stimuli": [
+        {
+          "type": "TEXT",
+          "orderIndex": 0,
+          "isProtected": false,
+          "textContent": "Some people think university students should have a part-time job while they are studying. Do you agree or disagree? Explain your opinion with reasons and examples."
+        }
+      ],
+      "wordCountPolicy": {
+        "hardMinimum": null,
+        "hardMaximum": null,
+        "uiGuidance": "Tập trung vào việc trả lời đầy đủ, rõ ràng và có tổ chức; hệ thống chỉ hiển thị số từ để tham khảo."
+      }
+    }
+  ],
+  "productRules": [
+    "Writing text is autosaved to the server.",
+    "Word count is informational, not a hard rejection rule.",
+    "M05 does not auto-generate a Writing score.",
+    "Learner-facing status remains Chờ đánh giá until a genuine evaluator exists."
+  ]
+}

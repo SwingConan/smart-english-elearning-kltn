@@ -18,7 +18,7 @@ import type { PlacementConfig, PlacementExamResponse, PlacementResult } from './
 const config: PlacementConfig = {
   modes: [
     { code: 'LR', label: 'Listening & Reading', enabled: true },
-    { code: 'FOUR_SKILLS', label: '4 kỹ năng', enabled: false, note: 'Sắp có' },
+    { code: 'FOUR_SKILLS', label: '4 kỹ năng', enabled: true, note: 'Cần microphone' },
   ],
   goalPresets: [450, 550, 650, 750],
   customGoalRange: { min: 10, max: 990 },
@@ -123,6 +123,28 @@ const result: PlacementResult = {
   }],
 };
 
+const fourSkillsResult: PlacementResult = {
+  ...result,
+  title: 'Kiểm tra đầu vào 4 kỹ năng — Core',
+  mode: 'FOUR_SKILLS',
+  durationMinutes: 45,
+  score: 9,
+  maxScore: 16,
+  skillResults: [
+    { skill: 'LISTENING', status: 'FINAL', rawScore: 5, maxRawScore: 8, normalizedScore: 62.5 },
+    { skill: 'READING', status: 'FINAL', rawScore: 4, maxRawScore: 8, normalizedScore: 50 },
+    { skill: 'SPEAKING', status: 'PENDING_EVALUATION', submittedResponseCount: 3, requiredResponseCount: 3 },
+    { skill: 'WRITING', status: 'PENDING_EVALUATION', submittedResponseCount: 1, requiredResponseCount: 2 },
+  ],
+  enhancement: {
+    status: 'PENDING_SKILL_EVALUATION',
+    error: null,
+    message: 'Listening và Reading đã được chấm tự động. Speaking và Writing đang chờ đánh giá.',
+  },
+  evaluation: null,
+  recommendations: [],
+};
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -173,11 +195,33 @@ describe('Placement wizard', () => {
         skillScores: result.skillScores,
         resultPath: `/placement/attempts/${result.attemptId}/result`,
       },
+      {
+        attemptId: 'attempt-four-skills',
+        title: 'Kiểm tra đầu vào 4 kỹ năng — Core',
+        mode: 'FOUR_SKILLS',
+        goalScore: 650,
+        startedAt: result.startedAt,
+        submittedAt: result.submittedAt,
+        score: 9,
+        maxScore: 16,
+        skillScores: [
+          { skill: 'LISTENING', rawScore: 5, maxRawScore: 8, normalizedScore: 62.5, estimatedToeicScore: null, status: 'FINAL', source: 'OBJECTIVE_AUTO' },
+          { skill: 'READING', rawScore: 4, maxRawScore: 8, normalizedScore: 50, estimatedToeicScore: null, status: 'FINAL', source: 'OBJECTIVE_AUTO' },
+        ],
+        skillResults: [
+          { skill: 'SPEAKING', status: 'PENDING_EVALUATION', submittedResponseCount: 3, requiredResponseCount: 3 },
+          { skill: 'WRITING', status: 'PENDING_EVALUATION', submittedResponseCount: 1, requiredResponseCount: 2 },
+        ],
+        resultPath: '/placement/attempts/attempt-four-skills/result',
+      },
     ]);
 
     render(<MemoryRouter><AuthProvider><PlacementPage /></AuthProvider></MemoryRouter>);
 
     expect(await screen.findByText('4/8 câu đúng', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Listening: 62,5% · Đã chấm')).toBeInTheDocument();
+    expect(screen.getByText('Speaking: 3/3 · Chờ đánh giá')).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('9/16');
     expect(document.body).not.toHaveTextContent('điểm thô');
   });
 
@@ -195,7 +239,7 @@ describe('Placement wizard', () => {
     expect(screen.queryByText('Chưa thể tải cấu hình kiểm tra đầu vào. Vui lòng thử lại.')).not.toBeInTheDocument();
   });
 
-  it('renders three locked steps, validates custom goal and keeps FOUR_SKILLS disabled', async () => {
+  it('renders three locked steps, validates custom goal and presents both enabled modes', async () => {
     vi.spyOn(authApi, 'me').mockRejectedValue(new ApiError(401, null));
     vi.spyOn(placementApi, 'config').mockResolvedValue(config);
     render(<MemoryRouter><AuthProvider><PlacementPage /></AuthProvider></MemoryRouter>);
@@ -210,16 +254,18 @@ describe('Placement wizard', () => {
     fireEvent.click(screen.getByRole('button', { name: /Tôi chưa biết trình độ/ }));
     fireEvent.click(screen.getByRole('button', { name: /Tiếp tục/ }));
     expect(screen.getByRole('heading', { name: 'Xác nhận và hướng dẫn' })).toBeInTheDocument();
-    expect(screen.getByText('Kiểm tra đầu vào 4 kỹ năng')).toBeInTheDocument();
-    expect(
-      screen.getByText('Speaking và Writing sẽ được mở khi quy trình đánh giá 4 kỹ năng được hoàn thiện.'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Sắp có')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Listening & Reading/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /4 kỹ năng/ })).toBeEnabled();
+    expect(screen.getByText(/Speaking\/Writing chờ đánh giá/)).toBeInTheDocument();
     expectNoDeveloperJargon();
     const start = screen.getByRole('button', { name: 'Đăng nhập để bắt đầu' });
     expect(start).toBeDisabled();
     fireEvent.click(screen.getByLabelText('Tôi đã đọc hướng dẫn và sẵn sàng bắt đầu.'));
     expect(start).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: /4 kỹ năng/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra micro' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('không hỗ trợ ghi âm');
+    expect(start).toBeDisabled();
   });
 
   it('sanitizes a tampered session draft while restoring valid state', () => {
@@ -234,6 +280,31 @@ describe('Placement wizard', () => {
       selfLevel: null,
       step: 3,
     });
+  });
+
+  it('normalizes a restored disabled mode and prevents selecting or starting it', async () => {
+    sessionStorage.setItem(
+      PLACEMENT_DRAFT_KEY,
+      JSON.stringify({ version: 1, mode: 'FOUR_SKILLS', goalScore: 550, selfLevel: 'UNKNOWN', step: 3 }),
+    );
+    vi.spyOn(authApi, 'me').mockRejectedValue(new ApiError(401, null));
+    vi.spyOn(placementApi, 'config').mockResolvedValue({
+      ...config,
+      modes: [
+        { code: 'LR', label: 'Listening & Reading', enabled: true },
+        { code: 'FOUR_SKILLS', label: '4 kỹ năng', enabled: false, note: 'Đang tạm ngừng để bảo trì.' },
+      ],
+    });
+    const start = vi.spyOn(placementApi, 'start');
+
+    render(<MemoryRouter><AuthProvider><PlacementPage /></AuthProvider></MemoryRouter>);
+
+    expect(await screen.findByRole('heading', { name: 'Xác nhận và hướng dẫn' })).toBeInTheDocument();
+    const disabledMode = screen.getByRole('button', { name: /4 kỹ năng/ });
+    expect(disabledMode).toBeDisabled();
+    expect(screen.getByText('Đang tạm ngừng để bảo trì.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: /Listening & Reading/ })).toHaveAttribute('aria-pressed', 'true'));
+    expect(start).not.toHaveBeenCalled();
   });
 });
 
@@ -286,12 +357,224 @@ describe('Placement exam and result', () => {
     expect(screen.queryByText('Private listening transcript')).not.toBeInTheDocument();
     expectNoDeveloperJargon();
     fireEvent.click(screen.getByLabelText('Reception'));
-    await waitFor(() => expect(save).toHaveBeenCalledWith('attempt-1', 'tq-1', ['o-1']));
+    await waitFor(() => expect(save).toHaveBeenCalledWith('attempt-1', 'tq-1', { selectedOptionIds: ['o-1'] }));
     expect(await screen.findByText('Đã lưu')).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: 'Đánh dấu xem lại' })[1]);
     fireEvent.click(screen.getByRole('button', { name: 'Nộp bài' }));
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText(/1 câu chưa trả lời và 1 câu đánh dấu/)).toBeInTheDocument();
+  });
+
+  it('autosaves only the current Writing revision under StrictMode', async () => {
+    const fourSkillsExam: PlacementExamResponse = {
+      ...exam,
+      test: { title: 'Kiểm tra đầu vào 4 kỹ năng', description: null, mode: 'FOUR_SKILLS', durationMinutes: 45 },
+      groups: [{
+        id: 'writing-group',
+        skill: 'WRITING',
+        orderIndex: 0,
+        title: 'Viết phản hồi',
+        instructions: 'Viết câu trả lời bằng tiếng Anh.',
+        stimulusText: null,
+        audioUrl: null,
+        stimuli: [
+          { id: 'text-1', type: 'TEXT', orderIndex: 0, textContent: 'From: Workshop Team', mediaUrl: null, mimeType: null, altText: null },
+          { id: 'image-1', type: 'IMAGE', orderIndex: 1, textContent: null, mediaUrl: '/api/placement/image-1', mimeType: 'image/jpeg', altText: 'Hình minh họa cho bài kiểm tra' },
+          { id: 'audio-1', type: 'AUDIO', orderIndex: 2, textContent: null, mediaUrl: '/api/placement/audio-1', mimeType: 'audio/mpeg', altText: null },
+        ],
+        questions: [{
+          testQuestionId: 'writing-1',
+          orderIndex: 0,
+          content: 'Write an email response.',
+          responseType: 'TEXT_RESPONSE',
+          toeicSkill: 'WRITING',
+          options: [],
+          selectedOptionIds: [],
+          textResponse: null,
+        }],
+      }],
+    };
+    vi.spyOn(placementApi, 'exam').mockResolvedValue(fourSkillsExam);
+    const saveResolvers: Array<() => void> = [];
+    const save = vi.spyOn(placementApi, 'saveAnswer').mockImplementation(() => new Promise((resolve) => {
+      saveResolvers.push(() => resolve({ state: 'SAVED', savedAt: '2026-10-01T00:01:00Z' }));
+    }));
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/placement/attempts/attempt-1/exam']}>
+          <Routes><Route path="/placement/attempts/:attemptId/exam" element={<PlacementExamPage />} /></Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    expect(await screen.findByText('From: Workshop Team')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Hình minh họa cho bài kiểm tra' })).toHaveAttribute('src', '/api/placement/image-1');
+    expect(document.querySelector('audio[src="/api/placement/audio-1"]')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Câu trả lời Writing'), {
+      target: { value: 'Thank you for the invitation.' },
+    });
+    expect(screen.getByText('5 từ')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeDisabled();
+    await waitFor(
+      () => expect(save).toHaveBeenCalledWith('attempt-1', 'writing-1', { textResponse: 'Thank you for the invitation.' }),
+      { timeout: 2_000 },
+    );
+    fireEvent.change(screen.getByLabelText('Câu trả lời Writing'), {
+      target: { value: 'Thank you for the updated invitation.' },
+    });
+    saveResolvers[0]();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeDisabled());
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2), { timeout: 2_000 });
+    expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeDisabled();
+    saveResolvers[1]();
+    expect(await screen.findByText('Đã lưu')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeEnabled());
+  });
+
+  it('records explicitly and uploads a Speaking response under StrictMode', async () => {
+    class FakeMediaRecorder {
+      static isTypeSupported() { return true; }
+      mimeType = 'audio/webm';
+      ondataavailable: ((event: { data: Blob }) => void) | null = null;
+      onstop: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      start() {}
+      stop() {
+        this.ondataavailable?.({ data: new Blob(['valid-audio'], { type: 'audio/webm' }) });
+        this.onstop?.();
+      }
+    }
+    const stopTrack = vi.fn();
+    vi.stubGlobal('MediaRecorder', FakeMediaRecorder);
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      mediaDevices: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: stopTrack }] }) },
+    });
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:local-speaking');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const speakingExam: PlacementExamResponse = {
+      ...exam,
+      test: { title: 'Kiểm tra đầu vào 4 kỹ năng', description: null, mode: 'FOUR_SKILLS', durationMinutes: 45 },
+      groups: [{
+        id: 'speaking-group', skill: 'SPEAKING', orderIndex: 0, title: 'Speaking',
+        instructions: 'Record your response.', stimulusText: null, audioUrl: null,
+        preparationSeconds: 0, responseSeconds: 45, maxRecordingSeconds: 50, stimuli: [],
+        questions: [{
+          testQuestionId: 'speaking-1', orderIndex: 0, content: 'Speak now.',
+          responseType: 'AUDIO_RESPONSE', toeicSkill: 'SPEAKING', options: [],
+          selectedOptionIds: [], audioUploaded: true, audioUrl: '/api/existing-speaking-playback',
+        }],
+      }],
+    };
+    vi.spyOn(placementApi, 'exam').mockResolvedValue(speakingExam);
+    const upload = vi.spyOn(placementApi, 'uploadAudio').mockResolvedValue({
+      state: 'UPLOADED', savedAt: '2026-10-01T00:01:00Z', playbackUrl: '/api/speaking-playback',
+    });
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/placement/attempts/attempt-1/exam']}>
+          <Routes><Route path="/placement/attempts/:attemptId/exam" element={<PlacementExamPage />} /></Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Ghi lại' }));
+    expect(screen.getByText(/Bản ghi chỉ bắt đầu khi bạn bấm nút/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu ghi âm' }));
+    expect(await screen.findByText(/Đang ghi âm/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dừng' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Dừng' }));
+    expect(await screen.findByRole('button', { name: 'Lưu câu trả lời' })).toBeInTheDocument();
+    expect(screen.getByText('Bản ghi mới chưa được lưu')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu câu trả lời' }));
+    await waitFor(() => expect(upload).toHaveBeenCalledWith('attempt-1', 'speaking-1', expect.any(Blob)));
+    expect(await screen.findByText('Đã lưu câu trả lời')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeEnabled();
+    expect(stopTrack).toHaveBeenCalled();
+  });
+
+  it('stops an active recorder and its media tracks without uploading after unmount', async () => {
+    const recorderStop = vi.fn();
+    class FakeMediaRecorder {
+      static isTypeSupported() { return true; }
+      mimeType = 'audio/webm';
+      state = 'inactive';
+      ondataavailable: ((event: { data: Blob }) => void) | null = null;
+      onstop: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      start() { this.state = 'recording'; }
+      stop() { this.state = 'inactive'; recorderStop(); this.onstop?.(); }
+    }
+    const stopTrack = vi.fn();
+    vi.stubGlobal('MediaRecorder', FakeMediaRecorder);
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      mediaDevices: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: stopTrack }] }) },
+    });
+    const speakingExam: PlacementExamResponse = {
+      ...exam,
+      test: { title: 'Kiểm tra đầu vào 4 kỹ năng', description: null, mode: 'FOUR_SKILLS', durationMinutes: 45 },
+      groups: [{
+        id: 'speaking-group', skill: 'SPEAKING', orderIndex: 0, title: 'Speaking',
+        instructions: 'Record your response.', stimulusText: null, audioUrl: null,
+        preparationSeconds: 0, responseSeconds: 45, maxRecordingSeconds: 50, stimuli: [],
+        questions: [{
+          testQuestionId: 'speaking-1', orderIndex: 0, content: 'Speak now.',
+          responseType: 'AUDIO_RESPONSE', toeicSkill: 'SPEAKING', options: [],
+          selectedOptionIds: [], audioUploaded: false,
+        }],
+      }],
+    };
+    vi.spyOn(placementApi, 'exam').mockResolvedValue(speakingExam);
+    const upload = vi.spyOn(placementApi, 'uploadAudio');
+
+    const view = render(
+      <MemoryRouter initialEntries={['/placement/attempts/attempt-1/exam']}>
+        <Routes><Route path="/placement/attempts/:attemptId/exam" element={<PlacementExamPage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Bắt đầu chuẩn bị' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu ghi âm' }));
+    await waitFor(() => expect(screen.getByText(/Đang ghi âm/)).toBeInTheDocument());
+    view.unmount();
+    expect(recorderStop).toHaveBeenCalledTimes(1);
+    expect(stopTrack).toHaveBeenCalledTimes(1);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it('groups the four-skill navigator with global question numbering', async () => {
+    const makeProductiveGroup = (skill: 'SPEAKING' | 'WRITING', orderIndex: number): (typeof exam.groups)[number] => ({
+      id: `${skill.toLowerCase()}-group`, skill, orderIndex, title: skill,
+      instructions: `${skill} instructions`, stimulusText: null, audioUrl: null, stimuli: [],
+      preparationSeconds: 0, maxRecordingSeconds: 30,
+      questions: [{
+        testQuestionId: `${skill.toLowerCase()}-1`, orderIndex, content: `${skill} question`,
+        responseType: skill === 'SPEAKING' ? 'AUDIO_RESPONSE' : 'TEXT_RESPONSE',
+        toeicSkill: skill, options: [], selectedOptionIds: [],
+      }],
+    });
+    vi.spyOn(placementApi, 'exam').mockResolvedValue({
+      ...exam,
+      test: { title: 'Kiểm tra đầu vào 4 kỹ năng', description: null, mode: 'FOUR_SKILLS', durationMinutes: 45 },
+      groups: [exam.groups[0], exam.groups[1], makeProductiveGroup('SPEAKING', 2), makeProductiveGroup('WRITING', 3)],
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/placement/attempts/attempt-1/exam']}>
+        <Routes><Route path="/placement/attempts/:attemptId/exam" element={<PlacementExamPage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('heading', { name: 'Thông báo' });
+    for (const label of ['Listening', 'Reading', 'Speaking', 'Writing']) {
+      expect(screen.getAllByRole('region', { name: `${label} questions` })).toHaveLength(2);
+    }
+    expect(screen.getAllByRole('link', { name: /Câu 4, chưa trả lời/ })).toHaveLength(2);
   });
 
   it('renders the objective result, internal evaluation and deterministic recommendation', async () => {
@@ -319,6 +602,24 @@ describe('Placement exam and result', () => {
     expect(screen.getByText('Vì sao khóa học này phù hợp?')).toBeInTheDocument();
     expect(screen.getByText(/Listening 25%.*0–65%/)).toBeInTheDocument();
     expectNoDeveloperJargon();
+  });
+
+  it('renders truthful four-skill final and pending states without an LR recommendation', async () => {
+    vi.spyOn(placementApi, 'result').mockResolvedValue(fourSkillsResult);
+    render(
+      <MemoryRouter initialEntries={['/placement/attempts/attempt-1/result']}>
+        <Routes><Route path="/placement/attempts/:attemptId/result" element={<PlacementResultPage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Kết quả kiểm tra đầu vào 4 kỹ năng' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '5/8 câu đúng' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '3/3 câu trả lời đã nộp' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '1/2 bài viết đã nộp' })).toBeInTheDocument();
+    expect(screen.getByText('Có câu chưa trả lời · Chờ đánh giá')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Đang chờ đánh giá Speaking và Writing' })).toBeInTheDocument();
+    expect(screen.queryByText('Lộ trình phù hợp với bạn')).not.toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('9/16');
   });
 
   it('renders equal Listening and Reading results with neutral learner-facing wording', async () => {

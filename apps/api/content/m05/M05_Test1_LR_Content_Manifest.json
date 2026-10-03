@@ -1,0 +1,654 @@
+{
+  "schemaVersion": 1,
+  "artifact": "M05_Test1_LR_Content_Manifest",
+  "status": "APPROVED_CONTENT_DRAFT_FOR_CODEX_SEED",
+  "source": {
+    "pack": "NEW TOEIC - TEST 1",
+    "listeningPdf": "Đề Listening - Test 1.PDF",
+    "readingPdf": "Đề Reading - Test 1.pdf",
+    "answerKeyPdf": "Đáp án Test 1.pdf",
+    "transcriptPdf": "Transcript - Test 1.pdf",
+    "audioFolder": "File Nghe Từng Câu",
+    "selectionPolicy": "Curated Placement subset; full 200-item source bank is not the Placement form."
+  },
+  "target": {
+    "testCode": "M05_PLACEMENT_FOUR_SKILLS_CORE_V1",
+    "purpose": "PLACEMENT",
+    "placementMode": "FOUR_SKILLS",
+    "selectedListeningQuestions": 8,
+    "selectedReadingQuestions": 8
+  },
+  "sections": [
+    {
+      "skill": "LISTENING",
+      "groups": [
+        {
+          "contentKey": "T1-L-P1-Q003",
+          "taskCode": "L1_PHOTOGRAPH",
+          "part": 1,
+          "sourceQuestionNumbers": [
+            3
+          ],
+          "instructions": "Quan sát hình ảnh, nghe bốn mô tả và chọn phương án phù hợp nhất.",
+          "stimuli": [
+            {
+              "type": "IMAGE",
+              "orderIndex": 0,
+              "mediaKey": "MEDIA_T1_L_P1_Q003_IMAGE",
+              "isProtected": false,
+              "altText": "Hình minh họa cho câu Listening Part 1."
+            },
+            {
+              "type": "AUDIO",
+              "orderIndex": 1,
+              "mediaKey": "MEDIA_T1_L_P1_Q003_AUDIO",
+              "isProtected": false
+            },
+            {
+              "type": "TEXT",
+              "orderIndex": 2,
+              "isProtected": true,
+              "textContent": "(A) A towel is hanging on a fence. (B) Some plants have been placed in pots. (C) Some chairs have been set around a table. (D) The door to a house has been left open.",
+              "purpose": "LISTENING_TRANSCRIPT"
+            }
+          ],
+          "questions": [
+            {
+              "contentKey": "T1-L-P1-Q003-Q",
+              "sourceNumber": 3,
+              "responseType": "SINGLE_CHOICE",
+              "content": "Chọn phương án mô tả đúng nhất cho hình ảnh.",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "A"
+                },
+                {
+                  "key": "B",
+                  "content": "B"
+                },
+                {
+                  "key": "C",
+                  "content": "C"
+                },
+                {
+                  "key": "D",
+                  "content": "D"
+                }
+              ],
+              "correctOptionKey": "B",
+              "answerKeyVerified": true
+            }
+          ]
+        },
+        {
+          "contentKey": "T1-L-P2-Q007",
+          "taskCode": "L2_QUESTION_RESPONSE",
+          "part": 2,
+          "sourceQuestionNumbers": [
+            7
+          ],
+          "instructions": "Nghe câu hỏi và ba câu trả lời, sau đó chọn phản hồi phù hợp nhất.",
+          "stimuli": [
+            {
+              "type": "AUDIO",
+              "orderIndex": 0,
+              "mediaKey": "MEDIA_T1_L_P2_Q007_AUDIO",
+              "isProtected": false
+            },
+            {
+              "type": "TEXT",
+              "orderIndex": 1,
+              "isProtected": true,
+              "textContent": "Will you translate an e-mail into Spanish for me? (A) Three more chapters. (B) No, I haven't sent it yet. (C) Sure, let me see it.",
+              "purpose": "LISTENING_TRANSCRIPT"
+            }
+          ],
+          "questions": [
+            {
+              "contentKey": "T1-L-P2-Q007-Q",
+              "sourceNumber": 7,
+              "responseType": "SINGLE_CHOICE",
+              "content": "Chọn câu trả lời phù hợp nhất với nội dung bạn nghe.",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "A"
+                },
+                {
+                  "key": "B",
+                  "content": "B"
+                },
+                {
+                  "key": "C",
+                  "content": "C"
+                }
+              ],
+              "correctOptionKey": "C",
+              "answerKeyVerified": true
+            }
+          ]
+        },
+        {
+          "contentKey": "T1-L-P3-Q032-034",
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "sourceQuestionNumbers": [
+            32,
+            33,
+            34
+          ],
+          "instructions": "Nghe đoạn hội thoại và trả lời ba câu hỏi.",
+          "stimuli": [
+            {
+              "type": "AUDIO",
+              "orderIndex": 0,
+              "mediaKey": "MEDIA_T1_L_P3_Q032_034_AUDIO",
+              "isProtected": false
+            },
+            {
+              "type": "TEXT",
+              "orderIndex": 1,
+              "isProtected": true,
+              "textContent": "Woman: I love this jacket! Do you have another one just like it? Man: I'm afraid that's the last one we have in medium. Is there something wrong with it? Woman: There's a small tear on the seam of the left sleeve. But I really like it a lot! Man: Well, if you buy the jacket as it is, then I can offer you a deal because of the tear. How does a 20% discount sound?",
+              "purpose": "LISTENING_TRANSCRIPT"
+            }
+          ],
+          "questions": [
+            {
+              "contentKey": "T1-L-P3-Q032",
+              "sourceNumber": 32,
+              "responseType": "SINGLE_CHOICE",
+              "content": "Where most likely is the conversation taking place?",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "In a clothing store"
+                },
+                {
+                  "key": "B",
+                  "content": "In a furniture factory"
+                },
+                {
+                  "key": "C",
+                  "content": "In a restaurant"
+                },
+                {
+                  "key": "D",
+                  "content": "In a dry-cleaning shop"
+                }
+              ],
+              "correctOptionKey": "A",
+              "answerKeyVerified": true
+            },
+            {
+              "contentKey": "T1-L-P3-Q033",
+              "sourceNumber": 33,
+              "responseType": "SINGLE_CHOICE",
+              "content": "What is the problem?",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "Some merchandise has been lost."
+                },
+                {
+                  "key": "B",
+                  "content": "Some clothing is the wrong size."
+                },
+                {
+                  "key": "C",
+                  "content": "An item is damaged."
+                },
+                {
+                  "key": "D",
+                  "content": "An order has not arrived."
+                }
+              ],
+              "correctOptionKey": "C",
+              "answerKeyVerified": true
+            },
+            {
+              "contentKey": "T1-L-P3-Q034",
+              "sourceNumber": 34,
+              "responseType": "SINGLE_CHOICE",
+              "content": "What does the man offer to do?",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "Issue a refund"
+                },
+                {
+                  "key": "B",
+                  "content": "Reduce a price"
+                },
+                {
+                  "key": "C",
+                  "content": "Speak to a manager"
+                },
+                {
+                  "key": "D",
+                  "content": "Check the inventory"
+                }
+              ],
+              "correctOptionKey": "B",
+              "answerKeyVerified": true
+            }
+          ]
+        },
+        {
+          "contentKey": "T1-L-P4-Q071-073",
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "sourceQuestionNumbers": [
+            71,
+            72,
+            73
+          ],
+          "instructions": "Nghe thông báo qua điện thoại và trả lời ba câu hỏi.",
+          "stimuli": [
+            {
+              "type": "AUDIO",
+              "orderIndex": 0,
+              "mediaKey": "MEDIA_T1_L_P4_Q071_073_AUDIO",
+              "isProtected": false
+            },
+            {
+              "type": "TEXT",
+              "orderIndex": 1,
+              "isProtected": true,
+              "textContent": "Hello, Mr. Mohan, this is Suzanna Garcia calling from Garcia Catering. I have a question about the food that we're preparing for your son's graduation party next week. Your order form indicates that you'd like fifty-five appetizer trays—all cheese, vegetable, and fruit combos. I'm thinking that this might be a mistake, and that you'd meant to order only five trays. We open at nine tomorrow morning, so why don't you give me a call then—we want to make sure we have your order right.",
+              "purpose": "LISTENING_TRANSCRIPT"
+            }
+          ],
+          "questions": [
+            {
+              "contentKey": "T1-L-P4-Q071",
+              "sourceNumber": 71,
+              "responseType": "SINGLE_CHOICE",
+              "content": "What type of service does the speaker provide?",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "Food preparation"
+                },
+                {
+                  "key": "B",
+                  "content": "Cooking lessons"
+                },
+                {
+                  "key": "C",
+                  "content": "Grocery delivery"
+                },
+                {
+                  "key": "D",
+                  "content": "Nutritional counseling"
+                }
+              ],
+              "correctOptionKey": "A",
+              "answerKeyVerified": true
+            },
+            {
+              "contentKey": "T1-L-P4-Q072",
+              "sourceNumber": 72,
+              "responseType": "SINGLE_CHOICE",
+              "content": "What information does the speaker need from the listener?",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "The time of a lunch"
+                },
+                {
+                  "key": "B",
+                  "content": "The location for a delivery"
+                },
+                {
+                  "key": "C",
+                  "content": "The size of an order"
+                },
+                {
+                  "key": "D",
+                  "content": "The theme of a banquet"
+                }
+              ],
+              "correctOptionKey": "C",
+              "answerKeyVerified": true
+            },
+            {
+              "contentKey": "T1-L-P4-Q073",
+              "sourceNumber": 73,
+              "responseType": "SINGLE_CHOICE",
+              "content": "When should the listener return the call?",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "Later today"
+                },
+                {
+                  "key": "B",
+                  "content": "Tomorrow"
+                },
+                {
+                  "key": "C",
+                  "content": "Next week"
+                },
+                {
+                  "key": "D",
+                  "content": "In one month"
+                }
+              ],
+              "correctOptionKey": "B",
+              "answerKeyVerified": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "skill": "READING",
+      "groups": [
+        {
+          "contentKey": "T1-R-P5-Q101-102",
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "sourceQuestionNumbers": [
+            101,
+            102
+          ],
+          "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+          "stimuli": [],
+          "questions": [
+            {
+              "contentKey": "T1-R-P5-Q101",
+              "sourceNumber": 101,
+              "responseType": "SINGLE_CHOICE",
+              "content": "New patients should arrive fifteen minutes before ------- scheduled appointments.",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "themselves"
+                },
+                {
+                  "key": "B",
+                  "content": "their"
+                },
+                {
+                  "key": "C",
+                  "content": "them"
+                },
+                {
+                  "key": "D",
+                  "content": "they"
+                }
+              ],
+              "correctOptionKey": "B",
+              "answerKeyVerified": true
+            },
+            {
+              "contentKey": "T1-R-P5-Q102",
+              "sourceNumber": 102,
+              "responseType": "SINGLE_CHOICE",
+              "content": "The ------- version of the budget proposal must be submitted by Friday.",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "total"
+                },
+                {
+                  "key": "B",
+                  "content": "many"
+                },
+                {
+                  "key": "C",
+                  "content": "final"
+                },
+                {
+                  "key": "D",
+                  "content": "empty"
+                }
+              ],
+              "correctOptionKey": "C",
+              "answerKeyVerified": true
+            }
+          ]
+        },
+        {
+          "contentKey": "T1-R-P6-Q131-132",
+          "taskCode": "R6_TEXT_COMPLETION",
+          "part": 6,
+          "sourceQuestionNumbers": [
+            131,
+            132
+          ],
+          "instructions": "Đọc e-mail và chọn phương án phù hợp nhất cho từng chỗ trống.",
+          "stimuli": [
+            {
+              "type": "TEXT",
+              "orderIndex": 0,
+              "isProtected": false,
+              "textContent": "To: Sunil Pai <sp8410@xmail.co.uk>\nFrom: Fabrizio Donetti <customerservice@palazzadesign.co.uk>\nDate: Friday, 1 July\nSubject: Order #491001\n\nDear Mr. Pai:\n\nThank you for your recent order. [131] the tan linen suit you ordered is unfortunately not available in your size at this time, we do have the same style in stock in light gray. [132]",
+              "purpose": "READING_PASSAGE_EXCERPT"
+            }
+          ],
+          "questions": [
+            {
+              "contentKey": "T1-R-P6-Q131",
+              "sourceNumber": 131,
+              "responseType": "SINGLE_CHOICE",
+              "content": "Blank [131]",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "After"
+                },
+                {
+                  "key": "B",
+                  "content": "Although"
+                },
+                {
+                  "key": "C",
+                  "content": "Even"
+                },
+                {
+                  "key": "D",
+                  "content": "When"
+                }
+              ],
+              "correctOptionKey": "B",
+              "answerKeyVerified": true
+            },
+            {
+              "contentKey": "T1-R-P6-Q132",
+              "sourceNumber": 132,
+              "responseType": "SINGLE_CHOICE",
+              "content": "Blank [132]",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "We could send you one of these right away."
+                },
+                {
+                  "key": "B",
+                  "content": "Thank you for returning them."
+                },
+                {
+                  "key": "C",
+                  "content": "These will be available early next season."
+                },
+                {
+                  "key": "D",
+                  "content": "You may exchange your new suits for a larger size."
+                }
+              ],
+              "correctOptionKey": "A",
+              "answerKeyVerified": true
+            }
+          ]
+        },
+        {
+          "contentKey": "T1-R-P7-Q147-148",
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "sourceQuestionNumbers": [
+            147,
+            148
+          ],
+          "instructions": "Đọc thông báo tuyển dụng và trả lời câu hỏi.",
+          "stimuli": [
+            {
+              "type": "TEXT",
+              "orderIndex": 0,
+              "isProtected": false,
+              "textContent": "CORPORATE TRAINER WANTED\n\nSan Francisco-based Logistos Advisors, Inc. is seeking an energetic person with strong public-speaking skills to serve as a temporary replacement for an employee who is away on leave. Logistos delivers training classes on Internet security to large financial institutions and retail businesses worldwide. The successful applicant will be responsible for assisting with training sessions throughout Latin America. Although the sessions are delivered in English, proficiency in Spanish is necessary for the job. At least one year of experience as a corporate trainer in any field is highly desirable. The work assignment is for six months, the first two weeks to be spent at the Logistos headquarters for initial training. Interested candidates should submit a cover letter and résumé to hr@logistosadvisors.com by March 1.",
+              "purpose": "READING_DOCUMENT"
+            }
+          ],
+          "questions": [
+            {
+              "contentKey": "T1-R-P7-Q147",
+              "sourceNumber": 147,
+              "responseType": "SINGLE_CHOICE",
+              "content": "What is NOT a stated requirement for the job?",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "Experience working at a financial institution"
+                },
+                {
+                  "key": "B",
+                  "content": "Ability to speak more than one language"
+                },
+                {
+                  "key": "C",
+                  "content": "Willingness to travel internationally"
+                },
+                {
+                  "key": "D",
+                  "content": "Public speaking skills"
+                }
+              ],
+              "correctOptionKey": "A",
+              "answerKeyVerified": true
+            },
+            {
+              "contentKey": "T1-R-P7-Q148",
+              "sourceNumber": 148,
+              "responseType": "SINGLE_CHOICE",
+              "content": "How long will the job last?",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "Two weeks"
+                },
+                {
+                  "key": "B",
+                  "content": "One month"
+                },
+                {
+                  "key": "C",
+                  "content": "Six months"
+                },
+                {
+                  "key": "D",
+                  "content": "One year"
+                }
+              ],
+              "correctOptionKey": "C",
+              "answerKeyVerified": true
+            }
+          ]
+        },
+        {
+          "contentKey": "T1-R-P7-Q191-195",
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "sourceQuestionNumbers": [
+            191,
+            194
+          ],
+          "sourceGroupRange": [
+            191,
+            195
+          ],
+          "instructions": "Đọc thông tin sản phẩm, đánh giá trực tuyến và phản hồi của bộ phận chăm sóc khách hàng.",
+          "stimuli": [
+            {
+              "type": "IMAGE",
+              "orderIndex": 0,
+              "mediaKey": "MEDIA_T1_R_P7_Q191_195_DOCS_01",
+              "isProtected": false,
+              "altText": "Tài liệu đọc số 1 cho nhóm câu hỏi Part 7."
+            },
+            {
+              "type": "IMAGE",
+              "orderIndex": 1,
+              "mediaKey": "MEDIA_T1_R_P7_Q191_195_DOCS_02",
+              "isProtected": false,
+              "altText": "Tài liệu đọc số 2 cho nhóm câu hỏi Part 7."
+            }
+          ],
+          "questions": [
+            {
+              "contentKey": "T1-R-P7-Q191",
+              "sourceNumber": 191,
+              "responseType": "SINGLE_CHOICE",
+              "content": "What does Ms. Amorapanth write about her luggage?",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "She likes the color."
+                },
+                {
+                  "key": "B",
+                  "content": "The cases are too large."
+                },
+                {
+                  "key": "C",
+                  "content": "She purchased the bags recently."
+                },
+                {
+                  "key": "D",
+                  "content": "The carry-on protects her samples."
+                }
+              ],
+              "correctOptionKey": "D",
+              "answerKeyVerified": true
+            },
+            {
+              "contentKey": "T1-R-P7-Q194",
+              "sourceNumber": 194,
+              "responseType": "SINGLE_CHOICE",
+              "content": "What must Ms. Amorapanth do in order to receive a gift from Harris Ludlow?",
+              "options": [
+                {
+                  "key": "A",
+                  "content": "Prove that she is the author of a product review"
+                },
+                {
+                  "key": "B",
+                  "content": "Complete a survey about new products"
+                },
+                {
+                  "key": "C",
+                  "content": "Retract negative feedback given on a Web site"
+                },
+                {
+                  "key": "D",
+                  "content": "Send a package containing a defective suitcase"
+                }
+              ],
+              "correctOptionKey": "A",
+              "answerKeyVerified": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "qualityNotes": [
+    "All selected objective answers were cross-checked against Đáp án Test 1.pdf.",
+    "Listening transcripts are protected stimuli and must never appear in an active learner exam payload.",
+    "Part 6 uses a source-faithful excerpt ending after blank 132 so unselected blanks 133-134 are not shown.",
+    "Part 7 questions 191 and 194 intentionally share a richer multi-document source group.",
+    "Runtime does not depend on the original RAR/PDF files."
+  ]
+}

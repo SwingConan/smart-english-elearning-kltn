@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "artifact": "M05_Media_Manifest",
+  "status": "RUNTIME_ASSETS_EXTRACTED_AND_HASHED",
+  "runtimeRules": [
+    "Original RAR/PDF files are source material only; runtime must use extracted assets.",
+    "Canonical Test 1 MP3 failure shows a recoverable error; do not substitute browser TTS.",
+    "Learner-generated Speaking recordings are NOT part of this static manifest and must be stored via AssessmentResponseStorage.",
+    "All paths are relative/stable; no file:// or Product Owner local absolute path is allowed."
+  ],
+  "assets": [
+    {
+      "mediaKey": "MEDIA_T1_L_P1_Q003_IMAGE",
+      "type": "IMAGE",
+      "packPath": "assets/images/T1-L-P1-Q003.jpg",
+      "proposedRuntimePath": "apps/api/assets/assessment/m05/test1/images/T1-L-P1-Q003.jpg",
+      "bytes": 209975,
+      "sha256": "884b8466f1604029ff65c6f936dfa074b2cd9c3a18bc36fd981f29d9f0e7452c",
+      "source": "Đề Listening - Test 1.PDF, source question 3",
+      "mimeType": "image/jpeg",
+      "width": 930,
+      "height": 665
+    },
+    {
+      "mediaKey": "MEDIA_M05_S_DESCRIBE_001_IMAGE",
+      "type": "IMAGE",
+      "packPath": "assets/images/M05-S-DESCRIBE-001.jpg",
+      "proposedRuntimePath": "apps/api/assets/assessment/m05/speaking/M05-S-DESCRIBE-001.jpg",
+      "bytes": 254309,
+      "sha256": "1dc11a5174ae691ed1b62c89abd15f69565219e3ffe8e6135ececf639461e46b",
+      "source": "Đề Listening - Test 1.PDF, source question 2 image; reused under user's licensed source permission",
+      "mimeType": "image/jpeg",
+      "width": 975,
+      "height": 715
+    },
+    {
+      "mediaKey": "MEDIA_T1_R_P7_Q191_195_DOCS_01",
+      "type": "IMAGE",
+      "packPath": "assets/images/T1-R-P7-Q191-195-docs-01.jpg",
+      "proposedRuntimePath": "apps/api/assets/assessment/m05/test1/images/T1-R-P7-Q191-195-docs-01.jpg",
+      "bytes": 545185,
+      "sha256": "387ab3798f2e94a0fe8048be31e1ccd14ea3ce3f28417338916720c52f241237",
+      "source": "Đề Reading - Test 1.pdf, source group 191-195 product information + review",
+      "mimeType": "image/jpeg",
+      "width": 1340,
+      "height": 1710
+    },
+    {
+      "mediaKey": "MEDIA_T1_R_P7_Q191_195_DOCS_02",
+      "type": "IMAGE",
+      "packPath": "assets/images/T1-R-P7-Q191-195-docs-02.jpg",
+      "proposedRuntimePath": "apps/api/assets/assessment/m05/test1/images/T1-R-P7-Q191-195-docs-02.jpg",
+      "bytes": 296888,
+      "sha256": "97b89955c739ff3db1bd28c88d10940428f9e255460010d96a50a9445bab4656",
+      "source": "Đề Reading - Test 1.pdf, source group 191-195 customer-service response",
+      "mimeType": "image/jpeg",
+      "width": 1300,
+      "height": 815
+    },
+    {
+      "mediaKey": "MEDIA_T1_L_P1_Q003_AUDIO",
+      "type": "AUDIO",
+      "packPath": "assets/audio/T1-L-P1-Q003.mp3",
+      "proposedRuntimePath": "apps/api/assets/assessment/m05/test1/audio/T1-L-P1-Q003.mp3",
+      "bytes": 445238,
+      "sha256": "ad70d30dd17c2de8b4b26aa88f1b0e3ce7cc012295c3ffa61c583eeb1a5bba87",
+      "source": "File Nghe Từng Câu/Test1_03.mp3",
+      "mimeType": "audio/mpeg",
+      "durationSeconds": 24.663
+    },
+    {
+      "mediaKey": "MEDIA_T1_L_P2_Q007_AUDIO",
+      "type": "AUDIO",
+      "packPath": "assets/audio/T1-L-P2-Q007.mp3",
+      "proposedRuntimePath": "apps/api/assets/assessment/m05/test1/audio/T1-L-P2-Q007.mp3",
+      "bytes": 345992,
+      "sha256": "9d4cbf18242ff0813b4eb7685ffc0742e1cbd4eb3a827357a6db35c2645d7fc6",
+      "source": "File Nghe Từng Câu/Test1_07.mp3",
+      "mimeType": "audio/mpeg",
+      "durationSeconds": 18.46
+    },
+    {
+      "mediaKey": "MEDIA_T1_L_P3_Q032_034_AUDIO",
+      "type": "AUDIO",
+      "packPath": "assets/audio/T1-L-P3-Q032-034.mp3",
+      "proposedRuntimePath": "apps/api/assets/assessment/m05/test1/audio/T1-L-P3-Q032-034.mp3",
+      "bytes": 1108268,
+      "sha256": "7441b476ee36d6fc527656cd935ece6c82beb1ab26fc06cb192a1acadbecf1c8",
+      "source": "File Nghe Từng Câu/Test1_32-34.mp3",
+      "mimeType": "audio/mpeg",
+      "durationSeconds": 66.103
+    },
+    {
+      "mediaKey": "MEDIA_T1_L_P4_Q071_073_AUDIO",
+      "type": "AUDIO",
+      "packPath": "assets/audio/T1-L-P4-Q071-073.mp3",
+      "proposedRuntimePath": "apps/api/assets/assessment/m05/test1/audio/T1-L-P4-Q071-073.mp3",
+      "bytes": 1283408,
+      "sha256": "31001d6e2753504126daabe6befe1b72334c3c43e504876a1a463aa1dfb2fe99",
+      "source": "File Nghe Từng Câu/Test1_71-73.mp3",
+      "mimeType": "audio/mpeg",
+      "durationSeconds": 77.049
+    }
+  ]
+}

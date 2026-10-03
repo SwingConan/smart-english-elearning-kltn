@@ -113,6 +113,12 @@ enum PlacementMode {
   FOUR_SKILLS
 }
 
+enum AssessmentStimulusType {
+  TEXT
+  IMAGE
+  AUDIO
+}
+
 enum PlacementSelfLevel {
   UNKNOWN
   BEGINNER
@@ -519,22 +525,47 @@ model TestQuestion {
 }
 
 model TestQuestionGroup {
-  id            String         @id @default(uuid()) @db.Uuid
-  testId        String         @db.Uuid
-  skill         ToeicSkill
-  orderIndex    Int
-  title         String?
-  instructions  String?        @db.Text
-  stimulusText  String?        @db.Text
-  audioUrl      String?
-  test          Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
-  testQuestions TestQuestion[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                  String               @id @default(uuid()) @db.Uuid
+  testId              String               @db.Uuid
+  skill               ToeicSkill
+  orderIndex          Int
+  title               String?
+  instructions        String?              @db.Text
+  stimulusText        String?              @db.Text
+  audioUrl            String?
+  taskCode            String?
+  preparationSeconds  Int?
+  responseSeconds     Int?
+  recommendedSeconds  Int?
+  maxRecordingSeconds Int?
+  test                Test                 @relation(fields: [testId], references: [id], onDelete: Cascade)
+  testQuestions       TestQuestion[]
+  stimuli             AssessmentStimulus[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@unique([testId, orderIndex])
   @@index([testId])
   @@map("test_question_groups")
+}
+
+model AssessmentStimulus {
+  id          String                 @id @default(uuid()) @db.Uuid
+  groupId     String                 @db.Uuid
+  type        AssessmentStimulusType
+  orderIndex  Int
+  textContent String?                @db.Text
+  storageKey  String?
+  mimeType    String?
+  altText     String?                @db.Text
+  isProtected Boolean                @default(false)
+  group       TestQuestionGroup      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@unique([groupId, orderIndex])
+  @@index([groupId])
+  @@map("assessment_stimuli")
 }
 
 model TestAttempt {

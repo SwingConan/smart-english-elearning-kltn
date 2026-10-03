@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "artifact": "M05_Speaking_Content_Pack",
+  "status": "PROJECT_AUTHORED_CONTENT_READY",
+  "language": "en",
+  "uiInstructionLanguage": "vi",
+  "tasks": [
+    {
+      "contentKey": "M05-S-READ-ALOUD-001",
+      "taskCode": "S_READ_ALOUD",
+      "skill": "SPEAKING",
+      "responseType": "AUDIO_RESPONSE",
+      "preparationSeconds": 30,
+      "responseSeconds": 45,
+      "maxRecordingSeconds": 50,
+      "rubricCode": "M05_SPEAK_READ_ALOUD_V1",
+      "instructionsVi": "Đọc thành tiếng đoạn văn dưới đây với phát âm và ngữ điệu rõ ràng.",
+      "stimuli": [
+        {
+          "type": "TEXT",
+          "orderIndex": 0,
+          "isProtected": false,
+          "textContent": "Good morning. The customer service desk on the first floor will close at 5:30 this afternoon for a staff meeting. If you need to return an item, please visit the desk before 5:00 or use our online form. Regular hours will resume tomorrow at 9:00 a.m."
+        }
+      ]
+    },
+    {
+      "contentKey": "M05-S-DESCRIBE-001",
+      "taskCode": "S_DESCRIBE_PICTURE",
+      "skill": "SPEAKING",
+      "responseType": "AUDIO_RESPONSE",
+      "preparationSeconds": 30,
+      "responseSeconds": 45,
+      "maxRecordingSeconds": 50,
+      "rubricCode": "M05_SPEAK_DESCRIBE_V1",
+      "instructionsVi": "Mô tả bức ảnh bằng tiếng Anh. Hãy nói về những người, đồ vật và hoạt động bạn quan sát được.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_M05_S_DESCRIBE_001_IMAGE",
+          "isProtected": false,
+          "altText": "Ảnh dùng cho bài nói mô tả tranh."
+        }
+      ],
+      "sourceNote": "Image stimulus is extracted from the licensed NEW TOEIC - TEST 1 source pack; the Speaking task and rubric are project-authored."
+    },
+    {
+      "contentKey": "M05-S-OPINION-001",
+      "taskCode": "S_OPINION",
+      "skill": "SPEAKING",
+      "responseType": "AUDIO_RESPONSE",
+      "preparationSeconds": 30,
+      "responseSeconds": 60,
+      "maxRecordingSeconds": 65,
+      "rubricCode": "M05_SPEAK_OPINION_V1",
+      "instructionsVi": "Trình bày ý kiến của bạn và đưa ra lý do hoặc ví dụ để hỗ trợ.",
+      "stimuli": [
+        {
+          "type": "TEXT",
+          "orderIndex": 0,
+          "isProtected": false,
+          "textContent": "Some companies allow employees to work from home several days a week. Do you think this is a good policy? Give reasons and examples to support your opinion."
+        }
+      ]
+    }
+  ],
+  "productRules": [
+    "M05 captures and persists real audio responses.",
+    "M05 does not auto-generate a Speaking score.",
+    "A missing or failed recording is never converted into a numeric score.",
+    "Learner-facing status remains Chờ đánh giá until a genuine evaluator exists."
+  ]
+}

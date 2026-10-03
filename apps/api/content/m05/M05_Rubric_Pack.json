@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "artifact": "M05_Rubric_Pack",
+  "status": "DATA_READY_NO_AUTOMATIC_GRADER",
+  "scorePolicy": {
+    "criterionScale": {
+      "minScore": 0,
+      "maxScore": 4,
+      "descriptors": {
+        "0": "Không có câu trả lời có thể đánh giá hoặc không thể hiện tiêu chí.",
+        "1": "Thể hiện rất hạn chế; lỗi hoặc thiếu sót thường xuyên cản trở việc truyền đạt.",
+        "2": "Thể hiện một phần; có nội dung phù hợp nhưng độ chính xác/đầy đủ còn không ổn định.",
+        "3": "Thể hiện tốt; nhìn chung rõ ràng, phù hợp và chỉ còn lỗi/thiếu sót nhỏ.",
+        "4": "Thể hiện rất tốt; rõ ràng, phù hợp, nhất quán và đáp ứng mạnh tiêu chí."
+      }
+    },
+    "normalizationForFutureEvaluator": "weightedCriterionScore / weightedMaxScore * 100",
+    "officialToeicConversion": false,
+    "note": "M05 stores rubrics but does not create S/W AttemptSkillScore. A score row in a future milestone implies a genuine evaluation exists."
+  },
+  "rubrics": [
+    {
+      "code": "M05_SPEAK_READ_ALOUD_V1",
+      "name": "Speaking — Read Aloud v1",
+      "description": "Internal rubric for a short read-aloud Placement task.",
+      "criteria": [
+        {
+          "code": "PRONUNCIATION",
+          "name": "Pronunciation",
+          "orderIndex": 0,
+          "maxScore": 4,
+          "weight": 0.55,
+          "description": "Độ rõ và chính xác của âm, từ và cụm từ."
+        },
+        {
+          "code": "INTONATION_STRESS",
+          "name": "Intonation / Stress",
+          "orderIndex": 1,
+          "maxScore": 4,
+          "weight": 0.45,
+          "description": "Ngữ điệu, trọng âm và nhịp điệu giúp bài đọc tự nhiên, dễ hiểu."
+        }
+      ]
+    },
+    {
+      "code": "M05_SPEAK_DESCRIBE_V1",
+      "name": "Speaking — Describe Picture v1",
+      "description": "Internal rubric for describing a visual stimulus.",
+      "criteria": [
+        {
+          "code": "PRONUNCIATION",
+          "name": "Pronunciation",
+          "orderIndex": 0,
+          "maxScore": 4,
+          "weight": 0.2,
+          "description": "Độ rõ và chính xác của phát âm."
+        },
+        {
+          "code": "INTONATION_STRESS",
+          "name": "Intonation / Stress",
+          "orderIndex": 1,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Ngữ điệu, trọng âm và nhịp điệu."
+        },
+        {
+          "code": "GRAMMAR",
+          "name": "Grammar",
+          "orderIndex": 2,
+          "maxScore": 4,
+          "weight": 0.2,
+          "description": "Độ chính xác và phạm vi cấu trúc ngữ pháp."
+        },
+        {
+          "code": "VOCABULARY",
+          "name": "Vocabulary",
+          "orderIndex": 3,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Độ phù hợp và phạm vi từ vựng."
+        },
+        {
+          "code": "RELEVANCE",
+          "name": "Relevance",
+          "orderIndex": 4,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Mức độ bám đúng yêu cầu/stimulus."
+        },
+        {
+          "code": "COMPLETENESS",
+          "name": "Completeness",
+          "orderIndex": 5,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Mức độ phát triển và hoàn thành nội dung."
+        }
+      ]
+    },
+    {
+      "code": "M05_SPEAK_OPINION_V1",
+      "name": "Speaking — Opinion v1",
+      "description": "Internal rubric for an opinion response with reasons/examples.",
+      "criteria": [
+        {
+          "code": "PRONUNCIATION",
+          "name": "Pronunciation",
+          "orderIndex": 0,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Độ rõ và chính xác của phát âm."
+        },
+        {
+          "code": "INTONATION_STRESS",
+          "name": "Intonation / Stress",
+          "orderIndex": 1,
+          "maxScore": 4,
+          "weight": 0.1,
+          "description": "Ngữ điệu, trọng âm và nhịp điệu."
+        },
+        {
+          "code": "GRAMMAR",
+          "name": "Grammar",
+          "orderIndex": 2,
+          "maxScore": 4,
+          "weight": 0.2,
+          "description": "Độ chính xác và phạm vi cấu trúc ngữ pháp."
+        },
+        {
+          "code": "VOCABULARY",
+          "name": "Vocabulary",
+          "orderIndex": 3,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Độ phù hợp và phạm vi từ vựng."
+        },
+        {
+          "code": "COHESION",
+          "name": "Cohesion",
+          "orderIndex": 4,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Khả năng liên kết ý và duy trì mạch diễn đạt."
+        },
+        {
+          "code": "RELEVANCE",
+          "name": "Relevance",
+          "orderIndex": 5,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Mức độ bám đúng yêu cầu/stimulus."
+        },
+        {
+          "code": "COMPLETENESS",
+          "name": "Completeness",
+          "orderIndex": 6,
+          "maxScore": 4,
+          "weight": 0.1,
+          "description": "Mức độ phát triển và hoàn thành nội dung."
+        }
+      ]
+    },
+    {
+      "code": "M05_WRITE_REQUEST_V1",
+      "name": "Writing — Written Request v1",
+      "description": "Internal rubric for replying to a written request/e-mail.",
+      "criteria": [
+        {
+          "code": "TASK_COMPLETION",
+          "name": "Task completion / Relevance",
+          "orderIndex": 0,
+          "maxScore": 4,
+          "weight": 0.3,
+          "description": "Mức độ đáp ứng đầy đủ các yêu cầu của nhiệm vụ."
+        },
+        {
+          "code": "GRAMMAR",
+          "name": "Grammar",
+          "orderIndex": 1,
+          "maxScore": 4,
+          "weight": 0.2,
+          "description": "Độ chính xác và phạm vi cấu trúc ngữ pháp."
+        },
+        {
+          "code": "VOCABULARY",
+          "name": "Vocabulary",
+          "orderIndex": 2,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Độ phù hợp và phạm vi từ vựng."
+        },
+        {
+          "code": "SENTENCE_QUALITY",
+          "name": "Sentence quality / variety",
+          "orderIndex": 3,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Độ rõ, đúng và đa dạng của câu."
+        },
+        {
+          "code": "ORGANIZATION",
+          "name": "Organization",
+          "orderIndex": 4,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Cách sắp xếp và liên kết nội dung."
+        },
+        {
+          "code": "SUPPORT",
+          "name": "Support / detail",
+          "orderIndex": 5,
+          "maxScore": 4,
+          "weight": 0.05,
+          "description": "Mức độ sử dụng chi tiết, lý do hoặc ví dụ hỗ trợ."
+        }
+      ]
+    },
+    {
+      "code": "M05_WRITE_OPINION_V1",
+      "name": "Writing — Opinion v1",
+      "description": "Internal rubric for an opinion response with reasons and examples.",
+      "criteria": [
+        {
+          "code": "TASK_RESPONSE",
+          "name": "Task response",
+          "orderIndex": 0,
+          "maxScore": 4,
+          "weight": 0.2,
+          "description": "Mức độ trả lời trực tiếp và phát triển quan điểm."
+        },
+        {
+          "code": "SUPPORT",
+          "name": "Support / reasons / examples",
+          "orderIndex": 1,
+          "maxScore": 4,
+          "weight": 0.2,
+          "description": "Mức độ sử dụng chi tiết, lý do hoặc ví dụ hỗ trợ."
+        },
+        {
+          "code": "GRAMMAR",
+          "name": "Grammar",
+          "orderIndex": 2,
+          "maxScore": 4,
+          "weight": 0.2,
+          "description": "Độ chính xác và phạm vi cấu trúc ngữ pháp."
+        },
+        {
+          "code": "VOCABULARY",
+          "name": "Vocabulary",
+          "orderIndex": 3,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Độ phù hợp và phạm vi từ vựng."
+        },
+        {
+          "code": "SENTENCE_QUALITY",
+          "name": "Sentence quality / variety",
+          "orderIndex": 4,
+          "maxScore": 4,
+          "weight": 0.1,
+          "description": "Độ rõ, đúng và đa dạng của câu."
+        },
+        {
+          "code": "ORGANIZATION",
+          "name": "Organization",
+          "orderIndex": 5,
+          "maxScore": 4,
+          "weight": 0.15,
+          "description": "Cách sắp xếp và liên kết nội dung."
+        }
+      ]
+    }
+  ]
+}

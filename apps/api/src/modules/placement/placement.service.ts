@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   PlacementMode,
@@ -30,8 +31,16 @@ import {
   placementFormPolicyEntries,
   selectPlacementFormId,
 } from './placement-form.policy';
+import { AssessmentResponseStorage } from './assessment-response.storage';
+import {
+  AssessmentStimulusMediaStorage,
+  AssessmentStimulusMediaUnavailableError,
+  InvalidAssessmentStimulusMediaKeyError,
+} from './assessment-stimulus-media.storage';
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
+const ACCEPTED_AUDIO_TYPES = new Set(['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg']);
 const RESULT_DISCLAIMER =
   'Kết quả này là đánh giá nội bộ phục vụ định hướng và xếp lớp, không phải điểm TOEIC chính thức.';
 
@@ -41,6 +50,10 @@ const placementAttemptInclude = {
       questionGroups: {
         orderBy: { orderIndex: 'asc' as const },
         include: {
+          stimuli: {
+            where: { isProtected: false },
+            orderBy: { orderIndex: 'asc' as const },
+          },
           testQuestions: {
             orderBy: { orderIndex: 'asc' as const },
             include: {
@@ -68,6 +81,20 @@ const placementAttemptInclude = {
 type PlacementAttempt = Prisma.TestAttemptGetPayload<{
   include: typeof placementAttemptInclude;
 }>;
+type PlacementSkillResult =
+  | {
+      skill: typeof ToeicSkill.LISTENING | typeof ToeicSkill.READING;
+      status: 'FINAL';
+      rawScore: Prisma.Decimal | null;
+      maxRawScore: Prisma.Decimal | null;
+      normalizedScore: Prisma.Decimal;
+    }
+  | {
+      skill: typeof ToeicSkill.SPEAKING | typeof ToeicSkill.WRITING;
+      status: 'PENDING_EVALUATION';
+      submittedResponseCount: number;
+      requiredResponseCount: number;
+    };
 
 @Injectable()
 export class PlacementService {
@@ -76,6 +103,8 @@ export class PlacementService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly recommendationService: RecommendationService,
+    private readonly responseStorage: AssessmentResponseStorage,
+    private readonly stimulusMediaStorage: AssessmentStimulusMediaStorage,
   ) {}
 
   async getConfig() {
@@ -84,7 +113,6 @@ export class PlacementService {
       where: {
         id: { in: [...new Set(policy.map(({ testId }) => testId))] },
         purpose: TestPurpose.PLACEMENT,
-        placementMode: PlacementMode.LR,
         status: TestStatus.PUBLISHED,
       },
       select: { id: true, timeLimitMinutes: true },
@@ -94,7 +122,12 @@ export class PlacementService {
     return {
       modes: [
         { code: PlacementMode.LR, label: 'Kiểm tra đầu vào Listening & Reading', enabled: true },
-        { code: PlacementMode.FOUR_SKILLS, label: '4 kỹ năng', enabled: false, note: 'Sắp có' },
+        {
+          code: PlacementMode.FOUR_SKILLS,
+          label: 'Kiểm tra đầu vào 4 kỹ năng',
+          enabled: durations.has(selectPlacementFormId(PlacementMode.FOUR_SKILLS, PlacementSelfLevel.UNKNOWN) ?? ''),
+          note: 'Listening, Reading, Speaking và Writing · cần microphone',
+        },
       ],
       goalPresets: [450, 550, 650, 750],
       customGoalRange: { min: 10, max: 990 },
@@ -119,13 +152,6 @@ export class PlacementService {
   }
 
   async startOrResume(learnerId: string, dto: StartPlacementAttemptDto) {
-    if (dto.mode !== PlacementMode.LR) {
-      throw new ConflictException({
-        code: 'PLACEMENT_MODE_NOT_AVAILABLE',
-        message: 'Bài kiểm tra 4 kỹ năng chưa khả dụng.',
-      });
-    }
-
     return this.runTransaction(async (transaction) => {
       const existing = await transaction.testAttempt.findFirst({
         where: {
@@ -133,7 +159,7 @@ export class PlacementService {
           enrollmentId: null,
           classAssessmentId: null,
           status: TestAttemptStatus.IN_PROGRESS,
-          test: { purpose: TestPurpose.PLACEMENT, placementMode: PlacementMode.LR },
+          test: { purpose: TestPurpose.PLACEMENT, placementMode: dto.mode },
         },
         orderBy: { startedAt: 'asc' },
         include: { test: { select: { id: true, title: true, timeLimitMinutes: true } } },
@@ -143,7 +169,7 @@ export class PlacementService {
         if (this.isExpired(existing.startedAt, existing.test.timeLimitMinutes)) {
           await this.finalizeAttempt(transaction, learnerId, existing.id);
         } else {
-          return this.startResponse(existing, true);
+          return this.startResponse(existing, true, dto.mode);
         }
       }
 
@@ -153,7 +179,7 @@ export class PlacementService {
             where: {
               id: testId,
               purpose: TestPurpose.PLACEMENT,
-              placementMode: PlacementMode.LR,
+              placementMode: dto.mode,
               status: TestStatus.PUBLISHED,
             },
             select: {
@@ -200,7 +226,7 @@ export class PlacementService {
         },
         include: { test: { select: { id: true, title: true, timeLimitMinutes: true } } },
       });
-      return this.startResponse(created, false);
+      return this.startResponse(created, false, dto.mode);
     }, 'Bài kiểm tra đang được khởi tạo ở một phiên khác. Vui lòng thử lại.');
   }
 
@@ -223,9 +249,7 @@ export class PlacementService {
         };
       }
 
-      const saved = new Map(
-        attempt.answers.map((answer) => [answer.testQuestionId, answer.selectedOptionIds]),
-      );
+      const saved = new Map(attempt.answers.map((answer) => [answer.testQuestionId, answer]));
       return {
         state: 'IN_PROGRESS',
         attempt: {
@@ -247,8 +271,25 @@ export class PlacementService {
           orderIndex: group.orderIndex,
           title: group.title,
           instructions: group.instructions,
+          taskCode: group.taskCode,
+          preparationSeconds: group.preparationSeconds,
+          responseSeconds: group.responseSeconds,
+          recommendedSeconds: group.recommendedSeconds,
+          maxRecordingSeconds: group.maxRecordingSeconds,
           stimulusText: group.skill === ToeicSkill.READING ? group.stimulusText : null,
           audioUrl: group.audioUrl,
+          stimuli: (group.stimuli ?? []).filter(({ isProtected }) => !isProtected).map((stimulus) => ({
+            id: stimulus.id,
+            type: stimulus.type,
+            orderIndex: stimulus.orderIndex,
+            textContent: stimulus.type === 'TEXT' ? stimulus.textContent : null,
+            mediaUrl:
+              stimulus.type === 'TEXT'
+                ? null
+                : `/api/placement/attempts/${attemptId}/stimuli/${stimulus.id}/media`,
+            mimeType: stimulus.mimeType,
+            altText: stimulus.altText,
+          })),
           questions: group.testQuestions.map((testQuestion) => ({
             testQuestionId: testQuestion.id,
             orderIndex: testQuestion.orderIndex,
@@ -260,7 +301,12 @@ export class PlacementService {
               content: option.content,
               orderIndex: option.orderIndex,
             })),
-            selectedOptionIds: saved.get(testQuestion.id) ?? [],
+            selectedOptionIds: saved.get(testQuestion.id)?.selectedOptionIds ?? [],
+            textResponse: saved.get(testQuestion.id)?.textResponse ?? null,
+            audioUploaded: Boolean(saved.get(testQuestion.id)?.audioStorageKey),
+            audioUrl: saved.get(testQuestion.id)?.audioStorageKey
+              ? `/api/placement/attempts/${attemptId}/answers/${testQuestion.id}/audio`
+              : null,
           })),
         })),
       };
@@ -291,19 +337,168 @@ export class PlacementService {
 
       const testQuestion = attempt.test.testQuestions.find(({ id }) => id === testQuestionId);
       if (!testQuestion) this.invalidAnswer();
-      this.validateSelection(
-        dto.selectedOptionIds,
-        testQuestion.question.responseType,
-        testQuestion.question.options.map(({ id }) => id),
-      );
+      const responseType = testQuestion.question.responseType;
+      const selectedOptionIds = dto.selectedOptionIds ?? [];
+      if (responseType === QuestionResponseType.TEXT_RESPONSE) {
+        if (dto.textResponse === undefined || dto.selectedOptionIds !== undefined) this.invalidAnswer();
+      } else {
+        if (dto.textResponse !== undefined || dto.selectedOptionIds === undefined) this.invalidAnswer();
+        this.validateSelection(
+          selectedOptionIds,
+          responseType,
+          testQuestion.question.options.map(({ id }) => id),
+        );
+      }
       const saved = await transaction.testAnswer.upsert({
         where: { attemptId_testQuestionId: { attemptId, testQuestionId } },
-        update: { selectedOptionIds: dto.selectedOptionIds, isCorrect: null, pointsAwarded: null },
-        create: { attemptId, testQuestionId, selectedOptionIds: dto.selectedOptionIds },
+        update: {
+          selectedOptionIds,
+          textResponse: responseType === QuestionResponseType.TEXT_RESPONSE ? dto.textResponse : null,
+          audioStorageKey: null,
+          isCorrect: null,
+          pointsAwarded: null,
+        },
+        create: {
+          attemptId,
+          testQuestionId,
+          selectedOptionIds,
+          textResponse: responseType === QuestionResponseType.TEXT_RESPONSE ? dto.textResponse : null,
+        },
         select: { updatedAt: true },
       });
       return { attemptId, testQuestionId, savedAt: saved.updatedAt, state: 'SAVED' };
     }, 'Câu trả lời đang được lưu ở một phiên khác. Vui lòng thử lại.');
+  }
+
+  async uploadAudio(
+    learnerId: string,
+    attemptId: string,
+    testQuestionId: string,
+    file?: { buffer: Buffer; mimetype: string; size: number },
+  ) {
+    if (!file?.buffer?.length || file.size <= 0) {
+      throw new BadRequestException({ code: 'AUDIO_FILE_REQUIRED', message: 'Tệp ghi âm đang trống.' });
+    }
+    if (!ACCEPTED_AUDIO_TYPES.has(file.mimetype) || file.size > MAX_AUDIO_BYTES) {
+      throw new BadRequestException({
+        code: 'AUDIO_FILE_INVALID',
+        message: 'Định dạng hoặc dung lượng tệp ghi âm không được hỗ trợ.',
+      });
+    }
+    const stored = await this.responseStorage.put(
+      { learnerId, attemptId, testQuestionId },
+      file.buffer,
+      file.mimetype,
+    );
+    try {
+      const committed = await this.runTransaction(async (transaction) => {
+        const attempt = await this.requireAttempt(transaction, learnerId, attemptId);
+        if (attempt.status === TestAttemptStatus.SUBMITTED) {
+          return { state: 'REJECTED' as const, code: 'ATTEMPT_ALREADY_SUBMITTED' };
+        }
+        if (this.isExpired(attempt.startedAt, attempt.test.timeLimitMinutes)) {
+          await this.finalizeAttempt(transaction, learnerId, attemptId);
+          return { state: 'REJECTED' as const, code: 'ATTEMPT_EXPIRED' };
+        }
+        const testQuestion = attempt.test.testQuestions.find(({ id }) => id === testQuestionId);
+        if (!testQuestion || testQuestion.question.responseType !== QuestionResponseType.AUDIO_RESPONSE) {
+          this.invalidAnswer();
+        }
+        const previous = attempt.answers.find(
+          (answer) => answer.testQuestionId === testQuestionId,
+        )?.audioStorageKey;
+        const answer = await transaction.testAnswer.upsert({
+          where: { attemptId_testQuestionId: { attemptId, testQuestionId } },
+          update: {
+            selectedOptionIds: [],
+            textResponse: null,
+            audioStorageKey: stored.key,
+            isCorrect: null,
+            pointsAwarded: null,
+          },
+          create: {
+            attemptId,
+            testQuestionId,
+            selectedOptionIds: [],
+            audioStorageKey: stored.key,
+          },
+          select: { updatedAt: true },
+        });
+        return { state: 'SAVED' as const, previous, savedAt: answer.updatedAt };
+      }, 'Câu trả lời ghi âm đang được lưu ở một phiên khác. Vui lòng thử lại.');
+      if (committed.state === 'REJECTED') {
+        await this.responseStorage.delete(stored.key).catch(() => undefined);
+        throw new ConflictException({
+          code: committed.code,
+          message:
+            committed.code === 'ATTEMPT_EXPIRED'
+              ? 'Bài kiểm tra đã hết giờ và được tự động nộp.'
+              : 'Bài kiểm tra đã được nộp.',
+        });
+      }
+      if (committed.previous && committed.previous !== stored.key) {
+        await this.responseStorage.delete(committed.previous).catch(() => undefined);
+      }
+      return {
+        attemptId,
+        testQuestionId,
+        state: 'UPLOADED',
+        savedAt: committed.savedAt,
+        playbackUrl: `/api/placement/attempts/${attemptId}/answers/${testQuestionId}/audio`,
+      };
+    } catch (error: unknown) {
+      await this.responseStorage.delete(stored.key).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async openAudioResponse(learnerId: string, attemptId: string, testQuestionId: string) {
+    const attempt = await this.prisma.$transaction((transaction) =>
+      this.requireAttempt(transaction, learnerId, attemptId),
+    );
+    const testQuestion = attempt.test.testQuestions.find(({ id }) => id === testQuestionId);
+    const answer = attempt.answers.find(({ testQuestionId: id }) => id === testQuestionId);
+    if (
+      !testQuestion ||
+      testQuestion.question.responseType !== QuestionResponseType.AUDIO_RESPONSE ||
+      !answer?.audioStorageKey
+    ) {
+      throw new NotFoundException({ code: 'AUDIO_NOT_FOUND', message: 'Không tìm thấy bản ghi âm.' });
+    }
+    return {
+      stream: this.responseStorage.open(answer.audioStorageKey),
+      mimeType: this.audioMimeForKey(answer.audioStorageKey),
+    };
+  }
+
+  async openStimulusMedia(learnerId: string, attemptId: string, stimulusId: string) {
+    const attempt = await this.prisma.$transaction((transaction) =>
+      this.requireAttempt(transaction, learnerId, attemptId),
+    );
+    const stimulus = attempt.test.questionGroups
+      .flatMap(({ stimuli }) => stimuli)
+      .find(({ id }) => id === stimulusId);
+    if (!stimulus?.storageKey || !stimulus.mimeType) {
+      throw new NotFoundException({ code: 'STIMULUS_NOT_FOUND', message: 'Không tìm thấy nội dung.' });
+    }
+    try {
+      return {
+        body: await this.stimulusMediaStorage.read(stimulus.storageKey),
+        mimeType: stimulus.mimeType,
+      };
+    } catch (error: unknown) {
+      if (error instanceof InvalidAssessmentStimulusMediaKeyError) {
+        throw new NotFoundException({ code: 'STIMULUS_NOT_FOUND', message: 'Không tìm thấy nội dung.' });
+      }
+      if (error instanceof AssessmentStimulusMediaUnavailableError) {
+        this.logger.error(error.message);
+        throw new ServiceUnavailableException({
+          code: 'STIMULUS_MEDIA_UNAVAILABLE',
+          message: 'Nội dung đa phương tiện hiện không khả dụng. Vui lòng thử lại sau.',
+        });
+      }
+      throw new NotFoundException({ code: 'STIMULUS_NOT_FOUND', message: 'Không tìm thấy nội dung.' });
+    }
   }
 
   async submit(learnerId: string, attemptId: string, dto: SubmitPlacementAttemptDto) {
@@ -318,6 +513,25 @@ export class PlacementService {
           code: 'ATTEMPT_NOT_EXPIRED',
           message: 'Không thể nộp theo lý do hết giờ khi đồng hồ vẫn còn thời gian.',
         });
+      }
+      if (
+        dto.reason === PlacementSubmitReason.MANUAL &&
+        attempt.test.placementMode === PlacementMode.FOUR_SKILLS
+      ) {
+        const missingAudio = attempt.test.testQuestions.filter(
+          ({ question, id }) =>
+            question.responseType === QuestionResponseType.AUDIO_RESPONSE &&
+            !attempt.answers.some(
+              (answer) => answer.testQuestionId === id && Boolean(answer.audioStorageKey),
+            ),
+        );
+        if (missingAudio.length) {
+          throw new ConflictException({
+            code: 'AUDIO_UPLOAD_INCOMPLETE',
+            message: 'Một số câu trả lời Speaking chưa được tải lên. Vui lòng đợi hoàn tất.',
+            testQuestionIds: missingAudio.map(({ id }) => id),
+          });
+        }
       }
       return this.finalizeAttempt(transaction, learnerId, attemptId);
     }, 'Bài kiểm tra đang được nộp ở một phiên khác. Vui lòng thử lại.');
@@ -362,7 +576,21 @@ export class PlacementService {
         score: true,
         maxScore: true,
         placementGoalScore: true,
-        test: { select: { title: true, placementMode: true } },
+        test: {
+          select: {
+            title: true,
+            placementMode: true,
+            testQuestions: {
+              select: {
+                id: true,
+                question: { select: { toeicSkill: true, responseType: true } },
+              },
+            },
+          },
+        },
+        answers: {
+          select: { testQuestionId: true, textResponse: true, audioStorageKey: true },
+        },
         evaluation: {
           select: { placementLevelCode: true, placementLevelLabel: true },
         },
@@ -387,6 +615,27 @@ export class PlacementService {
       score: attempt.score,
       maxScore: attempt.maxScore,
       skillScores: attempt.skillScores,
+      skillResults:
+        attempt.test.placementMode === PlacementMode.FOUR_SKILLS
+          ? [ToeicSkill.SPEAKING, ToeicSkill.WRITING].map((skill) => {
+              const questions = attempt.test.testQuestions.filter(
+                ({ question }) => question.toeicSkill === skill,
+              );
+              return {
+                skill,
+                status: 'PENDING_EVALUATION',
+                submittedResponseCount: questions.filter(({ id, question }) => {
+                  const answer = attempt.answers.find(
+                    ({ testQuestionId }) => testQuestionId === id,
+                  );
+                  return question.responseType === QuestionResponseType.AUDIO_RESPONSE
+                    ? Boolean(answer?.audioStorageKey)
+                    : Boolean(answer?.textResponse?.trim());
+                }).length,
+                requiredResponseCount: questions.length,
+              };
+            })
+          : [],
       placementLevelCode: attempt.evaluation?.placementLevelCode ?? null,
       placementLevelLabel: attempt.evaluation?.placementLevelLabel ?? null,
       resultPath: `/placement/attempts/${attempt.id}/result`,
@@ -404,7 +653,7 @@ export class PlacementService {
         learnerId,
         enrollmentId: null,
         classAssessmentId: null,
-        test: { purpose: TestPurpose.PLACEMENT, placementMode: PlacementMode.LR },
+        test: { purpose: TestPurpose.PLACEMENT },
       },
       include: placementAttemptInclude,
     });
@@ -504,6 +753,39 @@ export class PlacementService {
   }
 
   private buildResult(attempt: PlacementAttempt) {
+    const answerByQuestion = new Map(
+      attempt.answers.map((answer) => [answer.testQuestionId, answer]),
+    );
+    const skillResults: PlacementSkillResult[] = [ToeicSkill.LISTENING, ToeicSkill.READING].map((skill) => {
+      const score = attempt.skillScores.find((item) => item.skill === skill);
+      return score
+        ? {
+            skill,
+            status: 'FINAL' as const,
+            rawScore: score.rawScore,
+            maxRawScore: score.maxRawScore,
+            normalizedScore: score.normalizedScore,
+          }
+        : null;
+    }).filter((item) => item !== null);
+    if (attempt.test.placementMode === PlacementMode.FOUR_SKILLS) {
+      for (const skill of [ToeicSkill.SPEAKING, ToeicSkill.WRITING]) {
+        const questions = attempt.test.testQuestions.filter(
+          ({ question }) => question.toeicSkill === skill,
+        );
+        skillResults.push({
+          skill,
+          status: 'PENDING_EVALUATION' as const,
+          submittedResponseCount: questions.filter(({ id, question }) => {
+            const answer = answerByQuestion.get(id);
+            return question.responseType === QuestionResponseType.AUDIO_RESPONSE
+              ? Boolean(answer?.audioStorageKey)
+              : Boolean(answer?.textResponse?.trim());
+          }).length,
+          requiredResponseCount: questions.length,
+        });
+      }
+    }
     return {
       attemptId: attempt.id,
       status: attempt.status,
@@ -529,6 +811,7 @@ export class PlacementService {
           status: skillScore.status,
           source: skillScore.source,
         })),
+      skillResults,
       disclaimer: RESULT_DISCLAIMER,
     };
   }
@@ -538,6 +821,19 @@ export class PlacementService {
     attemptId: string,
     objectiveResult: T,
   ) {
+    if (objectiveResult.mode === PlacementMode.FOUR_SKILLS) {
+      return {
+        ...objectiveResult,
+        enhancement: {
+          status: 'PENDING_SKILL_EVALUATION' as const,
+          error: null,
+          message:
+            'Listening và Reading đã được chấm tự động. Phần Speaking và Writing đã được lưu và đang chờ đánh giá trước khi hệ thống hoàn tất nhận xét và gợi ý khóa học 4 kỹ năng.',
+        },
+        evaluation: null,
+        recommendations: [],
+      };
+    }
     try {
       const generated = await this.recommendationService.ensureAndProject(attemptId, learnerId);
       return {
@@ -578,13 +874,14 @@ export class PlacementService {
       test: { id: string; title: string; timeLimitMinutes: number | null };
     },
     resumed: boolean,
+    mode: PlacementMode,
   ) {
     return {
       attemptId: attempt.id,
       resumed,
       test: {
         title: attempt.test.title,
-        mode: PlacementMode.LR,
+        mode,
         durationMinutes: attempt.test.timeLimitMinutes,
       },
       goalScore: attempt.placementGoalScore,
@@ -648,6 +945,13 @@ export class PlacementService {
     return maxScore === 0 ? 0 : Math.round((score / maxScore) * 10_000) / 100;
   }
 
+  private audioMimeForKey(key: string): string {
+    if (key.endsWith('.ogg')) return 'audio/ogg';
+    if (key.endsWith('.m4a') || key.endsWith('.mp4')) return 'audio/mp4';
+    if (key.endsWith('.mp3')) return 'audio/mpeg';
+    return 'audio/webm';
+  }
+
   private async runTransaction<T>(
     operation: (transaction: Prisma.TransactionClient) => Promise<T>,
     conflictMessage: string,
@@ -668,9 +972,26 @@ export class PlacementService {
   }
 
   private isRetryableConflict(error: unknown): boolean {
-    return (
+    if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       ['P2002', 'P2003', 'P2034'].includes(error.code)
+    ) {
+      return true;
+    }
+
+    if (!error || typeof error !== 'object' || !('name' in error) || !('cause' in error)) {
+      return false;
+    }
+
+    const adapterError = error as {
+      name?: unknown;
+      cause?: { kind?: unknown; originalCode?: unknown };
+    };
+    return (
+      adapterError.name === 'DriverAdapterError' &&
+      adapterError.cause?.kind === 'TransactionWriteConflict' &&
+      (adapterError.cause.originalCode === '40001' ||
+        adapterError.cause.originalCode === '40P01')
     );
   }
 }

@@ -29,7 +29,8 @@
     "prisma:migrate:deploy": "npm run prisma:migrate:deploy -w @smart-elearning/api",
     "prisma:seed": "npm run prisma:seed -w @smart-elearning/api",
     "prisma:studio": "npm run prisma:studio -w @smart-elearning/api",
-    "check:skeleton": "node scripts/check-skeleton.mjs"
+    "check:skeleton": "node scripts/check-skeleton.mjs",
+    "check:m05-manifest": "node scripts/check-m05-manifest.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
