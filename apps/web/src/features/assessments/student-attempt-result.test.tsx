@@ -70,7 +70,7 @@ describe('StudentTestAttemptPage', () => {
     expect(screen.getByText(/^Đã lưu$/i)).toBeInTheDocument();
   });
 
-  it('prevents an older autosave completion from rolling a rapid newer selection backward', async () => {
+  it('serializes rapid autosaves so a newer revision cannot be overtaken', async () => {
     vi.spyOn(studentAssessmentApi, 'getAttempt').mockResolvedValue(attemptContent());
     const older = deferred<{ attemptId: string; answers: StudentAnswerSelection[] }>();
     const newer = deferred<{ attemptId: string; answers: StudentAnswerSelection[] }>();
@@ -91,11 +91,13 @@ describe('StudentTestAttemptPage', () => {
     await act(async () => {
       vi.advanceTimersByTime(500);
     });
-    expect(save).toHaveBeenCalledTimes(2);
-    newer.resolve({ attemptId, answers: expectedAnswers({ sc: ['sc-a'] }) });
-    await act(async () => undefined);
+    expect(save).toHaveBeenCalledTimes(1);
     older.resolve({ attemptId, answers: expectedAnswers({ sc: ['sc-b'] }) });
-    await act(async () => undefined);
+    await act(async () => { await Promise.resolve(); });
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1][2]).toEqual(expectedAnswers({ sc: ['sc-a'] }));
+    newer.resolve({ attemptId, answers: expectedAnswers({ sc: ['sc-a'] }) });
+    await act(async () => { await Promise.resolve(); });
 
     expect(screen.getByLabelText('SC A')).toBeChecked();
     expect(screen.getByLabelText('SC B')).not.toBeChecked();
@@ -139,6 +141,7 @@ describe('StudentTestAttemptPage', () => {
     fireEvent.click(screen.getByLabelText('MC A'));
     fireEvent.click(screen.getByRole('button', { name: /^Nộp bài$/i }));
     fireEvent.click(screen.getByRole('button', { name: /Xác nhận nộp/i }));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     expect(submit).toHaveBeenCalledOnce();
     const payload = submit.mock.calls[0][2];
     expect(payload).toEqual(expectedAnswers({ sc: ['sc-b'], tf: ['tf-a'], mc: ['mc-b'] }));
@@ -150,7 +153,7 @@ describe('StudentTestAttemptPage', () => {
     await act(async () => {
       vi.advanceTimersByTime(1000);
     });
-    expect(save).not.toHaveBeenCalled();
+    expect(save).toHaveBeenCalledOnce();
     submitPending.resolve(submission());
     await act(async () => undefined);
     expect(screen.getByTestId('location')).toHaveTextContent(

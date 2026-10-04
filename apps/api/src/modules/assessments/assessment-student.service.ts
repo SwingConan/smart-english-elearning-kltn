@@ -402,10 +402,10 @@ export class AssessmentStudentService {
       }
       const now = new Date();
       if (classAssessment?.openAt && now < classAssessment.openAt) {
-        throw new ConflictException({ code: 'ASSESSMENT_NOT_OPEN', message: 'BÃ i kiá»ƒm tra chÆ°a Ä‘áº¿n thá»i gian má»Ÿ.' });
+        throw new ConflictException({ code: 'ASSESSMENT_NOT_OPEN', message: 'Bài kiểm tra chưa đến thời gian mở.' });
       }
       if (classAssessment?.closeAt && now >= classAssessment.closeAt) {
-        throw new ConflictException({ code: 'ASSESSMENT_CLOSED', message: 'BÃ i kiá»ƒm tra Ä‘Ã£ Ä‘Ã³ng.' });
+        throw new ConflictException({ code: 'ASSESSMENT_CLOSED', message: 'Bài kiểm tra đã đóng.' });
       }
 
       const inProgress = await transaction.testAttempt.findFirst({
@@ -489,7 +489,7 @@ export class AssessmentStudentService {
         );
       }
       return current;
-    }, 'LÆ°á»£t lÃ m Ä‘ang Ä‘Æ°á»£c cáº­p nháº­t. Vui lÃ²ng thá»­ láº¡i.');
+    }, 'Lượt làm đang được cập nhật. Vui lòng thử lại.');
 
     const attemptMetadata = {
       id: attempt.id,
@@ -680,12 +680,12 @@ export class AssessmentStudentService {
     file?: { buffer: Buffer; mimetype: string; size: number },
   ) {
     if (!file?.buffer?.length || file.size <= 0) {
-      throw new BadRequestException({ code: 'AUDIO_FILE_REQUIRED', message: 'Tá»‡p ghi Ã¢m Ä‘ang trá»‘ng.' });
+      throw new BadRequestException({ code: 'AUDIO_FILE_REQUIRED', message: 'Tệp ghi âm đang trống.' });
     }
     if (!ACCEPTED_AUDIO_TYPES.has(file.mimetype) || file.size > MAX_AUDIO_BYTES) {
       throw new BadRequestException({
         code: 'AUDIO_FILE_INVALID',
-        message: 'Äá»‹nh dáº¡ng hoáº·c dung lÆ°á»£ng tá»‡p ghi Ã¢m khÃ´ng Ä‘Æ°á»£c há»— trá»£.',
+        message: 'Định dạng hoặc dung lượng tệp ghi âm không được hỗ trợ.',
       });
     }
     if (!this.responseStorage) {
@@ -747,14 +747,14 @@ export class AssessmentStudentService {
           select: { updatedAt: true },
         });
         return { state: 'SAVED' as const, previous, savedAt: answer.updatedAt };
-      }, 'Báº£n ghi Ã¢m Ä‘ang Ä‘Æ°á»£c lÆ°u á»Ÿ phiÃªn khÃ¡c. Vui lÃ²ng thá»­ láº¡i.');
+      }, 'Bản ghi âm đang được lưu ở phiên khác. Vui lòng thử lại.');
       if (committed.state === 'REJECTED') {
         await this.responseStorage.delete(stored.key).catch(() => undefined);
         throw new ConflictException({
           code: committed.code,
           message: committed.code === 'ATTEMPT_EXPIRED'
-            ? 'LÆ°á»£t lÃ m Ä‘Ã£ háº¿t háº¡n vÃ  Ä‘Æ°á»£c ná»™p tá»± Ä‘á»™ng.'
-            : 'BÃ i kiá»ƒm tra Ä‘Ã£ Ä‘Æ°á»£c ná»™p.',
+            ? 'Lượt làm đã hết hạn và được nộp tự động.'
+            : 'Bài kiểm tra đã được nộp.',
         });
       }
       if (committed.previous && committed.previous !== stored.key) {
@@ -839,7 +839,7 @@ export class AssessmentStudentService {
         this.logger.error(error.message);
         throw new ServiceUnavailableException({
           code: 'STIMULUS_MEDIA_UNAVAILABLE',
-          message: 'Ná»™i dung Ä‘a phÆ°Æ¡ng tiá»‡n hiá»‡n khÃ´ng kháº£ dá»¥ng.',
+          message: 'Nội dung đa phương tiện hiện không khả dụng.',
         });
       }
       throw error;
@@ -865,6 +865,16 @@ export class AssessmentStudentService {
         return this.buildSubmissionResponse(attempt);
       }
 
+      const expired = this.isDeadlineReached(
+        attempt.startedAt,
+        attempt.test.timeLimitMinutes,
+        attempt.classAssessment?.closeAt ?? null,
+      );
+      if (expired) {
+        const submitted = await this.finalizeAttempt(transaction, enrollmentId, attemptId);
+        return this.buildSubmissionResponse(submitted);
+      }
+
       if (dto.answers.length > 0) {
         await this.saveSubmissionAnswers(transaction, attemptId, dto.answers, attempt.test.testQuestions);
         attempt = await this.findStudentAttempt(
@@ -875,12 +885,7 @@ export class AssessmentStudentService {
           attemptId,
         );
       }
-      const expired = this.isDeadlineReached(
-        attempt.startedAt,
-        attempt.test.timeLimitMinutes,
-        attempt.classAssessment?.closeAt ?? null,
-      );
-      if (!expired && attempt.test.purpose === TestPurpose.IN_CLASS) {
+      if (attempt.test.purpose === TestPurpose.IN_CLASS) {
         const missingSpeaking = attempt.test.testQuestions.filter(
           ({ id, question }) =>
             question.responseType === QuestionResponseType.AUDIO_RESPONSE &&
@@ -898,7 +903,7 @@ export class AssessmentStudentService {
         if (missingSpeaking.length || missingWriting.length) {
           throw new ConflictException({
             code: 'PRODUCTIVE_RESPONSES_INCOMPLETE',
-            message: 'Cáº§n lÆ°u Ä‘áº§y Ä‘á»§ cÃ¢u tráº£ lá»i Speaking vÃ  Writing trÆ°á»›c khi ná»™p bÃ i.',
+            message: 'Cần lưu đầy đủ câu trả lời Speaking và Writing trước khi nộp bài.',
             speakingTestQuestionIds: missingSpeaking.map(({ id }) => id),
             writingTestQuestionIds: missingWriting.map(({ id }) => id),
           });
@@ -938,7 +943,7 @@ export class AssessmentStudentService {
         );
       }
       return current;
-    }, 'Káº¿t quáº£ Ä‘ang Ä‘Æ°á»£c cáº­p nháº­t. Vui lÃ²ng thá»­ láº¡i.');
+    }, 'Kết quả đang được cập nhật. Vui lòng thử lại.');
     if (attempt.status !== TestAttemptStatus.SUBMITTED) {
       throw new NotFoundException('Result not found');
     }
@@ -999,7 +1004,7 @@ export class AssessmentStudentService {
               .mul(100)
               .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
           ),
-          label: 'Tá»•ng Ä‘iá»ƒm bÃ i kiá»ƒm tra',
+          label: 'Tổng điểm bài kiểm tra',
         }
       : null;
 
@@ -1027,7 +1032,7 @@ export class AssessmentStudentService {
         awardedPoints: score,
         maxPoints: maxScore,
         percentage: this.percentage(score, maxScore),
-        label: 'Äiá»ƒm',
+        label: 'Điểm',
       },
       questions: attempt.test.testQuestions.map((testQuestion) => {
         const answer = answerMap.get(testQuestion.id);

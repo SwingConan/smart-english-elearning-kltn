@@ -100,3 +100,43 @@ Final candidate verification:
 - Expected negative-path logs remain in Placement and invalid-BKT tests.
 
 No schema drift, merge, `main` push, M07/M08 work, or Product Owner artifact mutation is part of this candidate.
+
+## GPT implementation review fixes
+
+- Previous HEAD: `2964b7372478a682d44cc7f619be42aeab39f18a`.
+- New candidate HEAD: the commit containing this report; the immutable SHA is recorded in the Git handoff after commit/push.
+- Visual Gate has not started and is not claimed as passed.
+
+### F-01 through F-09 dispositions
+
+- F-01: repaired all M06-introduced Vietnamese mojibake in seed, assessment API messages, and learner/instructor M06 pages. The deterministic titles are exactly `Kiểm tra thường kỳ 01`, `Kiểm tra giữa kỳ`, and `Kiểm tra cuối kỳ`; E2E asserts them and a source scan finds no `Ã`, `Ä`, or `Æ` sequences in the audited M06 user-facing files.
+- F-02: submit now checks the effective deadline before applying request answers. An expired submit finalizes only persisted state; E2E proves late objective and Writing payloads cannot alter answers or score.
+- F-03: Speaking now follows PREP/READY/RECORDING/LOCAL_DRAFT/UPLOADING/COMMITTED/UPLOAD_ERROR with preparation countdown, maximum duration, local playback, explicit save, committed playback, safe re-record/discard/retry behavior, submit/navigation guards, track teardown, and object-URL cleanup.
+- F-04: answer autosave is revision-safe and serialized with at most one request in flight. Edits made during a save are drained immediately afterward, and manual submit flushes/awaits the latest revision.
+- F-05: grading rejects missing/blank productive responses with `PRODUCTIVE_RESPONSE_MISSING`; productive FINAL aggregation additionally requires a real response, awarded points, and exactly one reviewed-final instructor evaluation.
+- F-06: the M06 grouped exam uses one focused group at a time, stable global numbering, skill-grouped current/completed navigation, desktop sidebar, and mobile collapsible navigation without raw task codes. Legacy ungrouped objective tests remain backward compatible.
+- F-07: grading localizes productive skills, supports criterion feedback and partial drafts without invalid empty scores, requires all criteria only for final confirmation, adds all/waiting/completed filters, and shows concise Listening/Reading snapshots.
+- F-08: pre-attempt stage/window/attempt-limit editing is exposed with backend immutability preserved; progress includes four-skill final/pending/missing snapshots; scheduling and grading detail have retryable load errors.
+- F-09: the timer initializes from `Date.now()`, disables normal edits at zero, and reconciles with server-authoritative expiry.
+
+### Focused regression evidence
+
+- Class/learner assessment service unit suites: 11/11 PASS.
+- M06 Web regression suite: 13/13 PASS, including revision ordering, submit during in-flight save, re-record/failure preservation, teardown, maximum duration, submit lock, navigator, timer initialization, grading draft/feedback, filters, schedule editing, progress snapshots, and load errors.
+- M06 E2E suite: 7/7 PASS, including canonical Unicode titles, late-payload rejection, missing-response grading rejection, Decimal grading, uniqueness, ownership, result truth, and protected audio.
+
+### Final verification after review fixes
+
+- `npm run check:m05-manifest` — PASS.
+- Prisma validate/generate/deploy/status/drift — PASS; 11 migrations, database up to date, no difference.
+- `npm run seed` twice — PASS; idempotent. A final seed rerun restored deterministic demo state after E2E.
+- `npm run lint` — PASS.
+- `npm run typecheck` — PASS.
+- `npm run test` — PASS: API 333/333; Web 210/210.
+- `npm run test:e2e -w @smart-elearning/api` — PASS: 90/90.
+- `npm run build` — PASS.
+- Clean-database replay remains unavailable locally because the PostgreSQL role lacks `CREATEDB`; no destructive permission change was attempted. The repository has no separate safe local replay mechanism beyond the CI-created database path.
+
+Known non-blocking output remains the Vite large-chunk advisory (about 581 kB), the PostgreSQL `pg` deprecation warning, and expected negative-path logs.
+
+Rerun disclosure: the first full unit run exposed eight legacy Web assertions that still assumed the old all-questions layout/concurrent autosave behavior. Legacy ungrouped objective rendering was kept backward compatible and those assertions were updated for serialized saves; the subsequent focused and full runs pass. The first lint run also caught synchronous effect-state updates in the new pages; those were corrected before the final passing lint run.

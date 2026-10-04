@@ -39,7 +39,7 @@ describe('ClassAssessmentService', () => {
   });
 
   it('uses exact Decimal weighted rubric math and HALF_UP persisted points', async () => {
-    tx.testAnswer.findFirst.mockResolvedValue({ id: 'answer-id', testQuestion: { points: 7, question: { responseType: QuestionResponseType.TEXT_RESPONSE, toeicSkill: ToeicSkill.WRITING, rubric } }, evaluations: [] });
+    tx.testAnswer.findFirst.mockResolvedValue({ id: 'answer-id', textResponse: 'A real learner response', audioStorageKey: null, testQuestion: { points: 7, question: { responseType: QuestionResponseType.TEXT_RESPONSE, toeicSkill: ToeicSkill.WRITING, rubric } }, evaluations: [] });
     await service.gradeAnswer('instructor-id', 'class-id', 'assessment-id', 'attempt-id', 'test-question-id', { criteria: [
       { rubricCriterionId: 'criterion-a', score: '3' },
       { rubricCriterionId: 'criterion-b', score: '5' },
@@ -52,15 +52,25 @@ describe('ClassAssessmentService', () => {
   });
 
   it('requires an explicit edit action before changing final instructor judgment', async () => {
-    tx.testAnswer.findFirst.mockResolvedValue({ id: 'answer-id', testQuestion: { points: 10, question: { responseType: QuestionResponseType.AUDIO_RESPONSE, toeicSkill: ToeicSkill.SPEAKING, rubric } }, evaluations: [{ id: 'evaluation-id', status: AnswerEvaluationStatus.REVIEWED_FINAL }] });
+    tx.testAnswer.findFirst.mockResolvedValue({ id: 'answer-id', textResponse: null, audioStorageKey: 'responses/a.webm', testQuestion: { points: 10, question: { responseType: QuestionResponseType.AUDIO_RESPONSE, toeicSkill: ToeicSkill.SPEAKING, rubric } }, evaluations: [{ id: 'evaluation-id', status: AnswerEvaluationStatus.REVIEWED_FINAL }] });
     await expect(service.gradeAnswer('instructor-id', 'class-id', 'assessment-id', 'attempt-id', 'test-question-id', { criteria: [], finalize: false }))
       .rejects.toBeInstanceOf(ConflictException);
   });
 
   it('rejects out-of-range rubric scores before persistence', async () => {
-    tx.testAnswer.findFirst.mockResolvedValue({ id: 'answer-id', testQuestion: { points: 10, question: { responseType: QuestionResponseType.TEXT_RESPONSE, toeicSkill: ToeicSkill.WRITING, rubric } }, evaluations: [] });
+    tx.testAnswer.findFirst.mockResolvedValue({ id: 'answer-id', textResponse: 'A real learner response', audioStorageKey: null, testQuestion: { points: 10, question: { responseType: QuestionResponseType.TEXT_RESPONSE, toeicSkill: ToeicSkill.WRITING, rubric } }, evaluations: [] });
     await expect(service.gradeAnswer('instructor-id', 'class-id', 'assessment-id', 'attempt-id', 'test-question-id', { criteria: [{ rubricCriterionId: 'criterion-a', score: '4.01' }], finalize: false }))
       .rejects.toBeInstanceOf(BadRequestException);
+    expect(tx.answerEvaluation.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [QuestionResponseType.TEXT_RESPONSE, '   ', null],
+    [QuestionResponseType.AUDIO_RESPONSE, null, null],
+  ])('rejects grading a missing productive response (%s)', async (responseType, textResponse, audioStorageKey) => {
+    tx.testAnswer.findFirst.mockResolvedValue({ id: 'answer-id', textResponse, audioStorageKey, testQuestion: { points: 10, question: { responseType, toeicSkill: responseType === QuestionResponseType.TEXT_RESPONSE ? ToeicSkill.WRITING : ToeicSkill.SPEAKING, rubric } }, evaluations: [] });
+    await expect(service.gradeAnswer('instructor-id', 'class-id', 'assessment-id', 'attempt-id', 'test-question-id', { criteria: [], finalize: false }))
+      .rejects.toMatchObject({ response: expect.objectContaining({ code: 'PRODUCTIVE_RESPONSE_MISSING' }) });
     expect(tx.answerEvaluation.create).not.toHaveBeenCalled();
   });
 });

@@ -270,7 +270,30 @@ export class LearningService {
               where: { enrollmentId },
               orderBy: { attemptNumber: 'desc' },
               take: 1,
-              select: { id: true, status: true, submittedAt: true },
+              select: {
+                id: true,
+                status: true,
+                submittedAt: true,
+                skillScores: {
+                  orderBy: { skill: 'asc' },
+                  select: {
+                    skill: true,
+                    status: true,
+                    normalizedScore: true,
+                  },
+                },
+                answers: {
+                  select: {
+                    textResponse: true,
+                    audioStorageKey: true,
+                    testQuestion: {
+                      select: {
+                        question: { select: { toeicSkill: true } },
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
         },
@@ -333,6 +356,27 @@ export class LearningService {
                 : 'NOT_STARTED',
           attemptId: attempt?.id ?? null,
           submittedAt: attempt?.submittedAt ?? null,
+          skillResults: attempt
+            ? (['LISTENING', 'READING', 'SPEAKING', 'WRITING'] as const).map((skill) => {
+                const persisted = attempt.skillScores.find((score) => score.skill === skill);
+                const hasResponse = attempt.answers.some(
+                  (answer) =>
+                    answer.testQuestion.question.toeicSkill === skill &&
+                    Boolean(answer.textResponse?.trim() || answer.audioStorageKey),
+                );
+                return {
+                  skill,
+                  state: persisted?.status === 'FINAL'
+                    ? 'FINAL'
+                    : hasResponse
+                      ? 'PENDING_REVIEW'
+                      : 'MISSING_RESPONSE',
+                  normalizedScore: persisted?.status === 'FINAL'
+                    ? Number(persisted.normalizedScore)
+                    : null,
+                };
+              })
+            : [],
         };
       }),
     };

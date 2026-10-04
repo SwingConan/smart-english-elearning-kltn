@@ -243,6 +243,7 @@ export interface ClassAssessmentSummary {
   isActive: boolean;
   submissionCount: number;
   pendingGradingCount: number;
+  attemptCount: number;
   test: { id: string; title: string; maxAttempts: number; timeLimitMinutes: number | null; _count: { testQuestions: number } };
 }
 export interface ClassAssessmentWorkspace {

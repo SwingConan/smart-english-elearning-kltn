@@ -43,7 +43,7 @@ const forms = [
   {
     testId: M06_PERIODIC_TEST_ID,
     assessmentId: M06_PERIODIC_ASSESSMENT_ID,
-    title: 'Kiá»ƒm tra thÆ°á»ng ká»³ 01',
+    title: 'Kiểm tra thường kỳ 01',
     stage: AssessmentStage.PERIODIC,
     openAt: new Date('2026-08-01T00:00:00Z'),
     closeAt: new Date('2026-09-30T23:59:59Z'),
@@ -52,7 +52,7 @@ const forms = [
   {
     testId: M06_MIDTERM_TEST_ID,
     assessmentId: M06_MIDTERM_ASSESSMENT_ID,
-    title: 'Kiá»ƒm tra giá»¯a ká»³',
+    title: 'Kiểm tra giữa kỳ',
     stage: AssessmentStage.MIDTERM,
     openAt: new Date('2026-10-01T00:00:00Z'),
     closeAt: new Date('2030-06-30T23:59:59Z'),
@@ -61,7 +61,7 @@ const forms = [
   {
     testId: M06_FINAL_TEST_ID,
     assessmentId: M06_FINAL_ASSESSMENT_ID,
-    title: 'Kiá»ƒm tra cuá»‘i ká»³',
+    title: 'Kiểm tra cuối kỳ',
     stage: AssessmentStage.FINAL,
     openAt: new Date('2031-07-01T00:00:00Z'),
     closeAt: new Date('2031-07-31T23:59:59Z'),
@@ -105,7 +105,7 @@ export async function seedM06(prisma: PrismaClient, context: M06SeedContext): Pr
         purpose: TestPurpose.IN_CLASS,
         placementMode: null,
         title: form.title,
-        description: 'BÃ i kiá»ƒm tra ná»™i bá»™ bá»‘n ká»¹ nÄƒng vá»›i pháº§n cháº¥m Speaking/Writing cá»§a giáº£ng viÃªn.',
+        description: 'Bài kiểm tra nội bộ bốn kỹ năng với phần chấm Speaking/Writing của giảng viên.',
         status: TestStatus.PUBLISHED,
         maxAttempts: form.maxAttempts,
         timeLimitMinutes: 30,
@@ -116,7 +116,7 @@ export async function seedM06(prisma: PrismaClient, context: M06SeedContext): Pr
         courseId: context.courseId,
         purpose: TestPurpose.IN_CLASS,
         title: form.title,
-        description: 'BÃ i kiá»ƒm tra ná»™i bá»™ bá»‘n ká»¹ nÄƒng vá»›i pháº§n cháº¥m Speaking/Writing cá»§a giáº£ng viÃªn.',
+        description: 'Bài kiểm tra nội bộ bốn kỹ năng với phần chấm Speaking/Writing của giảng viên.',
         status: TestStatus.PUBLISHED,
         maxAttempts: form.maxAttempts,
         timeLimitMinutes: 30,
@@ -389,7 +389,7 @@ async function seedAttempt(
           status: AnswerEvaluationStatus.REVIEWED_FINAL,
           evaluatorId: context.instructorId,
           totalScore: new Prisma.Decimal(80),
-          feedback: 'Pháº£n tráº£ lá»i rÃµ rÃ ng, Ä‘Ãºng trá»ng tÃ¢m. HÃ£y Ä‘a dáº¡ng hÃ³a thÃªm cáº¥u trÃºc cÃ¢u.',
+          feedback: 'Phần trả lời rõ ràng, đúng trọng tâm. Hãy đa dạng hóa thêm cấu trúc câu.',
         },
         create: {
           id: evaluationId,
@@ -398,7 +398,7 @@ async function seedAttempt(
           status: AnswerEvaluationStatus.REVIEWED_FINAL,
           evaluatorId: context.instructorId,
           totalScore: new Prisma.Decimal(80),
-          feedback: 'Pháº£n tráº£ lá»i rÃµ rÃ ng, Ä‘Ãºng trá»ng tÃ¢m. HÃ£y Ä‘a dáº¡ng hÃ³a thÃªm cáº¥u trÃºc cÃ¢u.',
+          feedback: 'Phần trả lời rõ ràng, đúng trọng tâm. Hãy đa dạng hóa thêm cấu trúc câu.',
         },
       });
       for (const criterion of testQuestion.question.rubric.criteria) {
@@ -411,13 +411,13 @@ async function seedAttempt(
           },
           update: {
             score: criterion.maxScore.mul('0.8').toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
-            feedback: 'ÄÃ¡p á»©ng yÃªu cáº§u cá»§a tiÃªu chÃ­.',
+            feedback: 'Đáp ứng yêu cầu của tiêu chí.',
           },
           create: {
             answerEvaluationId: evaluationId,
             rubricCriterionId: criterion.id,
             score: criterion.maxScore.mul('0.8').toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
-            feedback: 'ÄÃ¡p á»©ng yÃªu cáº§u cá»§a tiÃªu chÃ­.',
+            feedback: 'Đáp ứng yêu cầu của tiêu chí.',
           },
         });
       }

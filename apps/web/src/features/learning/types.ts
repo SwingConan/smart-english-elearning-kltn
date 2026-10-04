@@ -86,6 +86,11 @@ export interface CourseProgress {
     status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
     attemptId: string | null;
     submittedAt: string | null;
+    skillResults?: Array<{
+      skill: 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING';
+      state: 'FINAL' | 'PENDING_REVIEW' | 'MISSING_RESPONSE';
+      normalizedScore: number | null;
+    }>;
   }>;
 }
 

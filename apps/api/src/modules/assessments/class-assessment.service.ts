@@ -74,6 +74,7 @@ export class ClassAssessmentService {
               },
             },
           },
+          _count: { select: { attempts: true } },
         },
       }),
       this.prisma.test.findMany({
@@ -102,6 +103,7 @@ export class ClassAssessmentService {
         pendingGradingCount: assignment.attempts.filter((attempt) =>
           attempt.answers.some((answer) => answer.evaluations.length === 0),
         ).length,
+        attemptCount: assignment._count.attempts,
       })),
     };
   }
@@ -121,7 +123,7 @@ export class ClassAssessmentService {
       if (!test) {
         throw new BadRequestException({
           code: 'CLASS_ASSESSMENT_TEST_INVALID',
-          message: 'Chá»‰ cÃ³ thá»ƒ giao bÃ i kiá»ƒm tra trong lá»›p Ä‘Ã£ xuáº¥t báº£n cÃ¹ng khÃ³a há»c.',
+          message: 'Chỉ có thể giao bài kiểm tra trong lớp đã xuất bản cùng khóa học.',
         });
       }
       this.validateWindow(dto.openAt, dto.closeAt);
@@ -149,7 +151,7 @@ export class ClassAssessmentService {
         if (this.isPrismaError(error, 'P2002')) this.duplicateAssignment();
         throw error;
       }
-    }, 'Lá»‹ch bÃ i kiá»ƒm tra Ä‘ang Ä‘Æ°á»£c cáº­p nháº­t. Vui lÃ²ng thá»­ láº¡i.');
+    }, 'Lịch bài kiểm tra đang được cập nhật. Vui lòng thử lại.');
   }
 
   async get(instructorId: string, classOfferingId: string, classAssessmentId: string) {
@@ -205,7 +207,7 @@ export class ClassAssessmentService {
       if (schedulingChanged && assessment._count.attempts > 0) {
         throw new ConflictException({
           code: 'CLASS_ASSESSMENT_ALREADY_STARTED',
-          message: 'KhÃ´ng thá»ƒ Ä‘á»•i lá»‹ch sau khi Ä‘Ã£ cÃ³ lÆ°á»£t lÃ m bÃ i.',
+          message: 'Không thể đổi lịch sau khi đã có lượt làm bài.',
         });
       }
       const openAt = dto.openAt === undefined ? assessment.openAt : dto.openAt;
@@ -233,7 +235,7 @@ export class ClassAssessmentService {
         if (this.isPrismaError(error, 'P2002')) this.duplicateAssignment();
         throw error;
       }
-    }, 'Lá»‹ch bÃ i kiá»ƒm tra Ä‘ang Ä‘Æ°á»£c cáº­p nháº­t. Vui lÃ²ng thá»­ láº¡i.');
+    }, 'Lịch bài kiểm tra đang được cập nhật. Vui lòng thử lại.');
   }
 
   async gradingQueue(instructorId: string, classOfferingId: string, classAssessmentId: string) {
@@ -384,6 +386,8 @@ export class ClassAssessmentService {
         },
         select: {
           id: true,
+          textResponse: true,
+          audioStorageKey: true,
           testQuestion: {
             select: {
               points: true,
@@ -413,16 +417,26 @@ export class ClassAssessmentService {
       if (!PRODUCTIVE_TYPES.includes(answer.testQuestion.question.responseType as (typeof PRODUCTIVE_TYPES)[number])) {
         throw new BadRequestException('Only Speaking or Writing responses use rubric grading');
       }
+      const hasResponse =
+        answer.testQuestion.question.responseType === QuestionResponseType.TEXT_RESPONSE
+          ? Boolean(answer.textResponse?.trim())
+          : Boolean(answer.audioStorageKey);
+      if (!hasResponse) {
+        throw new BadRequestException({
+          code: 'PRODUCTIVE_RESPONSE_MISSING',
+          message: 'Không thể chấm khi học viên chưa lưu câu trả lời.',
+        });
+      }
       const rubric = answer.testQuestion.question.rubric;
       if (!rubric || rubric.criteria.length === 0) {
-        throw new BadRequestException({ code: 'RUBRIC_REQUIRED', message: 'CÃ¢u tráº£ lá»i chÆ°a cÃ³ rubric há»£p lá»‡.' });
+        throw new BadRequestException({ code: 'RUBRIC_REQUIRED', message: 'Câu trả lời chưa có rubric hợp lệ.' });
       }
 
       const existing = answer.evaluations[0];
       if (existing?.status === AnswerEvaluationStatus.REVIEWED_FINAL && !dto.editFinal) {
         throw new ConflictException({
           code: 'FINAL_EVALUATION_EDIT_REQUIRED',
-          message: 'HÃ£y chá»n Chá»‰nh sá»­a Ä‘Ã¡nh giÃ¡ trÆ°á»›c khi thay Ä‘á»•i káº¿t quáº£ Ä‘Ã£ xÃ¡c nháº­n.',
+          message: 'Hãy chọn Chỉnh sửa đánh giá trước khi thay đổi kết quả đã xác nhận.',
         });
       }
 
@@ -435,18 +449,18 @@ export class ClassAssessmentService {
         submittedIds.add(item.rubricCriterionId);
         const criterion = criterionById.get(item.rubricCriterionId);
         if (!criterion) {
-          throw new BadRequestException({ code: 'INVALID_RUBRIC_CRITERION', message: 'TiÃªu chÃ­ khÃ´ng thuá»™c rubric cá»§a cÃ¢u há»i.' });
+          throw new BadRequestException({ code: 'INVALID_RUBRIC_CRITERION', message: 'Tiêu chí không thuộc rubric của câu hỏi.' });
         }
-        const score = this.decimal(item.score, 'Äiá»ƒm tiÃªu chÃ­ khÃ´ng há»£p lá»‡.');
+        const score = this.decimal(item.score, 'Điểm tiêu chí không hợp lệ.');
         if (criterion.maxScore.lessThanOrEqualTo(0) || criterion.weight.lessThanOrEqualTo(0)) {
-          throw new BadRequestException({ code: 'INVALID_RUBRIC_CONFIGURATION', message: 'Rubric chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh há»£p lá»‡.' });
+          throw new BadRequestException({ code: 'INVALID_RUBRIC_CONFIGURATION', message: 'Rubric chưa được cấu hình hợp lệ.' });
         }
         if (score.lessThan(0) || score.greaterThan(criterion.maxScore)) {
-          throw new BadRequestException({ code: 'RUBRIC_SCORE_OUT_OF_RANGE', message: 'Äiá»ƒm tiÃªu chÃ­ náº±m ngoÃ i pháº¡m vi cho phÃ©p.' });
+          throw new BadRequestException({ code: 'RUBRIC_SCORE_OUT_OF_RANGE', message: 'Điểm tiêu chí nằm ngoài phạm vi cho phép.' });
         }
       }
       if (dto.finalize && submittedIds.size !== rubric.criteria.length) {
-        throw new BadRequestException({ code: 'RUBRIC_INCOMPLETE', message: 'Cáº§n cháº¥m Ä‘á»§ táº¥t cáº£ tiÃªu chÃ­ trÆ°á»›c khi xÃ¡c nháº­n.' });
+        throw new BadRequestException({ code: 'RUBRIC_INCOMPLETE', message: 'Cần chấm đủ tất cả tiêu chí trước khi xác nhận.' });
       }
 
       let totalScore: Prisma.Decimal | null = null;
@@ -520,7 +534,7 @@ export class ClassAssessmentService {
         attemptId,
         answer.testQuestion.question.toeicSkill,
       );
-    }, 'BÃ i cháº¥m Ä‘ang Ä‘Æ°á»£c cáº­p nháº­t á»Ÿ phiÃªn khÃ¡c. Vui lÃ²ng thá»­ láº¡i.');
+    }, 'Bài chấm đang được cập nhật ở phiên khác. Vui lòng thử lại.');
 
     return this.gradingDetail(instructorId, classOfferingId, classAssessmentId, attemptId);
   }
@@ -569,7 +583,14 @@ export class ClassAssessmentService {
         answers: {
           where: { attemptId },
           select: {
+            textResponse: true,
+            audioStorageKey: true,
             pointsAwarded: true,
+            testQuestion: {
+              select: {
+                question: { select: { responseType: true } },
+              },
+            },
             evaluations: {
               where: {
                 source: AnswerEvaluationSource.INSTRUCTOR,
@@ -586,6 +607,9 @@ export class ClassAssessmentService {
       questions.every(
         (question) =>
           question.answers.length === 1 &&
+          (question.answers[0].testQuestion.question.responseType === QuestionResponseType.TEXT_RESPONSE
+            ? Boolean(question.answers[0].textResponse?.trim())
+            : Boolean(question.answers[0].audioStorageKey)) &&
           question.answers[0].pointsAwarded !== null &&
           question.answers[0].evaluations.length === 1,
       );
@@ -675,7 +699,7 @@ export class ClassAssessmentService {
     if (openAt && closeAt && closeAt.getTime() <= openAt.getTime()) {
       throw new BadRequestException({
         code: 'INVALID_ASSESSMENT_WINDOW',
-        message: 'Thá»i gian Ä‘Ã³ng pháº£i sau thá»i gian má»Ÿ.',
+        message: 'Thời gian đóng phải sau thời gian mở.',
       });
     }
   }
@@ -683,7 +707,7 @@ export class ClassAssessmentService {
   private duplicateAssignment(): never {
     throw new ConflictException({
       code: 'DUPLICATE_ACTIVE_CLASS_ASSESSMENT',
-      message: 'BÃ i kiá»ƒm tra nÃ y Ä‘Ã£ Ä‘Æ°á»£c giao vÃ  Ä‘ang hoáº¡t Ä‘á»™ng trong lá»›p.',
+      message: 'Bài kiểm tra này đã được giao và đang hoạt động trong lớp.',
     });
   }
 

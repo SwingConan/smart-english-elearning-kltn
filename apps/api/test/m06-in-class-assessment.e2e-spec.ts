@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { randomUUID } from 'crypto';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
@@ -12,6 +13,7 @@ describe('M06 in-class assessment lifecycle (e2e)', () => {
   let student: ReturnType<typeof request.agent>;
   let instructor: ReturnType<typeof request.agent>;
   let enrollmentId: string;
+  let learnerId: string;
   let classOfferingId: string;
   const sessionIds = new Set<string>();
 
@@ -26,8 +28,9 @@ describe('M06 in-class assessment lifecycle (e2e)', () => {
     prisma = app.get(PrismaService);
     const assessment = await prisma.classAssessment.findUniqueOrThrow({ where: { id: M06_MIDTERM_ASSESSMENT_ID }, select: { classOfferingId: true } });
     classOfferingId = assessment.classOfferingId;
-    const enrollment = await prisma.enrollment.findFirstOrThrow({ where: { classOfferingId, learner: { email: 'student.demo@smart-elearning.local' } }, select: { id: true } });
+    const enrollment = await prisma.enrollment.findFirstOrThrow({ where: { classOfferingId, learner: { email: 'student.demo@smart-elearning.local' } }, select: { id: true, learnerId: true } });
     enrollmentId = enrollment.id;
+    learnerId = enrollment.learnerId;
     student = request.agent(app.getHttpServer());
     instructor = request.agent(app.getHttpServer());
     await loginAgent(student, 'student.demo@smart-elearning.local', password, sessionIds);
@@ -44,6 +47,11 @@ describe('M06 in-class assessment lifecycle (e2e)', () => {
     const m06 = response.body.filter((item: { id: string }) => item.id.startsWith('86000000-'));
     expect(m06).toHaveLength(3);
     expect(m06.map((item: { stage: string }) => item.stage)).toEqual(['PERIODIC', 'MIDTERM', 'FINAL']);
+    expect(m06.map((item: { title: string }) => item.title)).toEqual([
+      'Kiểm tra thường kỳ 01',
+      'Kiểm tra giữa kỳ',
+      'Kiểm tra cuối kỳ',
+    ]);
     expect(m06.find((item: { id: string }) => item.id === M06_MIDTERM_TEST_ID)).toMatchObject({ questionCount: 11, timeLimitMinutes: 30, skills: ['LISTENING', 'READING', 'SPEAKING', 'WRITING'] });
     expect(JSON.stringify(m06)).not.toMatch(/isCorrect|explanation|rubric|answerKey/);
   });
@@ -91,5 +99,77 @@ describe('M06 in-class assessment lifecycle (e2e)', () => {
     await request(app.getHttpServer()).get(`/api/learning/enrollments/${enrollmentId}/attempts/${M06_PENDING_ATTEMPT_ID}/answers/${answer.testQuestionId}/audio`).expect(401);
     await student.get(`/api/learning/enrollments/${enrollmentId}/attempts/${M06_PENDING_ATTEMPT_ID}/answers/${answer.testQuestionId}/audio`).expect(200).expect('Content-Type', /audio/);
     await instructor.get(`/api/instructor/classes/${classOfferingId}/assessments/${M06_MIDTERM_ASSESSMENT_ID}/attempts/${M06_PENDING_ATTEMPT_ID}/answers/${answer.testQuestionId}/audio`).expect(200).expect('Content-Type', /audio/);
+  });
+
+  it('finalizes an expired attempt from persisted state and ignores a late submit payload', async () => {
+    const attemptId = randomUUID();
+    const objective = await prisma.testQuestion.findFirstOrThrow({
+      where: { testId: M06_MIDTERM_TEST_ID, question: { responseType: 'SINGLE_CHOICE' } },
+      orderBy: { orderIndex: 'asc' },
+      select: { id: true, points: true, question: { select: { options: { orderBy: { orderIndex: 'asc' }, select: { id: true, isCorrect: true } } } } },
+    });
+    const writing = await prisma.testQuestion.findFirstOrThrow({
+      where: { testId: M06_MIDTERM_TEST_ID, question: { responseType: 'TEXT_RESPONSE' } },
+      select: { id: true },
+    });
+    const correct = objective.question.options.find((option) => option.isCorrect)!;
+    const wrong = objective.question.options.find((option) => !option.isCorrect)!;
+    await prisma.testAttempt.create({ data: { id: attemptId, testId: M06_MIDTERM_TEST_ID, learnerId, enrollmentId, classAssessmentId: M06_MIDTERM_ASSESSMENT_ID, attemptNumber: 9001, startedAt: new Date(Date.now() - 60 * 60 * 1000) } });
+    await prisma.testAnswer.createMany({ data: [
+      { attemptId, testQuestionId: objective.id, selectedOptionIds: [correct.id] },
+      { attemptId, testQuestionId: writing.id, textResponse: 'Persisted before the deadline.' },
+    ] });
+    try {
+      await student.post(`/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/submit`).send({ answers: [
+        { testQuestionId: objective.id, selectedOptionIds: [wrong.id] },
+        { testQuestionId: writing.id, textResponse: 'Late payload must never be stored.' },
+      ] }).expect(201);
+      const answers = await prisma.testAnswer.findMany({ where: { attemptId }, select: { testQuestionId: true, selectedOptionIds: true, textResponse: true, pointsAwarded: true } });
+      const objectiveAnswer = answers.find((answer) => answer.testQuestionId === objective.id)!;
+      expect(objectiveAnswer.selectedOptionIds).toEqual([correct.id]);
+      expect(Number(objectiveAnswer.pointsAwarded)).toBe(objective.points);
+      expect(answers.find((answer) => answer.testQuestionId === writing.id)?.textResponse).toBe('Persisted before the deadline.');
+      const result = await student.get(`/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/result`).expect(200);
+      expect(result.body.attempt.score).toBe(objective.points);
+    } finally {
+      await prisma.attemptSkillScore.deleteMany({ where: { attemptId } });
+      await prisma.testAnswer.deleteMany({ where: { attemptId } });
+      await prisma.testAttempt.delete({ where: { id: attemptId } });
+    }
+  });
+
+  it('rejects final grading for missing Speaking and Writing responses', async () => {
+    const attemptId = randomUUID();
+    const productive = await prisma.testQuestion.findMany({
+      where: { testId: M06_MIDTERM_TEST_ID, question: { responseType: { in: ['AUDIO_RESPONSE', 'TEXT_RESPONSE'] } } },
+      orderBy: { orderIndex: 'asc' },
+      select: { id: true, question: { select: { responseType: true, rubric: { select: { criteria: { orderBy: { orderIndex: 'asc' }, select: { id: true, maxScore: true } } } } } } },
+    });
+    const speaking = productive.find((item) => item.question.responseType === 'AUDIO_RESPONSE')!;
+    const writing = productive.find((item) => item.question.responseType === 'TEXT_RESPONSE')!;
+    await prisma.testAttempt.create({ data: { id: attemptId, testId: M06_MIDTERM_TEST_ID, learnerId, enrollmentId, classAssessmentId: M06_MIDTERM_ASSESSMENT_ID, attemptNumber: 9002, status: 'SUBMITTED', startedAt: new Date(Date.now() - 60 * 60 * 1000), submittedAt: new Date() } });
+    await prisma.testAnswer.createMany({ data: [
+      { attemptId, testQuestionId: speaking.id },
+      { attemptId, testQuestionId: writing.id, textResponse: '   ' },
+    ] });
+    try {
+      for (const item of [speaking, writing]) {
+        const criteria = item.question.rubric!.criteria.map((criterion) => ({ rubricCriterionId: criterion.id, score: String(criterion.maxScore) }));
+        const endpoint = `/api/instructor/classes/${classOfferingId}/assessments/${M06_MIDTERM_ASSESSMENT_ID}/attempts/${attemptId}/answers/${item.id}/evaluation`;
+        const response = await instructor.put(endpoint).send({ criteria, finalize: true }).expect(400);
+        expect(response.body.code).toBe('PRODUCTIVE_RESPONSE_MISSING');
+      }
+      expect(await prisma.answerEvaluation.count({ where: { testAnswer: { attemptId } } })).toBe(0);
+      expect(await prisma.attemptSkillScore.count({ where: { attemptId, skill: { in: ['SPEAKING', 'WRITING'] } } })).toBe(0);
+      const result = await student.get(`/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/result`).expect(200);
+      expect(result.body.total).toBeNull();
+      expect(result.body.skills).toEqual(expect.arrayContaining([
+        expect.objectContaining({ skill: 'SPEAKING', state: 'MISSING_RESPONSE' }),
+        expect.objectContaining({ skill: 'WRITING', state: 'MISSING_RESPONSE' }),
+      ]));
+    } finally {
+      await prisma.testAnswer.deleteMany({ where: { attemptId } });
+      await prisma.testAttempt.delete({ where: { id: attemptId } });
+    }
   });
 });
