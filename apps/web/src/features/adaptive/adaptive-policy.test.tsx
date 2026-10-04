@@ -261,7 +261,7 @@ describe('Instructor adaptive policy navigation', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('link', { name: /Adaptive Policy/i })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /Chính sách thích ứng/i })).toHaveAttribute(
       'href',
       `/instructor/courses/${courseId}/adaptive-policy`,
     );

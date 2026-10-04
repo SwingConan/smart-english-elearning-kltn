@@ -39,7 +39,9 @@ export interface AssessmentTestSummary {
   id: string;
   courseId: string;
   lessonId: string | null;
-  type: TestType;
+  /** Legacy response alias retained by the API compatibility layer. */
+  type: TestType | TestPurpose;
+  purpose?: TestPurpose;
   title: string;
   description: string | null;
   status: TestStatus;

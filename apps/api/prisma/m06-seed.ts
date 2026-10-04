@@ -188,6 +188,13 @@ export async function seedM06(prisma: PrismaClient, context: M06SeedContext): Pr
       }
       for (const sourceQuestion of sourceGroup.testQuestions) {
         const testQuestionId = stableUuid(`${form.testId}:question:${questionOrder}`);
+        // M05 productive Placement prompts are intentionally unscored. Their
+        // M06 in-class copies must carry positive points so instructor grading
+        // can produce a finite skill normalization.
+        const points =
+          sourceGroup.skill === ToeicSkill.SPEAKING || sourceGroup.skill === ToeicSkill.WRITING
+            ? 1
+            : sourceQuestion.points;
         await prisma.testQuestion.upsert({
           where: { id: testQuestionId },
           update: {
@@ -195,7 +202,7 @@ export async function seedM06(prisma: PrismaClient, context: M06SeedContext): Pr
             questionId: sourceQuestion.questionId,
             groupId,
             orderIndex: questionOrder,
-            points: sourceQuestion.points,
+            points,
           },
           create: {
             id: testQuestionId,
@@ -203,7 +210,7 @@ export async function seedM06(prisma: PrismaClient, context: M06SeedContext): Pr
             questionId: sourceQuestion.questionId,
             groupId,
             orderIndex: questionOrder,
-            points: sourceQuestion.points,
+            points,
           },
         });
         questionOrder += 1;

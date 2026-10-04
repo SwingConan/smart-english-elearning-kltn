@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
-import { M06_FINAL_ATTEMPT_ID, M06_MIDTERM_ASSESSMENT_ID, M06_MIDTERM_TEST_ID, M06_PENDING_ATTEMPT_ID } from '../prisma/m06-seed';
+import { M06_FINAL_ATTEMPT_ID, M06_MIDTERM_ASSESSMENT_ID, M06_MIDTERM_TEST_ID, M06_PENDING_ATTEMPT_ID, M06_PERIODIC_ASSESSMENT_ID, M06_PERIODIC_TEST_ID } from '../prisma/m06-seed';
 import { loginAgent } from './assessment-e2e-helpers';
 
 describe('M06 in-class assessment lifecycle (e2e)', () => {
@@ -56,6 +56,39 @@ describe('M06 in-class assessment lifecycle (e2e)', () => {
     expect(JSON.stringify(m06)).not.toMatch(/isCorrect|explanation|rubric|answerKey/);
   });
 
+  it('seeds positive productive points and serves canonical image/audio media as binary', async () => {
+    const productive = await prisma.testQuestion.findMany({
+      where: { testId: M06_MIDTERM_TEST_ID, question: { responseType: { in: ['AUDIO_RESPONSE', 'TEXT_RESPONSE'] } } },
+      select: { points: true, question: { select: { responseType: true } } },
+    });
+    expect(productive).toHaveLength(3);
+    expect(productive.every((item) => item.points > 0)).toBe(true);
+
+    const stimuli = await prisma.assessmentStimulus.findMany({
+      where: { group: { testId: M06_MIDTERM_TEST_ID }, type: { in: ['IMAGE', 'AUDIO'] }, isProtected: false },
+      select: { id: true, type: true },
+    });
+    for (const type of ['IMAGE', 'AUDIO']) {
+      const stimulus = stimuli.find((item: { type: string }) => item.type === type);
+      expect(stimulus).toBeDefined();
+      if (!stimulus) throw new Error(`Missing canonical ${type} stimulus`);
+      const media = await student
+        .get(`/api/learning/enrollments/${enrollmentId}/attempts/${M06_PENDING_ATTEMPT_ID}/stimuli/${stimulus.id}/media`)
+        .expect(200)
+        .expect('Content-Type', type === 'IMAGE' ? /image/ : /audio/);
+      expect(Buffer.isBuffer(media.body)).toBe(true);
+      expect(media.body.length).toBeGreaterThan(100);
+    }
+
+    const finalResult = await student.get(`/api/learning/enrollments/${enrollmentId}/attempts/${M06_FINAL_ATTEMPT_ID}/result`).expect(200);
+    for (const skill of finalResult.body.skills.filter((item: { skill: string }) => ['SPEAKING', 'WRITING'].includes(item.skill))) {
+      expect(Number.isFinite(skill.rawScore)).toBe(true);
+      expect(Number.isFinite(skill.maxRawScore)).toBe(true);
+      expect(Number.isFinite(skill.normalizedScore)).toBe(true);
+      expect(skill.maxRawScore).toBeGreaterThan(0);
+    }
+  });
+
   it('keeps pending productive skills and overall total truthful until instructor final grading', async () => {
     const pending = await student.get(`/api/learning/enrollments/${enrollmentId}/attempts/${M06_PENDING_ATTEMPT_ID}/result`).expect(200);
     expect(pending.body).toMatchObject({ gradingState: 'SUBMITTED_PENDING_REVIEW', total: null });
@@ -104,17 +137,17 @@ describe('M06 in-class assessment lifecycle (e2e)', () => {
   it('finalizes an expired attempt from persisted state and ignores a late submit payload', async () => {
     const attemptId = randomUUID();
     const objective = await prisma.testQuestion.findFirstOrThrow({
-      where: { testId: M06_MIDTERM_TEST_ID, question: { responseType: 'SINGLE_CHOICE' } },
+      where: { testId: M06_PERIODIC_TEST_ID, question: { responseType: 'SINGLE_CHOICE' } },
       orderBy: { orderIndex: 'asc' },
       select: { id: true, points: true, question: { select: { options: { orderBy: { orderIndex: 'asc' }, select: { id: true, isCorrect: true } } } } },
     });
     const writing = await prisma.testQuestion.findFirstOrThrow({
-      where: { testId: M06_MIDTERM_TEST_ID, question: { responseType: 'TEXT_RESPONSE' } },
+      where: { testId: M06_PERIODIC_TEST_ID, question: { responseType: 'TEXT_RESPONSE' } },
       select: { id: true },
     });
     const correct = objective.question.options.find((option) => option.isCorrect)!;
     const wrong = objective.question.options.find((option) => !option.isCorrect)!;
-    await prisma.testAttempt.create({ data: { id: attemptId, testId: M06_MIDTERM_TEST_ID, learnerId, enrollmentId, classAssessmentId: M06_MIDTERM_ASSESSMENT_ID, attemptNumber: 9001, startedAt: new Date(Date.now() - 60 * 60 * 1000) } });
+    await prisma.testAttempt.create({ data: { id: attemptId, testId: M06_PERIODIC_TEST_ID, learnerId, enrollmentId, classAssessmentId: M06_PERIODIC_ASSESSMENT_ID, attemptNumber: 9001, startedAt: new Date(Date.now() - 60 * 60 * 1000) } });
     await prisma.testAnswer.createMany({ data: [
       { attemptId, testQuestionId: objective.id, selectedOptionIds: [correct.id] },
       { attemptId, testQuestionId: writing.id, textResponse: 'Persisted before the deadline.' },

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { studentAssessmentApi } from '@/features/assessments/api';
 import { assessmentTypeLabel } from '@/features/assessments/display';
 import { studentAssessmentErrorMessage } from '@/features/assessments/errors';
-import type { StudentTestListItem } from '@/features/assessments/types';
+import type { AssessmentStage, StudentTestListItem } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 
 export function StudentAssessmentListPage() {
@@ -18,6 +18,7 @@ export function StudentAssessmentListPage() {
   const [pendingTestId, setPendingTestId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [nowMs] = useState(() => Date.now());
+  const [stageFilter, setStageFilter] = useState<'ALL' | AssessmentStage>('ALL');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -56,6 +57,10 @@ export function StudentAssessmentListPage() {
     }
   };
 
+  const visibleTests = tests
+    .filter((test) => stageFilter === 'ALL' || test.stage === stageFilter)
+    .sort((left, right) => urgencyRank(left, nowMs) - urgencyRank(right, nowMs));
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
@@ -77,6 +82,27 @@ export function StudentAssessmentListPage() {
           role="alert"
         >
           {actionError}
+        </div>
+      )}
+
+      {tests.length > 0 && (
+        <div aria-label="Lọc bài kiểm tra" className="flex flex-wrap gap-2">
+          {([
+            ['ALL', 'Tất cả'],
+            ['PERIODIC', 'Thường kỳ'],
+            ['MIDTERM', 'Giữa kỳ'],
+            ['FINAL', 'Cuối kỳ'],
+          ] as const).map(([value, label]) => (
+            <button
+              aria-pressed={stageFilter === value}
+              className={`rounded-full border px-4 py-2 text-sm font-medium ${stageFilter === value ? 'border-indigo-600 bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}
+              key={value}
+              onClick={() => setStageFilter(value)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -105,7 +131,7 @@ export function StudentAssessmentListPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {tests.map((test) => {
+          {visibleTests.map((test) => {
             const limitReached =
               !test.hasInProgressAttempt && test.attemptsUsed >= test.maxAttempts;
             const upcoming = Boolean(test.openAt && new Date(test.openAt).getTime() > nowMs);
@@ -143,9 +169,11 @@ export function StudentAssessmentListPage() {
                     <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600">
                       <span>{test.questionCount} câu hỏi</span>
                       {test.timeLimitMinutes ? <span>{test.timeLimitMinutes} phút</span> : null}
-                      <span>
-                        Đã dùng {test.attemptsUsed}/{test.maxAttempts} lượt
-                      </span>
+                      <span>{test.hasInProgressAttempt
+                        ? `Đang làm lượt ${test.attemptsUsed}/${test.maxAttempts}`
+                        : limitReached
+                          ? `Đã hoàn thành ${test.attemptsUsed}/${test.maxAttempts} lượt`
+                          : `Đã hoàn thành ${test.attemptsUsed}/${test.maxAttempts} lượt`}</span>
                     </div>
                     {test.openAt || test.closeAt ? (
                       <p className="mt-2 text-xs text-slate-500">
@@ -190,6 +218,15 @@ export function StudentAssessmentListPage() {
       )}
     </div>
   );
+}
+
+function urgencyRank(test: StudentTestListItem, nowMs: number): number {
+  const upcoming = Boolean(test.openAt && new Date(test.openAt).getTime() > nowMs);
+  const closed = Boolean(test.closeAt && new Date(test.closeAt).getTime() < nowMs);
+  const exhausted = !test.hasInProgressAttempt && test.attemptsUsed >= test.maxAttempts;
+  if (test.hasInProgressAttempt || (!upcoming && !closed && !exhausted)) return 0;
+  if (upcoming) return 1;
+  return 2;
 }
 
 function formatDateTime(value: string): string {

@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { assessmentApi } from '@/features/assessments/api';
 import { loadCourseLessons, type LessonChoice } from '@/features/assessments/curriculum';
-import { testStatusLabel, testTypeLabel } from '@/features/assessments/display';
+import { assessmentTypeLabel, testStatusLabel, testTypeLabel } from '@/features/assessments/display';
 import { assessmentErrorMessage } from '@/features/assessments/errors';
 import type { AssessmentTestDetail, TestInput, TestType } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
@@ -130,8 +130,8 @@ export function TestManagementPage() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Quản lý bài kiểm tra</h1>
-          <p className="mt-1 text-sm text-slate-600">Tạo, biên soạn và xuất bản bài kiểm tra của khóa học.</p>
+          <h1 className="text-2xl font-bold">Mẫu bài kiểm tra</h1>
+          <p className="mt-1 text-sm text-slate-600">Tạo và biên soạn nội dung dùng lại trước khi giao cho một lớp cụ thể.</p>
         </div>
         <div className="flex gap-2">
           {courseId && <Link className="rounded border px-4 py-2 text-sm" to={`/instructor/courses/${courseId}/question-bank`}>Ngân hàng câu hỏi</Link>}
@@ -158,7 +158,11 @@ export function TestManagementPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="mb-2 flex gap-2 text-xs">
-                    <span className="rounded bg-indigo-100 px-2 py-1 text-indigo-800">{testTypeLabel[test.type]}</span>
+                    <span className="rounded bg-indigo-100 px-2 py-1 text-indigo-800">
+                      {test.purpose
+                        ? assessmentTypeLabel(test.purpose, null)
+                        : testTypeLabel[test.type as TestType]}
+                    </span>
                     <span className={`rounded px-2 py-1 ${test.status === 'PUBLISHED' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-700'}`}>{testStatusLabel[test.status]}</span>
                   </div>
                   <h2 className="text-lg font-semibold">{test.title}</h2>

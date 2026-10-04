@@ -10,10 +10,12 @@ import { AudioRecorder, StudentTestAttemptPage } from '@/pages/StudentTestAttemp
 import { StudentTestResultPage } from '@/pages/StudentTestResultPage';
 import { deferred, renderAssessmentRoute } from './assessment-test-utils';
 import { classAssessmentApi, studentAssessmentApi } from './api';
+import { studentAssessmentErrorMessage } from './errors';
 import { learningApi } from '@/features/learning/api';
+import { ApiError } from '@/lib/api-client';
 import type { GradingDetail, GradingQueue, StudentAttemptContent, StudentAttemptResult } from './types';
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe('M06 four-skill assessment UI', () => {
   it('uses a focused skill navigator without rendering raw task codes', async () => {
@@ -149,6 +151,7 @@ describe('M06 four-skill assessment UI', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Lưu câu trả lời' }));
     expect(await screen.findByText(/Bản ghi đã lưu trước đó vẫn được giữ/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Bỏ bản ghi mới' }));
+    expect(screen.getByText('Bản ghi đã lưu')).toBeInTheDocument();
     expect(document.querySelector('audio')?.getAttribute('src')).toBe('/api/committed');
     expect(revoke).toHaveBeenCalledWith('blob:new-draft');
   });
@@ -168,6 +171,35 @@ describe('M06 four-skill assessment UI', () => {
     expect(screen.getByRole('button', { name: 'Lưu câu trả lời' })).toBeInTheDocument();
     view.unmount();
     expect(stopTrack).toHaveBeenCalledTimes(1);
+  });
+
+  it('derives preparation time from an absolute deadline after a delayed callback', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-04T00:00:00Z'));
+    render(<AudioRecorder disabled={false} initialCommitted={false} initialPlaybackUrl={null} preparationSeconds={3} maxSeconds={30} onUpload={vi.fn()} onStateChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu chuẩn bị' }));
+    expect(screen.getByText('Thời gian chuẩn bị: 3s')).toBeInTheDocument();
+    vi.setSystemTime(new Date('2026-10-04T00:00:05Z'));
+    await act(async () => { vi.advanceTimersByTime(250); });
+    expect(screen.getByRole('button', { name: 'Bắt đầu ghi âm' })).toBeInTheDocument();
+  });
+
+  it('persists review marks independently from answered state', async () => {
+    vi.spyOn(studentAssessmentApi, 'getAttempt').mockResolvedValue(content());
+    renderAttempt();
+    const mark = await screen.findByRole('button', { name: /Đánh dấu xem lại/ });
+    fireEvent.click(mark);
+    expect(mark).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getAllByRole('button', { name: /Đã đánh dấu xem lại/ }).length).toBeGreaterThan(0);
+    expect(localStorage.getItem('smart-english:assessment-marks:a1')).toContain('g1');
+    expect(screen.getAllByRole('button', { name: /Chưa hoàn tất/ }).length).toBeGreaterThan(0);
+  });
+
+  it('maps productive submission conflicts to an actionable learner message', () => {
+    expect(studentAssessmentErrorMessage(
+      new ApiError(409, { code: 'PRODUCTIVE_RESPONSES_INCOMPLETE' }),
+      'fallback',
+    )).toBe('Hãy lưu đầy đủ câu trả lời Speaking và Writing trước khi nộp bài.');
   });
 
   it('blocks submission while Speaking is recording or uploading', async () => {

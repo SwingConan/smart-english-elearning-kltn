@@ -248,7 +248,11 @@ export class AssessmentStudentService {
               maxAttempts: true,
               timeLimitMinutes: true,
               showResultAfterSubmit: true,
-              questionGroups: { distinct: ['skill'], select: { skill: true } },
+              questionGroups: {
+                distinct: ['skill'],
+                orderBy: { orderIndex: 'asc' },
+                select: { skill: true },
+              },
               _count: { select: { testQuestions: true } },
             },
           },

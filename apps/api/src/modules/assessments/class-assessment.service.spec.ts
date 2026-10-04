@@ -51,6 +51,29 @@ describe('ClassAssessmentService', () => {
     expect(awarded.toString()).toBe('5.64');
   });
 
+  it('normalizes a one-point productive question to a finite 80 percent score', async () => {
+    tx.testAnswer.findFirst.mockResolvedValue({ id: 'answer-id', textResponse: 'A real learner response', audioStorageKey: null, testQuestion: { points: 1, question: { responseType: QuestionResponseType.TEXT_RESPONSE, toeicSkill: ToeicSkill.WRITING, rubric } }, evaluations: [] });
+    tx.testQuestion.findMany.mockResolvedValue([{ id: 'test-question-id', points: 1, answers: [{ textResponse: 'A real learner response', audioStorageKey: null, pointsAwarded: new Prisma.Decimal('0.8'), testQuestion: { question: { responseType: QuestionResponseType.TEXT_RESPONSE } }, evaluations: [{ id: 'evaluation-id' }] }] }]);
+    await service.gradeAnswer('instructor-id', 'class-id', 'assessment-id', 'attempt-id', 'test-question-id', { criteria: [
+      { rubricCriterionId: 'criterion-a', score: '3.2' },
+      { rubricCriterionId: 'criterion-b', score: '4.8' },
+    ], finalize: true });
+    const persisted = tx.attemptSkillScore.upsert.mock.calls[0][0].create;
+    expect(persisted.rawScore.toString()).toBe('0.8');
+    expect(persisted.maxRawScore.toString()).toBe('1');
+    expect(persisted.normalizedScore.toString()).toBe('80');
+  });
+
+  it('rejects zero-point productive configuration before persisting a final skill score', async () => {
+    tx.testAnswer.findFirst.mockResolvedValue({ id: 'answer-id', textResponse: 'A real learner response', audioStorageKey: null, testQuestion: { points: 0, question: { responseType: QuestionResponseType.TEXT_RESPONSE, toeicSkill: ToeicSkill.WRITING, rubric } }, evaluations: [] });
+    tx.testQuestion.findMany.mockResolvedValue([{ id: 'test-question-id', points: 0, answers: [{ textResponse: 'A real learner response', audioStorageKey: null, pointsAwarded: new Prisma.Decimal(0), testQuestion: { question: { responseType: QuestionResponseType.TEXT_RESPONSE } }, evaluations: [{ id: 'evaluation-id' }] }] }]);
+    await expect(service.gradeAnswer('instructor-id', 'class-id', 'assessment-id', 'attempt-id', 'test-question-id', { criteria: [
+      { rubricCriterionId: 'criterion-a', score: '4' },
+      { rubricCriterionId: 'criterion-b', score: '6' },
+    ], finalize: true })).rejects.toMatchObject({ response: expect.objectContaining({ code: 'PRODUCTIVE_POINTS_CONFIGURATION_INVALID' }) });
+    expect(tx.attemptSkillScore.upsert).not.toHaveBeenCalled();
+  });
+
   it('requires an explicit edit action before changing final instructor judgment', async () => {
     tx.testAnswer.findFirst.mockResolvedValue({ id: 'answer-id', textResponse: null, audioStorageKey: 'responses/a.webm', testQuestion: { points: 10, question: { responseType: QuestionResponseType.AUDIO_RESPONSE, toeicSkill: ToeicSkill.SPEAKING, rubric } }, evaluations: [{ id: 'evaluation-id', status: AnswerEvaluationStatus.REVIEWED_FINAL }] });
     await expect(service.gradeAnswer('instructor-id', 'class-id', 'assessment-id', 'attempt-id', 'test-question-id', { criteria: [], finalize: false }))

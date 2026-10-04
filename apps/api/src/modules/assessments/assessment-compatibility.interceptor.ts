@@ -1,4 +1,10 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+  StreamableFile,
+} from '@nestjs/common';
 import { Observable, map } from 'rxjs';
 
 /**
@@ -13,6 +19,11 @@ export class AssessmentCompatibilityInterceptor implements NestInterceptor {
   }
 
   private addLegacyTypeAliases(value: unknown): unknown {
+    // Binary responses must retain Nest's StreamableFile wrapper. Recursively
+    // copying it turns protected assessment media into an empty JSON object.
+    if (value instanceof StreamableFile || Buffer.isBuffer(value)) {
+      return value;
+    }
     if (Array.isArray(value)) {
       return value.map((item) => this.addLegacyTypeAliases(item));
     }

@@ -150,3 +150,53 @@ Rerun disclosure: the first full unit run exposed eight legacy Web assertions th
 - Focused M06 Web suite: 17/17 PASS, including StrictMode record/stop, committed replacement draft guards, discard recovery, failed-upload retry/discard guards, permission-denied recovery, maximum duration, and media-track teardown.
 - Full verification: M05 manifest PASS; Prisma validate/drift PASS; seed twice PASS and final post-E2E seed restore PASS; lint PASS; typecheck PASS; API unit 333/333 PASS; Web 214/214 PASS; API E2E 90/90 PASS; build PASS; `git diff --check` PASS.
 - No schema, API, scoring, migration, M05 Placement, M07, or M08 behavior was changed. Manual Visual Gate has not started and is not claimed as passed.
+
+## Visual Gate round 1 corrected findings / fixes
+
+- Previous HEAD: `171cefbe58f83c69b1765474b9e4af59b2b8ab6b`.
+- New candidate HEAD: the commit containing this section; the immutable SHA is recorded in the Git handoff after commit/push.
+- This corrective pass addresses the supplied round-1 findings. It does not claim that the Product Owner Visual Gate has passed; a Product Owner retest remains required.
+
+### VG-F01 through VG-F11 dispositions
+
+- VG-F01: preserved Nest `StreamableFile`/binary responses in the compatibility interceptor instead of recursively converting them to plain JSON. Authenticated E2E checks now require canonical image/audio MIME and non-empty bytes. Real Chrome confirmed the image at 930×665, audio duration 24.663125 seconds, and successful playback.
+- VG-F02: M06 cloning now assigns one positive point to each Speaking/Writing question while leaving M05 Placement source points unchanged. Rerunning the idempotent seed repairs existing M06 rows. Instructor-final aggregation rejects a non-positive productive denominator with `PRODUCTIVE_POINTS_CONFIGURATION_INVALID` before persisting a FINAL skill score; Decimal coverage proves 0.8/1 becomes a finite 80%.
+- VG-F03: Speaking preparation and recording use absolute wall-clock deadlines with 250 ms display ticks. Delayed callbacks derive remaining/elapsed time from `Date.now()` and cannot extend the allowed duration. Unit coverage simulates throttling; Chrome measured a 30→28 second decrease after about two seconds.
+- VG-F04: course-level list/editor presentation is purpose-aware. M06 cards display `Bài kiểm tra trên lớp`; the IN_CLASS editor exposes a read-only `Mục đích` and never sends a legacy `type` mutation or displays `Xếp lớp` for the M06 form.
+- VG-F05: each instructor class offering is now a distinct sub-card with a prominent `Bài kiểm tra của lớp` action. The normal demo route reaches scheduling, grading queue, and learner grading detail.
+- VG-F06: the student list adds compact Tất cả/Thường kỳ/Giữa kỳ/Cuối kỳ filters, urgency ordering, stronger stage/status hierarchy, and clearer active/exhausted attempt copy.
+- VG-F07: attempt groups can be marked `Đánh dấu xem lại`; marks persist per attempt in browser storage and remain independent of answered/current state.
+- VG-F08: structured 409 codes map to specific Vietnamese messages for incomplete productive responses, expiry, attempt limits, not-open, and closed assessments. Real Chrome confirmed the incomplete Speaking/Writing backend message after submit confirmation.
+- VG-F09: active quota copy is `Đang làm lượt X/Y`; exhausted copy is `Đã hoàn thành X/Y lượt`, and exhausted cards expose no start/resume CTA. Backend counting remains assignment-scoped.
+- VG-F10: raw class statuses are localized. Legacy knowledge/adaptive/mastery links move under `Công cụ nâng cao` with Vietnamese labels instead of dominating the M06 path.
+- VG-F11: reusable course authoring is named `Mẫu bài kiểm tra`, includes a concise distinction from class assignments, and renders non-empty purpose-aware badges. The editor title/list navigation uses matching reusable-template terminology.
+- Committed Speaking playback now has the explicit `Bản ghi đã lưu` label. Submit confirmation separately reports unanswered objective, unsaved Speaking, and unsaved Writing counts, with a positive completeness message when both productive counts are zero.
+
+### Focused regression evidence
+
+- `ClassAssessmentService` unit suite: 8/8 PASS, including positive one-point normalization and zero-denominator rejection.
+- Focused Web assessment/navigation/builder suites: 40/40 PASS, including deadline drift, mark-for-review, specific domain error, committed playback, list filter/copy, localized instructor navigation, and IN_CLASS editor purpose.
+- M06 E2E suite: 8/8 PASS after deterministic seed, including canonical binary media, positive productive points, finite final skill values, ownership, grading, expiry, and missing-response protection.
+
+### Full verification after corrected fixes
+
+- `npm run check:m05-manifest` — PASS: 8 Listening, 8 Reading, 3 Speaking, 2 Writing, 5 rubrics, 8 assets; malformed fixture rejected.
+- `npm run prisma:validate` / `prisma:generate` — PASS.
+- `npm run prisma:migrate:deploy` / `prisma:status` — PASS: 11 migrations, no pending migration, database up to date.
+- `npm run prisma:drift-check` — PASS: no difference detected.
+- `npm run seed` twice — PASS and idempotent; a final post-E2E seed restored deterministic demo grading state.
+- `npm run lint` — PASS.
+- `npm run typecheck` — PASS.
+- `npm run test` — PASS: API 335/335; Web 218/218.
+- `npm run test:e2e -w @smart-elearning/api` — PASS: 91/91.
+- `npm run build` — PASS.
+- `git diff --check` — PASS.
+
+### Mandatory real-browser smoke
+
+Product Owner-equivalent smoke ran in local headless Chrome against the real Vite/Nest application using the deterministic student and instructor demo accounts.
+
+- Student: assessment list filters and urgency hierarchy rendered; active `2/2` and exhausted copy were distinct; M06 midterm opened; canonical image rendered at 930×665; canonical audio exposed 24.663125 seconds of metadata and played; Speaking showed positive points; mark-for-review persisted; preparation changed 30→28 seconds on wall clock; fake-device recording uploaded, displayed `Bản ghi đã lưu`, and remained playable after leaving/returning to the task; submit confirmation showed all three missing-count lines; confirming submit produced the specific incomplete Speaking/Writing message.
+- Instructor: `TOEIC L&R Foundation — Tối T3/T5` was findable from `Lớp giảng dạy của tôi`; class status was localized; the prominent class-assessment action opened the workspace; stage/open/close/max-attempt controls and assigned schedules were visible; midterm grading queue and Nguyễn Minh Anh grading detail were reachable; reusable authoring was clearly separated; the M06 list badge/editor displayed `Bài kiểm tra trên lớp` without `Xếp lớp`.
+
+Known non-blocking output remains the Vite large-chunk advisory (585.35 kB), PostgreSQL `pg` client-query deprecation warnings, and expected negative-path logs. The first focused E2E rerun encountered grading state left by an earlier interrupted local run; deterministic reseeding restored the fixture, after which the focused and full E2E runs passed.

@@ -286,6 +286,24 @@ describe('TestEditorPage', () => {
     expect(await screen.findByText(/lịch sử làm bài|cấu trúc.*khóa/i)).toBeInTheDocument();
     expect(screen.getByText('Question B')).toBeInTheDocument();
   });
+
+  it('presents IN_CLASS purpose truthfully and never sends a legacy type mutation', async () => {
+    const current = {
+      ...detail(testId, 'QUIZ', 'PUBLISHED', [testQuestion('tq-a', 'q-a', 'Question A', 0)]),
+      type: 'IN_CLASS' as const,
+      purpose: 'IN_CLASS' as const,
+    };
+    mockEditor(current, []);
+    const update = vi.spyOn(assessmentApi.tests, 'update').mockImplementation(async (_id, input) => ({ ...current, ...input }));
+    renderEditor();
+    const form = (await screen.findByText('Bài kiểm tra trên lớp')).closest('form')!;
+    expect(within(form).queryByLabelText(/^Loại$/)).not.toBeInTheDocument();
+    expect(within(form).queryByText('Xếp lớp')).not.toBeInTheDocument();
+    fireEvent.change(within(form).getByLabelText(/Tiêu đề/i), { target: { value: 'Tên mới' } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(update).toHaveBeenCalledOnce());
+    expect(update.mock.calls[0][1]).toEqual({ title: 'Tên mới' });
+  });
 });
 
 function renderManagement() {

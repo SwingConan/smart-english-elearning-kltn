@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -33,6 +34,8 @@ const PRODUCTIVE_TYPES = [
 
 @Injectable()
 export class ClassAssessmentService {
+  private readonly logger = new Logger(ClassAssessmentService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly responseStorage: AssessmentResponseStorage,
@@ -627,6 +630,15 @@ export class ClassAssessmentService {
       (sum, question) => sum.plus(question.points),
       new Prisma.Decimal(0),
     );
+    if (max.lessThanOrEqualTo(0)) {
+      this.logger.error(
+        `Cannot finalize ${skill} for attempt ${attemptId}: productive maximum points must be positive`,
+      );
+      throw new BadRequestException({
+        code: 'PRODUCTIVE_POINTS_CONFIGURATION_INVALID',
+        message: 'Cấu hình điểm Speaking/Writing phải lớn hơn 0.',
+      });
+    }
     const normalized = raw.div(max).mul(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
     await transaction.attemptSkillScore.upsert({
       where: { attemptId_skill: { attemptId, skill } },
