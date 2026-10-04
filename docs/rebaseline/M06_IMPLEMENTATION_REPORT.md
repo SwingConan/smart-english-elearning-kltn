@@ -140,3 +140,13 @@ No schema drift, merge, `main` push, M07/M08 work, or Product Owner artifact mut
 Known non-blocking output remains the Vite large-chunk advisory (about 581 kB), the PostgreSQL `pg` deprecation warning, and expected negative-path logs.
 
 Rerun disclosure: the first full unit run exposed eight legacy Web assertions that still assumed the old all-questions layout/concurrent autosave behavior. Legacy ungrouped objective rendering was kept backward compatible and those assertions were updated for serialized saves; the subsequent focused and full runs pass. The first lint run also caught synchronous effect-state updates in the new pages; those were corrected before the final passing lint run.
+
+## GPT re-review round 2 fixes
+
+- Previous HEAD: `ab3a0f1503c16c0ba535603647ebf69904e8468b`.
+- New candidate HEAD: the commit containing this report; the immutable SHA is recorded in the Git handoff after commit/push.
+- R2-F01: the Speaking recorder lifecycle effect now explicitly restores `mounted.current = true` during setup, so React StrictMode effect replay cannot suppress the post-stop local-draft transition. Existing recorder, track, and object-URL teardown remains intact.
+- R2-F02: the recorder reports state, local-draft truth, and committed-answer truth through a narrow parent contract. Recording, upload, local drafts, and failed uploads with a retained blob block submit, confirmation, skill/task navigation, previous/next controls, and the assessment-list exit. Discarding restores the prior committed recording and clears the guard; a permission failure without a blob exposes a retry path without trapping page navigation.
+- Focused M06 Web suite: 17/17 PASS, including StrictMode record/stop, committed replacement draft guards, discard recovery, failed-upload retry/discard guards, permission-denied recovery, maximum duration, and media-track teardown.
+- Full verification: M05 manifest PASS; Prisma validate/drift PASS; seed twice PASS and final post-E2E seed restore PASS; lint PASS; typecheck PASS; API unit 333/333 PASS; Web 214/214 PASS; API E2E 90/90 PASS; build PASS; `git diff --check` PASS.
+- No schema, API, scoring, migration, M05 Placement, M07, or M08 behavior was changed. Manual Visual Gate has not started and is not claimed as passed.

@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AssessmentGradingDetailPage } from '@/pages/AssessmentGradingDetailPage';
@@ -69,6 +70,71 @@ describe('M06 four-skill assessment UI', () => {
     expect(submit).not.toHaveBeenCalled();
     await act(async () => { saving.resolve({ attemptId: 'a1', answers: [] }); await Promise.resolve(); await Promise.resolve(); });
     expect(submit).toHaveBeenCalledWith('e1', 'a1', [expect.objectContaining({ textResponse: 'Latest answer' })]);
+  });
+
+  it('reaches a local Speaking draft under React StrictMode', async () => {
+    installRecorder();
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:strict-draft');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    render(<StrictMode><AudioRecorder disabled={false} initialCommitted={false} initialPlaybackUrl={null} preparationSeconds={0} maxSeconds={30} onUpload={vi.fn()} onStateChange={vi.fn()} /></StrictMode>);
+    fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu chuẩn bị' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu ghi âm' })); await Promise.resolve(); });
+    fireEvent.click(screen.getByRole('button', { name: 'Dừng' }));
+    expect(await screen.findByText('Bản ghi mới chưa được lưu.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Lưu câu trả lời' })).toBeInTheDocument();
+  });
+
+  it('guards page submit, navigator, and leave until a replacement draft is discarded', async () => {
+    installRecorder();
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:replacement');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.spyOn(studentAssessmentApi, 'getAttempt').mockResolvedValue(speakingContent(true));
+    renderAttempt();
+    fireEvent.click(await screen.findByRole('button', { name: 'Ghi lại' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu ghi âm' })); await Promise.resolve(); });
+    fireEvent.click(screen.getByRole('button', { name: 'Dừng' }));
+    expect(await screen.findByText(/Bản ghi Speaking mới chưa được lưu/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Nộp bài$/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Danh sách bài kiểm tra' })).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: /Câu 1/ }).every((button) => button.hasAttribute('disabled'))).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Bỏ bản ghi mới' }));
+    expect(document.querySelector('audio')?.getAttribute('src')).toBe('/api/committed');
+    expect(screen.getByRole('button', { name: /^Nộp bài$/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Danh sách bài kiểm tra' })).toBeEnabled();
+    expect(screen.getAllByRole('button', { name: /Câu 1/ }).every((button) => !button.hasAttribute('disabled'))).toBe(true);
+  });
+
+  it('keeps page guards and retry/discard controls after replacement upload failure', async () => {
+    installRecorder();
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:failed-replacement');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.spyOn(studentAssessmentApi, 'getAttempt').mockResolvedValue(speakingContent(true));
+    vi.spyOn(studentAssessmentApi, 'uploadAudio').mockRejectedValue(new Error('upload failed'));
+    renderAttempt();
+    fireEvent.click(await screen.findByRole('button', { name: 'Ghi lại' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu ghi âm' })); await Promise.resolve(); });
+    fireEvent.click(screen.getByRole('button', { name: 'Dừng' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Lưu câu trả lời' }));
+    expect(await screen.findByRole('button', { name: 'Thử tải lại' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bỏ bản ghi mới' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Nộp bài$/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Danh sách bài kiểm tra' })).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: /Câu 1/ }).every((button) => button.hasAttribute('disabled'))).toBe(true);
+  });
+
+  it('offers microphone retry without trapping page navigation when no local blob exists', async () => {
+    installRecorder();
+    vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia: vi.fn().mockRejectedValue(new Error('permission denied')) } });
+    vi.spyOn(studentAssessmentApi, 'getAttempt').mockResolvedValue(speakingContent());
+    renderAttempt();
+    fireEvent.click(await screen.findByRole('button', { name: 'Bắt đầu chuẩn bị' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu ghi âm' })); await Promise.resolve(); });
+    expect(await screen.findByText(/chưa cấp quyền sử dụng micro/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Thử lại' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Nộp bài$/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Danh sách bài kiểm tra' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+    expect(screen.getByRole('button', { name: 'Bắt đầu ghi âm' })).toBeInTheDocument();
   });
 
   it('preserves committed Speaking audio when re-record upload fails and draft is discarded', async () => {
@@ -189,7 +255,7 @@ function renderAttempt() { return renderAssessmentRoute(<StudentTestAttemptPage 
 function question(id: string, responseType: 'TEXT_RESPONSE' | 'AUDIO_RESPONSE', skill: 'WRITING' | 'SPEAKING', text: string) { return { testQuestionId: id, points: 10, selectedOptionIds: [], textResponse: '', audioUploaded: false, question: { id: `q-${id}`, type: responseType, responseType, toeicSkill: skill, difficulty: 'MEDIUM' as const, content: text, options: [] } }; }
 function content(): StudentAttemptContent { return { attempt: { id: 'a1', attemptNumber: 1, status: 'IN_PROGRESS', startedAt: '2026-10-03T00:00:00Z', submittedAt: null }, test: { id: 't1', title: 'Kiểm tra giữa kỳ', type: 'IN_CLASS', purpose: 'IN_CLASS', stage: 'MIDTERM', timeLimitMinutes: 30 }, groups: [{ id: 'g1', skill: 'WRITING', orderIndex: 0, title: 'Writing', instructions: null, taskCode: 'M06-WRITE-01', preparationSeconds: null, responseSeconds: null, recommendedSeconds: null, maxRecordingSeconds: null, stimulusText: null, stimuli: [], questions: [question('w1', 'TEXT_RESPONSE', 'WRITING', 'Writing task')] }, { id: 'g2', skill: 'SPEAKING', orderIndex: 1, title: 'Speaking', instructions: null, taskCode: 'M06-SPEAK-01', preparationSeconds: 0, responseSeconds: 30, recommendedSeconds: null, maxRecordingSeconds: 30, stimulusText: null, stimuli: [], questions: [question('s1', 'AUDIO_RESPONSE', 'SPEAKING', 'Speaking task')] }] }; }
 function writingContent(): StudentAttemptContent { const value = content(); return { ...value, groups: [value.groups![0]] }; }
-function speakingContent(): StudentAttemptContent { const value = content(); return { ...value, groups: [value.groups![1]] }; }
+function speakingContent(committed = false): StudentAttemptContent { const value = content(); const group = value.groups![1]; if (committed) { group.questions[0].audioUploaded = true; group.questions[0].audioUrl = '/api/committed'; } return { ...value, groups: [group] }; }
 function installRecorder() { const stopTrack = vi.fn(); const recorderStop = vi.fn(); class FakeMediaRecorder { static isTypeSupported() { return true; } mimeType = 'audio/webm'; state = 'inactive'; ondataavailable: ((event: { data: Blob }) => void) | null = null; onstop: (() => void) | null = null; start() { this.state = 'recording'; } stop() { this.state = 'inactive'; recorderStop(); this.ondataavailable?.({ data: new Blob(['audio'], { type: 'audio/webm' }) }); this.onstop?.(); } } vi.stubGlobal('MediaRecorder', FakeMediaRecorder); vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: stopTrack }] }) } }); return { stopTrack, recorderStop }; }
 function gradingDetail(): GradingDetail { return { id: 'a1', attemptNumber: 1, submittedAt: '2026-10-03T00:00:00Z', learner: { id: 'l1', fullName: 'Learner', email: 'l@test' }, test: { id: 't1', title: 'Kiểm tra giữa kỳ' }, answers: [{ id: 'ans1', textResponse: 'Response', audioUrl: null, pointsAwarded: null, testQuestion: { id: 'tq1', points: 10, orderIndex: 0, question: { content: 'Write', responseType: 'TEXT_RESPONSE', toeicSkill: 'WRITING', rubric: { id: 'rubric', name: 'Writing rubric', criteria: [{ id: 'r1', name: 'Ý', description: null, orderIndex: 0, maxScore: 4, weight: 1 }, { id: 'r2', name: 'Ngôn ngữ', description: null, orderIndex: 1, maxScore: 4, weight: 1 }] } } }, evaluation: null }] }; }
 function gradingQueue(): GradingQueue { const base = { attemptNumber: 1, submittedAt: '2026-10-03T00:00:00Z', skillScores: [{ skill: 'LISTENING' as const, normalizedScore: 75, status: 'FINAL', source: 'OBJECTIVE_AUTO' }, { skill: 'READING' as const, normalizedScore: 63, status: 'FINAL', source: 'OBJECTIVE_AUTO' }] }; return { assessment: { id: 'ca1', stage: 'MIDTERM', test: { id: 't1', title: 'Kiểm tra giữa kỳ' }, classOffering: { id: 'c1', code: 'C1', name: 'Class', course: { id: 'course', title: 'Course' } } }, submissions: [{ ...base, id: 'a1', learner: { id: 'l1', fullName: 'Learner Waiting', email: 'w@test' }, gradingState: 'SUBMITTED_PENDING_REVIEW' }, { ...base, id: 'a2', learner: { id: 'l2', fullName: 'Learner Final', email: 'f@test' }, gradingState: 'REVIEWED_FINAL' }] }; }
