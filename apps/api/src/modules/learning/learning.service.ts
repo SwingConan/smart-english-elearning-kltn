@@ -261,44 +261,55 @@ export class LearningService {
         stage: true,
         openAt: true,
         closeAt: true,
+        maxAttemptsOverride: true,
         test: {
           select: {
             id: true,
             title: true,
             purpose: true,
-            attempts: {
-              where: { enrollmentId },
-              orderBy: { attemptNumber: 'desc' },
-              take: 1,
+            maxAttempts: true,
+            showResultAfterSubmit: true,
+          },
+        },
+      },
+    });
+
+    const assessmentAttempts = assessments.length
+      ? await this.prisma.testAttempt.findMany({
+          where: {
+            enrollmentId,
+            classAssessmentId: { in: assessments.map((assessment) => assessment.id) },
+            status: { in: [TestAttemptStatus.IN_PROGRESS, TestAttemptStatus.SUBMITTED] },
+          },
+          orderBy: [{ classAssessmentId: 'asc' }, { attemptNumber: 'desc' }],
+          select: {
+            id: true,
+            classAssessmentId: true,
+            attemptNumber: true,
+            status: true,
+            submittedAt: true,
+            skillScores: {
+              orderBy: { skill: 'asc' },
               select: {
-                id: true,
+                skill: true,
                 status: true,
-                submittedAt: true,
-                skillScores: {
-                  orderBy: { skill: 'asc' },
+                normalizedScore: true,
+              },
+            },
+            answers: {
+              select: {
+                textResponse: true,
+                audioStorageKey: true,
+                testQuestion: {
                   select: {
-                    skill: true,
-                    status: true,
-                    normalizedScore: true,
-                  },
-                },
-                answers: {
-                  select: {
-                    textResponse: true,
-                    audioStorageKey: true,
-                    testQuestion: {
-                      select: {
-                        question: { select: { toeicSkill: true } },
-                      },
-                    },
+                    question: { select: { toeicSkill: true } },
                   },
                 },
               },
             },
           },
-        },
-      },
-    });
+        })
+      : [];
 
     const lessons = course.modules.flatMap((module) => module.lessons);
     const totalLessons = lessons.length;
@@ -339,7 +350,15 @@ export class LearningService {
         };
       }),
       assessments: assessments.map((assessment) => {
-        const attempt = assessment.test.attempts[0];
+        const attempts = assessmentAttempts.filter(
+          (attempt) => attempt.classAssessmentId === assessment.id,
+        );
+        const currentAttempt = attempts.find(
+          (attempt) => attempt.status === TestAttemptStatus.IN_PROGRESS,
+        );
+        const submittedAttempts = attempts.filter(
+          (attempt) => attempt.status === TestAttemptStatus.SUBMITTED,
+        );
         return {
           id: assessment.id,
           testId: assessment.test.id,
@@ -348,38 +367,57 @@ export class LearningService {
           stage: assessment.stage,
           openAt: assessment.openAt,
           closeAt: assessment.closeAt,
-          status:
-            attempt?.status === TestAttemptStatus.SUBMITTED
+          maxAttempts: assessment.maxAttemptsOverride ?? assessment.test.maxAttempts,
+          status: currentAttempt
+            ? 'IN_PROGRESS'
+            : submittedAttempts.length > 0
               ? 'COMPLETED'
-              : attempt?.status === TestAttemptStatus.IN_PROGRESS
-                ? 'IN_PROGRESS'
-                : 'NOT_STARTED',
-          attemptId: attempt?.id ?? null,
-          submittedAt: attempt?.submittedAt ?? null,
-          skillResults: attempt
-            ? (['LISTENING', 'READING', 'SPEAKING', 'WRITING'] as const).map((skill) => {
-                const persisted = attempt.skillScores.find((score) => score.skill === skill);
-                const hasResponse = attempt.answers.some(
-                  (answer) =>
-                    answer.testQuestion.question.toeicSkill === skill &&
-                    Boolean(answer.textResponse?.trim() || answer.audioStorageKey),
-                );
-                return {
-                  skill,
-                  state: persisted?.status === 'FINAL'
-                    ? 'FINAL'
-                    : hasResponse
-                      ? 'PENDING_REVIEW'
-                      : 'MISSING_RESPONSE',
-                  normalizedScore: persisted?.status === 'FINAL'
-                    ? Number(persisted.normalizedScore)
-                    : null,
-                };
-              })
-            : [],
+              : 'NOT_STARTED',
+          currentAttempt: currentAttempt
+            ? {
+                attemptId: currentAttempt.id,
+                attemptNumber: currentAttempt.attemptNumber,
+                status: 'IN_PROGRESS' as const,
+              }
+            : null,
+          submittedAttempts: submittedAttempts.map((attempt) => ({
+            attemptId: attempt.id,
+            attemptNumber: attempt.attemptNumber,
+            submittedAt: attempt.submittedAt,
+            resultAvailable: assessment.test.showResultAfterSubmit,
+            skillResults: this.mapAttemptSkillResults(attempt),
+          })),
         };
       }),
     };
+  }
+
+  private mapAttemptSkillResults(attempt: {
+    skillScores: Array<{ skill: string; status: string; normalizedScore: Prisma.Decimal }>;
+    answers: Array<{
+      textResponse: string | null;
+      audioStorageKey: string | null;
+      testQuestion: { question: { toeicSkill: string | null } };
+    }>;
+  }) {
+    return (['LISTENING', 'READING', 'SPEAKING', 'WRITING'] as const).map((skill) => {
+      const persisted = attempt.skillScores.find((score) => score.skill === skill);
+      const hasResponse = attempt.answers.some(
+        (answer) =>
+          answer.testQuestion.question.toeicSkill === skill &&
+          Boolean(answer.textResponse?.trim() || answer.audioStorageKey),
+      );
+      return {
+        skill,
+        state:
+          persisted?.status === 'FINAL'
+            ? ('FINAL' as const)
+            : hasResponse
+              ? ('PENDING_REVIEW' as const)
+              : ('MISSING_RESPONSE' as const),
+        normalizedScore: persisted?.status === 'FINAL' ? Number(persisted.normalizedScore) : null,
+      };
+    });
   }
 
   async getResourceDownload(learnerId: string, enrollmentId: string, resourceId: string) {

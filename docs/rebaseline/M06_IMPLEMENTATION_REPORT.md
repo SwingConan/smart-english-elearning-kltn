@@ -200,3 +200,34 @@ Product Owner-equivalent smoke ran in local headless Chrome against the real Vit
 - Instructor: `TOEIC L&R Foundation — Tối T3/T5` was findable from `Lớp giảng dạy của tôi`; class status was localized; the prominent class-assessment action opened the workspace; stage/open/close/max-attempt controls and assigned schedules were visible; midterm grading queue and Nguyễn Minh Anh grading detail were reachable; reusable authoring was clearly separated; the M06 list badge/editor displayed `Bài kiểm tra trên lớp` without `Xếp lớp`.
 
 Known non-blocking output remains the Vite large-chunk advisory (585.35 kB), PostgreSQL `pg` client-query deprecation warnings, and expected negative-path logs. The first focused E2E rerun encountered grading state left by an earlier interrupted local run; deterministic reseeding restored the fixture, after which the focused and full E2E runs passed.
+
+## Visual Gate round 2 fixes
+
+- Previous HEAD: `b65c1d7f31aba49d3465527bff25d768f20e455d`.
+- New candidate HEAD: the commit containing this section; the immutable SHA is recorded in the Git handoff after commit/push.
+- This pass addresses VG2-F01 through VG2-F07 from the supplied Round 2 findings. It does not claim that the Product Owner Visual Gate has passed; GPT delta review and the final Product Owner retest remain required.
+
+### Finding dispositions
+
+- VG2-F01: `LearningService.getProgress()` no longer flattens a class assignment to `orderBy attemptNumber desc / take: 1`. It now queries attempts separately with both `enrollmentId` and the current set of `classAssessmentId` values, returns `currentAttempt` independently from newest-first `submittedAttempts`, and includes attempt number, submitted time, result visibility, and truthful four-skill state per submitted attempt. Progress shows the active attempt and prior result together; Results lists every published submitted attempt with its own result link.
+- VG2-F02: the student filter taxonomy now includes `Luyện tập / Thi thử`; `PRACTICE_MOCK` is excluded from the three IN_CLASS stage filters. Active and open cards receive stronger indigo/blue treatment, upcoming cards remain neutral, and submitted/closed cards are visually quieter while preserving existing CTA rules.
+- VG2-F03: instructor teaching cards use consistent title/metadata heights, flex-aligned class sections, and stable class-offering internals while retaining `Bài kiểm tra của lớp` as the dominant M06 action.
+- VG2-F04: every non-empty rubric score is validated client-side against `0 <= score <= maxScore`. Invalid fields receive `aria-invalid`, a red treatment, and the exact Vietnamese range message; draft/final actions remain blocked and no request is sent.
+- VG2-F05: decimal rubric weights remain unchanged in data and grading math but render as teacher-facing percentages such as `55%` and `45%`.
+- VG2-F06: final-graded queue rows now use `Xem / chỉnh điểm`; the detail action remains `Cập nhật điểm cuối`.
+- VG2-F07: the submit confirmation presents objective, Speaking, and Writing missing counts as compact bordered rows with status color, icon treatment, and count badges. Submission safety behavior is unchanged.
+
+### Verification and browser evidence
+
+- Focused API: `learning.service.spec.ts` 25/25 PASS, including submitted attempt 1 plus active attempt 2 and explicit assignment/enrollment scoping.
+- Focused Web: `m06-assessment-ui.test.tsx` plus `student-assessment-list.test.tsx` 27/27 PASS, covering attempt history/results, Practice/Mock filtering, urgency styling, score validation, percentage weights, and final-review CTA.
+- `npm run check:m05-manifest` — PASS: 8 Listening, 8 Reading, 3 Speaking, 2 Writing, 5 rubrics, 8 assets; malformed fixture rejected.
+- Prisma validate/generate/deploy/status/drift — PASS: 11 migrations, database up to date, no difference detected.
+- `npm run prisma:seed` twice — PASS and idempotent.
+- `npm run lint` / `npm run typecheck` — PASS.
+- `npm run test` — PASS: API 336/336; Web 220/220.
+- `npm run test:e2e -w @smart-elearning/api` — PASS: 91/91.
+- `npm run build` / `git diff --check` — PASS. Vite retains the non-blocking 588.74 kB chunk advisory.
+- Real Microsoft Edge headless smoke against the current Vite/Nest source passed: Student Progress showed active attempt `2/2` plus submitted attempt 1 and its result link; Results retained attempt 1; assessment taxonomy/urgency and the structured submit dialog rendered; Instructor teaching-card normalization rendered; the final queue used `Xem / chỉnh điểm`; grading detail displayed `Trọng số 55%`; score `5/4` produced immediate inline validation and blocked final action; changing back to a valid score restored the action without mutating the saved grade.
+
+Known non-blocking output remains the Vite large-chunk advisory, PostgreSQL `pg` client-query deprecation warnings, and expected negative-path test logs.

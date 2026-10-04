@@ -30,6 +30,7 @@ describe('LearningService', () => {
     enrollment: { findFirst: jest.fn() },
     course: { findUniqueOrThrow: jest.fn() },
     classAssessment: { findMany: jest.fn() },
+    testAttempt: { findMany: jest.fn() },
     lesson: { findFirst: jest.fn(), count: jest.fn() },
     learningResource: { findFirst: jest.fn() },
     lessonProgress: { count: jest.fn() },
@@ -46,6 +47,7 @@ describe('LearningService', () => {
     prisma.lesson.findFirst.mockResolvedValue(lesson);
     prisma.course.findUniqueOrThrow.mockResolvedValue({ title: 'Course', modules: [] });
     prisma.classAssessment.findMany.mockResolvedValue([]);
+    prisma.testAttempt.findMany.mockResolvedValue([]);
     prisma.lesson.count.mockResolvedValue(0);
     prisma.lessonProgress.count.mockResolvedValue(0);
     prisma.skill.findMany.mockResolvedValue([]);
@@ -127,6 +129,80 @@ describe('LearningService', () => {
       );
     },
   );
+
+  it('preserves submitted history beside a newer active attempt and scopes it to the assignment', async () => {
+    prisma.classAssessment.findMany.mockResolvedValue([
+      {
+        id: 'assessment-id',
+        stage: 'MIDTERM',
+        openAt: null,
+        closeAt: null,
+        maxAttemptsOverride: 2,
+        test: {
+          id: 'test-id',
+          title: 'Midterm',
+          purpose: 'IN_CLASS',
+          maxAttempts: 1,
+          showResultAfterSubmit: true,
+        },
+      },
+    ]);
+    prisma.testAttempt.findMany.mockResolvedValue([
+      {
+        id: 'attempt-2',
+        classAssessmentId: 'assessment-id',
+        attemptNumber: 2,
+        status: 'IN_PROGRESS',
+        submittedAt: null,
+        skillScores: [],
+        answers: [],
+      },
+      {
+        id: 'attempt-1',
+        classAssessmentId: 'assessment-id',
+        attemptNumber: 1,
+        status: 'SUBMITTED',
+        submittedAt: now,
+        skillScores: [{ skill: 'LISTENING', status: 'FINAL', normalizedScore: 75 }],
+        answers: [],
+      },
+      {
+        id: 'foreign-assignment-attempt',
+        classAssessmentId: 'other-assessment-id',
+        attemptNumber: 9,
+        status: 'SUBMITTED',
+        submittedAt: now,
+        skillScores: [],
+        answers: [],
+      },
+    ]);
+
+    const result = await service.getProgress(learnerId, enrollmentId);
+
+    expect(prisma.testAttempt.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          enrollmentId,
+          classAssessmentId: { in: ['assessment-id'] },
+        }),
+      }),
+    );
+    expect(result.assessments[0]).toMatchObject({
+      status: 'IN_PROGRESS',
+      currentAttempt: { attemptId: 'attempt-2', attemptNumber: 2 },
+      submittedAttempts: [
+        {
+          attemptId: 'attempt-1',
+          attemptNumber: 1,
+          resultAvailable: true,
+          skillResults: expect.arrayContaining([
+            { skill: 'LISTENING', state: 'FINAL', normalizedScore: 75 },
+          ]),
+        },
+      ],
+    });
+    expect(JSON.stringify(result.assessments[0])).not.toContain('foreign-assignment-attempt');
+  });
 
   it('creates COMPLETED progress and upgrades IN_PROGRESS', async () => {
     await service.completeLesson(learnerId, enrollmentId, lessonId);

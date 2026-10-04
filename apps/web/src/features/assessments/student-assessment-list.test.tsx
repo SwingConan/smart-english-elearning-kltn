@@ -32,7 +32,7 @@ describe('StudentAssessmentListPage', () => {
     expect(screen.getByText('Kiểm tra thường kỳ')).toBeInTheDocument();
     expect(screen.getByText('Kiểm tra giữa kỳ')).toBeInTheDocument();
     expect(screen.getByText('Kiểm tra cuối kỳ')).toBeInTheDocument();
-    expect(screen.getByText('Luyện tập / Thi thử')).toBeInTheDocument();
+    expect(screen.getAllByText('Luyện tập / Thi thử')).toHaveLength(2);
     expect(screen.getAllByText('Kiểm tra giữa kỳ')).toHaveLength(1);
     expect(screen.getByText(/3 câu hỏi/i)).toBeInTheDocument();
     expect(screen.getByText(/Đang làm lượt 1\/2/i)).toBeInTheDocument();
@@ -41,12 +41,19 @@ describe('StudentAssessmentListPage', () => {
     expect(screen.getByRole('button', { name: /Tiếp tục làm bài/i })).toBeEnabled();
     expect(screen.getByText(/sử dụng hết số lượt/i)).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /làm bài/i })).toHaveLength(3);
+    const activeCard = screen.getByText('Test midterm').closest('article')!;
+    expect(within(activeCard).getByText('Đang làm')).toHaveClass('bg-indigo-600');
+    const openCard = screen.getByText('Test periodic').closest('article')!;
+    expect(within(openCard).getByText('Đang mở')).toHaveClass('bg-blue-600');
     expect(document.body.textContent).not.toMatch(
       /Correct option|Secret explanation|isCorrect|pointsAwarded/i,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Cuối kỳ' }));
     expect(screen.getByText('Test final')).toBeInTheDocument();
     expect(screen.queryByText('Test periodic')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Luyện tập / Thi thử' }));
+    expect(screen.getByText('Test practice')).toBeInTheDocument();
+    expect(screen.queryByText('Test final')).not.toBeInTheDocument();
   });
 
   it('starts and resumes through the same API, navigates by returned attemptId and guards double click', async () => {

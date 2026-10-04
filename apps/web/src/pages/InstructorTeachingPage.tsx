@@ -47,11 +47,7 @@ export function InstructorTeachingPage() {
   }
 
   if (error) {
-    return (
-      <div className="p-8 text-center text-red-600">
-        Đã xảy ra lỗi: {error}
-      </div>
-    );
+    return <div className="p-8 text-center text-red-600">Đã xảy ra lỗi: {error}</div>;
   }
 
   return (
@@ -69,9 +65,9 @@ export function InstructorTeachingPage() {
               key={course.id}
               className="bg-white shadow rounded-lg p-6 border border-gray-200 flex flex-col h-full"
             >
-              <div className="flex-1">
-                <div className="flex justify-between items-start mb-4">
-                  <h2 className="text-xl font-bold text-gray-900">{course.title}</h2>
+              <div className="flex flex-1 flex-col">
+                <div className="mb-4 flex min-h-16 items-start justify-between gap-3">
+                  <h2 className="text-xl font-bold leading-7 text-gray-900">{course.title}</h2>
                   {course.isPublished ? (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                       Đã xuất bản
@@ -83,22 +79,30 @@ export function InstructorTeachingPage() {
                   )}
                 </div>
 
-                <div className="text-sm text-gray-500 mb-2">
-                  <span className="font-semibold text-gray-700">Trình độ:</span> {course.level}
-                </div>
-                <div className="text-sm text-gray-500 mb-4">
-                  <span className="font-semibold text-gray-700">Số module:</span> {course._count.modules}
+                <div className="mb-4 min-h-14 space-y-2">
+                  <div className="text-sm text-gray-500">
+                    <span className="font-semibold text-gray-700">Trình độ:</span> {course.level}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    <span className="font-semibold text-gray-700">Số module:</span>{' '}
+                    {course._count.modules}
+                  </div>
                 </div>
 
                 {classOfferings.length > 0 && (
-                  <div className="mb-4">
+                  <div className="mb-4 flex-1">
                     <h3 className="text-sm font-semibold text-gray-900 mb-2">Lớp đang dạy:</h3>
                     <ul className="space-y-3">
                       {classOfferings.map((offering) => (
-                        <li key={offering.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-semibold text-gray-800">{offering.name}</span>
-                            <span className="inline-flex items-center rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                        <li
+                          key={offering.id}
+                          className="flex min-h-28 flex-col justify-between rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"
+                        >
+                          <div className="flex min-h-10 items-start justify-between gap-2">
+                            <span className="font-semibold leading-5 text-gray-800">
+                              {offering.name}
+                            </span>
+                            <span className="inline-flex shrink-0 items-center rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
                               {offeringStatusLabel[offering.status] ?? 'Đang cập nhật'}
                             </span>
                           </div>
@@ -135,14 +139,32 @@ export function InstructorTeachingPage() {
                   Mẫu bài kiểm tra
                 </Link>
                 <p className="text-xs leading-5 text-slate-500">
-                  Mẫu bài kiểm tra = nội dung dùng lại. Bài kiểm tra của lớp = lịch giao và bài nộp của một lớp cụ thể.
+                  Mẫu bài kiểm tra = nội dung dùng lại. Bài kiểm tra của lớp = lịch giao và bài nộp
+                  của một lớp cụ thể.
                 </p>
                 <details className="rounded-md border border-slate-200 p-3 text-sm">
-                  <summary className="cursor-pointer font-medium text-slate-700">Công cụ nâng cao</summary>
+                  <summary className="cursor-pointer font-medium text-slate-700">
+                    Công cụ nâng cao
+                  </summary>
                   <div className="mt-3 grid gap-2">
-                    <Link className="text-emerald-700 hover:underline" to={`/instructor/courses/${course.id}/skills`}>Mô hình kiến thức — Kỹ năng (KC)</Link>
-                    <Link className="text-amber-700 hover:underline" to={`/instructor/courses/${course.id}/adaptive-policy`}>Chính sách thích ứng</Link>
-                    <Link className="text-cyan-700 hover:underline" to={`/instructor/courses/${course.id}/learner-mastery`}>Mức độ thành thạo của học viên</Link>
+                    <Link
+                      className="text-emerald-700 hover:underline"
+                      to={`/instructor/courses/${course.id}/skills`}
+                    >
+                      Mô hình kiến thức — Kỹ năng (KC)
+                    </Link>
+                    <Link
+                      className="text-amber-700 hover:underline"
+                      to={`/instructor/courses/${course.id}/adaptive-policy`}
+                    >
+                      Chính sách thích ứng
+                    </Link>
+                    <Link
+                      className="text-cyan-700 hover:underline"
+                      to={`/instructor/courses/${course.id}/learner-mastery`}
+                    >
+                      Mức độ thành thạo của học viên
+                    </Link>
                   </div>
                 </details>
               </div>
