@@ -83,10 +83,29 @@ export interface CourseProgress {
     stage: 'PERIODIC' | 'MIDTERM' | 'FINAL';
     openAt: string | null;
     closeAt: string | null;
+    maxAttempts: number;
     status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
-    attemptId: string | null;
-    submittedAt: string | null;
+    currentAttempt: {
+      attemptId: string;
+      attemptNumber: number;
+      status: 'IN_PROGRESS';
+    } | null;
+    submittedAttempts: AssessmentAttemptSummary[];
   }>;
+}
+
+export interface AssessmentSkillResult {
+  skill: 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING';
+  state: 'FINAL' | 'PENDING_REVIEW' | 'MISSING_RESPONSE';
+  normalizedScore: number | null;
+}
+
+export interface AssessmentAttemptSummary {
+  attemptId: string;
+  attemptNumber: number;
+  submittedAt: string | null;
+  resultAvailable: boolean;
+  skillResults: AssessmentSkillResult[];
 }
 
 export type MasteryState = 'PRIOR' | 'OBSERVED';

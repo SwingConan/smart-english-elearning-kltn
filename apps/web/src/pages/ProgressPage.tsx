@@ -3,7 +3,7 @@ import { CheckCircle2, Circle, ClipboardCheck } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { assessmentTypeLabel } from '@/features/assessments/display';
 import { learningApi } from '@/features/learning/api';
-import type { CourseProgress } from '@/features/learning/types';
+import type { AssessmentAttemptSummary, CourseProgress } from '@/features/learning/types';
 
 export function ProgressPage() {
   const { enrollmentId = '' } = useParams();
@@ -31,7 +31,10 @@ export function ProgressPage() {
         Không thể tải tiến độ.
         <button
           className="ml-3 font-semibold underline"
-          onClick={() => setReload((value) => value + 1)}
+          onClick={() => {
+            setState('loading');
+            setReload((value) => value + 1);
+          }}
           type="button"
         >
           Thử lại
@@ -107,31 +110,91 @@ export function ProgressPage() {
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {progress.assessments.map((item) => (
-              <div className="rounded-xl bg-slate-50 p-4" key={item.id}>
+              <article className="rounded-xl bg-slate-50 p-4" key={item.id}>
                 <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">
                   {assessmentTypeLabel(item.purpose, item.stage)}
                 </span>
                 <p className="mt-2 font-semibold">{item.title}</p>
-                <p className="mt-1 text-sm text-slate-500">
-                  {item.status === 'COMPLETED'
-                    ? 'Đã nộp'
-                    : item.status === 'IN_PROGRESS'
-                      ? 'Đang làm'
+                <p className="mt-1 text-sm font-medium text-slate-600">
+                {item.currentAttempt
+                  ? `Đang làm lượt ${item.currentAttempt.attemptNumber}/${item.maxAttempts}`
+                    : item.submittedAttempts.length > 0
+                      ? 'Đã nộp'
                       : 'Chưa bắt đầu'}
                 </p>
-                {item.attemptId && item.status === 'COMPLETED' ? (
-                  <Link
-                    className="mt-2 inline-block text-sm font-semibold text-indigo-700"
-                    to={`/student/enrollments/${enrollmentId}/attempts/${item.attemptId}/result`}
-                  >
-                    Xem kết quả
-                  </Link>
+                {item.submittedAttempts.length > 0 ? (
+                  <div className="mt-4 space-y-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Kết quả đã có
+                    </p>
+                    {item.submittedAttempts.map((attempt) => (
+                      <SubmittedAttemptCard
+                        attempt={attempt}
+                        enrollmentId={enrollmentId}
+                        key={attempt.attemptId}
+                      />
+                    ))}
+                  </div>
                 ) : null}
-              </div>
+              </article>
             ))}
           </div>
         )}
       </section>
     </section>
   );
+}
+
+function SubmittedAttemptCard({
+  attempt,
+  enrollmentId,
+}: {
+  attempt: AssessmentAttemptSummary;
+  enrollmentId: string;
+}) {
+  return (
+    <div className="rounded-lg border bg-white p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold">Lượt {attempt.attemptNumber} · Đã nộp</p>
+        {attempt.submittedAt ? (
+          <time className="text-xs text-slate-500">
+            {new Date(attempt.submittedAt).toLocaleString('vi-VN')}
+          </time>
+        ) : null}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        {attempt.skillResults.map((skill) => (
+          <div className="rounded-lg border bg-slate-50 px-2 py-1.5" key={skill.skill}>
+            <span className="font-semibold">{skillLabel(skill.skill)}</span>{' '}
+            <span className="text-slate-500">
+              {skill.state === 'FINAL' && skill.normalizedScore !== null
+                ? `${formatPercent(skill.normalizedScore)}%`
+                : skill.state === 'PENDING_REVIEW'
+                  ? 'Chờ chấm'
+                  : 'Chưa có câu trả lời'}
+            </span>
+          </div>
+        ))}
+      </div>
+      {attempt.resultAvailable ? (
+        <Link
+          className="mt-3 inline-block text-sm font-semibold text-indigo-700"
+          to={`/student/enrollments/${enrollmentId}/attempts/${attempt.attemptId}/result`}
+        >
+          Xem kết quả lượt {attempt.attemptNumber}
+        </Link>
+      ) : (
+        <p className="mt-3 text-xs text-slate-500">Kết quả chưa được công bố.</p>
+      )}
+    </div>
+  );
+}
+
+function skillLabel(skill: 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING') {
+  return { LISTENING: 'Listening', READING: 'Reading', SPEAKING: 'Speaking', WRITING: 'Writing' }[
+    skill
+  ];
+}
+function formatPercent(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }

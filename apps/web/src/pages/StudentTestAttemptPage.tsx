@@ -1,256 +1,1109 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Bookmark, ChevronLeft, ChevronRight, CircleAlert, Mic, Square } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router';
 import { studentAssessmentApi } from '@/features/assessments/api';
-import { difficultyLabel, testTypeLabel } from '@/features/assessments/display';
 import { studentAssessmentErrorMessage } from '@/features/assessments/errors';
 import type {
   StudentAnswerSelection,
   StudentAttemptContent,
+  StudentAttemptGroup,
   StudentAttemptQuestion,
+  StudentAttemptStimulus,
+  ToeicSkill,
 } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { ApiError } from '@/lib/api-client';
 
-type AnswerState = Record<string, string[]>;
+type Draft = { selectedOptionIds: string[]; textResponse: string; audioUploaded: boolean };
+type Drafts = Record<string, Draft>;
 type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
+export type RecorderState =
+  'PREP' | 'READY' | 'RECORDING' | 'LOCAL_DRAFT' | 'UPLOADING' | 'COMMITTED' | 'UPLOAD_ERROR';
+export type RecorderSafety = {
+  state: RecorderState;
+  hasLocalDraft: boolean;
+  hasCommittedAnswer: boolean;
+};
+
+const skillLabels: Record<ToeicSkill, string> = {
+  LISTENING: 'Listening',
+  READING: 'Reading',
+  SPEAKING: 'Speaking',
+  WRITING: 'Writing',
+};
+const stageLabels = { PERIODIC: 'Thường kỳ', MIDTERM: 'Giữa kỳ', FINAL: 'Cuối kỳ' } as const;
 
 export function StudentTestAttemptPage() {
   const { enrollmentId, attemptId } = useParams<{ enrollmentId: string; attemptId: string }>();
   const navigate = useNavigate();
   const redirectExpiredSession = useSessionExpiry();
   const [content, setContent] = useState<StudentAttemptContent | null>(null);
-  const [answers, setAnswers] = useState<AnswerState>({});
-  const answersRef = useRef<AnswerState>({});
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const saveGenerationRef = useRef(0);
-  const submitInFlight = useRef(false);
-  const activeRef = useRef(true);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Drafts>({});
+  const draftsRef = useRef<Drafts>({});
+  const questionsRef = useRef<StudentAttemptQuestion[]>([]);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revision = useRef(0);
+  const committedRevision = useRef(0);
+  const saveInFlight = useRef<Promise<void> | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [audioSafety, setAudioSafety] = useState<Record<string, RecorderSafety>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [confirming, setConfirming] = useState(false);
+  const [activeGroupIndex, setActiveGroupIndex] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const [expired, setExpired] = useState(false);
+  const [markedGroups, setMarkedGroups] = useState<Set<string>>(new Set());
+  const expiryHandled = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
-    activeRef.current = true;
-    async function fetchAttempt() {
-      if (!enrollmentId || !attemptId) return;
-      try {
-        const data = await studentAssessmentApi.getAttempt(enrollmentId, attemptId, controller.signal);
+    if (!enrollmentId || !attemptId) return;
+    void studentAssessmentApi
+      .getAttempt(enrollmentId, attemptId, controller.signal)
+      .then((data) => {
         if (data.attempt.status === 'SUBMITTED') {
-          navigate(`/student/enrollments/${enrollmentId}/attempts/${attemptId}/result`, { replace: true });
+          navigate(`/student/enrollments/${enrollmentId}/attempts/${attemptId}/result`, {
+            replace: true,
+          });
           return;
         }
-        if (!data.questions) {
-          setLoadError('Nội dung lượt làm chưa sẵn sàng.');
-          return;
-        }
+        const questions = data.groups?.flatMap((group) => group.questions) ?? data.questions ?? [];
         const restored = Object.fromEntries(
-          data.questions.map((item) => [item.testQuestionId, [...item.selectedOptionIds]]),
+          questions.map((item) => [
+            item.testQuestionId,
+            {
+              selectedOptionIds: item.selectedOptionIds ?? [],
+              textResponse: item.textResponse ?? '',
+              audioUploaded: Boolean(item.audioUploaded),
+            },
+          ]),
         );
-        answersRef.current = restored;
-        setAnswers(restored);
+        questionsRef.current = questions;
+        draftsRef.current = restored;
+        setDrafts(restored);
         setContent(data);
-        setLoadError(null);
-        setSaveStatus('idle');
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        if (await redirectExpiredSession(error)) return;
-        setLoadError(studentAssessmentErrorMessage(error, 'Không thể tải lượt làm bài.'));
-      } finally {
-        setLoading(false);
+        try {
+          const saved = JSON.parse(
+            localStorage.getItem(markStorageKey(attemptId)) ?? '[]',
+          ) as string[];
+          setMarkedGroups(new Set(saved));
+        } catch {
+          setMarkedGroups(new Set());
+        }
+        setError(null);
+      })
+      .catch(async (requestError) => {
+        if (requestError instanceof Error && requestError.name === 'AbortError') return;
+        if (await redirectExpiredSession(requestError)) return;
+        setError(studentAssessmentErrorMessage(requestError, 'Không thể tải lượt làm bài.'));
+      })
+      .finally(() => setLoading(false));
+    return () => controller.abort();
+  }, [attemptId, enrollmentId, navigate, redirectExpiredSession]);
+
+  useEffect(() => {
+    if (!content?.attempt.expiresAt) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [content?.attempt.expiresAt]);
+
+  const groups = useMemo(() => normalizedGroups(content), [content]);
+  const questions = useMemo(() => groups.flatMap((group) => group.questions), [groups]);
+  const activeGroup = groups[Math.min(activeGroupIndex, Math.max(0, groups.length - 1))];
+  const answered = questions.filter((question) =>
+    isAnswered(question, drafts[question.testQuestionId]),
+  ).length;
+  const secondsLeft = content?.attempt.expiresAt
+    ? Math.max(0, Math.ceil((new Date(content.attempt.expiresAt).getTime() - now) / 1000))
+    : null;
+  const hasUncommittedAudio = Object.values(audioSafety).some(({ hasLocalDraft }) => hasLocalDraft);
+  const unsafeAudio =
+    hasUncommittedAudio ||
+    Object.values(audioSafety).some(({ state }) => state === 'RECORDING' || state === 'UPLOADING');
+  const toggleMarked = (groupId: string) => {
+    setMarkedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      if (attemptId) localStorage.setItem(markStorageKey(attemptId), JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (secondsLeft !== 0 || expiryHandled.current || !enrollmentId || !attemptId) return;
+    expiryHandled.current = true;
+    setExpired(true);
+    setConfirming(false);
+    void studentAssessmentApi
+      .getAttempt(enrollmentId, attemptId)
+      .then((current) => {
+        if (current.attempt.status === 'SUBMITTED') {
+          navigate(`/student/enrollments/${enrollmentId}/attempts/${attemptId}/result`, {
+            replace: true,
+          });
+        }
+      })
+      .catch(async (requestError) => {
+        if (await redirectExpiredSession(requestError)) return;
+        setError('Phiên làm bài đã hết hạn. Vui lòng tải lại để xem trạng thái mới nhất.');
+      });
+  }, [attemptId, enrollmentId, navigate, redirectExpiredSession, secondsLeft]);
+
+  useEffect(() => {
+    if (!unsafeAudio) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [unsafeAudio]);
+
+  const drainSaveQueue = useCallback(async (): Promise<void> => {
+    if (!enrollmentId || !attemptId) return;
+    if (saveInFlight.current) return saveInFlight.current;
+    const run = async () => {
+      while (committedRevision.current < revision.current) {
+        const targetRevision = revision.current;
+        const snapshot = draftsRef.current;
+        setSaveStatus('saving');
+        await studentAssessmentApi.saveAnswers(
+          enrollmentId,
+          attemptId,
+          answerPayload(questionsRef.current, snapshot),
+        );
+        committedRevision.current = targetRevision;
       }
-    }
-    void fetchAttempt();
-    return () => {
-      activeRef.current = false;
-      controller.abort();
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      setSaveStatus('saved');
     };
-  }, [attemptId, enrollmentId, navigate, redirectExpiredSession, reloadKey]);
+    const pending = run()
+      .catch(async (requestError: unknown) => {
+        if (await redirectExpiredSession(requestError)) return;
+        setSaveStatus('error');
+        setError(studentAssessmentErrorMessage(requestError, 'Không thể tự động lưu câu trả lời.'));
+        throw requestError;
+      })
+      .finally(() => {
+        saveInFlight.current = null;
+      });
+    saveInFlight.current = pending;
+    return pending;
+  }, [attemptId, enrollmentId, redirectExpiredSession]);
 
-  const queueAutosave = (nextAnswers: AnswerState) => {
-    if (!content?.questions || !enrollmentId || !attemptId || submitInFlight.current) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const generation = ++saveGenerationRef.current;
+  const scheduleSave = () => {
+    revision.current += 1;
     setSaveStatus('pending');
-    const payload = answerPayload(content.questions, nextAnswers);
-
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-      if (!activeRef.current || submitInFlight.current || generation !== saveGenerationRef.current) return;
-      setSaveStatus('saving');
-      void studentAssessmentApi.saveAnswers(enrollmentId, attemptId, payload)
-        .then(() => {
-          if (activeRef.current && generation === saveGenerationRef.current) setSaveStatus('saved');
-        })
-        .catch(async (error: unknown) => {
-          if (!activeRef.current || generation !== saveGenerationRef.current) return;
-          if (await redirectExpiredSession(error)) return;
-          setSaveStatus('error');
-          setActionError(studentAssessmentErrorMessage(error, 'Không thể tự động lưu câu trả lời.'));
-        });
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
+      void drainSaveQueue().catch(() => undefined);
     }, 500);
   };
 
-  const updateSelection = (question: StudentAttemptQuestion, optionId: string, checked: boolean) => {
-    if (submitting) return;
-    const previous = answersRef.current[question.testQuestionId] ?? [];
-    const selected = question.question.type === 'MULTIPLE_CHOICE'
-      ? checked
-        ? [...new Set([...previous, optionId])]
-        : previous.filter((id) => id !== optionId)
-      : [optionId];
-    const next = { ...answersRef.current, [question.testQuestionId]: selected };
-    answersRef.current = next;
-    setAnswers(next);
-    setActionError(null);
-    queueAutosave(next);
+  const updateDraft = (id: string, update: Partial<Draft>) => {
+    const next = { ...draftsRef.current, [id]: { ...draftsRef.current[id], ...update } };
+    draftsRef.current = next;
+    setDrafts(next);
+    scheduleSave();
   };
 
-  const clearSelection = (question: StudentAttemptQuestion) => {
-    if (submitting) return;
-    const next = { ...answersRef.current, [question.testQuestionId]: [] };
-    answersRef.current = next;
-    setAnswers(next);
-    setActionError(null);
-    queueAutosave(next);
+  const uploadAudio = async (questionId: string, blob: Blob): Promise<string> => {
+    if (!enrollmentId || !attemptId) throw new Error('Missing assessment context');
+    try {
+      const uploaded = await studentAssessmentApi.uploadAudio(
+        enrollmentId,
+        attemptId,
+        questionId,
+        blob,
+      );
+      const next = {
+        ...draftsRef.current,
+        [questionId]: { ...draftsRef.current[questionId], audioUploaded: true },
+      };
+      draftsRef.current = next;
+      setDrafts(next);
+      return uploaded.playbackUrl;
+    } catch (requestError) {
+      if (await redirectExpiredSession(requestError)) throw requestError;
+      setError(studentAssessmentErrorMessage(requestError, 'Không thể tải bản ghi âm lên.'));
+      throw requestError;
+    }
   };
 
   const submit = async () => {
-    if (!content?.questions || !enrollmentId || !attemptId || submitInFlight.current) return;
-    const unanswered = content.questions.filter(
-      (question) => (answersRef.current[question.testQuestionId] ?? []).length === 0,
-    ).length;
-    const message = unanswered > 0
-      ? `Bạn có chắc chắn muốn nộp bài? Bạn còn ${unanswered} câu chưa trả lời.`
-      : 'Bạn có chắc chắn muốn nộp bài?';
-    if (!window.confirm(message)) return;
-
-    submitInFlight.current = true;
-    setSubmitting(true);
-    setActionError(null);
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
+    if (!enrollmentId || !attemptId || submitting || unsafeAudio || expired) return;
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
     }
-    saveGenerationRef.current += 1;
-    const finalPayload = answerPayload(content.questions, answersRef.current);
-
+    setSubmitting(true);
+    setError(null);
     try {
-      await studentAssessmentApi.submit(enrollmentId, attemptId, finalPayload);
-      navigate(`/student/enrollments/${enrollmentId}/attempts/${attemptId}/result`, { replace: true });
-    } catch (error) {
-      if (await redirectExpiredSession(error)) return;
-      if (error instanceof ApiError && error.status === 409) {
+      await drainSaveQueue();
+      const result = await studentAssessmentApi.submit(
+        enrollmentId,
+        attemptId,
+        answerPayload(questionsRef.current, draftsRef.current),
+      );
+      navigate(`/student/enrollments/${enrollmentId}/attempts/${result.attempt.id}/result`, {
+        replace: true,
+      });
+    } catch (requestError) {
+      if (await redirectExpiredSession(requestError)) return;
+      if (requestError instanceof ApiError && requestError.status === 409) {
         try {
-          const latest = await studentAssessmentApi.getAttempt(enrollmentId, attemptId);
-          if (latest.attempt.status === 'SUBMITTED') {
-            navigate(`/student/enrollments/${enrollmentId}/attempts/${attemptId}/result`, { replace: true });
+          const current = await studentAssessmentApi.getAttempt(enrollmentId, attemptId);
+          if (current.attempt.status === 'SUBMITTED') {
+            navigate(`/student/enrollments/${enrollmentId}/attempts/${attemptId}/result`, {
+              replace: true,
+            });
             return;
           }
-        } catch (verificationError) {
-          if (await redirectExpiredSession(verificationError)) return;
-          // Preserve the original safe submission error below.
+        } catch {
+          /* keep the safe error below */
         }
       }
-      setActionError(studentAssessmentErrorMessage(error, 'Không thể nộp bài. Câu trả lời của bạn vẫn được giữ trên trang.'));
-    } finally {
-      submitInFlight.current = false;
-      if (activeRef.current) setSubmitting(false);
+      setError(
+        studentAssessmentErrorMessage(
+          requestError,
+          'Không thể nộp bài. Câu trả lời của bạn vẫn được giữ để thử lại.',
+        ),
+      );
+      setConfirming(false);
+      setSubmitting(false);
     }
   };
 
-  if (loading) return <p className="py-10 text-center text-slate-500" role="status">Đang tải lượt làm bài...</p>;
-  if (loadError || !content?.questions) {
+  if (loading)
     return (
-      <div className="mx-auto max-w-3xl rounded border border-red-200 bg-red-50 p-4 text-red-700" role="alert">
-        <p>{loadError ?? 'Không thể tải nội dung lượt làm.'}</p>
-        <div className="mt-3 flex gap-2">
-          <button className="rounded border px-3 py-1 text-sm" onClick={() => { setLoading(true); setLoadError(null); setReloadKey((current) => current + 1); }} type="button">Thử lại</button>
-          <Link className="rounded border px-3 py-1 text-sm" to={`/student/enrollments/${enrollmentId}/tests`}>Danh sách bài kiểm tra</Link>
-        </div>
-      </div>
+      <p className="py-12 text-center text-slate-500" role="status">
+        Đang tải bài kiểm tra...
+      </p>
     );
-  }
+  if (!content)
+    return (
+      <ErrorPanel
+        message={error ?? 'Không tìm thấy lượt làm bài.'}
+        onRetry={() => window.location.reload()}
+      />
+    );
+
+  const groupStarts = groupStartNumbers(groups);
+  const missingObjective = questions.filter(
+    (question) =>
+      !['TEXT_RESPONSE', 'AUDIO_RESPONSE'].includes(responseType(question)) &&
+      !isAnswered(question, drafts[question.testQuestionId]),
+  ).length;
+  const missingSpeaking = questions.filter(
+    (question) =>
+      responseType(question) === 'AUDIO_RESPONSE' &&
+      !drafts[question.testQuestionId]?.audioUploaded,
+  ).length;
+  const missingWriting = questions.filter(
+    (question) =>
+      responseType(question) === 'TEXT_RESPONSE' &&
+      !drafts[question.testQuestionId]?.textResponse.trim(),
+  ).length;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="rounded-lg border bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="mx-auto max-w-7xl space-y-5 pb-28">
+      <header className="sticky top-0 z-20 rounded-xl border bg-white/95 p-4 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <span className="rounded bg-indigo-100 px-2 py-1 text-xs text-indigo-800">{testTypeLabel[content.test.type]}</span>
-            <h1 className="mt-2 text-2xl font-bold">{content.test.title}</h1>
-            <p className="mt-1 text-sm text-slate-600">Lượt làm số {content.attempt.attemptNumber}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+              {content.test.stage ? stageLabels[content.test.stage] : 'Bài kiểm tra trên lớp'}
+            </p>
+            <h1 className="text-xl font-bold">{content.test.title}</h1>
           </div>
-          <SaveIndicator status={saveStatus} />
+          <div className="flex flex-wrap gap-3 text-sm">
+            <span>
+              {answered}/{questions.length} đã trả lời
+            </span>
+            <SaveIndicator status={saveStatus} />
+            {secondsLeft !== null && (
+              <span className={secondsLeft < 300 ? 'font-bold text-red-700' : 'font-semibold'}>
+                {formatTime(secondsLeft)}
+              </span>
+            )}
+          </div>
         </div>
       </header>
-
-      {actionError && <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{actionError}</div>}
-
-      <fieldset className="space-y-5" disabled={submitting}>
-        {content.questions.map((item, index) => {
-          const selectedIds = answers[item.testQuestionId] ?? [];
-          const multiple = item.question.type === 'MULTIPLE_CHOICE';
-          return (
-            <article className="rounded-lg border bg-white p-5 shadow-sm" key={item.testQuestionId}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-500">Câu {index + 1} · {difficultyLabel[item.question.difficulty]}</p>
-                  <h2 className="mt-2 whitespace-pre-wrap text-lg font-medium">{item.question.content}</h2>
-                </div>
-                <span className="whitespace-nowrap text-sm text-slate-500">{item.points} điểm</span>
+      {error && (
+        <div
+          className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          role="alert"
+        >
+          {error}
+        </div>
+      )}
+      {expired && (
+        <div
+          className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+          role="status"
+        >
+          Đã hết thời gian làm bài. Hệ thống đang xác nhận trạng thái nộp bài.
+        </div>
+      )}
+      {hasUncommittedAudio && (
+        <div
+          className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+          role="status"
+        >
+          Bản ghi Speaking mới chưa được lưu. Hãy chọn Lưu câu trả lời hoặc Bỏ bản ghi mới trước khi
+          chuyển câu hay nộp bài.
+        </div>
+      )}
+      <MobileNavigator
+        groups={groups}
+        drafts={drafts}
+        markedGroups={markedGroups}
+        activeIndex={activeGroupIndex}
+        starts={groupStarts}
+        disabled={unsafeAudio}
+        onSelect={setActiveGroupIndex}
+      />
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        {activeGroup ? (
+          <section className="rounded-2xl border bg-slate-50 p-4 sm:p-6">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-800">
+                  {skillLabels[activeGroup.skill]}
+                </span>
+                <h2 className="mt-2 text-xl font-semibold">
+                  {activeGroup.title ??
+                    `${skillLabels[activeGroup.skill]} · Câu ${groupStarts[activeGroupIndex]}`}
+                </h2>
+                {activeGroup.instructions && (
+                  <p className="mt-1 text-sm text-slate-600">{activeGroup.instructions}</p>
+                )}
               </div>
-              <div className="mt-4 space-y-2">
-                {item.question.options.map((option) => (
-                  <label className="flex cursor-pointer items-start gap-3 rounded border p-3 hover:bg-slate-50" key={option.id}>
-                    <input
-                      checked={selectedIds.includes(option.id)}
-                      className="mt-1"
-                      name={multiple ? undefined : item.testQuestionId}
-                      onChange={(event) => updateSelection(item, option.id, event.target.checked)}
-                      type={multiple ? 'checkbox' : 'radio'}
-                    />
-                    <span>{option.content}</span>
-                  </label>
-                ))}
-              </div>
-              {selectedIds.length > 0 && (
-                <button className="mt-3 text-sm text-slate-600 underline" onClick={() => clearSelection(item)} type="button">Xóa lựa chọn</button>
-              )}
-            </article>
-          );
-        })}
-      </fieldset>
-
-      <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white p-4 shadow-lg">
-        <Link className={`rounded border px-4 py-2 text-sm ${submitting ? 'pointer-events-none opacity-50' : ''}`} to={`/student/enrollments/${enrollmentId}/tests`}>Danh sách bài kiểm tra</Link>
-        <button className="rounded bg-blue-600 px-6 py-2.5 font-medium text-white disabled:opacity-50" disabled={submitting} onClick={() => void submit()} type="button">{submitting ? 'Đang nộp bài...' : 'Nộp bài'}</button>
+              <button
+                aria-pressed={markedGroups.has(activeGroup.id)}
+                className={`rounded-lg border px-3 py-2 text-sm font-medium ${markedGroups.has(activeGroup.id) ? 'border-amber-400 bg-amber-50 text-amber-800' : 'bg-white text-slate-700'}`}
+                onClick={() => toggleMarked(activeGroup.id)}
+                type="button"
+              >
+                <Bookmark
+                  className="mr-1 inline"
+                  fill={markedGroups.has(activeGroup.id) ? 'currentColor' : 'none'}
+                  size={16}
+                />{' '}
+                Đánh dấu xem lại
+              </button>
+            </div>
+            <Stimuli stimuli={activeGroup.stimuli} stimulusText={activeGroup.stimulusText} />
+            <div className="mt-5 space-y-4">
+              {activeGroup.questions.map((question, questionIndex) => (
+                <QuestionCard
+                  key={question.testQuestionId}
+                  number={groupStarts[activeGroupIndex] + questionIndex}
+                  question={question}
+                  draft={drafts[question.testQuestionId]}
+                  disabled={submitting || expired}
+                  preparationSeconds={activeGroup.preparationSeconds ?? 0}
+                  maxRecordingSeconds={
+                    activeGroup.maxRecordingSeconds ?? activeGroup.responseSeconds ?? 60
+                  }
+                  onChange={(update) => updateDraft(question.testQuestionId, update)}
+                  onAudio={(blob) => uploadAudio(question.testQuestionId, blob)}
+                  onAudioState={(safety) =>
+                    setAudioSafety((current) => ({ ...current, [question.testQuestionId]: safety }))
+                  }
+                />
+              ))}
+            </div>
+            <div className="mt-6 flex justify-between gap-3">
+              <button
+                className="rounded border px-4 py-2 disabled:opacity-50"
+                disabled={activeGroupIndex === 0 || unsafeAudio}
+                onClick={() => setActiveGroupIndex((index) => Math.max(0, index - 1))}
+                type="button"
+              >
+                <ChevronLeft className="inline" size={17} /> Trước
+              </button>
+              <button
+                className="rounded border px-4 py-2 disabled:opacity-50"
+                disabled={activeGroupIndex >= groups.length - 1 || unsafeAudio}
+                onClick={() =>
+                  setActiveGroupIndex((index) => Math.min(groups.length - 1, index + 1))
+                }
+                type="button"
+              >
+                Tiếp <ChevronRight className="inline" size={17} />
+              </button>
+            </div>
+          </section>
+        ) : null}
+        <DesktopNavigator
+          groups={groups}
+          drafts={drafts}
+          markedGroups={markedGroups}
+          activeIndex={activeGroupIndex}
+          starts={groupStarts}
+          disabled={unsafeAudio}
+          onSelect={setActiveGroupIndex}
+        />
       </div>
+      <footer className="fixed inset-x-0 bottom-0 z-20 border-t bg-white p-3 shadow-lg">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+          <button
+            className="rounded border px-4 py-2 text-sm disabled:opacity-50"
+            disabled={unsafeAudio}
+            onClick={() => navigate(`/student/enrollments/${enrollmentId}/tests`)}
+            type="button"
+          >
+            Danh sách bài kiểm tra
+          </button>
+          <button
+            className="rounded bg-blue-600 px-6 py-2.5 font-semibold text-white disabled:opacity-50"
+            disabled={submitting || unsafeAudio || expired}
+            onClick={() => setConfirming(true)}
+            type="button"
+          >
+            Nộp bài
+          </button>
+        </div>
+      </footer>
+      {confirming && (
+        <div
+          className="fixed inset-0 z-40 grid place-items-center bg-slate-950/50 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-bold">Xác nhận nộp bài</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Bạn đã trả lời {answered}/{questions.length} câu. Sau khi nộp, câu trả lời không thể
+              chỉnh sửa.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm text-slate-700">
+              <MissingCountRow count={missingObjective} label="Chưa trả lời trắc nghiệm" />
+              <MissingCountRow count={missingSpeaking} label="Speaking chưa lưu" />
+              <MissingCountRow count={missingWriting} label="Writing chưa lưu" />
+              {missingSpeaking === 0 && missingWriting === 0 && (
+                <li className="text-emerald-700">
+                  Các câu trả lời Speaking và Writing đã được lưu đầy đủ.
+                </li>
+              )}
+              <li>
+                Trạng thái lưu: <SaveIndicator status={saveStatus} />
+              </li>
+            </ul>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                className="rounded border px-4 py-2"
+                disabled={submitting}
+                onClick={() => setConfirming(false)}
+                type="button"
+              >
+                Kiểm tra lại
+              </button>
+              <button
+                className="rounded bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-50"
+                disabled={submitting || unsafeAudio}
+                onClick={() => void submit()}
+                type="button"
+              >
+                {submitting ? 'Đang nộp...' : 'Xác nhận nộp'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function answerPayload(
-  questions: StudentAttemptQuestion[],
-  answers: AnswerState,
-): StudentAnswerSelection[] {
-  return questions.map((question) => ({
-    testQuestionId: question.testQuestionId,
-    selectedOptionIds: [...(answers[question.testQuestionId] ?? [])],
-  }));
+function MissingCountRow({ count, label }: { count: number; label: string }) {
+  return (
+    <li
+      className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${count > 0 ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}
+    >
+      <span className="flex items-center gap-2 font-medium">
+        {count > 0 ? <CircleAlert aria-hidden="true" className="text-amber-600" size={17} /> : null}
+        {label}
+      </span>
+      <span
+        className={`min-w-7 rounded-full px-2 py-0.5 text-center font-bold ${count > 0 ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'}`}
+      >
+        {count}
+      </span>
+    </li>
+  );
 }
 
+function QuestionCard({
+  question,
+  number,
+  draft,
+  disabled,
+  preparationSeconds,
+  maxRecordingSeconds,
+  onChange,
+  onAudio,
+  onAudioState,
+}: {
+  question: StudentAttemptQuestion;
+  number: number;
+  draft?: Draft;
+  disabled: boolean;
+  preparationSeconds: number;
+  maxRecordingSeconds: number;
+  onChange: (value: Partial<Draft>) => void;
+  onAudio: (blob: Blob) => Promise<string>;
+  onAudioState: (safety: RecorderSafety) => void;
+}) {
+  const type = responseType(question);
+  const selected = draft?.selectedOptionIds ?? [];
+  return (
+    <article className="rounded-xl border bg-white p-5 shadow-sm">
+      <div className="flex justify-between gap-3">
+        <h3 className="font-medium">
+          <span className="mr-1 text-slate-500">Câu {number}.</span>
+          <span className="whitespace-pre-wrap">{question.question.content}</span>
+        </h3>
+        <span className="whitespace-nowrap text-sm text-slate-500">{question.points} điểm</span>
+      </div>
+      {['SINGLE_CHOICE', 'TRUE_FALSE', 'MULTIPLE_CHOICE'].includes(type) && (
+        <div className="mt-4 space-y-2">
+          {question.question.options.map((option) => {
+            const multiple = type === 'MULTIPLE_CHOICE';
+            return (
+              <label
+                className="flex cursor-pointer gap-3 rounded-lg border p-3 hover:bg-slate-50"
+                key={option.id}
+              >
+                <input
+                  className="mt-1"
+                  disabled={disabled}
+                  type={multiple ? 'checkbox' : 'radio'}
+                  name={multiple ? undefined : question.testQuestionId}
+                  checked={selected.includes(option.id)}
+                  onChange={(event) =>
+                    onChange({
+                      selectedOptionIds: multiple
+                        ? event.target.checked
+                          ? [...new Set([...selected, option.id])]
+                          : selected.filter((id) => id !== option.id)
+                        : [option.id],
+                    })
+                  }
+                />
+                <span>{option.content}</span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+      {type === 'TEXT_RESPONSE' && (
+        <div className="mt-4">
+          <textarea
+            className="min-h-40 w-full rounded-lg border p-3"
+            disabled={disabled}
+            maxLength={5000}
+            placeholder="Nhập câu trả lời của bạn..."
+            value={draft?.textResponse ?? ''}
+            onChange={(event) => onChange({ textResponse: event.target.value })}
+          />
+          <p className="mt-1 text-right text-xs text-slate-500">
+            {draft?.textResponse.trim().split(/\s+/).filter(Boolean).length ?? 0} từ
+          </p>
+        </div>
+      )}
+      {type === 'AUDIO_RESPONSE' && (
+        <AudioRecorder
+          disabled={disabled}
+          initialPlaybackUrl={question.audioUrl ?? null}
+          initialCommitted={Boolean(draft?.audioUploaded)}
+          preparationSeconds={preparationSeconds}
+          maxSeconds={maxRecordingSeconds}
+          onUpload={onAudio}
+          onStateChange={onAudioState}
+        />
+      )}
+    </article>
+  );
+}
+
+export function AudioRecorder({
+  disabled,
+  initialCommitted,
+  initialPlaybackUrl,
+  preparationSeconds,
+  maxSeconds,
+  onUpload,
+  onStateChange,
+}: {
+  disabled: boolean;
+  initialCommitted: boolean;
+  initialPlaybackUrl: string | null;
+  preparationSeconds: number;
+  maxSeconds: number;
+  onUpload: (blob: Blob) => Promise<string>;
+  onStateChange: (safety: RecorderSafety) => void;
+}) {
+  const [state, setState] = useState<RecorderState>(initialCommitted ? 'COMMITTED' : 'PREP');
+  const [prepActive, setPrepActive] = useState(false);
+  const [preparationRemaining, setPreparationRemaining] = useState(preparationSeconds);
+  const [seconds, setSeconds] = useState(0);
+  const [blob, setBlob] = useState<Blob | null>(null);
+  const [localUrl, setLocalUrl] = useState<string | null>(null);
+  const [committedUrl, setCommittedUrl] = useState<string | null>(initialPlaybackUrl);
+  const [error, setError] = useState<string | null>(null);
+  const recorder = useRef<MediaRecorder | null>(null);
+  const stream = useRef<MediaStream | null>(null);
+  const chunks = useRef<Blob[]>([]);
+  const localUrlRef = useRef<string | null>(null);
+  const mounted = useRef(true);
+  const preparationEndsAt = useRef<number | null>(null);
+  const recordingStartedAt = useRef<number | null>(null);
+  const recordingEndsAt = useRef<number | null>(null);
+  const updateState = useCallback(
+    (
+      next: RecorderState,
+      hasLocalDraft = Boolean(blob),
+      hasCommittedAnswer = Boolean(committedUrl || initialCommitted),
+    ) => {
+      setState(next);
+      onStateChange({ state: next, hasLocalDraft, hasCommittedAnswer });
+    },
+    [blob, committedUrl, initialCommitted, onStateChange],
+  );
+  const stopTracks = useCallback(() => {
+    stream.current?.getTracks().forEach((track) => track.stop());
+    stream.current = null;
+  }, []);
+  const revokeLocal = useCallback(() => {
+    if (localUrlRef.current) URL.revokeObjectURL(localUrlRef.current);
+    localUrlRef.current = null;
+    setLocalUrl(null);
+  }, []);
+  const stop = useCallback(() => {
+    const current = recorder.current;
+    if (current && current.state !== 'inactive') current.stop();
+  }, []);
+  useEffect(() => {
+    if (state !== 'PREP' || !prepActive || preparationEndsAt.current === null) return;
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((preparationEndsAt.current! - Date.now()) / 1000));
+      setPreparationRemaining(remaining);
+      if (remaining === 0) {
+        setPrepActive(false);
+        preparationEndsAt.current = null;
+        updateState('READY');
+      }
+    };
+    tick();
+    const timer = window.setInterval(tick, 250);
+    return () => window.clearInterval(timer);
+  }, [prepActive, state, updateState]);
+  useEffect(() => {
+    if (
+      state !== 'RECORDING' ||
+      recordingStartedAt.current === null ||
+      recordingEndsAt.current === null
+    )
+      return;
+    const tick = () => {
+      const currentTime = Date.now();
+      setSeconds(
+        Math.min(maxSeconds, Math.floor((currentTime - recordingStartedAt.current!) / 1000)),
+      );
+      if (currentTime >= recordingEndsAt.current!) stop();
+    };
+    tick();
+    const timer = window.setInterval(tick, 250);
+    return () => window.clearInterval(timer);
+  }, [maxSeconds, state, stop]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      const current = recorder.current;
+      if (current && current.state !== 'inactive') {
+        current.ondataavailable = null;
+        current.onstop = null;
+        current.stop();
+      }
+      stopTracks();
+      if (localUrlRef.current) URL.revokeObjectURL(localUrlRef.current);
+    };
+  }, [stopTracks]);
+  const beginPreparation = () => {
+    revokeLocal();
+    setBlob(null);
+    setError(null);
+    setPreparationRemaining(preparationSeconds);
+    if (preparationSeconds > 0) {
+      preparationEndsAt.current = Date.now() + preparationSeconds * 1000;
+      setPrepActive(true);
+      updateState('PREP');
+    } else {
+      preparationEndsAt.current = null;
+      setPrepActive(false);
+      updateState('READY');
+    }
+  };
+  const start = async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined')
+        throw new Error('unsupported');
+      const media = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.current = media;
+      const mimeType = ['audio/webm', 'audio/ogg', 'audio/mp4'].find((candidate) =>
+        MediaRecorder.isTypeSupported(candidate),
+      );
+      const next = new MediaRecorder(media, mimeType ? { mimeType } : undefined);
+      chunks.current = [];
+      next.ondataavailable = (event) => {
+        if (event.data.size) chunks.current.push(event.data);
+      };
+      next.onstop = () => {
+        recordingStartedAt.current = null;
+        recordingEndsAt.current = null;
+        stopTracks();
+        recorder.current = null;
+        if (!mounted.current) return;
+        const recorded = new Blob(chunks.current, { type: next.mimeType || 'audio/webm' });
+        revokeLocal();
+        const url = URL.createObjectURL(recorded);
+        localUrlRef.current = url;
+        setLocalUrl(url);
+        setBlob(recorded);
+        updateState('LOCAL_DRAFT', true);
+      };
+      recorder.current = next;
+      const startedAt = Date.now();
+      recordingStartedAt.current = startedAt;
+      recordingEndsAt.current = startedAt + maxSeconds * 1000;
+      setSeconds(0);
+      setError(null);
+      updateState('RECORDING', false);
+      next.start();
+    } catch {
+      stopTracks();
+      setError('Trình duyệt chưa cấp quyền sử dụng micro hoặc không hỗ trợ ghi âm.');
+      updateState(committedUrl || initialCommitted ? 'COMMITTED' : 'UPLOAD_ERROR', false);
+    }
+  };
+  const upload = async () => {
+    if (!blob) return;
+    updateState('UPLOADING', true);
+    setError(null);
+    try {
+      const playbackUrl = await onUpload(blob);
+      setCommittedUrl(playbackUrl);
+      revokeLocal();
+      setBlob(null);
+      updateState('COMMITTED', false, true);
+    } catch {
+      setError('Tải bản ghi lên chưa thành công. Bản ghi đã lưu trước đó vẫn được giữ.');
+      updateState('UPLOAD_ERROR', true);
+    }
+  };
+  const discardLocalDraft = () => {
+    revokeLocal();
+    setBlob(null);
+    setError(null);
+    updateState(committedUrl || initialCommitted ? 'COMMITTED' : 'PREP', false);
+  };
+  const canPrepare =
+    (state === 'PREP' && !prepActive) ||
+    state === 'COMMITTED' ||
+    (state === 'UPLOAD_ERROR' && !blob);
+  const playback =
+    state === 'LOCAL_DRAFT' || (state === 'UPLOAD_ERROR' && blob) ? localUrl : committedUrl;
+  return (
+    <div className="mt-4 rounded-lg border border-dashed p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        {canPrepare && (
+          <button
+            className="rounded bg-indigo-600 px-4 py-2 font-medium text-white disabled:opacity-50"
+            disabled={disabled}
+            onClick={beginPreparation}
+            type="button"
+          >
+            <Mic className="inline" size={17} />{' '}
+            {state === 'COMMITTED'
+              ? 'Ghi lại'
+              : state === 'UPLOAD_ERROR'
+                ? 'Thử lại'
+                : 'Bắt đầu chuẩn bị'}
+          </button>
+        )}
+        {state === 'READY' && (
+          <button
+            className="rounded bg-indigo-600 px-4 py-2 font-medium text-white disabled:opacity-50"
+            disabled={disabled}
+            onClick={() => void start()}
+            type="button"
+          >
+            <Mic className="inline" size={17} /> Bắt đầu ghi âm
+          </button>
+        )}
+        {state === 'RECORDING' && (
+          <button
+            className="rounded bg-red-600 px-4 py-2 font-medium text-white"
+            onClick={stop}
+            type="button"
+          >
+            <Square className="inline" size={16} /> Dừng
+          </button>
+        )}
+        <span aria-live="polite" className="text-sm">
+          {state === 'PREP' && prepActive
+            ? `Thời gian chuẩn bị: ${preparationRemaining}s`
+            : state === 'READY'
+              ? 'Sẵn sàng ghi âm.'
+              : state === 'RECORDING'
+                ? `Đang ghi âm ${Math.min(seconds, maxSeconds)}/${maxSeconds}s`
+                : state === 'LOCAL_DRAFT'
+                  ? 'Bản ghi mới chưa được lưu.'
+                  : state === 'UPLOADING'
+                    ? 'Đang tải câu trả lời lên...'
+                    : state === 'COMMITTED'
+                      ? 'Đã lưu câu trả lời.'
+                      : state === 'UPLOAD_ERROR'
+                        ? blob
+                          ? 'Bản ghi mới chưa được lưu.'
+                          : 'Chưa thể ghi âm. Bạn có thể thử lại.'
+                        : 'Chưa ghi âm.'}
+        </span>
+      </div>
+      {playback && (
+        <div className="mt-4">
+          {state === 'COMMITTED' && (
+            <p className="mb-2 text-sm font-medium text-emerald-700">Bản ghi đã lưu</p>
+          )}
+          <audio className="w-full" controls src={playback} />
+        </div>
+      )}
+      {(state === 'LOCAL_DRAFT' || (state === 'UPLOAD_ERROR' && blob)) && (
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            className="rounded bg-indigo-600 px-4 py-2 font-medium text-white"
+            onClick={() => void upload()}
+            type="button"
+          >
+            {state === 'UPLOAD_ERROR' ? 'Thử tải lại' : 'Lưu câu trả lời'}
+          </button>
+          <button className="rounded border px-4 py-2" onClick={discardLocalDraft} type="button">
+            Bỏ bản ghi mới
+          </button>
+        </div>
+      )}
+      {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
+    </div>
+  );
+}
+
+type NavigatorProps = {
+  groups: StudentAttemptGroup[];
+  drafts: Drafts;
+  markedGroups: Set<string>;
+  activeIndex: number;
+  starts: number[];
+  disabled: boolean;
+  onSelect: (index: number) => void;
+};
+function DesktopNavigator(props: NavigatorProps) {
+  return (
+    <aside className="hidden self-start rounded-2xl border bg-white p-4 shadow-sm lg:sticky lg:top-24 lg:block">
+      <h2 className="font-bold">Điều hướng câu hỏi</h2>
+      <NavigatorContent {...props} />
+    </aside>
+  );
+}
+function MobileNavigator(props: NavigatorProps) {
+  return (
+    <details className="rounded-xl border bg-white p-4 lg:hidden">
+      <summary className="cursor-pointer font-semibold">Điều hướng câu hỏi</summary>
+      <NavigatorContent {...props} />
+    </details>
+  );
+}
+function NavigatorContent({
+  groups,
+  drafts,
+  markedGroups,
+  activeIndex,
+  starts,
+  disabled,
+  onSelect,
+}: NavigatorProps) {
+  return (
+    <div className="mt-3 space-y-4">
+      {(['LISTENING', 'READING', 'SPEAKING', 'WRITING'] as ToeicSkill[]).map((skill) => {
+        const skillGroups = groups
+          .map((group, index) => ({ group, index }))
+          .filter(({ group }) => group.skill === skill);
+        if (!skillGroups.length) return null;
+        return (
+          <section key={skill}>
+            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+              {skillLabels[skill]}
+            </h3>
+            <div className="mt-2 grid grid-cols-2 gap-2 lg:grid-cols-1">
+              {skillGroups.map(({ group, index }) => {
+                const complete = group.questions.every((question) =>
+                  isAnswered(question, drafts[question.testQuestionId]),
+                );
+                const marked = markedGroups.has(group.id);
+                const end = starts[index] + group.questions.length - 1;
+                return (
+                  <button
+                    aria-current={index === activeIndex ? 'step' : undefined}
+                    aria-label={`Câu ${starts[index]}${end > starts[index] ? `–${end}` : ''} · ${complete ? 'Đã trả lời' : 'Chưa hoàn tất'}${marked ? ' · Đã đánh dấu xem lại' : ''}`}
+                    className={`rounded-lg border px-3 py-2 text-left text-sm ${index === activeIndex ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : complete ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'bg-white text-slate-600'} ${marked ? 'ring-2 ring-amber-300' : ''}`}
+                    disabled={disabled}
+                    key={group.id}
+                    onClick={() => onSelect(index)}
+                    type="button"
+                  >
+                    Câu {starts[index]}
+                    {end > starts[index] ? `–${end}` : ''} ·{' '}
+                    {complete ? 'Đã trả lời' : 'Chưa hoàn tất'}
+                    {marked ? ' · Đánh dấu' : ''}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+function Stimuli({
+  stimuli,
+  stimulusText,
+}: {
+  stimuli: StudentAttemptStimulus[];
+  stimulusText?: string | null;
+}) {
+  return (
+    <div className="space-y-3">
+      {stimulusText && (
+        <div className="whitespace-pre-wrap rounded-xl border bg-white p-4 text-sm leading-7">
+          {stimulusText}
+        </div>
+      )}
+      {stimuli.map((stimulus) => (
+        <div className="rounded-xl border bg-white p-3" key={stimulus.id}>
+          {stimulus.type === 'TEXT' ? (
+            <p className="whitespace-pre-wrap">{stimulus.textContent}</p>
+          ) : stimulus.type === 'IMAGE' ? (
+            <img
+              className="mx-auto max-h-96 rounded object-contain"
+              src={stimulus.mediaUrl ?? ''}
+              alt={stimulus.altText ?? 'Nội dung câu hỏi'}
+            />
+          ) : (
+            <audio className="w-full" controls preload="metadata" src={stimulus.mediaUrl ?? ''}>
+              Trình duyệt không hỗ trợ phát âm thanh.
+            </audio>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+function normalizedGroups(content: StudentAttemptContent | null): StudentAttemptGroup[] {
+  if (!content) return [];
+  if (content.groups?.length)
+    return [...content.groups].sort((left, right) => left.orderIndex - right.orderIndex);
+  const questions = content.questions ?? [];
+  return questions.length
+    ? [
+        {
+          id: 'legacy-objective-questions',
+          skill: questions[0].question.toeicSkill ?? 'READING',
+          orderIndex: 0,
+          title: null,
+          instructions: null,
+          taskCode: null,
+          preparationSeconds: null,
+          responseSeconds: null,
+          recommendedSeconds: null,
+          maxRecordingSeconds: null,
+          stimulusText: null,
+          stimuli: [],
+          questions,
+        },
+      ]
+    : [];
+}
+function groupStartNumbers(groups: StudentAttemptGroup[]): number[] {
+  let next = 1;
+  return groups.map((group) => {
+    const start = next;
+    next += group.questions.length;
+    return start;
+  });
+}
+function answerPayload(
+  questions: StudentAttemptQuestion[],
+  drafts: Drafts,
+): StudentAnswerSelection[] {
+  return questions.reduce<StudentAnswerSelection[]>((payload, question) => {
+    const draft = drafts[question.testQuestionId];
+    const type = responseType(question);
+    if (type === 'AUDIO_RESPONSE') return payload;
+    if (type === 'TEXT_RESPONSE')
+      payload.push({
+        testQuestionId: question.testQuestionId,
+        textResponse: draft?.textResponse ?? '',
+      });
+    else
+      payload.push({
+        testQuestionId: question.testQuestionId,
+        selectedOptionIds: draft?.selectedOptionIds ?? [],
+      });
+    return payload;
+  }, []);
+}
+function responseType(question: StudentAttemptQuestion) {
+  return question.question.responseType ?? question.question.type;
+}
+function isAnswered(question: StudentAttemptQuestion, draft?: Draft) {
+  const type = responseType(question);
+  return type === 'TEXT_RESPONSE'
+    ? Boolean(draft?.textResponse.trim())
+    : type === 'AUDIO_RESPONSE'
+      ? Boolean(draft?.audioUploaded)
+      : Boolean(draft?.selectedOptionIds.length);
+}
+function formatTime(seconds: number) {
+  return `${Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+}
 function SaveIndicator({ status }: { status: SaveStatus }) {
-  const label: Record<SaveStatus, string> = {
-    idle: 'Chưa có thay đổi',
+  const labels = {
+    idle: 'Sẵn sàng',
     pending: 'Chờ tự động lưu...',
     saving: 'Đang lưu...',
     saved: 'Đã lưu',
     error: 'Lưu chưa thành công',
   };
-  return <span className={`text-sm ${status === 'error' ? 'text-red-700' : 'text-slate-500'}`}>{label[status]}</span>;
+  return (
+    <span className={status === 'error' ? 'text-red-700' : 'text-slate-500'}>{labels[status]}</span>
+  );
+}
+function ErrorPanel({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div
+      className="mx-auto max-w-2xl rounded-xl border border-red-200 bg-red-50 p-6 text-red-700"
+      role="alert"
+    >
+      {message}
+      <button className="ml-3 font-semibold underline" onClick={onRetry} type="button">
+        Thử lại
+      </button>
+    </div>
+  );
+}
+function markStorageKey(attemptId: string) {
+  return `smart-english:assessment-marks:${attemptId}`;
 }

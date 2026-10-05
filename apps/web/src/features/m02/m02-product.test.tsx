@@ -317,9 +317,10 @@ const progress: CourseProgress = {
       stage: 'PERIODIC',
       openAt: null,
       closeAt: null,
+      maxAttempts: 1,
       status: 'NOT_STARTED',
-      attemptId: null,
-      submittedAt: null,
+      currentAttempt: null,
+      submittedAttempts: [],
     },
   ],
 };

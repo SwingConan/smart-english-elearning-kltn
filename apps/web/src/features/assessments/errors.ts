@@ -10,6 +10,12 @@ function backendMessage(error: ApiError): string {
   return '';
 }
 
+function backendCode(error: ApiError): string {
+  if (!error.body || typeof error.body !== 'object') return '';
+  const code = (error.body as { code?: unknown }).code;
+  return typeof code === 'string' ? code : '';
+}
+
 function validationMessage(message: string): string {
   if (message.includes('at least one question')) {
     return 'Bài kiểm tra cần có ít nhất một câu hỏi trước khi xuất bản.';
@@ -52,6 +58,17 @@ export function assessmentErrorMessage(
 
 export function studentAssessmentErrorMessage(error: unknown, fallback: string): string {
   if (!(error instanceof ApiError)) return fallback;
+
+  const code = backendCode(error);
+  const messages: Record<string, string> = {
+    PRODUCTIVE_RESPONSES_INCOMPLETE:
+      'Hãy lưu đầy đủ câu trả lời Speaking và Writing trước khi nộp bài.',
+    ATTEMPT_EXPIRED: 'Lượt làm bài đã hết thời gian. Vui lòng tải lại để xem kết quả.',
+    ATTEMPT_LIMIT_REACHED: 'Bạn đã sử dụng hết số lượt làm bài được phép.',
+    ASSESSMENT_NOT_OPEN: 'Bài kiểm tra chưa đến thời gian mở.',
+    ASSESSMENT_CLOSED: 'Bài kiểm tra đã đóng.',
+  };
+  if (messages[code]) return messages[code];
 
   switch (error.status) {
     case 400:

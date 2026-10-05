@@ -12,6 +12,9 @@ import { AdminCoursesPage } from '@/pages/AdminCoursesPage';
 import { ClassOfferingDetailPage } from '@/pages/ClassOfferingDetailPage';
 import { ClassOverviewPage } from '@/pages/ClassOverviewPage';
 import { ClassResultsPage } from '@/pages/ClassResultsPage';
+import { ClassAssessmentManagementPage } from '@/pages/ClassAssessmentManagementPage';
+import { AssessmentGradingQueuePage } from '@/pages/AssessmentGradingQueuePage';
+import { AssessmentGradingDetailPage } from '@/pages/AssessmentGradingDetailPage';
 import { ContactPage } from '@/pages/ContactPage';
 import { CourseContentManagementPage } from '@/pages/CourseContentManagementPage';
 import { CourseDetailPage } from '@/pages/CourseDetailPage';
@@ -95,6 +98,18 @@ export function App() {
           element={instructor(<TestManagementPage />)}
         />
         <Route path="instructor/tests/:testId/edit" element={instructor(<TestEditorPage />)} />
+        <Route
+          path="instructor/classes/:classOfferingId/assessments"
+          element={instructor(<ClassAssessmentManagementPage />)}
+        />
+        <Route
+          path="instructor/classes/:classOfferingId/assessments/:classAssessmentId/grading"
+          element={instructor(<AssessmentGradingQueuePage />)}
+        />
+        <Route
+          path="instructor/classes/:classOfferingId/assessments/:classAssessmentId/attempts/:attemptId/grading"
+          element={instructor(<AssessmentGradingDetailPage />)}
+        />
         <Route path="admin/courses" element={admin(<AdminCoursesPage />)} />
         <Route path="admin/class-offerings" element={admin(<AdminClassOfferingsPage />)} />
         <Route path="*" element={<NotFoundPage />} />

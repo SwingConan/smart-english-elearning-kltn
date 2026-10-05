@@ -58,5 +58,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - name: Run API E2E tests
+        env:
+          SEED_DEFAULT_PASSWORD: ci-only-seed-password
         run: npm run test:e2e -w @smart-elearning/api
       - run: npm run build

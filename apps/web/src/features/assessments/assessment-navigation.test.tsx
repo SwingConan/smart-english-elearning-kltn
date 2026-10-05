@@ -38,10 +38,17 @@ describe('assessment navigation', () => {
       'href',
       '/instructor/courses/course-a/question-bank',
     );
-    expect(screen.getByRole('link', { name: /Quản lý bài kiểm tra/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Mẫu bài kiểm tra/i })).toHaveAttribute(
       'href',
       '/instructor/courses/course-a/tests',
     );
+    expect(screen.getByRole('link', { name: /Bài kiểm tra của lớp/i })).toHaveAttribute(
+      'href',
+      '/instructor/classes/offering-a/assessments',
+    );
+    expect(screen.getByText('Đang mở đăng ký')).toBeInTheDocument();
+    expect(screen.getByText('Công cụ nâng cao')).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/Adaptive Policy|Learner Mastery|Knowledge Model/);
   });
 
   it('renders the class curriculum with lesson deep links', async () => {

@@ -224,13 +224,13 @@ export function TestEditorPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="mb-1 flex items-center gap-2">
-            <h1 className="text-2xl font-bold">Biên soạn bài kiểm tra</h1>
+            <h1 className="text-2xl font-bold">Biên soạn mẫu bài kiểm tra</h1>
             <span className={`rounded px-2 py-1 text-xs ${test.status === 'PUBLISHED' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-700'}`}>{testStatusLabel[test.status]}</span>
           </div>
           <p className="text-sm text-slate-600">{test.title}</p>
         </div>
         <div className="flex gap-2">
-          <Link className="rounded border px-4 py-2 text-sm" to={`/instructor/courses/${test.courseId}/tests`}>Danh sách bài kiểm tra</Link>
+          <Link className="rounded border px-4 py-2 text-sm" to={`/instructor/courses/${test.courseId}/tests`}>Danh sách mẫu bài kiểm tra</Link>
           {test.status === 'DRAFT' ? (
             <button className="rounded bg-green-600 px-4 py-2 text-sm text-white disabled:opacity-50" disabled={pendingAction !== null} onClick={() => void publish()} type="button">{pendingAction === 'publish' ? 'Đang xuất bản...' : 'Xuất bản'}</button>
           ) : (
@@ -306,7 +306,9 @@ function MetadataForm({ test, lessons, pending, onSave }: {
   pending: boolean;
   onSave: (input: Partial<TestInput>) => Promise<void>;
 }) {
-  const [type, setType] = useState<TestType>(test.type);
+  const lockedInClass = test.purpose === 'IN_CLASS';
+  const initialType: TestType = test.type === 'PLACEMENT' ? 'PLACEMENT' : 'QUIZ';
+  const [type, setType] = useState<TestType>(initialType);
   const [title, setTitle] = useState(test.title);
   const [description, setDescription] = useState(test.description ?? '');
   const [lessonId, setLessonId] = useState(test.lessonId ?? '');
@@ -328,12 +330,12 @@ function MetadataForm({ test, lessons, pending, onSave }: {
       type,
       title: title.trim(),
       description: description.trim() || null,
-      lessonId: type === 'QUIZ' ? lessonId || null : null,
+      lessonId: lockedInClass ? test.lessonId : type === 'QUIZ' ? lessonId || null : null,
       maxAttempts,
       showResultAfterSubmit: showResult,
     };
     const delta: Partial<TestInput> = {};
-    if (effective.type !== test.type) delta.type = effective.type;
+    if (!lockedInClass && effective.type !== test.type) delta.type = effective.type;
     if (effective.title !== test.title) delta.title = effective.title;
     if (effective.description !== test.description) delta.description = effective.description;
     if (effective.lessonId !== test.lessonId) delta.lessonId = effective.lessonId;
@@ -352,11 +354,17 @@ function MetadataForm({ test, lessons, pending, onSave }: {
       <h2 className="text-lg font-semibold">Thông tin bài kiểm tra</h2>
       {formError && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="text-sm font-medium">Loại
-          <select className="mt-1 w-full rounded border p-2" disabled={pending} value={type} onChange={(event) => { const next = event.target.value as TestType; setType(next); if (next === 'PLACEMENT') setLessonId(''); }}>
-            {Object.entries(testTypeLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
+        {lockedInClass ? (
+          <div className="text-sm font-medium">Mục đích
+            <div className="mt-1 rounded border bg-slate-50 p-2 font-normal">Bài kiểm tra trên lớp</div>
+          </div>
+        ) : (
+          <label className="text-sm font-medium">Loại
+            <select className="mt-1 w-full rounded border p-2" disabled={pending} value={type} onChange={(event) => { const next = event.target.value as TestType; setType(next); if (next === 'PLACEMENT') setLessonId(''); }}>
+              {Object.entries(testTypeLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+        )}
         <label className="text-sm font-medium">Số lượt làm
           <input className="mt-1 w-full rounded border p-2" disabled={pending} min={1} required type="number" value={maxAttempts} onChange={(event) => setMaxAttempts(Number(event.target.value))} />
         </label>
@@ -367,7 +375,7 @@ function MetadataForm({ test, lessons, pending, onSave }: {
       <label className="block text-sm font-medium">Mô tả
         <textarea className="mt-1 w-full rounded border p-2" disabled={pending} maxLength={5000} value={description} onChange={(event) => setDescription(event.target.value)} />
       </label>
-      {type === 'QUIZ' && (
+      {!lockedInClass && type === 'QUIZ' && (
         <label className="block text-sm font-medium">Bài học
           <select className="mt-1 w-full rounded border p-2" disabled={pending} value={lessonId} onChange={(event) => setLessonId(event.target.value)}>
             <option value="">Chưa chọn — bắt buộc trước khi xuất bản</option>

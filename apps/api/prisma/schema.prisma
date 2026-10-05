@@ -595,7 +595,6 @@ model TestAttempt {
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
 
-  @@unique([testId, enrollmentId, attemptNumber], map: "test_attempts_testId_enrollmentId_attemptNumber_key")
   @@index([testId])
   @@index([learnerId])
   @@index([enrollmentId])
@@ -612,7 +611,7 @@ model TestAnswer {
   textResponse      String?            @db.Text
   audioStorageKey   String?
   isCorrect         Boolean?
-  pointsAwarded     Int?
+  pointsAwarded     Decimal?           @db.Decimal(10, 2)
   attempt           TestAttempt        @relation(fields: [attemptId], references: [id], onDelete: Restrict)
   testQuestion      TestQuestion       @relation(fields: [testQuestionId], references: [id], onDelete: Restrict)
   masteryHistory    MasteryHistory[]

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { studentAssessmentApi } from '@/features/assessments/api';
 import { assessmentTypeLabel } from '@/features/assessments/display';
 import { studentAssessmentErrorMessage } from '@/features/assessments/errors';
-import type { StudentTestListItem } from '@/features/assessments/types';
+import type { AssessmentStage, StudentTestListItem } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 
 export function StudentAssessmentListPage() {
@@ -18,6 +18,7 @@ export function StudentAssessmentListPage() {
   const [pendingTestId, setPendingTestId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [nowMs] = useState(() => Date.now());
+  const [stageFilter, setStageFilter] = useState<'ALL' | AssessmentStage | 'PRACTICE_MOCK'>('ALL');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -56,6 +57,16 @@ export function StudentAssessmentListPage() {
     }
   };
 
+  const visibleTests = tests
+    .filter((test) =>
+      stageFilter === 'ALL'
+        ? true
+        : stageFilter === 'PRACTICE_MOCK'
+          ? test.purpose === 'PRACTICE_MOCK'
+          : test.purpose === 'IN_CLASS' && test.stage === stageFilter,
+    )
+    .sort((left, right) => urgencyRank(left, nowMs) - urgencyRank(right, nowMs));
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
@@ -77,6 +88,30 @@ export function StudentAssessmentListPage() {
           role="alert"
         >
           {actionError}
+        </div>
+      )}
+
+      {tests.length > 0 && (
+        <div aria-label="Lọc bài kiểm tra" className="flex flex-wrap gap-2">
+          {(
+            [
+              ['ALL', 'Tất cả'],
+              ['PERIODIC', 'Thường kỳ'],
+              ['MIDTERM', 'Giữa kỳ'],
+              ['FINAL', 'Cuối kỳ'],
+              ['PRACTICE_MOCK', 'Luyện tập / Thi thử'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              aria-pressed={stageFilter === value}
+              className={`rounded-full border px-4 py-2 text-sm font-medium ${stageFilter === value ? 'border-indigo-600 bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}
+              key={value}
+              onClick={() => setStageFilter(value)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -105,35 +140,41 @@ export function StudentAssessmentListPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {tests.map((test) => {
+          {visibleTests.map((test) => {
             const limitReached =
               !test.hasInProgressAttempt && test.attemptsUsed >= test.maxAttempts;
             const upcoming = Boolean(test.openAt && new Date(test.openAt).getTime() > nowMs);
             const closed = Boolean(test.closeAt && new Date(test.closeAt).getTime() < nowMs);
             const canStart = !limitReached && !upcoming && !closed;
+            const urgency = assessmentUrgency(test, nowMs);
             const actionLabel = test.hasInProgressAttempt
               ? 'Tiếp tục làm bài'
               : test.latestSubmittedAttemptId
                 ? 'Làm lại'
                 : 'Bắt đầu làm bài';
             return (
-              <article className="rounded-2xl border bg-white p-5 shadow-sm" key={test.id}>
+              <article
+                className={`rounded-2xl border p-5 shadow-sm ${urgency === 'ACTIVE' ? 'border-indigo-400 bg-indigo-50/60 ring-1 ring-indigo-200' : urgency === 'OPEN' ? 'border-blue-300 bg-blue-50/40' : urgency === 'UPCOMING' ? 'bg-white' : 'border-slate-200 bg-slate-50 opacity-90'}`}
+                key={test.id}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-800">
                         {assessmentTypeLabel(test.purpose, test.stage)}
                       </span>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                        {test.hasInProgressAttempt
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-bold ${urgency === 'ACTIVE' ? 'bg-indigo-600 text-white' : urgency === 'OPEN' ? 'bg-blue-600 text-white' : urgency === 'UPCOMING' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600'}`}
+                      >
+                        {urgency === 'ACTIVE'
                           ? 'Đang làm'
-                          : test.latestSubmittedAttemptId
-                            ? 'Đã nộp'
-                            : upcoming
+                          : urgency === 'OPEN'
+                            ? 'Đang mở'
+                            : urgency === 'UPCOMING'
                               ? 'Sắp mở'
-                              : closed
-                                ? 'Đã đóng'
-                                : 'Chưa bắt đầu'}
+                              : test.latestSubmittedAttemptId
+                                ? 'Đã nộp'
+                                : 'Đã đóng'}
                       </span>
                     </div>
                     <h2 className="mt-2 text-lg font-semibold">{test.title}</h2>
@@ -144,7 +185,11 @@ export function StudentAssessmentListPage() {
                       <span>{test.questionCount} câu hỏi</span>
                       {test.timeLimitMinutes ? <span>{test.timeLimitMinutes} phút</span> : null}
                       <span>
-                        Đã dùng {test.attemptsUsed}/{test.maxAttempts} lượt
+                        {test.hasInProgressAttempt
+                          ? `Đang làm lượt ${test.attemptsUsed}/${test.maxAttempts}`
+                          : limitReached
+                            ? `Đã hoàn thành ${test.attemptsUsed}/${test.maxAttempts} lượt`
+                            : `Đã hoàn thành ${test.attemptsUsed}/${test.maxAttempts} lượt`}
                       </span>
                     </div>
                     {test.openAt || test.closeAt ? (
@@ -190,6 +235,27 @@ export function StudentAssessmentListPage() {
       )}
     </div>
   );
+}
+
+function urgencyRank(test: StudentTestListItem, nowMs: number): number {
+  const upcoming = Boolean(test.openAt && new Date(test.openAt).getTime() > nowMs);
+  const closed = Boolean(test.closeAt && new Date(test.closeAt).getTime() < nowMs);
+  const exhausted = !test.hasInProgressAttempt && test.attemptsUsed >= test.maxAttempts;
+  if (test.hasInProgressAttempt || (!upcoming && !closed && !exhausted)) return 0;
+  if (upcoming) return 1;
+  return 2;
+}
+
+function assessmentUrgency(
+  test: StudentTestListItem,
+  nowMs: number,
+): 'ACTIVE' | 'OPEN' | 'UPCOMING' | 'QUIET' {
+  if (test.hasInProgressAttempt) return 'ACTIVE';
+  const upcoming = Boolean(test.openAt && new Date(test.openAt).getTime() > nowMs);
+  if (upcoming) return 'UPCOMING';
+  const closed = Boolean(test.closeAt && new Date(test.closeAt).getTime() < nowMs);
+  const exhausted = test.attemptsUsed >= test.maxAttempts;
+  return !closed && !exhausted ? 'OPEN' : 'QUIET';
 }
 
 function formatDateTime(value: string): string {

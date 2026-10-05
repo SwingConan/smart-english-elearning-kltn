@@ -227,7 +227,7 @@ describe('Instructor Learner Mastery navigation', () => {
       </MemoryRouter>,
     );
 
-    const links = await screen.findAllByRole('link', { name: 'Learner Mastery' });
+    const links = await screen.findAllByRole('link', { name: 'Mức độ thành thạo của học viên' });
     expect(links).toHaveLength(1);
     expect(links[0]).toHaveAttribute('href', `/instructor/courses/${courseId}/learner-mastery`);
   });

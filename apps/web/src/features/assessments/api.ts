@@ -4,6 +4,9 @@ import type {
   AssessmentTestDetail,
   AssessmentTestQuestion,
   AssessmentTestSummary,
+  ClassAssessmentWorkspace,
+  GradingDetail,
+  GradingQueue,
   QuestionInput,
   StudentAnswerSelection,
   StudentAttemptContent,
@@ -130,5 +133,83 @@ export const studentAssessmentApi = {
     apiFetch(
       `/learning/enrollments/${segment(enrollmentId)}/attempts/${segment(attemptId)}/result`,
       { signal },
+    ),
+  uploadAudio: (
+    enrollmentId: string,
+    attemptId: string,
+    testQuestionId: string,
+    audio: Blob,
+  ): Promise<{ playbackUrl: string; state: 'UPLOADED' }> => {
+    const formData = new FormData();
+    formData.append('file', audio, 'response.webm');
+    return apiFetch(
+      `/learning/enrollments/${segment(enrollmentId)}/attempts/${segment(attemptId)}/answers/${segment(testQuestionId)}/audio`,
+      { method: 'POST', body: formData },
+    );
+  },
+};
+
+export interface ClassAssessmentInput {
+  testId: string;
+  stage: 'PERIODIC' | 'MIDTERM' | 'FINAL';
+  openAt?: string | null;
+  closeAt?: string | null;
+  maxAttemptsOverride?: number | null;
+  isActive?: boolean;
+}
+
+export interface GradeAnswerInput {
+  criteria: Array<{ rubricCriterionId: string; score: string; feedback?: string | null }>;
+  feedback?: string | null;
+  finalize: boolean;
+  editFinal?: boolean;
+}
+
+export const classAssessmentApi = {
+  list: (classOfferingId: string, signal?: AbortSignal): Promise<ClassAssessmentWorkspace> =>
+    apiFetch(`/instructor/classes/${segment(classOfferingId)}/assessments`, { signal }),
+  create: (classOfferingId: string, input: ClassAssessmentInput): Promise<unknown> =>
+    apiFetch(`/instructor/classes/${segment(classOfferingId)}/assessments`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  update: (
+    classOfferingId: string,
+    classAssessmentId: string,
+    input: Partial<ClassAssessmentInput>,
+  ): Promise<unknown> =>
+    apiFetch(
+      `/instructor/classes/${segment(classOfferingId)}/assessments/${segment(classAssessmentId)}`,
+      { method: 'PATCH', body: JSON.stringify(input) },
+    ),
+  gradingQueue: (
+    classOfferingId: string,
+    classAssessmentId: string,
+    signal?: AbortSignal,
+  ): Promise<GradingQueue> =>
+    apiFetch(
+      `/instructor/classes/${segment(classOfferingId)}/assessments/${segment(classAssessmentId)}/grading`,
+      { signal },
+    ),
+  gradingDetail: (
+    classOfferingId: string,
+    classAssessmentId: string,
+    attemptId: string,
+    signal?: AbortSignal,
+  ): Promise<GradingDetail> =>
+    apiFetch(
+      `/instructor/classes/${segment(classOfferingId)}/assessments/${segment(classAssessmentId)}/attempts/${segment(attemptId)}/grading`,
+      { signal },
+    ),
+  gradeAnswer: (
+    classOfferingId: string,
+    classAssessmentId: string,
+    attemptId: string,
+    testQuestionId: string,
+    input: GradeAnswerInput,
+  ): Promise<unknown> =>
+    apiFetch(
+      `/instructor/classes/${segment(classOfferingId)}/assessments/${segment(classAssessmentId)}/attempts/${segment(attemptId)}/answers/${segment(testQuestionId)}/evaluation`,
+      { method: 'PUT', body: JSON.stringify(input) },
     ),
 };

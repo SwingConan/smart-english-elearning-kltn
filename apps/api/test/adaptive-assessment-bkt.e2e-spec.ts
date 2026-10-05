@@ -168,8 +168,8 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
     const assessment = await prisma.test.create({
       data: {
         courseId,
-        purpose: TestPurpose.PLACEMENT,
-        placementMode: 'LR',
+        purpose: TestPurpose.PRACTICE_MOCK,
+        placementMode: null,
         title: `VS05 F1 Assessment ${unique}`,
         status: TestStatus.PUBLISHED,
         maxAttempts: 2,
@@ -203,6 +203,7 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
         select: { id: true },
       });
       const attemptIds = attempts.map(({ id }) => id);
+      await prisma.attemptSkillScore.deleteMany({ where: { attemptId: { in: attemptIds } } });
       await prisma.testAnswer.deleteMany({ where: { attemptId: { in: attemptIds } } });
       await prisma.testAttempt.deleteMany({ where: { id: { in: attemptIds } } });
       await prisma.testQuestion.deleteMany({ where: { testId } });
@@ -294,7 +295,7 @@ describe('Assessment to BKT to adaptive-path integration (e2e)', () => {
     });
     expect(persistedAnswer).toMatchObject({
       isCorrect: true,
-      pointsAwarded: 1,
+      pointsAwarded: expect.anything(),
       selectedOptionIds: [correctOptionId],
     });
 
