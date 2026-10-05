@@ -117,11 +117,12 @@ describe('M06 in-class assessment lifecycle (e2e)', () => {
     const answer = detail.body.answers[0];
     const criteria = answer.testQuestion.question.rubric.criteria.map((criterion: { id: string; maxScore: number }) => ({ rubricCriterionId: criterion.id, score: String(Number(criterion.maxScore) / 2) }));
     const endpoint = `/api/instructor/classes/${classOfferingId}/assessments/${M06_MIDTERM_ASSESSMENT_ID}/attempts/${M06_PENDING_ATTEMPT_ID}/answers/${answer.testQuestion.id}/evaluation`;
-    await instructor.put(endpoint).send({ criteria, feedback: 'E2E rubric feedback', finalize: true }).expect(200);
+    const firstGrade = await instructor.put(endpoint).send({ criteria, feedback: 'E2E rubric feedback', finalize: true }).expect(200);
     const finalCount = await prisma.answerEvaluation.count({ where: { testAnswerId: answer.id, source: 'INSTRUCTOR', status: 'REVIEWED_FINAL' } });
     expect(finalCount).toBe(1);
     await instructor.put(endpoint).send({ criteria, feedback: 'Blocked implicit edit', finalize: true }).expect(409);
-    await instructor.put(endpoint).send({ criteria, feedback: 'Explicit final edit', finalize: true, editFinal: true }).expect(200);
+    const evaluationUpdatedAt = firstGrade.body.answers.find((item: { id: string }) => item.id === answer.id).evaluation.updatedAt;
+    await instructor.put(endpoint).send({ criteria, feedback: 'Explicit final edit', finalize: true, editFinal: true, expectedUpdatedAt: evaluationUpdatedAt }).expect(200);
     await expect(prisma.answerEvaluation.count({ where: { testAnswerId: answer.id, source: 'INSTRUCTOR', status: 'REVIEWED_FINAL' } })).resolves.toBe(1);
     const persisted = await prisma.testAnswer.findUniqueOrThrow({ where: { id: answer.id }, select: { pointsAwarded: true } });
     expect(Number(persisted.pointsAwarded)).toBe(Number(answer.testQuestion.points) / 2);

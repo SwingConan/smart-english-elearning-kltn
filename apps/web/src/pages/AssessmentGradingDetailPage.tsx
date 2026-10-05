@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { classAssessmentApi } from '@/features/assessments/api';
 import type { GradingDetail, ToeicSkill } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
+import { ApiError } from '@/lib/api-client';
+import { instructorApi } from '@/features/instructor/api';
 
 type Scores = Record<string, Record<string, string>>;
 type Feedback = Record<string, string>;
@@ -19,6 +21,7 @@ export function AssessmentGradingDetailPage() {
     attemptId: string;
   }>();
   const redirectExpiredSession = useSessionExpiry();
+  const navigate = useNavigate();
   const [detail, setDetail] = useState<GradingDetail | null>(null);
   const [scores, setScores] = useState<Scores>({});
   const [feedback, setFeedback] = useState<Feedback>({});
@@ -43,7 +46,7 @@ export function AssessmentGradingDetailPage() {
     return () => controller.abort();
   }, [attemptId, classAssessmentId, classOfferingId, redirectExpiredSession, reload]);
 
-  const save = async (answer: GradingDetail['answers'][number], finalize: boolean) => {
+  const save = async (answer: GradingDetail['answers'][number], finalize: boolean, goNext = false) => {
     if (!classOfferingId || !classAssessmentId || !attemptId) return;
     const rubric = answer.testQuestion.question.rubric;
     const values = scores[answer.testQuestion.id] ?? {};
@@ -85,6 +88,7 @@ export function AssessmentGradingDetailPage() {
         answer.testQuestion.id,
         {
           criteria,
+          expectedUpdatedAt: answer.evaluation?.updatedAt ?? null,
           feedback: feedback[answer.testQuestion.id] ?? '',
           finalize,
           editFinal: answer.evaluation?.status === 'REVIEWED_FINAL',
@@ -96,8 +100,18 @@ export function AssessmentGradingDetailPage() {
         attemptId,
       );
       hydrate(data, setDetail, setScores, setFeedback, setCriterionFeedback);
-    } catch {
-      setError('Không thể lưu kết quả chấm. Kiểm tra điểm theo giới hạn từng tiêu chí.');
+      if (goNext) {
+        const inbox = await instructorApi.classes.grading(classOfferingId);
+        const currentIndex = inbox.submissions.findIndex((item) => item.id === attemptId);
+        const next = inbox.submissions[currentIndex + 1];
+        navigate(next ? `/instructor/classes/${classOfferingId}/assessments/${next.classAssessment.id}/attempts/${next.id}/grading` : `/instructor/classes/${classOfferingId}/grading`);
+      }
+    } catch (requestError) {
+      if (requestError instanceof ApiError && requestError.status === 409) {
+        setError('Bài chấm đã được cập nhật ở phiên khác. Không có thay đổi nào được ghi. Hãy tải lại trước khi tiếp tục.');
+      } else {
+        setError('Không thể lưu kết quả chấm. Kiểm tra điểm theo giới hạn từng tiêu chí.');
+      }
     } finally {
       setSaving(null);
     }
@@ -279,6 +293,12 @@ export function AssessmentGradingDetailPage() {
                   : isFinal
                     ? 'Cập nhật điểm cuối'
                     : 'Xác nhận điểm cuối'}
+              </button>
+              <button className="rounded border border-indigo-300 px-4 py-2 text-sm font-semibold text-indigo-700 disabled:opacity-50" disabled={saving !== null || hasInvalidScores} onClick={() => void save(answer, false, true)} type="button">
+                Lưu nháp & sang bài tiếp theo
+              </button>
+              <button className="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={saving !== null || hasInvalidScores} onClick={() => void save(answer, true, true)} type="button">
+                {isFinal ? 'Cập nhật & sang bài tiếp theo' : 'Xác nhận & sang bài tiếp theo'}
               </button>
             </div>
           </article>

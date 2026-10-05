@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
@@ -23,6 +24,10 @@ export class RubricCriterionGradeDto {
 }
 
 export class GradeProductiveAnswerDto {
+  @IsOptional()
+  @IsISO8601()
+  expectedUpdatedAt?: string | null;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => RubricCriterionGradeDto)

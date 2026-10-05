@@ -15,11 +15,18 @@ import type {
   StudentSubmission,
   StudentTestListItem,
   TestInput,
+  RubricSummary,
+  AssessmentTestGroup,
+  ToeicSkill,
 } from './types';
 
 const segment = encodeURIComponent;
 
 export const assessmentApi = {
+  rubrics: {
+    list: (signal?: AbortSignal): Promise<RubricSummary[]> => apiFetch('/instructor/rubrics', { signal }),
+    get: (rubricId: string, signal?: AbortSignal): Promise<RubricSummary> => apiFetch(`/instructor/rubrics/${segment(rubricId)}`, { signal }),
+  },
   questions: {
     list: (courseId: string, signal?: AbortSignal): Promise<AssessmentQuestion[]> =>
       apiFetch(`/instructor/courses/${segment(courseId)}/questions`, { signal }),
@@ -58,15 +65,26 @@ export const assessmentApi = {
     unpublish: (testId: string): Promise<AssessmentTestDetail> =>
       apiFetch(`/instructor/tests/${segment(testId)}/unpublish`, { method: 'PATCH' }),
   },
+  groups: {
+    create: (testId: string, input: { skill: ToeicSkill; title?: string | null; instructions?: string | null; preparationSeconds?: number | null; responseSeconds?: number | null; recommendedSeconds?: number | null; maxRecordingSeconds?: number | null }): Promise<AssessmentTestGroup> => apiFetch(`/instructor/tests/${segment(testId)}/groups`, { method: 'POST', body: JSON.stringify(input) }),
+    update: (testId: string, groupId: string, input: { skill: ToeicSkill; title?: string | null; instructions?: string | null; preparationSeconds?: number | null; responseSeconds?: number | null; recommendedSeconds?: number | null; maxRecordingSeconds?: number | null }): Promise<AssessmentTestGroup> => apiFetch(`/instructor/tests/${segment(testId)}/groups/${segment(groupId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
+    delete: (testId: string, groupId: string): Promise<{ message: string }> => apiFetch(`/instructor/tests/${segment(testId)}/groups/${segment(groupId)}`, { method: 'DELETE' }),
+    reorder: (testId: string, orderedGroupIds: string[]): Promise<AssessmentTestGroup[]> => apiFetch(`/instructor/tests/${segment(testId)}/groups/reorder`, { method: 'PATCH', body: JSON.stringify({ orderedGroupIds }) }),
+    addText: (testId: string, groupId: string, textContent: string) => apiFetch(`/instructor/tests/${segment(testId)}/groups/${segment(groupId)}/stimuli/text`, { method: 'POST', body: JSON.stringify({ textContent }) }),
+    upload: (testId: string, groupId: string, file: File, altText = '') => { const body = new FormData(); body.append('file', file); body.append('altText', altText); return apiFetch(`/instructor/tests/${segment(testId)}/groups/${segment(groupId)}/stimuli/upload`, { method: 'POST', body }); },
+    deleteStimulus: (testId: string, groupId: string, stimulusId: string) => apiFetch(`/instructor/tests/${segment(testId)}/groups/${segment(groupId)}/stimuli/${segment(stimulusId)}`, { method: 'DELETE' }),
+    reorderStimuli: (testId: string, groupId: string, orderedStimulusIds: string[]) => apiFetch(`/instructor/tests/${segment(testId)}/groups/${segment(groupId)}/stimuli/reorder`, { method: 'PATCH', body: JSON.stringify({ orderedStimulusIds }) }),
+  },
   testQuestions: {
     add: (
       testId: string,
       questionId: string,
       points: number,
+      groupId?: string,
     ): Promise<AssessmentTestQuestion> =>
       apiFetch(`/instructor/tests/${segment(testId)}/questions`, {
         method: 'POST',
-        body: JSON.stringify({ questionId, points }),
+        body: JSON.stringify({ questionId, points, groupId }),
       }),
     update: (
       testId: string,
@@ -87,6 +105,8 @@ export const assessmentApi = {
         method: 'PATCH',
         body: JSON.stringify({ orderedIds }),
       }),
+    moveGroup: (testId: string, testQuestionId: string, groupId: string | null): Promise<AssessmentTestQuestion> =>
+      apiFetch(`/instructor/tests/${segment(testId)}/questions/${segment(testQuestionId)}/group`, { method: 'PATCH', body: JSON.stringify({ groupId }) }),
   },
 };
 
@@ -159,6 +179,7 @@ export interface ClassAssessmentInput {
 }
 
 export interface GradeAnswerInput {
+  expectedUpdatedAt?: string | null;
   criteria: Array<{ rubricCriterionId: string; score: string; feedback?: string | null }>;
   feedback?: string | null;
   finalize: boolean;

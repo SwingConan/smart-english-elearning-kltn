@@ -1,4 +1,5 @@
-import { Controller, Get, Patch, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Controller, Get, Patch, Param, ParseUUIDPipe, Post, Res, StreamableFile } from '@nestjs/common';
+import type { Response } from 'express';
 import { LearningService } from './learning.service';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -49,8 +50,16 @@ export class LearningController {
     @CurrentUser() user: PublicUser,
     @Param('enrollmentId', new ParseUUIDPipe()) enrollmentId: string,
     @Param('resourceId', new ParseUUIDPipe()) resourceId: string,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    return this.learningService.getResourceDownload(user.id, enrollmentId, resourceId);
+    const resource = await this.learningService.getResourceDownload(user.id, enrollmentId, resourceId);
+    if (resource.delivery === 'STORAGE') {
+      response.setHeader('Content-Type', resource.mimeType);
+      response.setHeader('Content-Disposition', `attachment; filename="${resource.fileName}"`);
+      response.setHeader('Cache-Control', 'private, no-store');
+      return new StreamableFile(resource.stream);
+    }
+    return resource;
   }
 
   @Get('enrollments/:enrollmentId/mastery')

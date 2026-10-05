@@ -8,6 +8,8 @@ import type {
   QuestionDifficulty,
   QuestionInput,
   QuestionType,
+  ToeicSkill,
+  RubricSummary,
 } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { knowledgeModelApi } from '@/features/knowledge-model/api';
@@ -34,6 +36,11 @@ export function QuestionBankPage() {
   const [editingQuestion, setEditingQuestion] = useState<AssessmentQuestion | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [rubrics, setRubrics] = useState<RubricSummary[]>([]);
+  const [skillFilter, setSkillFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [difficultyFilter, setDifficultyFilter] = useState('ALL');
+  const [search, setSearch] = useState('');
   const [courseSkills, setCourseSkills] = useState<Skill[] | null>(null);
   const [mappingQuestion, setMappingQuestion] = useState<AssessmentQuestion | null>(null);
   const [mappedSkillIds, setMappedSkillIds] = useState<string[]>([]);
@@ -46,7 +53,9 @@ export function QuestionBankPage() {
       if (!courseId) return;
       try {
         const data = await assessmentApi.questions.list(courseId, controller.signal);
+        const rubricData = await assessmentApi.rubrics.list(controller.signal).catch(() => []);
         setQuestions(data);
+        setRubrics(rubricData);
         setLoadError(null);
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
@@ -158,7 +167,7 @@ export function QuestionBankPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Ngân hàng câu hỏi</h1>
-          <p className="mt-1 text-sm text-slate-600">Quản lý câu hỏi khách quan của khóa học.</p>
+          <p className="mt-1 text-sm text-slate-600">Quản lý câu hỏi bốn kỹ năng của khóa học.</p>
         </div>
         <div className="flex gap-2">
           <Link className="rounded border px-4 py-2 text-sm" to="/instructor/teaching">
@@ -187,11 +196,19 @@ export function QuestionBankPage() {
         <QuestionForm
           key={editingQuestion?.id ?? 'new-question'}
           initial={editingQuestion}
+          rubrics={rubrics}
           pending={pendingAction === 'save-question'}
           onCancel={() => { setFormOpen(false); setEditingQuestion(null); }}
           onSave={saveQuestion}
         />
       )}
+
+      <div className="grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-4">
+        <input aria-label="Tìm câu hỏi" className="rounded border p-2" onChange={(event) => setSearch(event.target.value)} placeholder="Tìm nội dung" />
+        <select aria-label="Lọc kỹ năng" className="rounded border p-2" onChange={(event) => setSkillFilter(event.target.value)}><option value="ALL">Tất cả kỹ năng</option>{['LISTENING','READING','SPEAKING','WRITING'].map((value) => <option key={value}>{value}</option>)}</select>
+        <select aria-label="Lọc loại trả lời" className="rounded border p-2" onChange={(event) => setTypeFilter(event.target.value)}><option value="ALL">Tất cả loại trả lời</option>{Object.entries(questionTypeLabel).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select>
+        <select aria-label="Lọc độ khó" className="rounded border p-2" onChange={(event) => setDifficultyFilter(event.target.value)}><option value="ALL">Tất cả độ khó</option>{Object.entries(difficultyLabel).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select>
+      </div>
 
       {loading ? (
         <p className="py-10 text-center text-slate-500">Đang tải câu hỏi...</p>
@@ -204,12 +221,13 @@ export function QuestionBankPage() {
         <div className="rounded border bg-white p-8 text-center text-slate-500">Chưa có câu hỏi nào.</div>
       ) : (
         <div className="space-y-3">
-          {questions.map((question) => (
+          {questions.filter((question) => (skillFilter === 'ALL' || question.toeicSkill === skillFilter) && (typeFilter === 'ALL' || question.type === typeFilter) && (difficultyFilter === 'ALL' || question.difficulty === difficultyFilter) && question.content.toLowerCase().includes(search.toLowerCase())).map((question) => (
             <article className="rounded-lg border bg-white p-5 shadow-sm" key={question.id}>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-wrap gap-2 text-xs">
                     <span className="rounded bg-blue-100 px-2 py-1 text-blue-800">{questionTypeLabel[question.type]}</span>
+                    <span className="rounded bg-indigo-100 px-2 py-1 text-indigo-800">{question.toeicSkill}</span>
                     <span className="rounded bg-amber-100 px-2 py-1 text-amber-800">{difficultyLabel[question.difficulty]}</span>
                   </div>
                   <p className="whitespace-pre-wrap font-medium text-slate-900">{question.content}</p>
@@ -222,14 +240,7 @@ export function QuestionBankPage() {
                   </ol>
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    className="rounded border border-emerald-300 px-3 py-1.5 text-sm text-emerald-700 disabled:opacity-50"
-                    disabled={pendingAction !== null}
-                    onClick={() => void openSkillMapping(question)}
-                    type="button"
-                  >
-                    Edit Skills
-                  </button>
+                  <button className="rounded border border-emerald-300 px-3 py-1.5 text-sm text-emerald-700 disabled:opacity-50" disabled={pendingAction !== null} onClick={() => void openSkillMapping(question)} title="Tính năng nghiên cứu cũ" type="button">Legacy: Edit Skills</button>
                   <button
                     className="rounded border px-3 py-1.5 text-sm disabled:opacity-50"
                     disabled={pendingAction !== null}
@@ -269,16 +280,20 @@ export function QuestionBankPage() {
 
 function QuestionForm({
   initial,
+  rubrics,
   pending,
   onCancel,
   onSave,
 }: {
   initial: AssessmentQuestion | null;
+  rubrics: RubricSummary[];
   pending: boolean;
   onCancel: () => void;
   onSave: (input: QuestionInput) => Promise<void>;
 }) {
   const [type, setType] = useState<QuestionType>(initial?.type ?? 'SINGLE_CHOICE');
+  const [toeicSkill, setToeicSkill] = useState<ToeicSkill>(initial?.toeicSkill ?? 'READING');
+  const [rubricId, setRubricId] = useState(initial?.rubricId ?? '');
   const [difficulty, setDifficulty] = useState<QuestionDifficulty>(initial?.difficulty ?? 'MEDIUM');
   const [content, setContent] = useState(initial?.content ?? '');
   const [explanation, setExplanation] = useState(initial?.explanation ?? '');
@@ -333,31 +348,38 @@ function QuestionForm({
     const normalizedOptions = options.map((option) => ({ ...option, content: option.content.trim() }));
     const correctCount = normalizedOptions.filter((option) => option.isCorrect).length;
     const normalizedTexts = normalizedOptions.map((option) => option.content.toLocaleLowerCase('vi'));
+    const productive = toeicSkill === 'SPEAKING' || toeicSkill === 'WRITING';
 
-    if (!trimmedContent || normalizedOptions.some((option) => !option.content)) {
+    if (!trimmedContent || (!productive && normalizedOptions.some((option) => !option.content))) {
       setFormError('Nội dung câu hỏi và đáp án không được để trống.');
       return;
     }
-    if (normalizedOptions.length < 2 || (type === 'TRUE_FALSE' && normalizedOptions.length !== 2)) {
+    if (!productive && (normalizedOptions.length < 2 || (type === 'TRUE_FALSE' && normalizedOptions.length !== 2))) {
       setFormError(type === 'TRUE_FALSE' ? 'Câu Đúng/Sai phải có đúng 2 đáp án.' : 'Câu hỏi phải có ít nhất 2 đáp án.');
       return;
     }
-    if ((type === 'MULTIPLE_CHOICE' && correctCount < 1) || (type !== 'MULTIPLE_CHOICE' && correctCount !== 1)) {
+    if (!productive && ((type === 'MULTIPLE_CHOICE' && correctCount < 1) || (type !== 'MULTIPLE_CHOICE' && correctCount !== 1))) {
       setFormError(type === 'MULTIPLE_CHOICE' ? 'Cần chọn ít nhất một đáp án đúng.' : 'Cần chọn đúng một đáp án đúng.');
       return;
     }
-    if (new Set(normalizedTexts).size !== normalizedTexts.length) {
+    if (!productive && new Set(normalizedTexts).size !== normalizedTexts.length) {
       setFormError('Nội dung các đáp án không được trùng nhau.');
+      return;
+    }
+    if (productive && !rubricId) {
+      setFormError('Câu Speaking/Writing cần chọn rubric chấm điểm.');
       return;
     }
 
     setFormError(null);
     void onSave({
       type,
+      toeicSkill,
       difficulty,
       content: trimmedContent,
       explanation: explanation.trim() || null,
-      options: normalizedOptions,
+      rubricId: productive ? rubricId : null,
+      options: productive ? [] : normalizedOptions,
     });
   };
 
@@ -367,8 +389,8 @@ function QuestionForm({
       {formError && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="text-sm font-medium">Loại câu hỏi
-          <select className="mt-1 w-full rounded border p-2" disabled={pending} value={type} onChange={(event) => changeType(event.target.value as QuestionType)}>
-            {Object.entries(questionTypeLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          <select className="mt-1 w-full rounded border p-2" disabled={pending || toeicSkill === 'SPEAKING' || toeicSkill === 'WRITING'} value={type} onChange={(event) => changeType(event.target.value as QuestionType)}>
+            {Object.entries(questionTypeLabel).filter(([value]) => toeicSkill === 'SPEAKING' ? value === 'AUDIO_RESPONSE' : toeicSkill === 'WRITING' ? value === 'TEXT_RESPONSE' : !['AUDIO_RESPONSE','TEXT_RESPONSE'].includes(value)).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
         <label className="text-sm font-medium">Độ khó
@@ -377,13 +399,27 @@ function QuestionForm({
           </select>
         </label>
       </div>
+      <label className="block text-sm font-medium">Kỹ năng TOEIC
+        <select className="mt-1 w-full rounded border p-2" disabled={pending} value={toeicSkill} onChange={(event) => {
+          const skill = event.target.value as ToeicSkill;
+          setToeicSkill(skill);
+          if (skill === 'SPEAKING') setType('AUDIO_RESPONSE');
+          else if (skill === 'WRITING') setType('TEXT_RESPONSE');
+          else if (type === 'AUDIO_RESPONSE' || type === 'TEXT_RESPONSE') changeType('SINGLE_CHOICE');
+        }}>
+          {['LISTENING','READING','SPEAKING','WRITING'].map((value) => <option key={value}>{value}</option>)}
+        </select>
+      </label>
       <label className="block text-sm font-medium">Nội dung
         <textarea className="mt-1 min-h-24 w-full rounded border p-2" disabled={pending} maxLength={5000} required value={content} onChange={(event) => setContent(event.target.value)} />
       </label>
       <label className="block text-sm font-medium">Giải thích (không bắt buộc)
         <textarea className="mt-1 min-h-20 w-full rounded border p-2" disabled={pending} maxLength={5000} value={explanation} onChange={(event) => setExplanation(event.target.value)} />
       </label>
-      <fieldset className="space-y-2" disabled={pending}>
+      {toeicSkill === 'SPEAKING' || toeicSkill === 'WRITING' ? <label className="block text-sm font-medium">Rubric chấm điểm
+        <select className="mt-1 w-full rounded border p-2" required value={rubricId} onChange={(event) => setRubricId(event.target.value)}><option value="">Chọn rubric</option>{rubrics.map((rubric) => <option key={rubric.id} value={rubric.id}>{rubric.name}</option>)}</select>
+        {rubrics.find((rubric) => rubric.id === rubricId) ? <div className="mt-2 rounded-lg bg-indigo-50 p-3 text-xs text-indigo-900"><strong>{rubrics.find((rubric) => rubric.id === rubricId)?.name}</strong><ul className="mt-1 list-disc pl-5">{rubrics.find((rubric) => rubric.id === rubricId)?.criteria.map((criterion) => <li key={criterion.id}>{criterion.name} · tối đa {String(criterion.maxScore)}</li>)}</ul></div> : null}
+      </label> : <fieldset className="space-y-2" disabled={pending}>
         <legend className="text-sm font-medium">Đáp án</legend>
         {options.map((option, index) => (
           <div className="flex items-center gap-2" key={index}>
@@ -399,7 +435,7 @@ function QuestionForm({
         {type !== 'TRUE_FALSE' && (
           <button className="rounded border px-3 py-1.5 text-sm" onClick={() => setOptions((current) => [...current, { content: '', isCorrect: false }])} type="button">Thêm đáp án</button>
         )}
-      </fieldset>
+      </fieldset>}
       <div className="flex justify-end gap-2">
         <button className="rounded border px-4 py-2" disabled={pending} onClick={onCancel} type="button">Hủy</button>
         <button className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50" disabled={pending} type="submit">{pending ? 'Đang lưu...' : 'Lưu câu hỏi'}</button>

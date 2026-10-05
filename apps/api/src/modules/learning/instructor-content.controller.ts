@@ -1,5 +1,7 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -144,6 +146,43 @@ export class InstructorContentController {
     @Body() dto: CreateResourceDto,
   ) {
     return this.instructorContentService.createResource(user.id, lessonId, dto);
+  }
+
+  @Post('lessons/:lessonId/resources/upload')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }))
+  @ApiOperation({ summary: 'Upload a protected learning document' })
+  uploadResource(
+    @CurrentUser() user: PublicUser,
+    @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
+    @Body() body: { title?: string; isDownloadable?: string; replaceResourceId?: string; expectedUpdatedAt?: string },
+    @UploadedFile() file?: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+  ) {
+    if (!file) throw new BadRequestException('Document file is required');
+    return this.instructorContentService.uploadResource(
+      user.id,
+      lessonId,
+      {
+        title: body.title?.trim() || file.originalname,
+        isDownloadable: body.isDownloadable !== 'false',
+        replaceResourceId: body.replaceResourceId,
+        expectedUpdatedAt: body.expectedUpdatedAt,
+      },
+      file,
+    );
+  }
+
+  @Get('resources/:resourceId/file')
+  @ApiOperation({ summary: 'Preview a protected learning document' })
+  async previewResource(
+    @CurrentUser() user: PublicUser,
+    @Param('resourceId', new ParseUUIDPipe()) resourceId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const file = await this.instructorContentService.openResource(user.id, resourceId);
+    response.setHeader('Content-Type', file.mimeType);
+    response.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+    response.setHeader('Cache-Control', 'private, no-store');
+    return new StreamableFile(file.stream);
   }
 
   @Patch('resources/:resourceId')

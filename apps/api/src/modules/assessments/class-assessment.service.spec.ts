@@ -80,6 +80,19 @@ describe('ClassAssessmentService', () => {
       .rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('rejects a stale grading tab before changing rubric or final state', async () => {
+    tx.testAnswer.findFirst.mockResolvedValue({
+      id: 'answer-id', textResponse: 'A real learner response', audioStorageKey: null,
+      testQuestion: { points: 10, question: { responseType: QuestionResponseType.TEXT_RESPONSE, toeicSkill: ToeicSkill.WRITING, rubric } },
+      evaluations: [{ id: 'evaluation-id', status: AnswerEvaluationStatus.PENDING_REVIEW, updatedAt: new Date('2026-10-06T00:00:00.000Z') }],
+    });
+    await expect(service.gradeAnswer('instructor-id', 'class-id', 'assessment-id', 'attempt-id', 'test-question-id', {
+      criteria: [], finalize: false, expectedUpdatedAt: '2026-10-05T00:00:00.000Z',
+    })).rejects.toMatchObject({ response: expect.objectContaining({ code: 'STALE_GRADING_EVALUATION' }) });
+    expect(tx.answerEvaluation.update).not.toHaveBeenCalled();
+    expect(tx.rubricCriterionScore.upsert).not.toHaveBeenCalled();
+  });
+
   it('rejects out-of-range rubric scores before persistence', async () => {
     tx.testAnswer.findFirst.mockResolvedValue({ id: 'answer-id', textResponse: 'A real learner response', audioStorageKey: null, testQuestion: { points: 10, question: { responseType: QuestionResponseType.TEXT_RESPONSE, toeicSkill: ToeicSkill.WRITING, rubric } }, evaluations: [] });
     await expect(service.gradeAnswer('instructor-id', 'class-id', 'assessment-id', 'attempt-id', 'test-question-id', { criteria: [{ rubricCriterionId: 'criterion-a', score: '4.01' }], finalize: false }))

@@ -1,177 +1,50 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { instructorApi } from '@/features/instructor/api';
-import type { TeachingEntry } from '@/features/instructor/types';
+import type { InstructorClass } from '@/features/instructor/types';
 
-const offeringStatusLabel: Record<string, string> = {
-  OPEN: 'Đang mở đăng ký',
-  IN_PROGRESS: 'Đang học',
-  CLOSED: 'Đã đóng',
-  COMPLETED: 'Đã kết thúc',
-  DRAFT: 'Bản nháp',
-};
+const statusLabels: Record<string, string> = { OPEN: 'Đang mở đăng ký', IN_PROGRESS: 'Đang học', CLOSED: 'Đã đóng', COMPLETED: 'Đã kết thúc', DRAFT: 'Bản nháp' };
+const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
 export function InstructorTeachingPage() {
-  const [teachingEntries, setTeachingEntries] = useState<TeachingEntry[]>([]);
+  const [classes, setClasses] = useState<InstructorClass[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const redirectExpiredSession = useSessionExpiry();
-
+  const [error, setError] = useState(false);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('ALL');
   useEffect(() => {
-    const abortController = new AbortController();
-
-    async function fetchTeaching() {
+    const controller = new AbortController();
+    const load = async () => {
       try {
-        const data = await instructorApi.teaching.list(abortController.signal);
-        setTeachingEntries(data);
-        setError(null);
-      } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return;
-        if (await redirectExpiredSession(err)) return;
-        setError('Không thể tải danh sách lớp giảng dạy. Vui lòng thử lại.');
+        let loaded: InstructorClass[];
+        try {
+          loaded = await instructorApi.classes.list(controller.signal);
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') return;
+          const entries = await instructorApi.teaching.list(controller.signal);
+          loaded = entries.flatMap(({ course, classOfferings }) => classOfferings.map((offering) => ({
+            ...offering,
+            code: offering.code ?? '—',
+            activeLearnerCount: offering.activeLearnerCount ?? 0,
+            course: { id: course.id, title: course.title, level: course.level },
+          })));
+        }
+        setClasses(loaded);
+        setError(false);
+      } catch (error) {
+        if (!(error instanceof Error && error.name === 'AbortError')) setError(true);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
-    }
-
-    void fetchTeaching();
-
-    return () => {
-      abortController.abort();
     };
-  }, [redirectExpiredSession]);
-
-  if (loading) {
-    return <div className="p-8 text-center text-gray-500">Đang tải danh sách...</div>;
-  }
-
-  if (error) {
-    return <div className="p-8 text-center text-red-600">Đã xảy ra lỗi: {error}</div>;
-  }
-
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-8">Lớp giảng dạy của tôi</h1>
-
-      {teachingEntries.length === 0 ? (
-        <div className="text-center text-gray-500 bg-white shadow rounded-lg p-8">
-          Bạn chưa được phân công giảng dạy khóa học nào.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {teachingEntries.map(({ course, classOfferings }) => (
-            <div
-              key={course.id}
-              className="bg-white shadow rounded-lg p-6 border border-gray-200 flex flex-col h-full"
-            >
-              <div className="flex flex-1 flex-col">
-                <div className="mb-4 flex min-h-16 items-start justify-between gap-3">
-                  <h2 className="text-xl font-bold leading-7 text-gray-900">{course.title}</h2>
-                  {course.isPublished ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      Đã xuất bản
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      Nháp
-                    </span>
-                  )}
-                </div>
-
-                <div className="mb-4 min-h-14 space-y-2">
-                  <div className="text-sm text-gray-500">
-                    <span className="font-semibold text-gray-700">Trình độ:</span> {course.level}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    <span className="font-semibold text-gray-700">Số module:</span>{' '}
-                    {course._count.modules}
-                  </div>
-                </div>
-
-                {classOfferings.length > 0 && (
-                  <div className="mb-4 flex-1">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Lớp đang dạy:</h3>
-                    <ul className="space-y-3">
-                      {classOfferings.map((offering) => (
-                        <li
-                          key={offering.id}
-                          className="flex min-h-28 flex-col justify-between rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"
-                        >
-                          <div className="flex min-h-10 items-start justify-between gap-2">
-                            <span className="font-semibold leading-5 text-gray-800">
-                              {offering.name}
-                            </span>
-                            <span className="inline-flex shrink-0 items-center rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
-                              {offeringStatusLabel[offering.status] ?? 'Đang cập nhật'}
-                            </span>
-                          </div>
-                          <Link
-                            className="mt-3 inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-3 py-2 font-semibold text-white hover:bg-indigo-700"
-                            to={`/instructor/classes/${offering.id}/assessments`}
-                          >
-                            Bài kiểm tra của lớp
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 grid gap-2 border-t border-gray-100 pt-4">
-                <Link
-                  to={`/instructor/courses/${course.id}/content`}
-                  className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Quản lý nội dung
-                </Link>
-                <Link
-                  to={`/instructor/courses/${course.id}/question-bank`}
-                  className="inline-flex w-full items-center justify-center rounded-md border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                  Ngân hàng câu hỏi
-                </Link>
-                <Link
-                  to={`/instructor/courses/${course.id}/tests`}
-                  className="inline-flex w-full items-center justify-center rounded-md border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
-                  Mẫu bài kiểm tra
-                </Link>
-                <p className="text-xs leading-5 text-slate-500">
-                  Mẫu bài kiểm tra = nội dung dùng lại. Bài kiểm tra của lớp = lịch giao và bài nộp
-                  của một lớp cụ thể.
-                </p>
-                <details className="rounded-md border border-slate-200 p-3 text-sm">
-                  <summary className="cursor-pointer font-medium text-slate-700">
-                    Công cụ nâng cao
-                  </summary>
-                  <div className="mt-3 grid gap-2">
-                    <Link
-                      className="text-emerald-700 hover:underline"
-                      to={`/instructor/courses/${course.id}/skills`}
-                    >
-                      Mô hình kiến thức — Kỹ năng (KC)
-                    </Link>
-                    <Link
-                      className="text-amber-700 hover:underline"
-                      to={`/instructor/courses/${course.id}/adaptive-policy`}
-                    >
-                      Chính sách thích ứng
-                    </Link>
-                    <Link
-                      className="text-cyan-700 hover:underline"
-                      to={`/instructor/courses/${course.id}/learner-mastery`}
-                    >
-                      Mức độ thành thạo của học viên
-                    </Link>
-                  </div>
-                </details>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+    void load();
+    return () => controller.abort();
+  }, []);
+  const filtered = useMemo(() => classes.filter((item) => (status === 'ALL' || item.status === status) && `${item.code} ${item.name} ${item.course.title}`.toLowerCase().includes(search.trim().toLowerCase())), [classes, search, status]);
+  if (loading) return <div className="p-8 text-center text-gray-500" role="status">Đang tải danh sách...</div>;
+  if (error) return <div className="p-8 text-center text-red-600">Không thể tải danh sách lớp giảng dạy. Vui lòng thử lại.</div>;
+  return <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="text-sm font-bold uppercase tracking-wider text-indigo-600">Instructor LMS</p><h1 className="mt-1 text-3xl font-bold">Lớp giảng dạy của tôi</h1><p className="mt-2 text-slate-500">Chọn một lớp để quản lý học viên, nội dung, bài kiểm tra và kết quả.</p></div><div className="flex flex-col gap-2 sm:flex-row"><input aria-label="Tìm lớp" className="rounded-xl border px-3 py-2" onChange={(event) => setSearch(event.target.value)} placeholder="Tìm mã, tên lớp, khóa học" value={search} /><select aria-label="Lọc trạng thái lớp" className="rounded-xl border px-3 py-2" onChange={(event) => setStatus(event.target.value)} value={status}><option value="ALL">Tất cả trạng thái</option><option value="OPEN">Đang mở đăng ký</option><option value="IN_PROGRESS">Đang học</option><option value="COMPLETED">Đã kết thúc</option><option value="CLOSED">Đã đóng</option></select></div></div>
+    <div className="mt-7 space-y-3">{filtered.map((item) => <article className="rounded-2xl border bg-white p-5 shadow-sm" key={item.id}><div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div><span className="text-xs font-bold uppercase text-slate-500">{item.code}</span><h2 className="mt-1 text-lg font-bold">{item.name}</h2></div><div><span className="text-xs text-slate-500">Khóa học</span><p className="font-semibold">{item.course.title}</p><small>{item.course.level}</small></div><div><span className="text-xs text-slate-500">Lịch học</span><p>{item.scheduleSlots?.length ? item.scheduleSlots.map((slot) => `${dayLabels[slot.dayOfWeek]} ${slot.startTime}–${slot.endTime}`).join(', ') : 'Chưa xếp lịch'}</p></div><div><span className="text-xs text-slate-500">Học viên / trạng thái</span><p><strong>{item.activeLearnerCount}</strong> · {statusLabels[item.status] ?? item.status}</p></div></div><Link className="rounded-xl bg-indigo-600 px-5 py-3 text-center font-bold text-white hover:bg-indigo-700" to={`/instructor/classes/${item.id}`}>Vào lớp</Link></div><details className="mt-3 text-xs text-slate-500"><summary className="cursor-pointer">Công cụ nâng cao</summary><div className="mt-2 flex flex-wrap gap-3"><Link to={`/instructor/classes/${item.id}/assessments`}>Bài kiểm tra của lớp</Link><Link to={`/instructor/courses/${item.course.id}/question-bank`}>Ngân hàng câu hỏi</Link><Link to={`/instructor/courses/${item.course.id}/tests`}>Mẫu bài kiểm tra</Link><Link to={`/instructor/courses/${item.course.id}/skills`}>Mô hình kiến thức — Kỹ năng (KC)</Link><Link to={`/instructor/courses/${item.course.id}/adaptive-policy`}>Chính sách thích ứng</Link><Link to={`/instructor/courses/${item.course.id}/learner-mastery`}>Mức độ thành thạo của học viên</Link></div></details></article>)}{filtered.length === 0 ? <div className="rounded-2xl border bg-white p-10 text-center text-slate-500">Không có lớp phù hợp.</div> : null}</div>
+  </div>;
 }

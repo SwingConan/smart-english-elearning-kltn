@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,8 +8,10 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -23,6 +26,14 @@ import { ReorderTestQuestionsDto } from './dto/reorder-test-questions.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
 import { UpdateTestQuestionDto } from './dto/update-test-question.dto';
 import { UpdateTestDto } from './dto/update-test.dto';
+import {
+  CreateTestGroupDto,
+  CreateTextStimulusDto,
+  MoveTestQuestionGroupDto,
+  ReorderStimuliDto,
+  ReorderTestGroupsDto,
+  UpdateTestGroupDto,
+} from './dto/test-group.dto';
 
 @ApiTags('instructor assessments')
 @Roles(UserRole.INSTRUCTOR)
@@ -30,6 +41,18 @@ import { UpdateTestDto } from './dto/update-test.dto';
 @Controller('instructor')
 export class AssessmentInstructorController {
   constructor(private readonly assessmentInstructorService: AssessmentInstructorService) {}
+
+  @Get('rubrics')
+  @ApiOperation({ summary: 'List active grading rubrics' })
+  listRubrics() {
+    return this.assessmentInstructorService.listActiveRubrics();
+  }
+
+  @Get('rubrics/:rubricId')
+  @ApiOperation({ summary: 'Read an active grading rubric' })
+  getRubric(@Param('rubricId', new ParseUUIDPipe()) rubricId: string) {
+    return this.assessmentInstructorService.getActiveRubric(rubricId);
+  }
 
   @Get('courses/:courseId/questions')
   @ApiOperation({ summary: 'List questions in an assigned course' })
@@ -140,6 +163,78 @@ export class AssessmentInstructorController {
     return this.assessmentInstructorService.unpublishTest(user.id, testId);
   }
 
+  @Post('tests/:testId/groups')
+  createTestGroup(@CurrentUser() user: PublicUser, @Param('testId', new ParseUUIDPipe()) testId: string, @Body() dto: CreateTestGroupDto) {
+    return this.assessmentInstructorService.createTestGroup(user.id, testId, dto);
+  }
+
+  @Patch('tests/:testId/groups/reorder')
+  reorderTestGroups(@CurrentUser() user: PublicUser, @Param('testId', new ParseUUIDPipe()) testId: string, @Body() dto: ReorderTestGroupsDto) {
+    return this.assessmentInstructorService.reorderTestGroups(user.id, testId, dto);
+  }
+
+  @Patch('tests/:testId/groups/:groupId')
+  updateTestGroup(
+    @CurrentUser() user: PublicUser,
+    @Param('testId', new ParseUUIDPipe()) testId: string,
+    @Param('groupId', new ParseUUIDPipe()) groupId: string,
+    @Body() dto: UpdateTestGroupDto,
+  ) {
+    return this.assessmentInstructorService.updateTestGroup(user.id, testId, groupId, dto);
+  }
+
+  @Delete('tests/:testId/groups/:groupId')
+  deleteTestGroup(
+    @CurrentUser() user: PublicUser,
+    @Param('testId', new ParseUUIDPipe()) testId: string,
+    @Param('groupId', new ParseUUIDPipe()) groupId: string,
+  ) {
+    return this.assessmentInstructorService.deleteTestGroup(user.id, testId, groupId);
+  }
+
+  @Post('tests/:testId/groups/:groupId/stimuli/text')
+  createTextStimulus(
+    @CurrentUser() user: PublicUser,
+    @Param('testId', new ParseUUIDPipe()) testId: string,
+    @Param('groupId', new ParseUUIDPipe()) groupId: string,
+    @Body() dto: CreateTextStimulusDto,
+  ) {
+    return this.assessmentInstructorService.createTextStimulus(user.id, testId, groupId, dto);
+  }
+
+  @Post('tests/:testId/groups/:groupId/stimuli/upload')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024, files: 1 } }))
+  uploadStimulus(
+    @CurrentUser() user: PublicUser,
+    @Param('testId', new ParseUUIDPipe()) testId: string,
+    @Param('groupId', new ParseUUIDPipe()) groupId: string,
+    @UploadedFile() file: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+    @Body('altText') altText?: string,
+  ) {
+    if (!file) throw new BadRequestException('Stimulus file is required');
+    return this.assessmentInstructorService.uploadStimulus(user.id, testId, groupId, file, altText);
+  }
+
+  @Patch('tests/:testId/groups/:groupId/stimuli/reorder')
+  reorderStimuli(
+    @CurrentUser() user: PublicUser,
+    @Param('testId', new ParseUUIDPipe()) testId: string,
+    @Param('groupId', new ParseUUIDPipe()) groupId: string,
+    @Body() dto: ReorderStimuliDto,
+  ) {
+    return this.assessmentInstructorService.reorderStimuli(user.id, testId, groupId, dto);
+  }
+
+  @Delete('tests/:testId/groups/:groupId/stimuli/:stimulusId')
+  deleteStimulus(
+    @CurrentUser() user: PublicUser,
+    @Param('testId', new ParseUUIDPipe()) testId: string,
+    @Param('groupId', new ParseUUIDPipe()) groupId: string,
+    @Param('stimulusId', new ParseUUIDPipe()) stimulusId: string,
+  ) {
+    return this.assessmentInstructorService.deleteStimulus(user.id, testId, groupId, stimulusId);
+  }
+
   @Post('tests/:testId/questions')
   @ApiOperation({ summary: 'Append a question to a test' })
   addTestQuestion(
@@ -158,6 +253,16 @@ export class AssessmentInstructorController {
     @Body() dto: ReorderTestQuestionsDto,
   ) {
     return this.assessmentInstructorService.reorderTestQuestions(user.id, testId, dto);
+  }
+
+  @Patch('tests/:testId/questions/:testQuestionId/group')
+  moveTestQuestionGroup(
+    @CurrentUser() user: PublicUser,
+    @Param('testId', new ParseUUIDPipe()) testId: string,
+    @Param('testQuestionId', new ParseUUIDPipe()) testQuestionId: string,
+    @Body() dto: MoveTestQuestionGroupDto,
+  ) {
+    return this.assessmentInstructorService.moveTestQuestionGroup(user.id, testId, testQuestionId, dto.groupId ?? null);
   }
 
   @Patch('tests/:testId/questions/:testQuestionId')

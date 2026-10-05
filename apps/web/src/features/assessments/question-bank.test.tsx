@@ -94,10 +94,10 @@ describe('QuestionBankPage', () => {
     fireEvent.submit(form);
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
     expect(create).toHaveBeenCalledWith(courseId, {
-      type: 'SINGLE_CHOICE', difficulty: 'MEDIUM', content: 'Created', explanation: null,
+      type: 'SINGLE_CHOICE', toeicSkill: 'READING', difficulty: 'MEDIUM', content: 'Created', explanation: null, rubricId: null,
       options: [{ content: 'Second', isCorrect: false }, { content: 'First', isCorrect: true }],
     });
-    expect(Object.keys(create.mock.calls[0][1])).toEqual(['type', 'difficulty', 'content', 'explanation', 'options']);
+    expect(Object.keys(create.mock.calls[0][1])).toEqual(['type', 'toeicSkill', 'difficulty', 'content', 'explanation', 'rubricId', 'options']);
     page.unmount();
 
     vi.spyOn(assessmentApi.questions, 'list').mockResolvedValue([existing]);

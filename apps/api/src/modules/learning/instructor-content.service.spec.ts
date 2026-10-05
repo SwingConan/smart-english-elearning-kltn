@@ -6,6 +6,7 @@ import {
 import { Prisma, ResourceType } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { InstructorContentService } from './instructor-content.service';
+import { LearningResourceStorage } from './learning-resource.storage';
 
 describe('InstructorContentService', () => {
   const instructorId = 'instructor-id';
@@ -14,6 +15,7 @@ describe('InstructorContentService', () => {
   const lessonId = 'lesson-id';
   const resourceId = 'resource-id';
   const transaction = {
+    classOffering: { findFirst: jest.fn() },
     module: { findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() },
     lesson: { findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), deleteMany: jest.fn() },
     learningResource: { findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), deleteMany: jest.fn() },
@@ -26,15 +28,27 @@ describe('InstructorContentService', () => {
     learningResource: { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
     $transaction: jest.fn(),
   };
-  const service = new InstructorContentService(prisma as unknown as PrismaService);
+  const storage = {
+    stat: jest.fn().mockResolvedValue(null),
+    put: jest.fn(),
+    open: jest.fn(),
+    delete: jest.fn(),
+  };
+  const service = new InstructorContentService(
+    prisma as unknown as PrismaService,
+    storage as unknown as LearningResourceStorage,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    storage.delete.mockResolvedValue(undefined);
     prisma.classOffering.findFirst.mockResolvedValue({ id: 'offering-id' });
     prisma.module.findUnique.mockResolvedValue({ courseId });
     prisma.lesson.findUnique.mockResolvedValue({ module: { courseId } });
     prisma.learningResource.findUnique.mockResolvedValue({ lesson: { module: { courseId } } });
     transaction.module.findFirst.mockResolvedValue({ orderIndex: 2 });
+    transaction.classOffering.findFirst.mockResolvedValue({ id: 'offering-id' });
+    transaction.module.findUnique.mockResolvedValue({ id: moduleId, courseId, updatedAt: new Date() });
     transaction.lesson.findFirst.mockResolvedValue({ orderIndex: 3 });
     transaction.learningResource.findFirst.mockResolvedValue({ orderIndex: 4 });
     transaction.module.create.mockImplementation(({ data }) => Promise.resolve({ id: moduleId, ...data }));
@@ -64,9 +78,36 @@ describe('InstructorContentService', () => {
   });
 
   it('rejects mutation when the instructor owns a different course', async () => {
-    prisma.module.findUnique.mockResolvedValue({ courseId: 'course-b' });
-    prisma.classOffering.findFirst.mockResolvedValue(null);
-    await expect(service.updateModule(instructorId, moduleId, { title: 'Denied' })).rejects.toBeInstanceOf(ForbiddenException);
+    transaction.module.findUnique.mockResolvedValue({ id: moduleId, courseId: 'course-b', updatedAt: new Date() });
+    transaction.classOffering.findFirst.mockResolvedValue(null);
+    await expect(service.updateModule(instructorId, moduleId, {
+      title: 'Denied',
+      expectedUpdatedAt: new Date().toISOString(),
+    })).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects a stale shared-content update without overwriting', async () => {
+    transaction.module.findUnique.mockResolvedValue({ id: moduleId, courseId, updatedAt: new Date('2026-10-06T00:00:00.000Z') });
+    await expect(service.updateModule(instructorId, moduleId, {
+      title: 'Stale title', expectedUpdatedAt: '2026-10-05T00:00:00.000Z',
+    })).rejects.toMatchObject({ response: expect.objectContaining({ code: 'STALE_SHARED_CONTENT' }) });
+    expect(transaction.module.update).not.toHaveBeenCalled();
+  });
+
+  it('preserves the old object and cleans up the new object on a stale resource replacement', async () => {
+    prisma.lesson.findUnique.mockResolvedValue({ module: { courseId } });
+    storage.put.mockResolvedValue({ key: 'new.txt', bytes: 3, mimeType: 'text/plain', originalFileName: 'new.txt' });
+    transaction.learningResource.findFirst.mockResolvedValue({
+      id: resourceId, storageKey: 'old.txt', updatedAt: new Date('2026-10-06T00:00:00.000Z'),
+      lesson: { module: { courseId } },
+    });
+    const file = { buffer: Buffer.from('new'), size: 3, mimetype: 'text/plain', originalname: 'new.txt' };
+    await expect(service.uploadResource(instructorId, lessonId, {
+      title: 'New', isDownloadable: true, replaceResourceId: resourceId, expectedUpdatedAt: '2026-10-05T00:00:00.000Z',
+    }, file)).rejects.toMatchObject({ response: expect.objectContaining({ code: 'STALE_SHARED_CONTENT' }) });
+    expect(transaction.learningResource.update).not.toHaveBeenCalled();
+    expect(storage.delete).toHaveBeenCalledWith('new.txt');
+    expect(storage.delete).not.toHaveBeenCalledWith('old.txt');
   });
 
   it.each([

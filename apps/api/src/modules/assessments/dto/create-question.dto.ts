@@ -1,6 +1,5 @@
 import { Transform, Type } from 'class-transformer';
 import {
-  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -9,6 +8,7 @@ import {
   IsString,
   MaxLength,
   ValidateNested,
+  IsUUID,
 } from 'class-validator';
 import {
   QuestionDifficulty,
@@ -31,9 +31,8 @@ export class CreateQuestionDto {
   @IsEnum(QuestionResponseType)
   type: QuestionResponseType;
 
-  @IsOptional()
   @IsEnum(ToeicSkill)
-  toeicSkill?: ToeicSkill;
+  toeicSkill: ToeicSkill;
 
   @IsEnum(QuestionDifficulty)
   difficulty: QuestionDifficulty;
@@ -50,9 +49,13 @@ export class CreateQuestionDto {
   @MaxLength(5000)
   explanation?: string | null;
 
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(2)
   @ValidateNested({ each: true })
   @Type(() => QuestionOptionInputDto)
-  options: QuestionOptionInputDto[];
+  options?: QuestionOptionInputDto[];
+
+  @IsOptional()
+  @IsUUID()
+  rubricId?: string | null;
 }

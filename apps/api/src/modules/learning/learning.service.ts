@@ -8,12 +8,16 @@ import {
   TestPurpose,
   TestStatus,
 } from '../../generated/prisma/client';
+import { LearningResourceStorage } from './learning-resource.storage';
 
 const MAX_PROGRESS_TRANSACTION_ATTEMPTS = 3;
 
 @Injectable()
 export class LearningService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly resourceStorage: LearningResourceStorage,
+  ) {}
 
   private async getEnrollmentForLearning(learnerId: string, enrollmentId: string) {
     const enrollment = await this.prisma.enrollment.findFirst({
@@ -437,8 +441,19 @@ export class LearningService {
         mimeType: true,
       },
     });
-    if (!resource || !resource.url) {
+    if (!resource || (!resource.url && !resource.storageKey)) {
       throw new NotFoundException('Downloadable resource not found');
+    }
+
+    if (resource.storageKey) {
+      if (!resource.mimeType) throw new NotFoundException('Stored resource metadata not found');
+      return {
+        resourceId: resource.id,
+        stream: this.resourceStorage.open(resource.storageKey),
+        fileName: this.safeFileName(resource.originalFileName ?? resource.title),
+        mimeType: resource.mimeType,
+        delivery: 'STORAGE' as const,
+      };
     }
 
     return {
@@ -446,8 +461,12 @@ export class LearningService {
       url: resource.url,
       fileName: resource.originalFileName ?? resource.title,
       mimeType: resource.mimeType,
-      delivery: resource.storageKey ? 'STORAGE' : 'EXTERNAL_URL',
+      delivery: 'EXTERNAL_URL' as const,
     };
+  }
+
+  private safeFileName(value: string): string {
+    return value.replace(/[\\/\r\n"]/g, '_').slice(0, 240) || 'document';
   }
 
   async getMastery(learnerId: string, enrollmentId: string) {

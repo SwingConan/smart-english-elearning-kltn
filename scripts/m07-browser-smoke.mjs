@@ -1,0 +1,172 @@
+const port = process.env.M07_CDP_PORT ?? '9222';
+const password = process.env.M07_SMOKE_PASSWORD;
+if (!password) throw new Error('M07_SMOKE_PASSWORD is required');
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+let targets;
+for (let attempt = 0; attempt < 30; attempt += 1) {
+  try {
+    targets = await fetch(`http://127.0.0.1:${port}/json/list`).then((response) => response.json());
+    if (targets.some((target) => target.type === 'page')) break;
+  } catch {}
+  await delay(250);
+}
+const target = targets?.find((candidate) => candidate.type === 'page');
+if (!target?.webSocketDebuggerUrl) throw new Error('No Chromium page target is available');
+
+const socket = new WebSocket(target.webSocketDebuggerUrl);
+await new Promise((resolve, reject) => {
+  socket.addEventListener('open', resolve, { once: true });
+  socket.addEventListener('error', reject, { once: true });
+});
+let nextId = 0;
+const pending = new Map();
+socket.addEventListener('message', (event) => {
+  const message = JSON.parse(event.data);
+  if (!message.id) return;
+  const entry = pending.get(message.id);
+  if (!entry) return;
+  pending.delete(message.id);
+  if (message.error) entry.reject(new Error(message.error.message));
+  else entry.resolve(message.result);
+});
+function command(method, params = {}) {
+  const id = ++nextId;
+  socket.send(JSON.stringify({ id, method, params }));
+  return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+}
+async function evaluate(expression) {
+  const result = await command('Runtime.evaluate', {
+    expression,
+    awaitPromise: true,
+    returnByValue: true,
+  });
+  if (result.exceptionDetails) throw new Error(result.exceptionDetails.text);
+  return result.result.value;
+}
+async function navigate(path, expected, width = 1440, height = 900) {
+  await command('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 });
+  await command('Page.navigate', { url: `http://localhost:5173${path}` });
+  await delay(900);
+  const state = await evaluate(`({
+    text: document.body.innerText,
+    path: location.pathname,
+    overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
+  })`);
+  if (state.path === '/login') throw new Error(`Session was lost while opening ${path}`);
+  const markers = Array.isArray(expected) ? expected : [expected];
+  if (!markers.every((marker) => state.text.includes(marker))) {
+    throw new Error(`Expected marker was not rendered at ${path}: ${markers.join(' | ')}\nRendered: ${state.text.slice(0, 800)}`);
+  }
+  return state;
+}
+async function browserFetch(path, init = {}) {
+  return evaluate(`(async () => {
+    const response = await fetch(${JSON.stringify(`/api${path}`)}, ${JSON.stringify(init)});
+    const contentType = response.headers.get('content-type') || '';
+    const body = contentType.includes('json') ? await response.json() : await response.text();
+    return { status: response.status, ok: response.ok, body, disposition: response.headers.get('content-disposition') };
+  })()`);
+}
+async function login(email) {
+  const response = await browserFetch('/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) throw new Error(`Login failed for ${email}: ${response.status}`);
+}
+async function logout() {
+  const response = await browserFetch('/auth/logout', { method: 'POST' });
+  if (!response.ok) throw new Error(`Logout failed: ${response.status}`);
+}
+function requireOk(response, label) {
+  if (!response.ok) throw new Error(`${label} failed: HTTP ${response.status}`);
+  return response.body;
+}
+
+await command('Page.enable');
+await command('Runtime.enable');
+await command('Page.navigate', { url: 'http://localhost:5173/login' });
+await delay(500);
+await login('instructor.demo@smart-elearning.local');
+
+const classes = requireOk(await browserFetch('/instructor/classes'), 'Instructor classes');
+const classroom = classes.find((item) => item.activeLearnerCount >= 10) ?? classes[0];
+if (!classroom) throw new Error('No instructor class fixture was found');
+const classId = classroom.id;
+const courseId = classroom.course.id;
+const roster = requireOk(await browserFetch(`/instructor/classes/${classId}/learners`), 'Roster');
+if (roster.learners.length < 10) throw new Error(`Expected at least 10 active demo learners, got ${roster.learners.length}`);
+const learner = roster.learners[0];
+requireOk(await browserFetch(`/instructor/classes/${classId}/learners/${learner.id}`), 'Learner detail');
+const grading = requireOk(await browserFetch(`/instructor/classes/${classId}/grading`), 'Grading inbox');
+const results = requireOk(await browserFetch(`/instructor/classes/${classId}/results`), 'Class results');
+const tests = requireOk(await browserFetch(`/instructor/courses/${courseId}/tests`), 'Test templates');
+let groupedTest;
+for (const summary of tests) {
+  const detail = requireOk(await browserFetch(`/instructor/tests/${summary.id}`), 'Test detail');
+  if (detail.questionGroups?.length) { groupedTest = detail; break; }
+}
+if (!groupedTest) throw new Error('No grouped four-skill test fixture was found');
+
+const checks = [];
+checks.push(['teaching list', await navigate('/instructor/teaching', ['Lớp giảng dạy của tôi', 'Vào lớp'])]);
+checks.push(['class overview', await navigate(`/instructor/classes/${classId}`, ['Tổng quan lớp', 'Bài chờ chấm'])]);
+checks.push(['roster', await navigate(`/instructor/classes/${classId}/learners`, ['Học viên', 'Chỉ xem tiến độ'])]);
+checks.push(['learner detail', await navigate(`/instructor/classes/${classId}/learners/${learner.id}`, ['Ảnh chụp bốn kỹ năng gần nhất', 'Tiến độ bài học'])]);
+checks.push(['shared content warning', await navigate(`/instructor/classes/${classId}/content`, ['Nội dung này dùng chung cho các lớp thuộc khóa học này.', 'Quản lý nội dung khóa học'])]);
+checks.push(['question bank', await navigate(`/instructor/courses/${courseId}/question-bank`, ['Ngân hàng câu hỏi', 'SPEAKING', 'WRITING'])]);
+checks.push(['grouped test builder', await navigate(`/instructor/tests/${groupedTest.id}/edit`, ['Cấu trúc nhóm bốn kỹ năng', 'stimulus'])]);
+checks.push(['class scheduling', await navigate(`/instructor/classes/${classId}/assessments`, ['Lịch đã giao', 'Áp dụng cho lớp này'])]);
+checks.push(['grading inbox', await navigate(`/instructor/classes/${classId}/grading`, ['Ưu tiên bài nộp sớm nhất', 'Chấm bài'])]);
+if (grading.submissions.length) {
+  const submission = grading.submissions[0];
+  checks.push(['grading detail + next item', await navigate(`/instructor/classes/${classId}/assessments/${submission.classAssessment.id}/attempts/${submission.id}/grading`, ['sang bài tiếp theo', 'Danh sách chấm bài'])]);
+}
+checks.push(['class results', await navigate(`/instructor/classes/${classId}/results`, ['Kết quả lớp', 'Mẫu'])]);
+
+const modules = requireOk(await browserFetch(`/instructor/courses/${courseId}/modules`), 'Course modules');
+let storedResource;
+for (const module of modules) {
+  const lessons = requireOk(await browserFetch(`/instructor/modules/${module.id}/lessons`), 'Module lessons');
+  for (const lesson of lessons) {
+    const resources = requireOk(await browserFetch(`/instructor/lessons/${lesson.id}/resources`), 'Lesson resources');
+    storedResource = resources.find((resource) => resource.storageKey && resource.isDownloadable);
+    if (storedResource) break;
+  }
+  if (storedResource) break;
+}
+if (!storedResource) throw new Error('No stored downloadable document fixture was found');
+
+await logout();
+await login('student.demo@smart-elearning.local');
+const enrollments = requireOk(await browserFetch('/enrollments/my'), 'Student enrollments');
+const enrollment = enrollments.find((item) => item.classOffering?.id === classId || item.classOfferingId === classId);
+if (!enrollment) throw new Error('Student is not enrolled in the M07 demo class');
+const delivery = await browserFetch(`/learning/enrollments/${enrollment.id}/resources/${storedResource.id}/download`);
+if (!delivery.ok || !delivery.disposition?.includes('attachment') || !String(delivery.body).includes('Smart English')) {
+  throw new Error(`Protected student document delivery failed: HTTP ${delivery.status}`);
+}
+checks.push(['protected student document delivery', { overflow: false }]);
+
+await logout();
+await login('instructor.demo@smart-elearning.local');
+const mobile = await navigate(`/instructor/classes/${classId}/learners`, ['Học viên', 'Chỉ xem tiến độ'], 390, 844);
+const hasMobileDrawerTrigger = await evaluate(`Boolean(document.querySelector('[aria-label="Mở điều hướng lớp"]'))`);
+if (!hasMobileDrawerTrigger) throw new Error('Mobile class workspace drawer trigger was not rendered');
+checks.push(['mobile workspace navigation', mobile]);
+const tablet = await navigate(`/instructor/classes/${classId}/results`, ['Kết quả lớp'], 820, 1180);
+checks.push(['tablet results', tablet]);
+
+const summary = {
+  classCode: classroom.code,
+  activeLearners: roster.learners.length,
+  gradingItems: grading.submissions.length,
+  resultAssessments: results.assessments.length,
+  groupedTestGroups: groupedTest.questionGroups.length,
+  storedDocument: storedResource.originalFileName,
+  checks: checks.map(([name, state]) => ({ name, pass: true, horizontalOverflow: state.overflow })),
+};
+console.log(JSON.stringify(summary, null, 2));
+socket.close();

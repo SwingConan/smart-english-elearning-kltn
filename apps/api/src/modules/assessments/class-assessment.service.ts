@@ -250,7 +250,7 @@ export class ClassAssessmentService {
     );
     const attempts = await this.prisma.testAttempt.findMany({
       where: { classAssessmentId, status: TestAttemptStatus.SUBMITTED },
-      orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
+      orderBy: [{ submittedAt: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         attemptNumber: true,
@@ -412,7 +412,7 @@ export class ClassAssessmentService {
             where: { source: AnswerEvaluationSource.INSTRUCTOR },
             orderBy: { updatedAt: 'desc' },
             take: 1,
-            select: { id: true, status: true },
+            select: { id: true, status: true, updatedAt: true },
           },
         },
       });
@@ -436,6 +436,19 @@ export class ClassAssessmentService {
       }
 
       const existing = answer.evaluations[0];
+      const expectedUpdatedAt = dto.expectedUpdatedAt ? new Date(dto.expectedUpdatedAt) : null;
+      if (existing && (!expectedUpdatedAt || existing.updatedAt.getTime() !== expectedUpdatedAt.getTime())) {
+        throw new ConflictException({
+          code: 'STALE_GRADING_EVALUATION',
+          message: 'Bài chấm đã được cập nhật ở phiên khác. Vui lòng tải lại trước khi tiếp tục.',
+        });
+      }
+      if (!existing && expectedUpdatedAt) {
+        throw new ConflictException({
+          code: 'STALE_GRADING_EVALUATION',
+          message: 'Bài chấm đã thay đổi. Vui lòng tải lại trước khi tiếp tục.',
+        });
+      }
       if (existing?.status === AnswerEvaluationStatus.REVIEWED_FINAL && !dto.editFinal) {
         throw new ConflictException({
           code: 'FINAL_EVALUATION_EDIT_REQUIRED',

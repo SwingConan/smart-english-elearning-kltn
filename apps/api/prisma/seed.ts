@@ -25,6 +25,7 @@ import {
 } from '../src/generated/prisma/client';
 import { seedM05 } from './m05-seed';
 import { seedM06 } from './m06-seed';
+import { seedM07 } from './m07-seed';
 
 const FREE_OFFERING_ID = '10000000-0000-4000-8000-000000000001';
 const PAID_OFFERING_ID = '10000000-0000-4000-8000-000000000002';
@@ -2414,6 +2415,11 @@ async function main(): Promise<void> {
       enrollmentId: DEMO_ENROLLMENT_ID,
       learnerId: student.id,
       instructorId: instructor.id,
+    });
+    await seedM07(prisma, {
+      courseId: course.id,
+      classOfferingId: FREE_OFFERING_ID,
+      passwordHash,
     });
 
     console.log(

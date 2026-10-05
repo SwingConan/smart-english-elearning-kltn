@@ -501,6 +501,7 @@ function questionInput(
 ) {
   return {
     type,
+    toeicSkill: 'READING',
     difficulty: QuestionDifficulty.HARD,
     content,
     explanation: 'Safe explanation',

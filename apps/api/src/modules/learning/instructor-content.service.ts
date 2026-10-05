@@ -14,12 +14,16 @@ import { UpdateLessonDto } from './dto/update-lesson.dto';
 import { CreateResourceDto } from './dto/create-resource.dto';
 import { UpdateResourceDto } from './dto/update-resource.dto';
 import { ReorderDto } from './dto/reorder.dto';
+import { LearningResourceStorage } from './learning-resource.storage';
 
 const MAX_CONTENT_TRANSACTION_ATTEMPTS = 3;
 
 @Injectable()
 export class InstructorContentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly resourceStorage: LearningResourceStorage,
+  ) {}
 
   private async assertInstructorOwnsCourse(instructorId: string, courseId: string): Promise<void> {
     const assignment = await this.prisma.classOffering.findFirst({
@@ -128,17 +132,16 @@ export class InstructorContentService {
   }
 
   async updateModule(instructorId: string, moduleId: string, dto: UpdateModuleDto) {
-    const module = await this.prisma.module.findUnique({
-      where: { id: moduleId },
-      select: { courseId: true },
-    });
-    if (!module) throw new NotFoundException('Module not found');
-
-    await this.assertInstructorOwnsCourse(instructorId, module.courseId);
-
-    return this.prisma.module.update({
-      where: { id: moduleId },
-      data: dto,
+    const { expectedUpdatedAt, ...data } = dto;
+    return this.prisma.$transaction(async (transaction) => {
+      const module = await transaction.module.findUnique({
+        where: { id: moduleId },
+        select: { courseId: true, updatedAt: true },
+      });
+      if (!module) throw new NotFoundException('Module not found');
+      await this.assertInstructorOwnsCourseIn(transaction, instructorId, module.courseId);
+      this.assertFresh(module.updatedAt, expectedUpdatedAt);
+      return transaction.module.update({ where: { id: moduleId }, data });
     });
   }
 
@@ -273,16 +276,16 @@ export class InstructorContentService {
   }
 
   async updateLesson(instructorId: string, lessonId: string, dto: UpdateLessonDto) {
-    const lesson = await this.prisma.lesson.findUnique({
-      where: { id: lessonId },
-      select: { module: { select: { courseId: true } } },
-    });
-    if (!lesson) throw new NotFoundException('Lesson not found');
-    await this.assertInstructorOwnsCourse(instructorId, lesson.module.courseId);
-
-    return this.prisma.lesson.update({
-      where: { id: lessonId },
-      data: dto,
+    const { expectedUpdatedAt, ...data } = dto;
+    return this.prisma.$transaction(async (transaction) => {
+      const lesson = await transaction.lesson.findUnique({
+        where: { id: lessonId },
+        select: { updatedAt: true, module: { select: { courseId: true } } },
+      });
+      if (!lesson) throw new NotFoundException('Lesson not found');
+      await this.assertInstructorOwnsCourseIn(transaction, instructorId, lesson.module.courseId);
+      this.assertFresh(lesson.updatedAt, expectedUpdatedAt);
+      return transaction.lesson.update({ where: { id: lessonId }, data });
     });
   }
 
@@ -359,10 +362,16 @@ export class InstructorContentService {
     if (!lesson) throw new NotFoundException('Lesson not found');
     await this.assertInstructorOwnsCourse(instructorId, lesson.module.courseId);
 
-    return this.prisma.learningResource.findMany({
+    const resources = await this.prisma.learningResource.findMany({
       where: { lessonId },
       orderBy: { orderIndex: 'asc' },
     });
+    return Promise.all(resources.map(async (resource) => ({
+      ...resource,
+      sizeBytes: resource.storageKey
+        ? await this.resourceStorage.stat(resource.storageKey).then((item) => item.sizeBytes).catch(() => null)
+        : null,
+    })));
   }
 
   async createResource(instructorId: string, lessonId: string, dto: CreateResourceDto) {
@@ -410,17 +419,102 @@ export class InstructorContentService {
   }
 
   async updateResource(instructorId: string, resourceId: string, dto: UpdateResourceDto) {
+    const { expectedUpdatedAt, ...data } = dto;
+    return this.prisma.$transaction(async (transaction) => {
+      const resource = await transaction.learningResource.findUnique({
+        where: { id: resourceId },
+        select: { updatedAt: true, lesson: { select: { module: { select: { courseId: true } } } } },
+      });
+      if (!resource) throw new NotFoundException('Resource not found');
+      await this.assertInstructorOwnsCourseIn(transaction, instructorId, resource.lesson.module.courseId);
+      this.assertFresh(resource.updatedAt, expectedUpdatedAt);
+      return transaction.learningResource.update({ where: { id: resourceId }, data });
+    });
+  }
+
+  async uploadResource(
+    instructorId: string,
+    lessonId: string,
+    input: { title: string; isDownloadable: boolean; replaceResourceId?: string; expectedUpdatedAt?: string },
+    file: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+  ) {
+    const lesson = await this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { module: { select: { courseId: true } } },
+    });
+    if (!lesson) throw new NotFoundException('Lesson not found');
+    await this.assertInstructorOwnsCourse(instructorId, lesson.module.courseId);
+    const stored = await this.resourceStorage.put(file);
+    let oldKey: string | null = null;
+    try {
+      const resource = await this.prisma.$transaction(async (transaction) => {
+        if (input.replaceResourceId) {
+          if (!input.expectedUpdatedAt) throw new BadRequestException('expectedUpdatedAt is required when replacing a resource');
+          const current = await transaction.learningResource.findFirst({
+            where: { id: input.replaceResourceId, lessonId },
+            select: { id: true, storageKey: true, updatedAt: true, lesson: { select: { module: { select: { courseId: true } } } } },
+          });
+          if (!current) throw new NotFoundException('Resource not found');
+          await this.assertInstructorOwnsCourseIn(transaction, instructorId, current.lesson.module.courseId);
+          this.assertFresh(current.updatedAt, input.expectedUpdatedAt);
+          oldKey = current.storageKey;
+          return transaction.learningResource.update({
+            where: { id: current.id },
+            data: {
+              title: input.title,
+              type: 'DOCUMENT',
+              url: null,
+              storageKey: stored.key,
+              originalFileName: stored.originalFileName,
+              mimeType: stored.mimeType,
+              isDownloadable: input.isDownloadable,
+            },
+          });
+        }
+        const last = await transaction.learningResource.findFirst({
+          where: { lessonId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true },
+        });
+        return transaction.learningResource.create({
+          data: {
+            lessonId,
+            title: input.title,
+            type: 'DOCUMENT',
+            url: null,
+            storageKey: stored.key,
+            originalFileName: stored.originalFileName,
+            mimeType: stored.mimeType,
+            isDownloadable: input.isDownloadable,
+            orderIndex: last ? last.orderIndex + 1 : 0,
+          },
+        });
+      });
+      if (oldKey) await this.resourceStorage.delete(oldKey).catch(() => undefined);
+      return { ...resource, sizeBytes: stored.bytes };
+    } catch (error) {
+      await this.resourceStorage.delete(stored.key).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async openResource(instructorId: string, resourceId: string) {
     const resource = await this.prisma.learningResource.findUnique({
       where: { id: resourceId },
-      select: { lesson: { select: { module: { select: { courseId: true } } } } },
+      select: {
+        storageKey: true,
+        mimeType: true,
+        originalFileName: true,
+        lesson: { select: { module: { select: { courseId: true } } } },
+      },
     });
-    if (!resource) throw new NotFoundException('Resource not found');
+    if (!resource?.storageKey || !resource.mimeType || !resource.originalFileName) {
+      throw new NotFoundException('Stored resource not found');
+    }
     await this.assertInstructorOwnsCourse(instructorId, resource.lesson.module.courseId);
-
-    return this.prisma.learningResource.update({
-      where: { id: resourceId },
-      data: dto,
-    });
+    return {
+      stream: this.resourceStorage.open(resource.storageKey),
+      mimeType: resource.mimeType,
+      fileName: this.safeFileName(resource.originalFileName),
+    };
   }
 
   async deleteResource(instructorId: string, resourceId: string): Promise<{ message: string }> {
@@ -429,6 +523,7 @@ export class InstructorContentService {
       select: {
         id: true,
         lessonId: true,
+        storageKey: true,
         lesson: { select: { module: { select: { courseId: true } } } },
       },
     });
@@ -447,6 +542,8 @@ export class InstructorContentService {
       await transaction.learningResource.delete({ where: { id: resourceId } });
       await this.reindexResources(transaction, currentResource.lessonId);
     });
+
+    if (resource.storageKey) await this.resourceStorage.delete(resource.storageKey).catch(() => undefined);
 
     return { message: 'Resource deleted successfully' };
   }
@@ -640,5 +737,27 @@ export class InstructorContentService {
     } catch {
       return false;
     }
+  }
+
+  private assertFresh(current: Date, expected: string): void {
+    if (current.getTime() !== new Date(expected).getTime()) {
+      throw new ConflictException({
+        code: 'STALE_SHARED_CONTENT',
+        message: 'Nội dung đã được cập nhật ở nơi khác. Vui lòng tải lại trước khi tiếp tục chỉnh sửa.',
+      });
+    }
+  }
+
+  private async assertInstructorOwnsCourseIn(
+    database: Prisma.TransactionClient,
+    instructorId: string,
+    courseId: string,
+  ): Promise<void> {
+    const assignment = await database.classOffering.findFirst({ where: { courseId, instructorId }, select: { id: true } });
+    if (!assignment) throw new ForbiddenException('You are not assigned to any class offering of this course');
+  }
+
+  private safeFileName(value: string): string {
+    return value.replace(/[\\/\r\n"]/g, '_').slice(0, 240) || 'document';
   }
 }

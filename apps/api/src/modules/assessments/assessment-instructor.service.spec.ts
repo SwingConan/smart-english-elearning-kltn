@@ -10,8 +10,10 @@ import {
   QuestionResponseType,
   TestStatus,
   TestPurpose,
+  ToeicSkill,
 } from '../../generated/prisma/client';
 import { AssessmentInstructorService } from './assessment-instructor.service';
+import { AssessmentStimulusMediaStorage } from '../placement/assessment-stimulus-media.storage';
 
 describe('AssessmentInstructorService', () => {
   const instructorId = 'instructor-id';
@@ -29,15 +31,18 @@ describe('AssessmentInstructorService', () => {
       delete: jest.fn(),
     },
     questionOption: { deleteMany: jest.fn() },
+    rubric: { findFirst: jest.fn() },
     test: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     testAttempt: { count: jest.fn() },
     testQuestion: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
       count: jest.fn(),
       deleteMany: jest.fn(),
     },
+    testQuestionGroup: { findFirst: jest.fn() },
   };
   const prisma = {
     classOffering: { findFirst: jest.fn() },
@@ -45,7 +50,11 @@ describe('AssessmentInstructorService', () => {
     test: { findMany: jest.fn(), findUnique: jest.fn() },
     $transaction: jest.fn(),
   };
-  const service = new AssessmentInstructorService(prisma as unknown as PrismaService);
+  const stimulusStorage = { read: jest.fn(), put: jest.fn(), delete: jest.fn(), exists: jest.fn() };
+  const service = new AssessmentInstructorService(
+    prisma as unknown as PrismaService,
+    stimulusStorage as unknown as AssessmentStimulusMediaStorage,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -57,6 +66,8 @@ describe('AssessmentInstructorService', () => {
     transaction.testQuestion.findFirst.mockResolvedValue(null);
     transaction.testQuestion.count.mockResolvedValue(0);
     transaction.question.findFirst.mockResolvedValue({ id: questionId });
+    transaction.rubric.findFirst.mockResolvedValue({ id: 'rubric-id' });
+    transaction.testQuestionGroup.findFirst.mockResolvedValue({ skill: ToeicSkill.READING });
     transaction.question.create.mockImplementation(({ data }) =>
       Promise.resolve({ id: questionId, ...data }),
     );
@@ -97,6 +108,7 @@ describe('AssessmentInstructorService', () => {
   ])('accepts valid %s questions and assigns contiguous option order', async (type, options) => {
     await service.createQuestion(instructorId, courseId, {
       type,
+      toeicSkill: 'READING',
       difficulty: QuestionDifficulty.HARD,
       content: '  Valid question  ',
       explanation: '  Explanation  ',
@@ -127,6 +139,7 @@ describe('AssessmentInstructorService', () => {
     await expect(
       service.createQuestion(instructorId, courseId, {
         type,
+        toeicSkill: 'READING',
         difficulty: QuestionDifficulty.EASY,
         content: 'Question',
         options: correct.map((isCorrect, index) => ({ content: `Option ${index}`, isCorrect })),
@@ -164,6 +177,7 @@ describe('AssessmentInstructorService', () => {
     await expect(
       service.createQuestion(instructorId, courseId, {
         type: QuestionResponseType.SINGLE_CHOICE,
+        toeicSkill: 'READING',
         difficulty: QuestionDifficulty.MEDIUM,
         content,
         options,
@@ -178,6 +192,32 @@ describe('AssessmentInstructorService', () => {
     await expect(service.listQuestions('unassigned', courseId)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  it.each([
+    [ToeicSkill.LISTENING, QuestionResponseType.TEXT_RESPONSE],
+    [ToeicSkill.READING, QuestionResponseType.AUDIO_RESPONSE],
+    [ToeicSkill.SPEAKING, QuestionResponseType.SINGLE_CHOICE],
+    [ToeicSkill.WRITING, QuestionResponseType.MULTIPLE_CHOICE],
+  ])('rejects the invalid %s/%s authoring matrix', async (toeicSkill, type) => {
+    await expect(service.createQuestion(instructorId, courseId, {
+      toeicSkill, type, difficulty: QuestionDifficulty.MEDIUM, content: 'Invalid matrix',
+      rubricId: toeicSkill === ToeicSkill.SPEAKING || toeicSkill === ToeicSkill.WRITING ? 'rubric-id' : undefined,
+      options: toeicSkill === ToeicSkill.SPEAKING || toeicSkill === ToeicSkill.WRITING ? [] : [{ content: 'A', isCorrect: true }, { content: 'B', isCorrect: false }],
+    })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('requires an active rubric and no options for productive authoring', async () => {
+    await service.createQuestion(instructorId, courseId, {
+      toeicSkill: ToeicSkill.WRITING, type: QuestionResponseType.TEXT_RESPONSE,
+      difficulty: QuestionDifficulty.MEDIUM, content: 'Write an email', rubricId: 'rubric-id', options: [],
+    });
+    expect(transaction.question.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ rubricId: 'rubric-id', options: { create: [] } }) }));
+    transaction.rubric.findFirst.mockResolvedValueOnce(null);
+    await expect(service.createQuestion(instructorId, courseId, {
+      toeicSkill: ToeicSkill.SPEAKING, type: QuestionResponseType.AUDIO_RESPONSE,
+      difficulty: QuestionDifficulty.MEDIUM, content: 'Respond aloud', rubricId: 'inactive-rubric', options: [],
+    })).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('applies Test defaults and lesson rules', async () => {
@@ -251,5 +291,25 @@ describe('AssessmentInstructorService', () => {
         points: 1,
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('enforces group skill compatibility and historical-attempt structure locks', async () => {
+    transaction.test.findUnique.mockResolvedValue({ courseId });
+    transaction.question.findFirst.mockResolvedValue({ id: questionId, toeicSkill: ToeicSkill.READING });
+    transaction.testQuestionGroup.findFirst.mockResolvedValueOnce({ skill: ToeicSkill.LISTENING });
+    await expect(service.addTestQuestion(instructorId, testId, { questionId, groupId: 'group-id', points: 1 })).rejects.toBeInstanceOf(BadRequestException);
+    transaction.testAttempt.count.mockResolvedValueOnce(1);
+    await expect(service.addTestQuestion(instructorId, testId, { questionId, points: 1 })).rejects.toBeInstanceOf(ConflictException);
+    expect(transaction.testQuestion.create).not.toHaveBeenCalled();
+  });
+
+  it('moves a question only to a compatible nested group', async () => {
+    transaction.test.findUnique.mockResolvedValue({ courseId });
+    transaction.testQuestion.findFirst.mockResolvedValue({ id: 'test-question-id', question: { toeicSkill: ToeicSkill.READING } });
+    transaction.testQuestion.update.mockResolvedValue({ id: 'test-question-id', groupId: 'group-id' });
+    transaction.testQuestionGroup.findFirst.mockResolvedValueOnce({ skill: ToeicSkill.READING });
+    await expect(service.moveTestQuestionGroup(instructorId, testId, 'test-question-id', 'group-id')).resolves.toMatchObject({ groupId: 'group-id' });
+    transaction.testQuestionGroup.findFirst.mockResolvedValueOnce({ skill: ToeicSkill.LISTENING });
+    await expect(service.moveTestQuestionGroup(instructorId, testId, 'test-question-id', 'group-id')).rejects.toBeInstanceOf(BadRequestException);
   });
 });

@@ -8,8 +8,9 @@ import { knowledgeModelApi } from '@/features/knowledge-model/api';
 import { SkillChecklistDialog } from '@/features/knowledge-model/SkillChecklistDialog';
 import type { Skill } from '@/features/knowledge-model/types';
 
-export function CourseContentManagementPage() {
-  const { courseId } = useParams<{ courseId: string }>();
+export function CourseContentManagementPage({ courseId: explicitCourseId, sharedWarning = false }: { courseId?: string; sharedWarning?: boolean } = {}) {
+  const { courseId: routeCourseId } = useParams<{ courseId: string }>();
+  const courseId = explicitCourseId ?? routeCourseId;
   const redirectExpiredSession = useSessionExpiry();
 
   const [modules, setModules] = useState<Module[]>([]);
@@ -144,7 +145,7 @@ export function CourseContentManagementPage() {
 
     try {
       if (editingModule?.id) {
-        const updated = await instructorApi.modules.update(editingModule.id, { title, description });
+        const updated = await instructorApi.modules.update(editingModule.id, { title, description, expectedUpdatedAt: editingModule.updatedAt! });
         setModules((current) => current.map((item) => item.id === updated.id ? updated : item));
       } else {
         const created = await instructorApi.modules.create(courseId, { title, description });
@@ -212,7 +213,7 @@ export function CourseContentManagementPage() {
 
     try {
       if (editingLesson?.id) {
-        const updated = await instructorApi.lessons.update(editingLesson.id, { title, description });
+        const updated = await instructorApi.lessons.update(editingLesson.id, { title, description, expectedUpdatedAt: editingLesson.updatedAt! });
         setLessonsMap(prev => ({
           ...prev,
           [moduleId]: (prev[moduleId] ?? []).map((item) => item.id === updated.id ? updated : item)
@@ -289,10 +290,19 @@ export function CourseContentManagementPage() {
     const type = formData.get('type') as ResourceType;
     const url = formData.get('url') as string;
     const isDownloadable = formData.get('isDownloadable') === 'on';
+    const file = formData.get('file');
 
     try {
-      if (editingResource?.id) {
-        const updated = await instructorApi.resources.update(editingResource.id, { title, type, url, isDownloadable });
+      if (file instanceof File && file.size > 0) {
+        const uploaded = await instructorApi.resources.upload(lessonId, title, file, editingResource?.id, editingResource?.updatedAt);
+        setResourcesMap(prev => ({
+          ...prev,
+          [lessonId]: editingResource?.id
+            ? (prev[lessonId] ?? []).map((item) => item.id === uploaded.id ? uploaded : item)
+            : [...(prev[lessonId] ?? []), uploaded],
+        }));
+      } else if (editingResource?.id) {
+        const updated = await instructorApi.resources.update(editingResource.id, { title, type, url, isDownloadable, expectedUpdatedAt: editingResource.updatedAt! });
         setResourcesMap(prev => ({
           ...prev,
           [lessonId]: (prev[lessonId] ?? []).map((item) => item.id === updated.id ? updated : item)
@@ -404,6 +414,7 @@ export function CourseContentManagementPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8">
+      {sharedWarning ? <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4 font-medium text-amber-900">Nội dung này dùng chung cho các lớp thuộc khóa học này.</div> : null}
       {actionError ? (
         <p className="mb-4 rounded-md bg-red-50 p-3 text-red-700" role="alert">
           {actionError}
@@ -488,8 +499,8 @@ export function CourseContentManagementPage() {
                                 Bài {lIndex + 1}: {lesson.title}
                               </span>
                             </div>
-                            <div className="flex gap-2">
-                               <button onClick={() => void openLessonSkillMapping(lesson)} className="text-xs text-emerald-700 hover:underline">Edit Skills</button>
+                              <div className="flex gap-2">
+                               <button onClick={() => void openLessonSkillMapping(lesson)} className="text-xs text-emerald-700 hover:underline" title="Tính năng nghiên cứu cũ">Legacy: Edit Skills</button>
                                <button onClick={() => handleReorderLessons(module.id, lIndex, 'up')} disabled={lIndex === 0} className="px-1 text-gray-400 disabled:opacity-30">▲</button>
                                <button onClick={() => handleReorderLessons(module.id, lIndex, 'down')} disabled={lIndex === lessonsMap[module.id].length - 1} className="px-1 text-gray-400 disabled:opacity-30">▼</button>
                                <button onClick={() => { setEditingLesson(lesson); setIsLessonModalOpen(true); }} className="text-xs text-blue-600 hover:underline">Sửa</button>
@@ -516,7 +527,7 @@ export function CourseContentManagementPage() {
                                       <li key={resource.id} className="flex justify-between items-center bg-white p-2 rounded border border-gray-100 text-sm">
                                         <div className="flex items-center gap-2">
                                           <span className="px-1.5 py-0.5 bg-gray-200 text-gray-700 text-xs rounded">{resource.type}</span>
-                                          <a href={resource.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate max-w-xs">{resource.title}</a>
+                                          <a href={resource.url ?? `/api/instructor/resources/${resource.id}/file`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate max-w-xs">{resource.title}</a>
                                           {resource.isDownloadable && <span className="text-xs text-green-600 ml-2">(Có thể tải)</span>}
                                         </div>
                                         <div className="flex gap-2">
@@ -608,7 +619,12 @@ export function CourseContentManagementPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">URL / Link</label>
-                <input name="url" type="url" required defaultValue={editingResource?.url} className="w-full border rounded p-2" />
+                <input name="url" type="url" defaultValue={editingResource?.url ?? ''} className="w-full border rounded p-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Hoặc tải tài liệu lên (PDF, DOCX, PPTX, XLSX, TXT · tối đa 20 MB)</label>
+                <input accept=".pdf,.docx,.pptx,.xlsx,.txt" className="w-full rounded border p-2" name="file" type="file" />
+                <p className="mt-1 text-xs text-slate-500">Tệp được lưu riêng tư và phân phối qua máy chủ; tải tệp mới sẽ thay thế tệp đang chọn.</p>
               </div>
               <div className="flex items-center gap-2">
                 <input name="isDownloadable" type="checkbox" id="isDownloadable" defaultChecked={editingResource?.isDownloadable} />

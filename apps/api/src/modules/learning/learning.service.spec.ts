@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { EnrollmentStatus, LessonProgressStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { LearningService } from './learning.service';
+import { LearningResourceStorage } from './learning-resource.storage';
 
 describe('LearningService', () => {
   const learnerId = 'learner-id';
@@ -38,7 +39,11 @@ describe('LearningService', () => {
     masteryHistory: { findMany: jest.fn() },
     $transaction: jest.fn(),
   };
-  const service = new LearningService(prisma as unknown as PrismaService);
+  const storage = { open: jest.fn(), stat: jest.fn(), put: jest.fn(), delete: jest.fn() };
+  const service = new LearningService(
+    prisma as unknown as PrismaService,
+    storage as unknown as LearningResourceStorage,
+  );
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(now);
