@@ -215,6 +215,40 @@ describe('TestEditorPage', () => {
     await waitFor(() => expect(updatePoints).toHaveBeenCalledWith(testId, existing.id, 4));
   });
 
+  it('keeps multi-page selection for a 1,000-question server-side picker', async () => {
+    const current = {
+      ...detail(testId, 'PLACEMENT', 'DRAFT', []),
+      questionGroups: [{
+        id: 'reading-part', skill: 'READING' as const, orderIndex: 0, title: 'Reading', instructions: null,
+        preparationSeconds: null, responseSeconds: null, recommendedSeconds: null, maxRecordingSeconds: null,
+        stimuli: [], testQuestions: [],
+      }],
+    };
+    vi.spyOn(curriculum, 'loadCourseLessons').mockResolvedValue(lessons);
+    vi.spyOn(assessmentApi.tests, 'get').mockResolvedValue(current);
+    vi.spyOn(assessmentApi.questions, 'page').mockImplementation(async (_course, query) => {
+      const page = query?.page ?? 1;
+      const item = question(`q-${page}`, `Question page ${page}`);
+      return { items: [item], page, pageSize: 20, total: 1000, totalPages: 50 };
+    });
+    renderEditor();
+    await screen.findByText('Reading');
+    fireEvent.click(screen.getByRole('button', { name: /Chọn để thêm câu hỏi/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Mở bộ chọn câu hỏi/i }));
+    const dialog = await screen.findByRole('dialog', { name: /Bộ chọn câu hỏi/i });
+    expect(within(dialog).getByText(/1000 câu phù hợp/i)).toBeInTheDocument();
+    fireEvent.click((await within(dialog).findAllByRole('checkbox'))[0]);
+    expect(within(dialog).getByText(/Đã chọn 1 câu/i)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: /Trang sau/i }));
+    const pageTwo = await within(dialog).findByText('Question page 2');
+    fireEvent.click(pageTwo.closest('label')!.querySelector('input')!);
+    expect(within(dialog).getByText(/Đã chọn 2 câu/i)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: /Trang trước/i }));
+    const pageOne = await within(dialog).findByText('Question page 1');
+    expect(pageOne.closest('label')!.querySelector('input')).toBeChecked();
+    expect(assessmentApi.questions.page).toHaveBeenCalledWith(courseId, expect.objectContaining({ page: 2, pageSize: 20, skill: 'READING' }), expect.any(AbortSignal));
+  });
+
   it('guards duplicate add/points requests and maps duplicate Question conflict safely', async () => {
     const existing = testQuestion('tq-a', 'q-a', 'Question A', 0);
     const available = question('q-b', 'Question B');
@@ -329,7 +363,7 @@ function mockManagement(tests: AssessmentTestDetail[]) {
 function mockEditor(test: AssessmentTestDetail, questions: AssessmentQuestion[]) {
   vi.spyOn(curriculum, 'loadCourseLessons').mockResolvedValue(lessons);
   vi.spyOn(assessmentApi.tests, 'get').mockResolvedValue(test);
-  vi.spyOn(assessmentApi.questions, 'list').mockResolvedValue(questions);
+  vi.spyOn(assessmentApi.questions, 'page').mockResolvedValue({ items: questions, page: 1, pageSize: 20, total: questions.length, totalPages: 1 });
 }
 
 function detail(id: string, type: TestType, status: TestStatus, testQuestions: AssessmentTestQuestion[]): AssessmentTestDetail {
@@ -343,7 +377,7 @@ function detail(id: string, type: TestType, status: TestStatus, testQuestions: A
 
 function question(id: string, content: string): AssessmentQuestion {
   return {
-    id, courseId, type: 'SINGLE_CHOICE', difficulty: 'MEDIUM', content, explanation: null,
+    id, courseId, type: 'SINGLE_CHOICE', toeicSkill: 'READING', difficulty: 'MEDIUM', content, explanation: null,
     createdAt: '2026-09-22T00:00:00Z', updatedAt: '2026-09-22T00:00:00Z',
     options: [
       { id: `${id}-a`, content: 'A', isCorrect: true, orderIndex: 0 },

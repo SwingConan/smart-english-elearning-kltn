@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Workbook } from 'exceljs';
 import {
   Prisma,
   AssessmentStimulusType,
@@ -31,6 +32,8 @@ import {
   ReorderTestGroupsDto,
   UpdateTestGroupDto,
 } from './dto/test-group.dto';
+import { QuestionQueryDto } from './dto/question-query.dto';
+import { ConfirmQuestionImportDto } from './dto/confirm-question-import.dto';
 
 const MAX_ASSESSMENT_TRANSACTION_ATTEMPTS = 3;
 
@@ -55,6 +58,7 @@ const instructorQuestionSelect = {
       orderIndex: true,
     },
   },
+  _count: { select: { testQuestions: true } },
 } satisfies Prisma.QuestionSelect;
 
 const instructorQuestionPreviewSelect = {
@@ -142,6 +146,25 @@ interface NormalizedQuestionInput {
   }>;
 }
 
+function safeSpreadsheetText(value: unknown, errors: string[]): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'object') {
+    const cell = value as Record<string, unknown>;
+    if ('formula' in cell || 'sharedFormula' in cell) {
+      errors.push('Không chấp nhận công thức trong tệp nhập.');
+      return '';
+    }
+    if (Array.isArray(cell.richText)) {
+      return cell.richText.map((part) => String((part as Record<string, unknown>).text ?? '')).join('');
+    }
+    if (typeof cell.text === 'string') return cell.text;
+  }
+  errors.push('Ô dữ liệu có định dạng không được hỗ trợ.');
+  return '';
+}
+
 interface NormalizedTestInput {
   purpose: TestPurpose;
   placementMode: PlacementMode | null;
@@ -208,13 +231,126 @@ export class AssessmentInstructorService {
     return rubric;
   }
 
-  async listQuestions(instructorId: string, courseId: string) {
+  async listQuestions(instructorId: string, courseId: string, query: QuestionQueryDto = new QuestionQueryDto()) {
     await this.assertInstructorOwnsCourse(this.prisma, instructorId, courseId);
+    const where: Prisma.QuestionWhereInput = {
+      courseId,
+      ...(query.search ? { content: { contains: query.search, mode: 'insensitive' } } : {}),
+      ...(query.skill ? { toeicSkill: query.skill } : {}),
+      ...(query.responseType ? { responseType: query.responseType } : {}),
+      ...(query.difficulty ? { difficulty: query.difficulty } : {}),
+      ...(query.usage === 'USED' ? { testQuestions: { some: {} } } : {}),
+      ...(query.usage === 'UNUSED' ? { testQuestions: { none: {} } } : {}),
+    };
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const [items, total] = await Promise.all([
+      this.prisma.question.findMany({
+        where,
+        select: instructorQuestionSelect,
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.question.count({ where }),
+    ]);
+    return {
+      items: items.map((item) => ({ ...item, usageCount: item._count.testQuestions, _count: undefined })),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
 
-    return this.prisma.question.findMany({
-      where: { courseId },
-      select: instructorQuestionSelect,
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  async questionImportTemplate(instructorId: string, courseId: string): Promise<Buffer> {
+    await this.assertInstructorOwnsCourse(this.prisma, instructorId, courseId);
+    const workbook = new Workbook();
+    const sheet = workbook.addWorksheet('Questions');
+    sheet.addRow(['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id']);
+    sheet.addRow(['READING', 'SINGLE_CHOICE', 'EASY', 'Choose the correct answer.', 'Project-authored explanation.', 'Option A', 'Option B', 'Option C', 'Option D', 'A', '']);
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+    sheet.getRow(1).font = { bold: true };
+    return Buffer.from(await workbook.xlsx.writeBuffer());
+  }
+
+  async previewQuestionImport(instructorId: string, courseId: string, file?: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
+    await this.assertInstructorOwnsCourse(this.prisma, instructorId, courseId);
+    if (!file) throw new BadRequestException('Vui lòng chọn tệp XLSX để kiểm tra.');
+    if (file.size > 5 * 1024 * 1024) throw new BadRequestException('Tệp XLSX không được vượt quá 5 MB.');
+    if (!file.originalname.toLowerCase().endsWith('.xlsx')) throw new BadRequestException('Chỉ hỗ trợ định dạng XLSX.');
+    const workbook = new Workbook();
+    try {
+      await workbook.xlsx.load(file.buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+    } catch {
+      throw new BadRequestException('Không thể đọc tệp XLSX.');
+    }
+    const sheet = workbook.worksheets[0];
+    if (!sheet) throw new BadRequestException('Tệp XLSX không có trang dữ liệu.');
+    const headers = sheet.getRow(1).values as unknown[];
+    const expected = ['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id'];
+    if (expected.some((header, index) => String(headers[index + 1] ?? '').trim().toLowerCase() !== header)) {
+      throw new BadRequestException('Tiêu đề cột không đúng mẫu nhập câu hỏi.');
+    }
+    if (Math.max(0, sheet.actualRowCount - 1) > 2000) throw new BadRequestException('Mỗi lần chỉ được nhập tối đa 2.000 câu hỏi.');
+    const rows: Array<{ rowNumber: number; input: CreateQuestionDto | null; errors: string[] }> = [];
+    for (let rowNumber = 2; rowNumber <= sheet.actualRowCount; rowNumber += 1) {
+      const row = sheet.getRow(rowNumber);
+      if ((row.values as unknown[]).slice(1).every((value) => value === null || value === undefined || String(value).trim() === '')) continue;
+      const errors: string[] = [];
+      const values = Array.from({ length: expected.length }, (_, index) => safeSpreadsheetText(row.getCell(index + 1).value, errors));
+      const [skill, type, difficulty, content, explanation, optionA, optionB, optionC, optionD, correctText, rubricId] = values;
+      const correct = new Set(correctText.toUpperCase().split(/[;,\s]+/).filter(Boolean));
+      const options = [optionA, optionB, optionC, optionD]
+        .map((option, index) => ({ content: option.trim(), isCorrect: correct.has(String.fromCharCode(65 + index)) }))
+        .filter((option) => option.content.length > 0);
+      const input = {
+        type: type.toUpperCase() as QuestionResponseType,
+        toeicSkill: skill.toUpperCase() as ToeicSkill,
+        difficulty: difficulty.toUpperCase() as QuestionDifficulty,
+        content: content.trim(),
+        explanation: explanation.trim() || null,
+        rubricId: rubricId.trim() || null,
+        options,
+      } as CreateQuestionDto;
+      try {
+        this.normalizeAndValidateQuestion(input);
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : 'Dữ liệu câu hỏi không hợp lệ.');
+      }
+      rows.push({ rowNumber, input: errors.length === 0 ? input : null, errors });
+    }
+    if (rows.length === 0) throw new BadRequestException('Tệp XLSX không có câu hỏi để nhập.');
+    return {
+      rows,
+      summary: { total: rows.length, valid: rows.filter((row) => row.errors.length === 0).length, invalid: rows.filter((row) => row.errors.length > 0).length },
+      canConfirm: rows.every((row) => row.errors.length === 0),
+    };
+  }
+
+  async confirmQuestionImport(instructorId: string, courseId: string, dto: ConfirmQuestionImportDto) {
+    const normalized = dto.rows.map((row) => this.normalizeAndValidateQuestion(row));
+    return this.prisma.$transaction(async (transaction) => {
+      await this.assertInstructorOwnsCourse(transaction, instructorId, courseId);
+      for (const row of normalized) await this.assertRubricRule(transaction, row.toeicSkill, row.rubricId);
+      const questionIds: string[] = [];
+      for (const row of normalized) {
+        const created = await transaction.question.create({
+          data: {
+            courseId,
+            responseType: row.responseType,
+            toeicSkill: row.toeicSkill,
+            difficulty: row.difficulty,
+            content: row.content,
+            explanation: row.explanation,
+            rubricId: row.rubricId,
+            options: { create: row.options.map((option, orderIndex) => ({ ...option, orderIndex })) },
+          },
+          select: { id: true },
+        });
+        questionIds.push(created.id);
+      }
+      return { importedCount: questionIds.length, questionIds };
     });
   }
 
@@ -521,17 +657,17 @@ export class AssessmentInstructorService {
       }
     }
     if (new Set(test.testQuestions.map((item) => item.question.toeicSkill)).size > 1 && test.questionGroups.length === 0) {
-      throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: 'groups', message: 'Mẫu bài kiểm tra nhiều kỹ năng cần ít nhất một nhóm câu hỏi.' });
+      throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: 'groups', message: 'Đề kiểm tra nhiều kỹ năng cần ít nhất một phần thi.' });
     }
     if (test.questionGroups.length > 0) {
       for (const [index, group] of test.questionGroups.entries()) {
-        if (group.orderIndex !== index) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.orderIndex`, message: 'Thứ tự nhóm câu hỏi phải liên tục.' });
-        if (group.testQuestions.length === 0) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Mỗi nhóm phải có ít nhất một câu hỏi.' });
-        if (test.testQuestions.some((item) => item.groupId === group.id && item.question.toeicSkill !== group.skill)) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Kỹ năng câu hỏi không khớp kỹ năng nhóm.' });
-        for (const stimulus of group.stimuli) if (stimulus.storageKey && !(await this.stimulusStorage.exists(stimulus.storageKey))) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.stimuli.${stimulus.id}`, message: 'Tệp stimulus không khả dụng.' });
+        if (group.orderIndex !== index) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.orderIndex`, message: 'Thứ tự phần thi phải liên tục.' });
+        if (group.testQuestions.length === 0) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Mỗi phần thi phải có ít nhất một câu hỏi.' });
+        if (test.testQuestions.some((item) => item.groupId === group.id && item.question.toeicSkill !== group.skill)) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Kỹ năng câu hỏi không khớp kỹ năng phần thi.' });
+        for (const stimulus of group.stimuli) if (stimulus.storageKey && !(await this.stimulusStorage.exists(stimulus.storageKey))) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.stimuli.${stimulus.id}`, message: 'Tệp ngữ liệu không khả dụng.' });
       }
       const ungrouped = test.testQuestions.find((item) => !item.groupId);
-      if (ungrouped) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `questions.${ungrouped.id}.groupId`, message: 'Câu hỏi cần thuộc một nhóm trước khi xuất bản.' });
+      if (ungrouped) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `questions.${ungrouped.id}.groupId`, message: 'Câu hỏi cần thuộc một phần thi trước khi xuất bản.' });
     }
     return test;
   }
@@ -641,31 +777,31 @@ export class AssessmentInstructorService {
       if (new Set(test.testQuestions.map((item) => item.question.toeicSkill)).size > 1 && test.questionGroups.length === 0) {
         throw new BadRequestException({
           code: 'PUBLISH_VALIDATION_FAILED', field: 'groups',
-          message: 'Mẫu bài kiểm tra nhiều kỹ năng cần ít nhất một nhóm câu hỏi.',
+          message: 'Đề kiểm tra nhiều kỹ năng cần ít nhất một phần thi.',
         });
       }
 
       if (test.questionGroups.length > 0) {
         for (const [groupIndex, group] of test.questionGroups.entries()) {
           if (group.orderIndex !== groupIndex) {
-            throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.orderIndex`, message: 'Thứ tự nhóm câu hỏi phải liên tục.' });
+            throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.orderIndex`, message: 'Thứ tự phần thi phải liên tục.' });
           }
           if (group.testQuestions.length === 0) {
-            throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Mỗi nhóm phải có ít nhất một câu hỏi.' });
+            throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Mỗi phần thi phải có ít nhất một câu hỏi.' });
           }
           const incompatible = test.testQuestions.find((item) => item.groupId === group.id && item.question.toeicSkill !== group.skill);
           if (incompatible) {
-            throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Kỹ năng câu hỏi không khớp kỹ năng nhóm.' });
+            throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Kỹ năng câu hỏi không khớp kỹ năng phần thi.' });
           }
           for (const stimulus of group.stimuli) {
             if (stimulus.storageKey && !(await this.stimulusStorage.exists(stimulus.storageKey))) {
-              throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.stimuli.${stimulus.id}`, message: 'Tệp stimulus không khả dụng.' });
+              throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.stimuli.${stimulus.id}`, message: 'Tệp ngữ liệu không khả dụng.' });
             }
           }
         }
         const ungrouped = test.testQuestions.find((item) => !item.groupId);
         if (ungrouped) {
-          throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `questions.${ungrouped.id}.groupId`, message: 'Câu hỏi cần thuộc một nhóm trước khi xuất bản.' });
+          throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `questions.${ungrouped.id}.groupId`, message: 'Câu hỏi cần thuộc một phần thi trước khi xuất bản.' });
         }
       }
 
@@ -983,7 +1119,7 @@ export class AssessmentInstructorService {
         where: { groupId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true },
       });
       const textContent = dto.textContent.trim();
-      if (!textContent) throw new BadRequestException('Nội dung stimulus không được để trống.');
+      if (!textContent) throw new BadRequestException('Nội dung ngữ liệu không được để trống.');
       const created = await transaction.assessmentStimulus.create({
         data: {
           groupId,
@@ -1065,7 +1201,7 @@ export class AssessmentInstructorService {
       }
       await this.revalidatePublishedTest(transaction, testId, test.status);
       return transaction.assessmentStimulus.findMany({ where: { groupId }, orderBy: { orderIndex: 'asc' } });
-    }, 'Thứ tự stimulus đang được cập nhật ở phiên khác. Vui lòng thử lại.');
+    }, 'Thứ tự ngữ liệu đang được cập nhật ở phiên khác. Vui lòng thử lại.');
   }
 
   private normalizeGroup(dto: CreateTestGroupDto | UpdateTestGroupDto) {
@@ -1093,9 +1229,9 @@ export class AssessmentInstructorService {
       ['audio/webm', { extension: 'webm', type: AssessmentStimulusType.AUDIO, valid: file.buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3])) }],
     ]);
     const rule = image.get(file.mimetype) ?? audio.get(file.mimetype);
-    if (!rule || !rule.valid) throw new BadRequestException('Định dạng hoặc nội dung tệp stimulus không hợp lệ.');
+    if (!rule || !rule.valid) throw new BadRequestException('Định dạng hoặc nội dung tệp ngữ liệu không hợp lệ.');
     const limit = rule.type === AssessmentStimulusType.IMAGE ? 5 * 1024 * 1024 : 20 * 1024 * 1024;
-    if (file.size > limit) throw new BadRequestException('Tệp stimulus vượt quá dung lượng cho phép.');
+    if (file.size > limit) throw new BadRequestException('Tệp ngữ liệu vượt quá dung lượng cho phép.');
     return { ...rule, mimeType: file.mimetype };
   }
 

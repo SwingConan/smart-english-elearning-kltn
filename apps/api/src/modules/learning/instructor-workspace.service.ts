@@ -30,7 +30,12 @@ export class InstructorWorkspaceService {
         _count: { select: { enrollments: { where: { status: EnrollmentStatus.ACTIVE } } } },
       },
     });
-    return classes.map((item) => ({ ...item, activeLearnerCount: item._count.enrollments, _count: undefined }));
+    return classes.map((item) => ({
+      ...item,
+      scheduleSlots: item.scheduleSlots.map(projectScheduleSlot),
+      activeLearnerCount: item._count.enrollments,
+      _count: undefined,
+    }));
   }
 
   async overview(instructorId: string, classOfferingId: string) {
@@ -47,7 +52,11 @@ export class InstructorWorkspaceService {
       }),
       this.prisma.testAttempt.findMany({
         where: { classAssessment: { classOfferingId }, status: TestAttemptStatus.SUBMITTED },
-        select: { answers: { select: { evaluations: { where: { status: AnswerEvaluationStatus.REVIEWED_FINAL }, select: { id: true } }, testQuestion: { select: { question: { select: { toeicSkill: true } } } } } } },
+        select: {
+          learnerId: true,
+          classAssessmentId: true,
+          answers: { select: { evaluations: { where: { status: AnswerEvaluationStatus.REVIEWED_FINAL }, select: { id: true } }, testQuestion: { select: { question: { select: { toeicSkill: true } } } } } },
+        },
       }),
     ]);
     const pendingGradingCount = submittedAttempts.filter((attempt) =>
@@ -63,10 +72,19 @@ export class InstructorWorkspaceService {
         total: totalLessons * activeLearnerCount,
         percentage: totalLessons * activeLearnerCount === 0 ? 0 : Math.round((completedLessonRows / (totalLessons * activeLearnerCount)) * 100),
       },
-      assessments: assessments.map((item) => ({
-        ...item,
-        availability: item.openAt && item.openAt > now ? 'UPCOMING' : !item.closeAt || item.closeAt >= now ? 'OPEN' : 'CLOSED',
-      })),
+      assessments: assessments.map((item) => {
+        const submittedLearners = new Set(
+          submittedAttempts
+            .filter((attempt) => attempt.classAssessmentId === item.id)
+            .map((attempt) => attempt.learnerId),
+        );
+        return {
+          ...item,
+          availability: item.openAt && item.openAt > now ? 'UPCOMING' : !item.closeAt || item.closeAt >= now ? 'OPEN' : 'CLOSED',
+          submittedLearnerCount: submittedLearners.size,
+          activeLearnerCount,
+        };
+      }),
       pendingGradingCount,
     };
   }
@@ -80,11 +98,16 @@ export class InstructorWorkspaceService {
       select: {
         id: true, status: true, enrolledAt: true,
         learner: { select: { id: true, fullName: true, email: true } },
-        lessonProgress: { select: { status: true } },
+        lessonProgress: { select: { status: true, lastAccessedAt: true, completedAt: true } },
         testAttempts: {
           where: { classAssessment: { classOfferingId }, status: TestAttemptStatus.SUBMITTED },
           orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
-          select: { submittedAt: true, skillScores: { select: { status: true } }, answers: { select: { evaluations: { where: { status: AnswerEvaluationStatus.REVIEWED_FINAL }, select: { id: true } }, testQuestion: { select: { question: { select: { toeicSkill: true } } } } } } },
+          select: {
+            submittedAt: true,
+            classAssessment: { select: { test: { select: { title: true } } } },
+            skillScores: { select: { status: true, normalizedScore: true } },
+            answers: { select: { evaluations: { where: { status: AnswerEvaluationStatus.REVIEWED_FINAL }, select: { id: true } }, testQuestion: { select: { question: { select: { toeicSkill: true } } } } } },
+          },
         },
       },
     });
@@ -94,6 +117,12 @@ export class InstructorWorkspaceService {
         const completedLessons = enrollment.lessonProgress.filter((item) => item.status === LessonProgressStatus.COMPLETED).length;
         const pendingGradingCount = enrollment.testAttempts.filter((attempt) => attempt.answers.some((answer) => PRODUCTIVE_SKILLS.includes(answer.testQuestion.question.toeicSkill) && answer.evaluations.length === 0)).length;
         const latestFinal = enrollment.testAttempts.find((attempt) => attempt.skillScores.some((score) => score.status === SkillScoreStatus.FINAL));
+        const latestAttempt = enrollment.testAttempts[0];
+        const latestLearningActivityAt = enrollment.lessonProgress.reduce<Date | null>((latest, item) => {
+          const activityAt = item.lastAccessedAt ?? item.completedAt;
+          return activityAt && (!latest || activityAt > latest) ? activityAt : latest;
+        }, null);
+        const finalScores = latestAttempt?.skillScores.filter((score) => score.status === SkillScoreStatus.FINAL) ?? [];
         return {
           id: enrollment.id, status: enrollment.status, enrolledAt: enrollment.enrolledAt, learner: enrollment.learner,
           completedLessons, totalLessons,
@@ -101,6 +130,15 @@ export class InstructorWorkspaceService {
           submittedAssessmentCount: enrollment.testAttempts.length,
           pendingGradingCount,
           latestGradedAssessmentAt: latestFinal?.submittedAt ?? null,
+          latestLearningActivityAt,
+          latestAssessment: latestAttempt ? {
+            title: latestAttempt.classAssessment?.test.title,
+            submittedAt: latestAttempt.submittedAt,
+            state: pendingGradingCount > 0 ? 'PENDING' : finalScores.length > 0 ? 'GRADED' : 'SUBMITTED',
+            average: finalScores.length > 0
+              ? Math.round((finalScores.reduce((sum, score) => sum + Number(score.normalizedScore), 0) / finalScores.length) * 10) / 10
+              : null,
+          } : null,
         };
       }),
     };
@@ -195,7 +233,7 @@ export class InstructorWorkspaceService {
       },
     });
     const submissions = attempts.flatMap((attempt) => {
-      if (attempt.answers.length === 0) return [];
+      if (attempt.answers.length === 0 || !attempt.classAssessment) return [];
       const evaluatedCount = attempt.answers.filter((answer) => answer.evaluations.length > 0).length;
       const finalizedCount = attempt.answers.filter((answer) =>
         answer.evaluations.some((evaluation) => evaluation.status === AnswerEvaluationStatus.REVIEWED_FINAL),
@@ -216,6 +254,23 @@ export class InstructorWorkspaceService {
         productiveTotal: attempt.answers.length,
       }];
     });
+    const grouped = submissions.reduce<Array<{
+      classAssessment: (typeof submissions)[number]['classAssessment'];
+      learners: Array<{ learner: (typeof submissions)[number]['learner']; attempts: typeof submissions }>;
+    }>>((assessmentGroups, submission) => {
+      let assessmentGroup = assessmentGroups.find((item) => item.classAssessment!.id === submission.classAssessment!.id);
+      if (!assessmentGroup) {
+        assessmentGroup = { classAssessment: submission.classAssessment, learners: [] };
+        assessmentGroups.push(assessmentGroup);
+      }
+      let learnerGroup = assessmentGroup.learners.find((item) => item.learner.id === submission.learner.id);
+      if (!learnerGroup) {
+        learnerGroup = { learner: submission.learner, attempts: [] };
+        assessmentGroup.learners.push(learnerGroup);
+      }
+      learnerGroup.attempts.push(submission);
+      return assessmentGroups;
+    }, []);
     return {
       classOffering: classroom,
       summary: {
@@ -224,6 +279,7 @@ export class InstructorWorkspaceService {
         final: submissions.filter((item) => item.gradingState === 'FINAL').length,
       },
       submissions,
+      groups: grouped,
     };
   }
 
@@ -263,6 +319,14 @@ export class InstructorWorkspaceService {
       },
     });
     if (!classroom) throw new ForbiddenException('You are not assigned to this class');
-    return classroom;
+    return { ...classroom, scheduleSlots: classroom.scheduleSlots.map(projectScheduleSlot) };
   }
+}
+
+function formatTimeOnly(value: Date): string {
+  return `${String(value.getUTCHours()).padStart(2, '0')}:${String(value.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+function projectScheduleSlot(slot: { dayOfWeek: number; startTime: Date; endTime: Date; locationText: string | null }) {
+  return { ...slot, startTime: formatTimeOnly(slot.startTime), endTime: formatTimeOnly(slot.endTime) };
 }

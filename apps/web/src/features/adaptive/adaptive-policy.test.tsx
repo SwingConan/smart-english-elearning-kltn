@@ -261,7 +261,7 @@ describe('Instructor adaptive policy navigation', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Instructor LMS')).toBeInTheDocument();
+    expect(await screen.findByText('Không gian giảng dạy')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Chính sách thích ứng/i })).not.toBeInTheDocument();
   });
 });

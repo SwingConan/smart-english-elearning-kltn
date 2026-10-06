@@ -93,41 +93,66 @@
 | `npm run prisma:seed` ×2 | PASS — idempotent |
 | `npm run lint` | PASS |
 | `npm run typecheck` | PASS |
-| `npm run test` | PASS — API 372/372; Web 227/227 |
-| `npm run test:e2e -w @smart-elearning/api` | PASS — 96/96 |
+| `npm run test` | PASS — API 377/377; Web 230/230 |
+| `npm run test:e2e -w @smart-elearning/api` | PASS — 97/97 after deterministic reseed |
 | `npm run build` | PASS |
 | `git diff --check` | PASS |
 
 ## Developer browser smoke
 
-The repeatable CDP smoke driver is `scripts/m07-browser-smoke.mjs`. It was run against local API `http://localhost:3000/api` and Web `http://localhost:5173` in Microsoft Edge headless with the local seed credential supplied only through `M07_SMOKE_PASSWORD`.
+The repeatable CDP smoke driver is `scripts/m07-browser-smoke.mjs`. It was run against local API `http://localhost:3000/api` and Web `http://localhost:5173` in Chrome headless with the local seed credential supplied only through `M07_SMOKE_PASSWORD`.
 
-All 16 checks passed:
+All 20 checks passed:
 
-1. Instructor teaching list.
-2. Class overview.
-3. Roster.
-4. Learner detail.
-5. Shared-content warning.
-6. Four-skill Question Bank.
-7. Grouped Test Builder.
-8. Class scheduling.
-9. Grading inbox.
-10. Grading detail and next-item actions.
-11. Class results.
-12. Visible stored-document metadata edit, persistence after reload, and deterministic title restoration.
-13. Visible Student LessonPage stored-document download through the user-facing action.
-14. Protected student document delivery with attachment headers and body verification.
-15. Mobile class workspace/drawer at 390 × 844.
-16. Tablet results at 820 × 1180.
+1. Isolated 1,000-question server-paginated picker, followed by complete fixture cleanup.
+2. Instructor teaching list.
+3. Class overview.
+4. Roster.
+5. Learner detail.
+6. Shared-content warning.
+7. Upload, Video, and Link resource creation modes.
+8. Four-skill Question Bank pagination/import entry points.
+9. XLSX validation preview without confirmation/write.
+10. Safe Question Bank return to the originating class-assessment route.
+11. Guided grouped Test Builder.
+12. Class scheduling.
+13. Grading inbox.
+14. Grading detail and same-attempt response navigator.
+15. Class results.
+16. Visible stored-document metadata edit, persistence after reload, and deterministic title restoration.
+17. Visible Student LessonPage stored-document download through the user-facing action.
+18. Protected student document delivery with attachment headers and body verification.
+19. Mobile class workspace/drawer at 390 × 844.
+20. Tablet results at 820 × 1180.
 
 No horizontal page overflow was detected in any checked viewport. The smoke pass exposed and corrected aborted-request handling on instructor pages under browser navigation, and corrected Question Bank copy to describe four-skill authoring truthfully.
 
 This is a developer smoke pass, not the Product Owner Manual Visual Gate.
 
+## Product Owner Visual Gate Round 1 redesign
+
+- **VG07-01 — Teaching list:** replaced oversized class cards with a compact desktop table and responsive mobile cards; schedule slots are projected as `HH:mm`, with no database transport date exposed.
+- **VG07-02 — Class overview:** added a clear KPI hierarchy, lesson-completion evidence, assessment windows, status, and submitted/active learner counts.
+- **VG07-03 — Roster:** added striped operational rows, proportional progress bars, latest learning activity, and latest assessment state while retaining the mobile-card fallback.
+- **VG07-04 — Learner detail:** renamed the four-skill summary, added proportional score bars, and grouped attempt history by assessment with nested attempts.
+- **VG07-05 — Course content:** retained the desktop outline/editor hierarchy and separated resource authoring into Upload, Video, and Link modes; stored-file editing shows safe metadata and replacement/delete controls.
+- **VG07-06 — Question Bank scale:** added server-side search/filter/usage pagination, usage counts, and bounded page sizes.
+- **VG07-07 — XLSX import:** added a 5 MB, 2,000-row, `.xlsx`-only two-stage preview/confirm workflow, formula rejection, row-level errors, deterministic template download, and all-or-nothing persistence.
+- **VG07-08 — Navigation context:** Question Bank and Kho đề accept only safe instructor-class return paths, preserving the class workflow context.
+- **VG07-09 — Product terminology:** renamed user-facing “Mẫu bài kiểm tra” to “Kho đề”; internal route, model, and API names are unchanged.
+- **VG07-10 — Guided Test Builder:** added a five-step authoring cue, three-column structure/metadata/validation workspace, “Phần thi”/“Ngữ liệu” copy, preview dialog, and a server-paginated multi-select question drawer whose selections survive page changes.
+- **VG07-11 — Class assessment scheduling:** clarified the flow as select đề → set schedule → assign to class, with return-aware links to shared authoring tools.
+- **VG07-12 — Grading queue:** grouped submissions by assessment, learner, and attempt, with assessment/stage/state/search filters and compact objective/productive evidence.
+- **VG07-13 — Grading continuity:** next-item actions now advance to the next unfinished productive response in the same attempt before moving to another learner attempt.
+- **VG07-14 — Results dashboard:** added top KPI cards, grading-completion progress, skill-average bars with sample/exclusion evidence, and a striped learner matrix/mobile cards.
+- **VG07-15 — Responsive consistency:** aligned cards, tables, chips, spacing, progress bars, and responsive fallbacks across the primary instructor workspace.
+- **VG07-16 — Regression evidence:** added schedule projection, paginated question query, safe XLSX formula rejection, and updated browser-smoke checkpoints. Product Owner Round 2 remains required; this implementation report does not claim Visual Gate PASS.
+
+No Prisma schema change or migration was required for this redesign.
+
 ## Known non-blocking observations
 
-- Vite reports a 631.51 kB minified JavaScript bundle (172.73 kB gzip), above its 500 kB advisory threshold.
+- Vite reports a 655.72 kB minified JavaScript bundle (178.24 kB gzip), above its 500 kB advisory threshold.
 - PostgreSQL/`pg` emits the pre-existing deprecation warning during database verification.
 - Negative-path unit/E2E cases intentionally emit expected service error logs.
 - Windows Git reports LF-to-CRLF working-copy notices; `git diff --check` remains clean.

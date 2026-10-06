@@ -101,6 +101,13 @@ export function AssessmentGradingDetailPage() {
       );
       hydrate(data, setDetail, setScores, setFeedback, setCriterionFeedback);
       if (goNext) {
+        const currentAnswerIndex = data.answers.findIndex((item) => item.testQuestion.id === answer.testQuestion.id);
+        const nextAnswer = data.answers.slice(currentAnswerIndex + 1).find((item) => item.evaluation?.status !== 'REVIEWED_FINAL')
+          ?? data.answers.slice(0, currentAnswerIndex).find((item) => item.evaluation?.status !== 'REVIEWED_FINAL');
+        if (nextAnswer) {
+          window.setTimeout(() => document.getElementById(`grading-answer-${nextAnswer.testQuestion.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+          return;
+        }
         const inbox = await instructorApi.classes.grading(classOfferingId);
         const currentIndex = inbox.submissions.findIndex((item) => item.id === attemptId);
         const next = inbox.submissions[currentIndex + 1];
@@ -161,15 +168,17 @@ export function AssessmentGradingDetailPage() {
           {error}
         </div>
       )}
-      {detail.answers.map((answer) => {
+      <nav className="flex flex-wrap gap-2 rounded-2xl border bg-white p-4" aria-label="Điều hướng câu chấm">{detail.answers.map((answer, index) => <a className={`rounded-full px-3 py-1.5 text-sm font-semibold ${answer.evaluation?.status === 'REVIEWED_FINAL' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`} href={`#grading-answer-${answer.testQuestion.id}`} key={answer.id}>Câu {index + 1} · {answer.evaluation?.status === 'REVIEWED_FINAL' ? 'Đã chấm' : 'Chờ chấm'}</a>)}</nav>
+      {detail.answers.map((answer, answerIndex) => {
         const rubric = answer.testQuestion.question.rubric;
         const isFinal = answer.evaluation?.status === 'REVIEWED_FINAL';
+        const hasAnotherUnfinished = detail.answers.some((candidate, index) => index !== answerIndex && candidate.evaluation?.status !== 'REVIEWED_FINAL');
         const values = scores[answer.testQuestion.id] ?? {};
         const hasInvalidScores = rubric.criteria.some((criterion) =>
           isInvalidScore(values[criterion.id], criterion.maxScore),
         );
         return (
-          <article className="rounded-2xl border bg-white p-6 shadow-sm" key={answer.id}>
+          <article className="scroll-mt-6 rounded-2xl border bg-white p-6 shadow-sm" id={`grading-answer-${answer.testQuestion.id}`} key={answer.id}>
             <div className="flex flex-wrap justify-between gap-3">
               <div>
                 <p className="text-xs font-bold uppercase text-indigo-700">
@@ -294,11 +303,11 @@ export function AssessmentGradingDetailPage() {
                     ? 'Cập nhật điểm cuối'
                     : 'Xác nhận điểm cuối'}
               </button>
-              <button className="rounded border border-indigo-300 px-4 py-2 text-sm font-semibold text-indigo-700 disabled:opacity-50" disabled={saving !== null || hasInvalidScores} onClick={() => void save(answer, false, true)} type="button">
-                Lưu nháp & sang bài tiếp theo
-              </button>
+              {hasAnotherUnfinished ? <button className="rounded border border-indigo-300 px-4 py-2 text-sm font-semibold text-indigo-700 disabled:opacity-50" disabled={saving !== null || hasInvalidScores} onClick={() => void save(answer, false, true)} type="button">
+                Lưu nháp & sang câu tiếp theo
+              </button> : null}
               <button className="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={saving !== null || hasInvalidScores} onClick={() => void save(answer, true, true)} type="button">
-                {isFinal ? 'Cập nhật & sang bài tiếp theo' : 'Xác nhận & sang bài tiếp theo'}
+                {hasAnotherUnfinished ? 'Xác nhận & sang câu tiếp theo' : 'Xác nhận & sang học viên tiếp theo'}
               </button>
             </div>
           </article>

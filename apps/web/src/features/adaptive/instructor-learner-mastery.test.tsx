@@ -227,7 +227,7 @@ describe('Instructor Learner Mastery navigation', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Instructor LMS')).toBeInTheDocument();
+    expect(await screen.findByText('Không gian giảng dạy')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Mức độ thành thạo của học viên' })).not.toBeInTheDocument();
   });
 });

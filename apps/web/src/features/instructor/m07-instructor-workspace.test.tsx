@@ -55,9 +55,9 @@ describe('M07 Instructor class workspace', () => {
       learners: [{ id: 'attempt-a', learner: { fullName: 'Nguyễn Minh Anh', email: 'a@test.local' }, attemptNumber: 2, label: 'Lượt gần nhất', skillScores: [{ skill: 'LISTENING', status: 'FINAL', normalizedScore: 80 }, { skill: 'READING', status: 'PROVISIONAL', normalizedScore: 60 }] }],
     }] });
     render(<MemoryRouter initialEntries={['/instructor/classes/class-a/results']}><Routes><Route path="/instructor/classes/:classOfferingId/results" element={<InstructorClassResultsPage />} /></Routes></MemoryRouter>);
-    const summary = await screen.findByText((_content, element) => element?.tagName === 'SECTION' && element.textContent?.includes('3 lượt đã nộp') === true);
-    expect(summary).toHaveTextContent('1 học viên đã chấm đủ');
-    expect(summary).toHaveTextContent('1 học viên đang chờ chấm');
+    expect((await screen.findByText('Lượt đã nộp')).parentElement).toHaveTextContent('3');
+    expect(screen.getByText('Đã chấm đủ').parentElement).toHaveTextContent('1');
+    expect(screen.getByText('Đang chờ chấm').parentElement).toHaveTextContent('1');
     expect(screen.getByText((_content, element) => element?.tagName === 'P' && element.textContent === 'Mẫu 0 · loại trừ 2')).toBeInTheDocument();
     expect(screen.getAllByText('Đang chờ').length).toBeGreaterThan(0);
     expect(screen.getByTestId('mobile-results-cards')).toBeInTheDocument();

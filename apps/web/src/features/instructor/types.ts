@@ -21,7 +21,7 @@ export interface InstructorClassOverview {
   classOffering: InstructorClass;
   activeLearnerCount: number;
   lessonProgress: { completed: number; total: number; percentage: number };
-  assessments: Array<{ id: string; stage: string; openAt: string | null; closeAt: string | null; availability: string; test: { id: string; title: string } }>;
+  assessments: Array<{ id: string; stage: string; openAt: string | null; closeAt: string | null; availability: string; submittedLearnerCount?: number; activeLearnerCount?: number; test: { id: string; title: string } }>;
   pendingGradingCount: number;
 }
 
@@ -38,6 +38,8 @@ export interface InstructorRoster {
     submittedAssessmentCount: number;
     pendingGradingCount: number;
     latestGradedAssessmentAt: string | null;
+    latestLearningActivityAt?: string | null;
+    latestAssessment?: null | { title: string; submittedAt: string | null; state: 'PENDING' | 'GRADED' | 'SUBMITTED'; average: number | null };
   }>;
 }
 
@@ -50,7 +52,7 @@ export interface InstructorLearnerDetail {
     learner: { id: string; fullName: string; email: string };
   };
   lessonProgress: Array<{ status: string; lastAccessedAt: string | null; completedAt: string | null; lesson: { id: string; title: string; module: { id: string; title: string } } }>;
-  attempts: Array<{ id: string; attemptNumber: number; submittedAt: string | null; classAssessment?: { test: { title: string } }; skillScores: Array<{ skill: string; status: string; normalizedScore: number }>; feedback?: Array<{ feedback: string | null }> }>;
+  attempts: Array<{ id: string; attemptNumber: number; submittedAt: string | null; classAssessment?: { id: string; stage: string; test: { title: string } }; skillScores: Array<{ skill: string; status: string; normalizedScore: number }>; feedback?: Array<{ feedback: string | null }> }>;
   latestFourSkillSnapshot: null | { assessmentTitle: string; scores: Array<{ skill: string; normalizedScore: number }> };
 }
 
@@ -73,6 +75,10 @@ export interface InstructorGradingInbox {
     productiveTotal: number;
     learner: { id: string; fullName: string; email: string };
     classAssessment: { id: string; stage: string; test: { id: string; title: string } };
+  }>;
+  groups: Array<{
+    classAssessment: { id: string; stage: string; test: { id: string; title: string } };
+    learners: Array<{ learner: { id: string; fullName: string; email: string }; attempts: InstructorGradingInbox['submissions'] }>;
   }>;
 }
 

@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { assessmentApi } from '@/features/assessments/api';
 import { difficultyLabel, questionTypeLabel, toeicSkillLabel } from '@/features/assessments/display';
 import { assessmentErrorMessage } from '@/features/assessments/errors';
@@ -10,6 +10,7 @@ import type {
   QuestionType,
   ToeicSkill,
   RubricSummary,
+  QuestionImportPreview,
 } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { knowledgeModelApi } from '@/features/knowledge-model/api';
@@ -25,6 +26,7 @@ const emptyOptions = (): EditableOption[] => [
 
 export function QuestionBankPage() {
   const { courseId } = useParams<{ courseId: string }>();
+  const [searchParams] = useSearchParams();
   const redirectExpiredSession = useSessionExpiry();
   const mutationInFlight = useRef(false);
   const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
@@ -41,6 +43,14 @@ export function QuestionBankPage() {
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [difficultyFilter, setDifficultyFilter] = useState('ALL');
   const [search, setSearch] = useState('');
+  const [usageFilter, setUsageFilter] = useState<'ALL' | 'USED' | 'UNUSED'>('ALL');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [importPreview, setImportPreview] = useState<QuestionImportPreview | null>(null);
+  const [importing, setImporting] = useState(false);
   const [courseSkills, setCourseSkills] = useState<Skill[] | null>(null);
   const [mappingQuestion, setMappingQuestion] = useState<AssessmentQuestion | null>(null);
   const [mappedSkillIds, setMappedSkillIds] = useState<string[]>([]);
@@ -52,9 +62,19 @@ export function QuestionBankPage() {
     async function fetchQuestions() {
       if (!courseId) return;
       try {
-        const data = await assessmentApi.questions.list(courseId, controller.signal);
+        const data = await assessmentApi.questions.page(courseId, {
+          page,
+          pageSize,
+          search: search.trim() || undefined,
+          skill: skillFilter === 'ALL' ? undefined : skillFilter as ToeicSkill,
+          responseType: typeFilter === 'ALL' ? undefined : typeFilter as QuestionType,
+          difficulty: difficultyFilter === 'ALL' ? undefined : difficultyFilter as QuestionDifficulty,
+          usage: usageFilter,
+        }, controller.signal);
         const rubricData = await assessmentApi.rubrics.list(controller.signal).catch(() => []);
-        setQuestions(data);
+        setQuestions(data.items);
+        setTotal(data.total);
+        setTotalPages(data.totalPages);
         setRubrics(rubricData);
         setLoadError(null);
       } catch (error) {
@@ -67,7 +87,55 @@ export function QuestionBankPage() {
     }
     void fetchQuestions();
     return () => controller.abort();
-  }, [courseId, redirectExpiredSession, reloadKey]);
+  }, [courseId, redirectExpiredSession, reloadKey, page, pageSize, search, skillFilter, typeFilter, difficultyFilter, usageFilter]);
+
+  const returnTo = searchParams.get('returnTo');
+  const safeReturnTo = returnTo?.startsWith('/instructor/') ? returnTo : '/instructor/teaching';
+
+  const previewImport = async (file?: File) => {
+    if (!courseId || !file) return;
+    setImporting(true);
+    setActionError(null);
+    try {
+      setImportPreview(await assessmentApi.questions.previewImport(courseId, file));
+    } catch (error) {
+      setActionError(assessmentErrorMessage(error, 'Không thể kiểm tra tệp XLSX.'));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!courseId || !importPreview?.canConfirm) return;
+    setImporting(true);
+    try {
+      const rows = importPreview.rows.flatMap((row) => row.input ? [row.input] : []);
+      const result = await assessmentApi.questions.confirmImport(courseId, rows);
+      setActionMessage(`Đã nhập ${result.importedCount} câu hỏi.`);
+      setImportPreview(null);
+      setPage(1);
+      setReloadKey((value) => value + 1);
+    } catch (error) {
+      setActionError(assessmentErrorMessage(error, 'Không thể xác nhận nhập câu hỏi. Không có dữ liệu nào được ghi.'));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const deleteSelected = async () => {
+    if (selectedIds.size === 0 || !window.confirm(`Xóa ${selectedIds.size} câu hỏi chưa được sử dụng?`)) return;
+    setActionError(null);
+    for (const questionId of selectedIds) {
+      try {
+        await assessmentApi.questions.delete(questionId);
+      } catch (error) {
+        setActionError(assessmentErrorMessage(error, 'Không thể xóa toàn bộ câu hỏi đã chọn. Các câu đang được dùng trong đề được giữ nguyên.'));
+        break;
+      }
+    }
+    setSelectedIds(new Set());
+    setReloadKey((value) => value + 1);
+  };
 
   const beginMutation = (action: string) => {
     if (mutationInFlight.current) return false;
@@ -90,7 +158,8 @@ export function QuestionBankPage() {
         : await assessmentApi.questions.create(courseId, input);
       setQuestions((current) => editingQuestion
         ? current.map((item) => item.id === saved.id ? saved : item)
-        : [...current, saved]);
+        : current);
+      if (!editingQuestion) setReloadKey((value) => value + 1);
       setFormOpen(false);
       setEditingQuestion(null);
     } catch (error) {
@@ -168,14 +237,15 @@ export function QuestionBankPage() {
         <div>
           <h1 className="text-2xl font-bold">Ngân hàng câu hỏi</h1>
           <p className="mt-1 text-sm text-slate-600">Quản lý câu hỏi bốn kỹ năng của khóa học.</p>
+          <p className="mt-1 max-w-3xl text-xs text-slate-500">Hình ảnh/âm thanh được thêm ở “Phần thi” trong Kho đề vì một ngữ liệu có thể dùng cho nhiều câu hỏi.</p>
         </div>
         <div className="flex gap-2">
-          <Link className="rounded border px-4 py-2 text-sm" to="/instructor/teaching">
+          <Link className="rounded border px-4 py-2 text-sm" to={safeReturnTo}>
             Quay lại
           </Link>
           {courseId && (
-            <Link className="rounded border px-4 py-2 text-sm" to={`/instructor/courses/${courseId}/tests`}>
-              Quản lý bài kiểm tra
+            <Link className="rounded border px-4 py-2 text-sm" to={`/instructor/courses/${courseId}/tests?returnTo=${encodeURIComponent(safeReturnTo)}`}>
+              Kho đề
             </Link>
           )}
           <button
@@ -186,6 +256,11 @@ export function QuestionBankPage() {
           >
             Tạo câu hỏi
           </button>
+          {courseId ? <button className="rounded border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700" onClick={() => void assessmentApi.questions.downloadTemplate(courseId)} type="button">Tải mẫu XLSX</button> : null}
+          <label className="cursor-pointer rounded border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700">
+            {importing ? 'Đang kiểm tra...' : 'Nhập XLSX'}
+            <input accept=".xlsx" className="sr-only" disabled={importing} onChange={(event) => void previewImport(event.target.files?.[0])} type="file" />
+          </label>
         </div>
       </div>
 
@@ -203,12 +278,21 @@ export function QuestionBankPage() {
         />
       )}
 
-      <div className="grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-4">
-        <input aria-label="Tìm câu hỏi" className="rounded border p-2" onChange={(event) => setSearch(event.target.value)} placeholder="Tìm nội dung" />
-        <select aria-label="Lọc kỹ năng" className="rounded border p-2" onChange={(event) => setSkillFilter(event.target.value)}><option value="ALL">Tất cả kỹ năng</option>{(['LISTENING','READING','SPEAKING','WRITING'] as ToeicSkill[]).map((value) => <option key={value} value={value}>{toeicSkillLabel[value]}</option>)}</select>
-        <select aria-label="Lọc loại trả lời" className="rounded border p-2" onChange={(event) => setTypeFilter(event.target.value)}><option value="ALL">Tất cả loại trả lời</option>{Object.entries(questionTypeLabel).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select>
-        <select aria-label="Lọc độ khó" className="rounded border p-2" onChange={(event) => setDifficultyFilter(event.target.value)}><option value="ALL">Tất cả độ khó</option>{Object.entries(difficultyLabel).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select>
+      {importPreview ? <section className="rounded-xl border border-indigo-200 bg-indigo-50 p-4" aria-label="Xem trước nhập câu hỏi">
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Xem trước dữ liệu XLSX</h2><p className="text-sm text-slate-700">{importPreview.summary.valid}/{importPreview.summary.total} dòng hợp lệ · {importPreview.summary.invalid} dòng cần sửa</p></div><div className="flex gap-2"><button className="rounded border bg-white px-3 py-2 text-sm" onClick={() => setImportPreview(null)} type="button">Hủy</button><button className="rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={!importPreview.canConfirm || importing} onClick={() => void confirmImport()} type="button">Xác nhận nhập</button></div></div>
+        {importPreview.summary.invalid > 0 ? <ul className="mt-3 max-h-40 list-disc overflow-auto pl-5 text-sm text-red-700">{importPreview.rows.filter((row) => row.errors.length).map((row) => <li key={row.rowNumber}>Dòng {row.rowNumber}: {row.errors.join(' ')}</li>)}</ul> : <p className="mt-3 text-sm text-emerald-700">Tệp hợp lệ. Chưa có dữ liệu nào được ghi cho đến khi bạn xác nhận.</p>}
+      </section> : null}
+
+      <div className="grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2 lg:grid-cols-6">
+        <input aria-label="Tìm câu hỏi" className="rounded border p-2" onChange={(event) => { setPage(1); setSearch(event.target.value); }} placeholder="Tìm nội dung" />
+        <select aria-label="Lọc kỹ năng" className="rounded border p-2" onChange={(event) => { setPage(1); setSkillFilter(event.target.value); }}><option value="ALL">Tất cả kỹ năng</option>{(['LISTENING','READING','SPEAKING','WRITING'] as ToeicSkill[]).map((value) => <option key={value} value={value}>{toeicSkillLabel[value]}</option>)}</select>
+        <select aria-label="Lọc loại trả lời" className="rounded border p-2" onChange={(event) => { setPage(1); setTypeFilter(event.target.value); }}><option value="ALL">Tất cả loại trả lời</option>{Object.entries(questionTypeLabel).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select>
+        <select aria-label="Lọc độ khó" className="rounded border p-2" onChange={(event) => { setPage(1); setDifficultyFilter(event.target.value); }}><option value="ALL">Tất cả độ khó</option>{Object.entries(difficultyLabel).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select>
+        <select aria-label="Lọc trạng thái sử dụng" className="rounded border p-2" onChange={(event) => { setPage(1); setUsageFilter(event.target.value as 'ALL' | 'USED' | 'UNUSED'); }}><option value="ALL">Tất cả trạng thái</option><option value="USED">Đã dùng trong kho đề</option><option value="UNUSED">Chưa sử dụng</option></select>
+        <select aria-label="Số câu hỏi mỗi trang" className="rounded border p-2" value={pageSize} onChange={(event) => { setPage(1); setPageSize(Number(event.target.value)); }}><option value="20">20 câu / trang</option><option value="50">50 câu / trang</option><option value="100">100 câu / trang</option></select>
       </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3"><p className="text-sm text-slate-600">Đã chọn {selectedIds.size} câu</p><button className="rounded border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-40" disabled={selectedIds.size === 0 || pendingAction !== null} onClick={() => void deleteSelected()} type="button">Xóa câu đã chọn</button></div>
 
       {loading ? (
         <p className="py-10 text-center text-slate-500">Đang tải câu hỏi...</p>
@@ -221,9 +305,10 @@ export function QuestionBankPage() {
         <div className="rounded border bg-white p-8 text-center text-slate-500">Chưa có câu hỏi nào.</div>
       ) : (
         <div className="space-y-3">
-          {questions.filter((question) => (skillFilter === 'ALL' || question.toeicSkill === skillFilter) && (typeFilter === 'ALL' || question.type === typeFilter) && (difficultyFilter === 'ALL' || question.difficulty === difficultyFilter) && question.content.toLowerCase().includes(search.toLowerCase())).map((question) => (
+          {questions.map((question) => (
             <article className="rounded-lg border bg-white p-5 shadow-sm" key={question.id}>
               <div className="flex flex-wrap items-start justify-between gap-4">
+                <input aria-label={`Chọn câu hỏi ${question.content}`} checked={selectedIds.has(question.id)} onChange={() => setSelectedIds((current) => { const next = new Set(current); if (next.has(question.id)) next.delete(question.id); else next.add(question.id); return next; })} type="checkbox" />
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-wrap gap-2 text-xs">
                     <span className="rounded bg-blue-100 px-2 py-1 text-blue-800">{questionTypeLabel[question.type]}</span>
@@ -231,6 +316,7 @@ export function QuestionBankPage() {
                     <span className="rounded bg-amber-100 px-2 py-1 text-amber-800">{difficultyLabel[question.difficulty]}</span>
                   </div>
                   <p className="whitespace-pre-wrap font-medium text-slate-900">{question.content}</p>
+                  <p className="mt-2 text-xs text-slate-500">Đã dùng trong {question.usageCount ?? 0} đề</p>
                   <ol className="mt-3 list-inside list-[upper-alpha] space-y-1 text-sm text-slate-600">
                     {question.options.map((option) => (
                       <li className={option.isCorrect ? 'font-medium text-green-700' : ''} key={option.id}>
@@ -266,6 +352,7 @@ export function QuestionBankPage() {
           ))}
         </div>
       )}
+      {!loading && !loadError ? <nav className="flex items-center justify-between rounded-xl border bg-white px-4 py-3" aria-label="Phân trang câu hỏi"><p className="text-sm text-slate-600">{total} câu hỏi · Trang {page}/{totalPages}</p><div className="flex gap-2"><button className="rounded border px-3 py-1.5 text-sm disabled:opacity-40" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} type="button">Trang trước</button><button className="rounded border px-3 py-1.5 text-sm disabled:opacity-40" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)} type="button">Trang sau</button></div></nav> : null}
       {mappingQuestion ? <SkillChecklistDialog
         title="Skill (KC) của câu hỏi"
         description="Một câu hỏi có thể cung cấp cùng quan sát đúng/sai cho nhiều Skill."

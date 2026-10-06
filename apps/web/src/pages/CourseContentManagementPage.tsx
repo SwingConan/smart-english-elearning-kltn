@@ -37,6 +37,8 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
 
   const [editingResource, setEditingResource] = useState<Partial<LearningResource> | null>(null);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
+  const [resourceMode, setResourceMode] = useState<'UPLOAD' | 'VIDEO' | 'LINK'>('UPLOAD');
+  const effectiveResourceMode = editingResource?.storageKey ? 'UPLOAD' : editingResource?.type === 'VIDEO' ? 'VIDEO' : editingResource?.type === 'LINK' ? 'LINK' : resourceMode;
   const [courseSkills, setCourseSkills] = useState<Skill[] | null>(null);
   const [mappingLesson, setMappingLesson] = useState<Lesson | null>(null);
   const [mappedSkillIds, setMappedSkillIds] = useState<string[]>([]);
@@ -292,8 +294,14 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
     const isDownloadable = formData.get('isDownloadable') === 'on';
     const file = formData.get('file');
 
+    if (!editingResource?.id && effectiveResourceMode === 'UPLOAD' && (!(file instanceof File) || file.size === 0)) {
+      setActionError('Vui lòng chọn tệp trước khi lưu tài liệu tải lên.');
+      endMutation();
+      return;
+    }
+
     try {
-      if (file instanceof File && file.size > 0) {
+      if (effectiveResourceMode === 'UPLOAD' && file instanceof File && file.size > 0) {
         const uploaded = await instructorApi.resources.upload(lessonId, title, file, isDownloadable, editingResource?.id, editingResource?.updatedAt);
         setResourcesMap(prev => ({
           ...prev,
@@ -308,7 +316,7 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
             ? { title, isDownloadable, expectedUpdatedAt: editingResource.updatedAt! }
             : {
                 title,
-                type: formData.get('type') as ResourceType,
+                type: effectiveResourceMode === 'VIDEO' ? 'VIDEO' : 'LINK',
                 url: formData.get('url') as string,
                 isDownloadable,
                 expectedUpdatedAt: editingResource.updatedAt!,
@@ -319,7 +327,7 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
           [lessonId]: (prev[lessonId] ?? []).map((item) => item.id === updated.id ? updated : item)
         }));
       } else {
-        const type = formData.get('type') as ResourceType;
+        const type: ResourceType = effectiveResourceMode === 'VIDEO' ? 'VIDEO' : 'LINK';
         const url = formData.get('url') as string;
         const created = await instructorApi.resources.create(lessonId, { title, type, url, isDownloadable });
         setResourcesMap(prev => ({
@@ -469,7 +477,7 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
             <nav aria-label="Cấu trúc nội dung" className="space-y-2">{modules.map((module, moduleIndex) => <div key={module.id}><button className={`w-full rounded-lg px-3 py-2 text-left font-semibold ${selectedModule?.id === module.id ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-slate-50'}`} onClick={() => setExpandedModuleId(module.id)} type="button">{moduleIndex + 1}. {module.title}</button>{selectedModule?.id === module.id ? <div className="ml-3 mt-1 space-y-1 border-l pl-3">{(lessonsMap[module.id] ?? []).map((lesson, lessonIndex) => <button className={`block w-full rounded px-2 py-1.5 text-left text-sm ${selectedLesson?.id === lesson.id ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`} key={lesson.id} onClick={() => setExpandedLessonId(lesson.id)} type="button">Bài {lessonIndex + 1}: {lesson.title}</button>)}</div> : null}</div>)}</nav>
           </aside>
           <section className="min-w-0 rounded-2xl border bg-white p-5 shadow-sm">
-            {selectedModule ? <><div className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Module đang chọn</p><h2 className="text-xl font-bold">{selectedModule.title}</h2><p className="text-sm text-slate-500">{selectedModule.description || 'Chưa có mô tả.'}</p></div><div className="flex gap-2"><button className="rounded border px-3 py-1.5 text-sm" onClick={() => { setEditingModule(selectedModule); setIsModuleModalOpen(true); }} type="button">Sửa module</button><button className="rounded bg-green-600 px-3 py-1.5 text-sm text-white" onClick={() => { setEditingLesson(null); setIsLessonModalOpen(true); }} type="button">+ Bài học</button></div></div>{selectedLesson ? <div className="mt-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bài học đang chọn</p><h3 className="text-lg font-bold">{selectedLesson.title}</h3><p className="text-sm text-slate-500">{selectedLesson.description || 'Chưa có mô tả.'}</p></div><div className="flex gap-2"><button className="rounded border px-3 py-1.5 text-sm" onClick={() => { setEditingLesson(selectedLesson); setIsLessonModalOpen(true); }} type="button">Sửa bài học</button><button className="rounded bg-purple-600 px-3 py-1.5 text-sm text-white" onClick={() => { setEditingResource(null); setIsResourceModalOpen(true); }} type="button">+ Tài liệu</button></div></div><h4 className="mt-6 font-semibold">Tài liệu học tập</h4><div className="mt-2 space-y-2">{(resourcesMap[selectedLesson.id] ?? []).map((resource) => <div className="flex items-center justify-between gap-3 rounded-lg border p-3" key={resource.id}><div className="min-w-0"><p className="truncate font-medium">{resource.title}</p><p className="text-xs text-slate-500">{resource.type}{resource.isDownloadable ? ' · Có thể tải' : ''}</p></div><button className="text-sm font-semibold text-blue-700" onClick={() => { setEditingResource(resource); setIsResourceModalOpen(true); }} type="button">Sửa</button></div>)}{(resourcesMap[selectedLesson.id] ?? []).length === 0 ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Bài học chưa có tài liệu.</p> : null}</div></div> : <p className="mt-5 rounded-lg bg-slate-50 p-5 text-slate-500">Chọn hoặc thêm một bài học để biên soạn nội dung.</p>}</> : null}
+            {selectedModule ? <><div className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Module đang chọn</p><h2 className="text-xl font-bold">{selectedModule.title}</h2><p className="text-sm text-slate-500">{selectedModule.description || 'Chưa có mô tả.'}</p></div><div className="flex gap-2"><button className="rounded border px-3 py-1.5 text-sm" onClick={() => { setEditingModule(selectedModule); setIsModuleModalOpen(true); }} type="button">Sửa module</button><button className="rounded bg-green-600 px-3 py-1.5 text-sm text-white" onClick={() => { setEditingLesson(null); setIsLessonModalOpen(true); }} type="button">+ Bài học</button></div></div>{selectedLesson ? <div className="mt-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bài học đang chọn</p><h3 className="text-lg font-bold">{selectedLesson.title}</h3><p className="text-sm text-slate-500">{selectedLesson.description || 'Chưa có mô tả.'}</p></div><div className="flex gap-2"><button className="rounded border px-3 py-1.5 text-sm" onClick={() => { setEditingLesson(selectedLesson); setIsLessonModalOpen(true); }} type="button">Sửa bài học</button><button className="rounded bg-purple-600 px-3 py-1.5 text-sm text-white" onClick={() => { setEditingResource(null); setIsResourceModalOpen(true); }} type="button">+ Tài liệu</button></div></div><h4 className="mt-6 font-semibold">Tài liệu học tập</h4><div className="mt-2 space-y-2">{(resourcesMap[selectedLesson.id] ?? []).map((resource) => <div className="flex items-center justify-between gap-3 rounded-lg border p-3" key={resource.id}><div className="min-w-0"><p className="truncate font-medium">{resource.title}</p><p className="text-xs text-slate-500">{resource.originalFileName ?? resource.type}{resource.isDownloadable ? ' · Có thể tải' : ''}</p></div><button className="text-sm font-semibold text-blue-700" onClick={() => { setEditingResource(resource); setIsResourceModalOpen(true); }} type="button">Sửa</button></div>)}{(resourcesMap[selectedLesson.id] ?? []).length === 0 ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Bài học chưa có tài liệu.</p> : null}</div></div> : <p className="mt-5 rounded-lg bg-slate-50 p-5 text-slate-500">Chọn hoặc thêm một bài học để biên soạn nội dung.</p>}</> : null}
           </section>
         </div> : null}
         <div className={`space-y-4 ${sharedWarning ? 'lg:hidden' : ''}`}>
@@ -635,29 +643,22 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
                 <label className="block text-sm font-medium mb-1">Tiêu đề</label>
                 <input name="title" required defaultValue={editingResource?.title} className="w-full border rounded p-2" />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Loại</label>
-                <select name="type" required disabled={Boolean(editingResource?.storageKey)} defaultValue={editingResource?.type || 'VIDEO'} className="w-full border rounded p-2 disabled:bg-slate-100">
-                  <option value="VIDEO">Video</option>
-                  <option value="DOCUMENT">Tài liệu (PDF, Word...)</option>
-                  <option value="LINK">Liên kết ngoài</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">URL / Link</label>
-                <input name="url" type="url" disabled={Boolean(editingResource?.storageKey)} defaultValue={editingResource?.url ?? ''} className="w-full border rounded p-2 disabled:bg-slate-100" />
-                {editingResource?.storageKey ? <p className="mt-1 text-xs text-slate-500">Tài liệu đã tải lên chỉ cho phép sửa tiêu đề, quyền tải xuống hoặc thay tệp. Muốn đổi loại, hãy xóa và tạo lại.</p> : null}
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Hoặc tải tài liệu lên (PDF, DOCX, PPTX, XLSX, TXT · tối đa 20 MB)</label>
+              {!editingResource?.id ? <fieldset><legend className="mb-2 block text-sm font-medium">Cách thêm tài liệu</legend><div className="grid grid-cols-3 gap-2">{([['UPLOAD','Tải tài liệu lên'],['VIDEO','Video từ liên kết'],['LINK','Liên kết ngoài']] as const).map(([mode, label]) => <button className={`rounded-lg border px-3 py-2 text-sm ${resourceMode === mode ? 'border-indigo-600 bg-indigo-50 font-semibold text-indigo-700' : ''}`} key={mode} onClick={() => setResourceMode(mode)} type="button">{label}</button>)}</div></fieldset> : null}
+              {editingResource?.storageKey ? <div className="rounded-lg bg-slate-50 p-3 text-sm"><p><strong>Tệp:</strong> {editingResource.originalFileName ?? 'Tài liệu đã tải lên'}</p><p className="text-slate-500">{editingResource.mimeType ?? 'Không rõ định dạng'} · {formatBytes(editingResource.sizeBytes)}</p><p className="mt-1 text-xs text-slate-500">Bạn có thể đổi tên, quyền tải xuống hoặc chọn tệp mới để thay thế.</p></div> : null}
+              {effectiveResourceMode === 'UPLOAD' ? <div>
+                <label className="block text-sm font-medium mb-1">{editingResource?.storageKey ? 'Thay tệp (không bắt buộc)' : 'Chọn tệp'} · PDF, DOCX, PPTX, XLSX, TXT · tối đa 20 MB</label>
                 <input accept=".pdf,.docx,.pptx,.xlsx,.txt" className="w-full rounded border p-2" name="file" type="file" />
-                <p className="mt-1 text-xs text-slate-500">Tệp được lưu riêng tư và phân phối qua máy chủ; tải tệp mới sẽ thay thế tệp đang chọn.</p>
-              </div>
+                <p className="mt-1 text-xs text-slate-500">Tệp được lưu riêng tư và phân phối qua máy chủ.</p>
+              </div> : <div>
+                <label className="block text-sm font-medium mb-1">{effectiveResourceMode === 'VIDEO' ? 'URL video' : 'URL liên kết'}</label>
+                <input name="url" type="url" required defaultValue={editingResource?.url ?? ''} className="w-full border rounded p-2" />
+              </div>}
               <div className="flex items-center gap-2">
                 <input name="isDownloadable" type="checkbox" id="isDownloadable" defaultChecked={editingResource?.isDownloadable} />
                 <label htmlFor="isDownloadable" className="text-sm font-medium">Cho phép tải xuống</label>
               </div>
               <div className="flex justify-end gap-2 mt-4">
+                {editingResource?.id && expandedLessonId ? <button type="button" onClick={() => { void handleDeleteResource(editingResource.id!, expandedLessonId); setIsResourceModalOpen(false); }} className="mr-auto px-4 py-2 text-red-700 border border-red-200 rounded">Xóa tài liệu</button> : null}
                 <button type="button" onClick={() => setIsResourceModalOpen(false)} className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200">Hủy</button>
                 <button type="submit" className="px-4 py-2 text-white bg-purple-600 rounded hover:bg-purple-700">Lưu</button>
               </div>
@@ -701,4 +702,11 @@ function contentErrorMessage(
     }
   }
   return fallback;
+}
+
+function formatBytes(value?: number | null): string {
+  if (value === null || value === undefined) return 'Không rõ dung lượng';
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }

@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/api-client';
+import { apiFetch, apiUrl } from '@/lib/api-client';
 import type {
   AssessmentQuestion,
   AssessmentTestDetail,
@@ -18,6 +18,9 @@ import type {
   RubricSummary,
   AssessmentTestGroup,
   ToeicSkill,
+  QuestionPage,
+  QuestionQuery,
+  QuestionImportPreview,
 } from './types';
 
 const segment = encodeURIComponent;
@@ -28,8 +31,13 @@ export const assessmentApi = {
     get: (rubricId: string, signal?: AbortSignal): Promise<RubricSummary> => apiFetch(`/instructor/rubrics/${segment(rubricId)}`, { signal }),
   },
   questions: {
-    list: (courseId: string, signal?: AbortSignal): Promise<AssessmentQuestion[]> =>
-      apiFetch(`/instructor/courses/${segment(courseId)}/questions`, { signal }),
+    page: (courseId: string, query: QuestionQuery = {}, signal?: AbortSignal): Promise<QuestionPage> => {
+      const params = new URLSearchParams();
+      Object.entries(query).forEach(([key, value]) => { if (value !== undefined && value !== '') params.set(key, String(value)); });
+      return apiFetch(`/instructor/courses/${segment(courseId)}/questions?${params}`, { signal });
+    },
+    list: async (courseId: string, signal?: AbortSignal): Promise<AssessmentQuestion[]> =>
+      (await assessmentApi.questions.page(courseId, { pageSize: 100 }, signal)).items,
     create: (courseId: string, input: QuestionInput): Promise<AssessmentQuestion> =>
       apiFetch(`/instructor/courses/${segment(courseId)}/questions`, {
         method: 'POST',
@@ -42,6 +50,23 @@ export const assessmentApi = {
       }),
     delete: (questionId: string): Promise<{ message: string }> =>
       apiFetch(`/instructor/questions/${segment(questionId)}`, { method: 'DELETE' }),
+    previewImport: (courseId: string, file: File): Promise<QuestionImportPreview> => {
+      const body = new FormData();
+      body.append('file', file);
+      return apiFetch(`/instructor/courses/${segment(courseId)}/questions/import-preview`, { method: 'POST', body });
+    },
+    confirmImport: (courseId: string, rows: QuestionInput[]): Promise<{ importedCount: number; questionIds: string[] }> =>
+      apiFetch(`/instructor/courses/${segment(courseId)}/questions/import-confirm`, { method: 'POST', body: JSON.stringify({ rows }) }),
+    downloadTemplate: async (courseId: string): Promise<void> => {
+      const response = await fetch(apiUrl(`/instructor/courses/${segment(courseId)}/questions/import-template`), { credentials: 'include' });
+      if (!response.ok) throw new Error('Download failed');
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'question-import-template.xlsx';
+      anchor.click();
+      URL.revokeObjectURL(url);
+    },
   },
   tests: {
     list: (courseId: string, signal?: AbortSignal): Promise<AssessmentTestSummary[]> =>

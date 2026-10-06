@@ -19,6 +19,8 @@ export const questionTypeLabel: Partial<Record<QuestionType, string>> = {
   SINGLE_CHOICE: 'Một đáp án',
   TRUE_FALSE: 'Đúng / Sai',
   MULTIPLE_CHOICE: 'Nhiều đáp án',
+  TEXT_RESPONSE: 'Trả lời bằng văn bản',
+  AUDIO_RESPONSE: 'Trả lời bằng ghi âm',
 };
 
 export const difficultyLabel: Record<QuestionDifficulty, string> = {

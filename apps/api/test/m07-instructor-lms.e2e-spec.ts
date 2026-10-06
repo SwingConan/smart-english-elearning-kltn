@@ -4,6 +4,7 @@ import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
 import { loginAgent } from './assessment-e2e-helpers';
+import { Workbook } from 'exceljs';
 
 describe('M07 Instructor LMS acceptance journey (e2e)', () => {
   let app: INestApplication;
@@ -14,6 +15,7 @@ describe('M07 Instructor LMS acceptance journey (e2e)', () => {
   let enrollmentId: string;
   let resourceId: string;
   let lessonId: string;
+  let courseId: string;
   const sessionIds = new Set<string>();
 
   beforeAll(async () => {
@@ -27,10 +29,11 @@ describe('M07 Instructor LMS acceptance journey (e2e)', () => {
     prisma = app.get(PrismaService);
     const enrollment = await prisma.enrollment.findFirstOrThrow({
       where: { learner: { email: 'student.demo@smart-elearning.local' }, status: 'ACTIVE', classOffering: { instructor: { email: 'instructor.demo@smart-elearning.local' } } },
-      select: { id: true, classOfferingId: true },
+      select: { id: true, classOfferingId: true, classOffering: { select: { courseId: true } } },
     });
     enrollmentId = enrollment.id;
     classOfferingId = enrollment.classOfferingId;
+    courseId = enrollment.classOffering.courseId;
     const resource = await prisma.learningResource.findFirstOrThrow({
       where: { storageKey: 'm07/instructor-class-handbook.txt', lesson: { module: { course: { classOfferings: { some: { id: classOfferingId } } } } } },
       select: { id: true, lessonId: true },
@@ -100,5 +103,43 @@ describe('M07 Instructor LMS acceptance journey (e2e)', () => {
       skillAverages: expect.arrayContaining([expect.objectContaining({ sampleCount: expect.any(Number), excludedCount: expect.any(Number) })]),
     })]));
     expect(JSON.stringify(results.body)).not.toMatch(/official|bestScore|toeicTotal/i);
+  });
+
+  it('imports a question, finds it through pagination, adds it to a Part and publishes the draft', async () => {
+    const marker = `M07 isolated import ${Date.now()}`;
+    const workbook = new Workbook();
+    const sheet = workbook.addWorksheet('Questions');
+    sheet.addRow(['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id']);
+    sheet.addRow(['READING', 'SINGLE_CHOICE', 'EASY', marker, 'Isolated E2E fixture', 'Correct', 'Distractor', '', '', 'A', '']);
+    const file = Buffer.from(await workbook.xlsx.writeBuffer());
+    let questionId: string | undefined;
+    let testId: string | undefined;
+    let published = false;
+    try {
+      const preview = await instructor.post(`/api/instructor/courses/${courseId}/questions/import-preview`)
+        .attach('file', file, { filename: 'm07-isolated.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        .expect(201);
+      expect(preview.body).toEqual(expect.objectContaining({ canConfirm: true, summary: { total: 1, valid: 1, invalid: 0 } }));
+      const confirmed = await instructor.post(`/api/instructor/courses/${courseId}/questions/import-confirm`)
+        .send({ rows: [preview.body.rows[0].input] }).expect(201);
+      questionId = confirmed.body.questionIds[0];
+      const found = await instructor.get(`/api/instructor/courses/${courseId}/questions?page=1&pageSize=20&search=${encodeURIComponent(marker)}&skill=READING`).expect(200);
+      expect(found.body).toEqual(expect.objectContaining({ total: 1, totalPages: 1, items: [expect.objectContaining({ id: questionId, content: marker })] }));
+
+      const draft = await instructor.post(`/api/instructor/courses/${courseId}/tests`).send({
+        type: 'IN_CLASS', title: marker, description: 'Disposable M07 E2E draft', lessonId, maxAttempts: 1, showResultAfterSubmit: true,
+      }).expect(201);
+      testId = draft.body.id;
+      const part = await instructor.post(`/api/instructor/tests/${testId}/groups`).send({ skill: 'READING', title: 'Reading Part' }).expect(201);
+      await instructor.post(`/api/instructor/tests/${testId}/questions`).send({ questionId, groupId: part.body.id, points: 1 }).expect(201);
+      await instructor.patch(`/api/instructor/tests/${testId}/publish`).expect(200);
+      published = true;
+    } finally {
+      if (testId) {
+        if (published) await instructor.patch(`/api/instructor/tests/${testId}/unpublish`).expect(200);
+        await instructor.delete(`/api/instructor/tests/${testId}`).expect(200);
+      }
+      if (questionId) await instructor.delete(`/api/instructor/questions/${questionId}`).expect(200);
+    }
   });
 });

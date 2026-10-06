@@ -31,8 +31,8 @@ describe('InstructorTeachingPage', () => {
     const loading = renderInstructor(<InstructorTeachingPage />);
     expect(document.querySelector('.p-8.text-center.text-gray-500')).toBeInTheDocument();
     resolveList([teachingEntry()]);
-    expect(await screen.findByText('Assigned English')).toBeInTheDocument();
-    expect(screen.getByText('Evening class')).toBeInTheDocument();
+    expect((await screen.findAllByText('Assigned English')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Evening class').length).toBeGreaterThan(0);
     expect(screen.queryByRole('link', { name: /Mô hình kiến thức/i })).not.toBeInTheDocument();
     loading.unmount();
 
@@ -134,6 +134,8 @@ describe('CourseContentManagementPage', () => {
     const resourceRow = (await screen.findByRole('link', { name: 'Stored guide' })).closest('li') as HTMLElement;
     fireEvent.click(within(resourceRow).getByRole('button', { name: 'Sửa' }));
     const form = screen.getByRole('heading', { name: 'Sửa Tài liệu' }).parentElement!.querySelector('form')!;
+    expect(within(form).getByText(/stored-guide\.pdf/)).toBeInTheDocument();
+    expect(form.querySelector('input[name="url"]')).not.toBeInTheDocument();
     fireEvent.change(form.querySelector<HTMLInputElement>('input[name="title"]')!, { target: { value: 'Stored guide updated' } });
     fireEvent.click(form.querySelector<HTMLInputElement>('input[name="isDownloadable"]')!);
     fireEvent.submit(form);
@@ -145,6 +147,26 @@ describe('CourseContentManagementPage', () => {
     }));
     expect(update.mock.calls[0][1]).not.toHaveProperty('type');
     expect(update.mock.calls[0][1]).not.toHaveProperty('url');
+  });
+
+  it('offers three explicit resource creation modes with mode-specific inputs', async () => {
+    mockContent([moduleA], [lesson], []);
+    renderContent();
+    fireEvent.click(await screen.findByRole('heading', { name: /Alpha module/ }));
+    fireEvent.click(await screen.findByText(/Alpha lesson/));
+    fireEvent.click(screen.getByRole('button', { name: /Thêm tài liệu/i }));
+    const form = screen.getByRole('heading', { name: 'Thêm Tài liệu' }).parentElement!.querySelector('form')!;
+
+    expect(within(form).getByRole('button', { name: 'Tải tài liệu lên' })).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: 'Video từ liên kết' })).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: 'Liên kết ngoài' })).toBeInTheDocument();
+    expect(form.querySelector('input[type="file"]')).toBeInTheDocument();
+    expect(form.querySelector('input[name="url"]')).not.toBeInTheDocument();
+
+    fireEvent.click(within(form).getByRole('button', { name: 'Video từ liên kết' }));
+    expect(within(form).getByText('URL video')).toBeInTheDocument();
+    expect(form.querySelector('input[name="url"]')).toBeInTheDocument();
+    expect(form.querySelector('input[type="file"]')).not.toBeInTheDocument();
   });
 
   it('keeps type and URL in the generic external-resource edit payload', async () => {

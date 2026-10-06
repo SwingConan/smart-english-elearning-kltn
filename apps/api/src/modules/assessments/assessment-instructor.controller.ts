@@ -8,11 +8,14 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { UserRole } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -26,6 +29,8 @@ import { ReorderTestQuestionsDto } from './dto/reorder-test-questions.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
 import { UpdateTestQuestionDto } from './dto/update-test-question.dto';
 import { UpdateTestDto } from './dto/update-test.dto';
+import { QuestionQueryDto } from './dto/question-query.dto';
+import { ConfirmQuestionImportDto } from './dto/confirm-question-import.dto';
 import {
   CreateTestGroupDto,
   CreateTextStimulusDto,
@@ -59,8 +64,43 @@ export class AssessmentInstructorController {
   listQuestions(
     @CurrentUser() user: PublicUser,
     @Param('courseId', new ParseUUIDPipe()) courseId: string,
+    @Query() query: QuestionQueryDto,
   ) {
-    return this.assessmentInstructorService.listQuestions(user.id, courseId);
+    return this.assessmentInstructorService.listQuestions(user.id, courseId, query);
+  }
+
+  @Get('courses/:courseId/questions/import-template')
+  @ApiOperation({ summary: 'Download the safe XLSX question import template' })
+  async questionImportTemplate(
+    @CurrentUser() user: PublicUser,
+    @Param('courseId', new ParseUUIDPipe()) courseId: string,
+    @Res() response: Response,
+  ) {
+    const file = await this.assessmentInstructorService.questionImportTemplate(user.id, courseId);
+    response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    response.setHeader('Content-Disposition', 'attachment; filename="question-import-template.xlsx"');
+    response.send(file);
+  }
+
+  @Post('courses/:courseId/questions/import-preview')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @ApiOperation({ summary: 'Validate an XLSX question file without writing data' })
+  previewQuestionImport(
+    @CurrentUser() user: PublicUser,
+    @Param('courseId', new ParseUUIDPipe()) courseId: string,
+    @UploadedFile() file?: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+  ) {
+    return this.assessmentInstructorService.previewQuestionImport(user.id, courseId, file);
+  }
+
+  @Post('courses/:courseId/questions/import-confirm')
+  @ApiOperation({ summary: 'Confirm one validated XLSX question import batch' })
+  confirmQuestionImport(
+    @CurrentUser() user: PublicUser,
+    @Param('courseId', new ParseUUIDPipe()) courseId: string,
+    @Body() dto: ConfirmQuestionImportDto,
+  ) {
+    return this.assessmentInstructorService.confirmQuestionImport(user.id, courseId, dto);
   }
 
   @Post('courses/:courseId/questions')

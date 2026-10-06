@@ -128,14 +128,20 @@ await delay(500);
 await login('instructor.demo@smart-elearning.local');
 
 const classes = requireOk(await browserFetch('/instructor/classes'), 'Instructor classes');
+if (classes.length < 10) throw new Error(`Expected at least 10 instructor classes, got ${classes.length}`);
+if (JSON.stringify(classes).includes('1970-01-01')) throw new Error('Instructor schedule leaked the database transport date');
+if (JSON.stringify(classes).includes('undefined')) throw new Error('Instructor schedule rendered an undefined field');
 const classroom = classes.find((item) => item.activeLearnerCount >= 10) ?? classes[0];
 if (!classroom) throw new Error('No instructor class fixture was found');
 const classId = classroom.id;
 const courseId = classroom.course.id;
+const overview = requireOk(await browserFetch(`/instructor/classes/${classId}/overview`), 'Overview');
+if (!Number.isInteger(overview.lessonProgress?.completed) || !Number.isInteger(overview.lessonProgress?.total)) throw new Error('Overview is missing real lesson progress numerator/denominator');
 const roster = requireOk(await browserFetch(`/instructor/classes/${classId}/learners`), 'Roster');
 if (roster.learners.length < 10) throw new Error(`Expected at least 10 active demo learners, got ${roster.learners.length}`);
 const learner = roster.learners[0];
-requireOk(await browserFetch(`/instructor/classes/${classId}/learners/${learner.id}`), 'Learner detail');
+const learnerDetail = requireOk(await browserFetch(`/instructor/classes/${classId}/learners/${learner.id}`), 'Learner detail');
+if (!Array.isArray(learnerDetail.attempts)) throw new Error('Learner attempt history is unavailable');
 const grading = requireOk(await browserFetch(`/instructor/classes/${classId}/grading`), 'Grading inbox');
 const results = requireOk(await browserFetch(`/instructor/classes/${classId}/results`), 'Class results');
 const tests = requireOk(await browserFetch(`/instructor/courses/${courseId}/tests`), 'Test templates');
@@ -145,20 +151,133 @@ for (const summary of tests) {
   if (detail.questionGroups?.length) { groupedTest = detail; break; }
 }
 if (!groupedTest) throw new Error('No grouped four-skill test fixture was found');
-
 const checks = [];
+
+const scaleMarker = `M07-SCALE-${Date.now()}`;
+const scaleRows = Array.from({ length: 1000 }, (_, index) => ({
+  type: 'SINGLE_CHOICE', toeicSkill: 'READING', difficulty: index % 3 === 0 ? 'EASY' : index % 3 === 1 ? 'MEDIUM' : 'HARD',
+  content: `${scaleMarker} question ${String(index + 1).padStart(4, '0')}`, explanation: 'Isolated browser-smoke fixture', rubricId: null,
+  options: [{ content: 'Correct', isCorrect: true }, { content: 'Distractor', isCorrect: false }],
+}));
+const scaleImport = { questionIds: [] };
+for (let offset = 0; offset < scaleRows.length; offset += 100) {
+  const imported = requireOk(await browserFetch(`/instructor/courses/${courseId}/questions/import-confirm`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows: scaleRows.slice(offset, offset + 100) }),
+  }), `1,000-question isolated fixture batch ${offset / 100 + 1}`);
+  scaleImport.questionIds.push(...imported.questionIds);
+}
+if (scaleImport.questionIds.length !== 1000) throw new Error(`Expected 1,000 isolated questions, got ${scaleImport.questionIds.length}`);
+try {
+  const scalePage = requireOk(await browserFetch(`/instructor/courses/${courseId}/questions?page=1&pageSize=20&search=${encodeURIComponent(scaleMarker)}&skill=READING`), '1,000-question paginated query');
+  if (scalePage.total !== 1000 || scalePage.totalPages !== 50 || scalePage.items.length !== 20) throw new Error(`Unexpected scale page: ${JSON.stringify({ total: scalePage.total, totalPages: scalePage.totalPages, items: scalePage.items.length })}`);
+  await navigate(`/instructor/tests/${groupedTest.id}/edit`, ['Mở bộ chọn câu hỏi']);
+  await evaluate(`(() => {
+    const readingCard = [...document.querySelectorAll('article')].find((article) => [...article.querySelectorAll('span')].some((span) => span.textContent?.trim() === 'Đọc'));
+    const selectPart = readingCard ? [...readingCard.querySelectorAll('button')].find((button) => button.textContent?.includes('Chọn để thêm câu hỏi')) : null;
+    if (!selectPart) throw new Error('No Reading Part selection action was rendered');
+    selectPart.click();
+    return true;
+  })()`);
+  await delay(200);
+  await evaluate(`(() => {
+    const open = [...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Mở bộ chọn câu hỏi'));
+    if (!open) throw new Error('Question picker action was not rendered');
+    open.click();
+    return true;
+  })()`);
+  await delay(300);
+  await evaluate(`(() => {
+    const input = document.querySelector('input[aria-label="Tìm trong bộ chọn câu hỏi"]');
+    if (!input) throw new Error('Question picker search was not rendered');
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setter.call(input, ${JSON.stringify(scaleMarker)});
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  let pickerState;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    await delay(250);
+    pickerState = await evaluate(`({ text: document.body.innerText, overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2 })`);
+    if (pickerState.text.includes('1000 câu phù hợp') && pickerState.text.includes('1/50')) break;
+  }
+  if (!pickerState.text.includes('1000 câu phù hợp') || !pickerState.text.includes('1/50')) throw new Error(`1,000-question picker did not expose the expected server pagination: ${pickerState.text.slice(-1200)}`);
+  checks.push(['isolated 1,000-question picker', pickerState]);
+} finally {
+  const cleanup = await evaluate(`(async () => {
+    const ids = ${JSON.stringify(scaleImport.questionIds)};
+    for (let offset = 0; offset < ids.length; offset += 25) {
+      const responses = await Promise.all(ids.slice(offset, offset + 25).map((id) => fetch('/api/instructor/questions/' + encodeURIComponent(id), { method: 'DELETE', credentials: 'include' })));
+      if (responses.some((response) => !response.ok)) return false;
+    }
+    return true;
+  })()`);
+  if (!cleanup) throw new Error('Could not clean the isolated 1,000-question fixture');
+}
+
 checks.push(['teaching list', await navigate('/instructor/teaching', ['Lớp giảng dạy của tôi', 'Vào lớp'])]);
 checks.push(['class overview', await navigate(`/instructor/classes/${classId}`, ['Tổng quan lớp', 'Bài chờ chấm'])]);
 checks.push(['roster', await navigate(`/instructor/classes/${classId}/learners`, ['Học viên', 'Theo dõi tiến độ học tập'])]);
-checks.push(['learner detail', await navigate(`/instructor/classes/${classId}/learners/${learner.id}`, ['Ảnh chụp bốn kỹ năng gần nhất', 'Tiến độ bài học'])]);
+checks.push(['learner detail', await navigate(`/instructor/classes/${classId}/learners/${learner.id}`, ['Kết quả 4 kỹ năng gần nhất', 'Tiến độ bài học', 'Lịch sử bài kiểm tra'])]);
 checks.push(['shared content warning', await navigate(`/instructor/classes/${classId}/content`, ['Nội dung này dùng chung cho các lớp thuộc khóa học này.', 'Quản lý nội dung khóa học'])]);
-checks.push(['question bank', await navigate(`/instructor/courses/${courseId}/question-bank`, ['Ngân hàng câu hỏi', 'Nói', 'Viết'])]);
-checks.push(['grouped test builder', await navigate(`/instructor/tests/${groupedTest.id}/edit`, ['Cấu trúc nhóm bốn kỹ năng', 'stimulus'])]);
+await evaluate(`(() => {
+  const add = [...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '+ Tài liệu');
+  if (!add) throw new Error('Resource creation action was not rendered');
+  add.click();
+  return true;
+})()`);
+await delay(200);
+const resourceModes = await evaluate(`({ text: document.body.innerText, overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2 })`);
+for (const mode of ['Tải tài liệu lên', 'Video từ liên kết', 'Liên kết ngoài']) {
+  if (!resourceModes.text.includes(mode)) throw new Error('Missing resource creation mode: ' + mode);
+}
+checks.push(['resource creation modes', resourceModes]);
+await evaluate(`(() => { [...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Hủy')?.click(); return true; })()`);
+
+const bankPath = `/instructor/courses/${courseId}/question-bank?returnTo=${encodeURIComponent(`/instructor/classes/${classId}/assessments`)}`;
+checks.push(['question bank pagination/import', await navigate(bankPath, ['Ngân hàng câu hỏi', 'Tải mẫu XLSX', 'Trang 1/'])]);
+await evaluate(`(async () => {
+  const response = await fetch('/api/instructor/courses/${courseId}/questions/import-template', { credentials: 'include' });
+  if (!response.ok) throw new Error('Could not download XLSX import template');
+  const file = new File([await response.blob()], 'm07-browser-smoke-template.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const input = document.querySelector('input[type="file"][accept=".xlsx"]');
+  if (!input) throw new Error('XLSX picker was not rendered');
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  input.files = transfer.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+})()`);
+let xlsxPreview;
+for (let attempt = 0; attempt < 40; attempt += 1) {
+  await delay(250);
+  xlsxPreview = await evaluate(`({ text: document.body.innerText, overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2 })`);
+  if (xlsxPreview.text.includes('Xem trước dữ liệu XLSX') && xlsxPreview.text.includes('1/1 dòng hợp lệ')) break;
+}
+if (!xlsxPreview.text.includes('Xem trước dữ liệu XLSX') || !xlsxPreview.text.includes('1/1 dòng hợp lệ')) throw new Error('XLSX validation preview did not render');
+checks.push(['XLSX validation preview without confirm', xlsxPreview]);
+await evaluate(`(() => { [...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Hủy')?.click(); return true; })()`);
+await evaluate(`(() => {
+  const back = [...document.querySelectorAll('a')].find((link) => link.textContent?.trim() === 'Quay lại');
+  if (!back) throw new Error('Safe return link was not rendered');
+  back.click();
+  return true;
+})()`);
+let returnPath;
+for (let attempt = 0; attempt < 20; attempt += 1) {
+  await delay(200);
+  returnPath = await evaluate('location.pathname');
+  if (returnPath === `/instructor/classes/${classId}/assessments`) break;
+}
+if (returnPath !== `/instructor/classes/${classId}/assessments`) throw new Error(`Question Bank return context was lost: ${returnPath}`);
+checks.push(['question bank safe return context', { overflow: false }]);
+checks.push(['guided test builder', await navigate(`/instructor/tests/${groupedTest.id}/edit`, ['Phần thi theo bốn kỹ năng', 'Mở bộ chọn câu hỏi', 'Xem trước đề'])]);
 checks.push(['class scheduling', await navigate(`/instructor/classes/${classId}/assessments`, ['Lịch đã giao', 'Áp dụng cho lớp này'])]);
 checks.push(['grading inbox', await navigate(`/instructor/classes/${classId}/grading`, ['Ưu tiên bài nộp sớm nhất', 'Chấm bài'])]);
 if (grading.submissions.length) {
   const submission = grading.submissions[0];
-  checks.push(['grading detail + next item', await navigate(`/instructor/classes/${classId}/assessments/${submission.classAssessment.id}/attempts/${submission.id}/grading`, ['sang bài tiếp theo', 'Danh sách chấm bài'])]);
+  const gradingDetail = await navigate(`/instructor/classes/${classId}/assessments/${submission.classAssessment.id}/attempts/${submission.id}/grading`, ['Câu 1 ·', 'Danh sách chấm bài']);
+  const hasResponseNavigator = await evaluate(`Boolean(document.querySelector('nav[aria-label="Điều hướng câu chấm"]'))`);
+  if (!hasResponseNavigator) throw new Error('Same-attempt grading response navigator was not rendered');
+  checks.push(['grading detail + same-attempt navigator', gradingDetail]);
 }
 checks.push(['class results', await navigate(`/instructor/classes/${classId}/results`, ['Kết quả lớp', 'Mẫu'])]);
 
@@ -179,9 +298,12 @@ if (!storedResource) throw new Error('No stored downloadable document fixture wa
 const originalStoredTitle = storedResource.title;
 const smokeStoredTitle = `${originalStoredTitle} — smoke metadata`;
 await editVisibleStoredResourceTitle(classId, originalStoredTitle, smokeStoredTitle);
-const storedMetadataReload = await navigate(`/instructor/classes/${classId}/content`, [smokeStoredTitle, 'Quản lý nội dung khóa học']);
-checks.push(['visible stored-document metadata edit + reload', storedMetadataReload]);
-await editVisibleStoredResourceTitle(classId, smokeStoredTitle, originalStoredTitle);
+try {
+  const storedMetadataReload = await navigate(`/instructor/classes/${classId}/content`, [smokeStoredTitle, storedResource.originalFileName, 'Quản lý nội dung khóa học']);
+  checks.push(['visible stored-document metadata edit + reload', storedMetadataReload]);
+} finally {
+  await editVisibleStoredResourceTitle(classId, smokeStoredTitle, originalStoredTitle);
+}
 await navigate(`/instructor/classes/${classId}/content`, [originalStoredTitle, 'Quản lý nội dung khóa học']);
 
 await logout();
@@ -225,6 +347,7 @@ const summary = {
   gradingItems: grading.submissions.length,
   resultAssessments: results.assessments.length,
   groupedTestGroups: groupedTest.questionGroups.length,
+  instructorClasses: classes.length,
   storedDocument: storedResource.originalFileName,
   checks: checks.map(([name, state]) => ({ name, pass: true, horizontalOverflow: state.overflow })),
 };

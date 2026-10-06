@@ -30,6 +30,28 @@ export interface AssessmentQuestion {
   createdAt: string;
   updatedAt: string;
   options: QuestionOption[];
+  usageCount?: number;
+}
+export interface QuestionPage {
+  items: AssessmentQuestion[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+export interface QuestionQuery {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  skill?: ToeicSkill;
+  responseType?: QuestionType;
+  difficulty?: QuestionDifficulty;
+  usage?: 'ALL' | 'USED' | 'UNUSED';
+}
+export interface QuestionImportPreview {
+  rows: Array<{ rowNumber: number; input: QuestionInput | null; errors: string[] }>;
+  summary: { total: number; valid: number; invalid: number };
+  canConfirm: boolean;
 }
 export interface QuestionInput {
   type: QuestionType;

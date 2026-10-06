@@ -14,6 +14,7 @@ import {
 } from '../../generated/prisma/client';
 import { AssessmentInstructorService } from './assessment-instructor.service';
 import { AssessmentStimulusMediaStorage } from '../placement/assessment-stimulus-media.storage';
+import { Workbook } from 'exceljs';
 
 describe('AssessmentInstructorService', () => {
   const instructorId = 'instructor-id';
@@ -47,7 +48,7 @@ describe('AssessmentInstructorService', () => {
   };
   const prisma = {
     classOffering: { findFirst: jest.fn() },
-    question: { findMany: jest.fn(), findUnique: jest.fn() },
+    question: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
     test: { findMany: jest.fn(), findUnique: jest.fn() },
     $transaction: jest.fn(),
   };
@@ -60,6 +61,7 @@ describe('AssessmentInstructorService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.classOffering.findFirst.mockResolvedValue({ id: 'offering-id' });
+    prisma.question.count.mockResolvedValue(0);
     transaction.classOffering.findFirst.mockResolvedValue({ id: 'offering-id' });
     transaction.lesson.findFirst.mockResolvedValue({ id: 'lesson-id' });
     transaction.testAttempt.count.mockResolvedValue(0);
@@ -189,11 +191,62 @@ describe('AssessmentInstructorService', () => {
 
   it('enforces assigned-course authorization', async () => {
     prisma.question.findMany.mockResolvedValue([]);
-    await expect(service.listQuestions(instructorId, courseId)).resolves.toEqual([]);
+    await expect(service.listQuestions(instructorId, courseId)).resolves.toEqual({ items: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });
     prisma.classOffering.findFirst.mockResolvedValueOnce(null);
     await expect(service.listQuestions('unassigned', courseId)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  it('uses bounded server-side question pagination and usage filtering', async () => {
+    prisma.question.findMany.mockResolvedValue([]);
+    prisma.question.count.mockResolvedValue(142);
+    const result = await service.listQuestions(instructorId, courseId, { page: 3, pageSize: 20, search: 'email', usage: 'UNUSED' });
+    expect(prisma.question.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 40, take: 20, where: expect.objectContaining({ courseId, content: { contains: 'email', mode: 'insensitive' }, testQuestions: { none: {} } }) }));
+    expect(result).toMatchObject({ page: 3, pageSize: 20, total: 142, totalPages: 8 });
+  });
+
+  it('previews XLSX safely and rejects formula cells without writing data', async () => {
+    const workbook = new Workbook();
+    const sheet = workbook.addWorksheet('Questions');
+    sheet.addRow(['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id']);
+    sheet.addRow(['READING', 'SINGLE_CHOICE', 'EASY', { formula: 'HYPERLINK("https://example.test")', result: 'unsafe' }, '', 'A', 'B', '', '', 'A', '']);
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    const result = await service.previewQuestionImport(instructorId, courseId, { buffer, mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', originalname: 'questions.xlsx', size: buffer.length });
+    expect(result.canConfirm).toBe(false);
+    expect(result.rows[0].errors.join(' ')).toContain('công thức');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('enforces XLSX file and row caps before any import write', async () => {
+    await expect(service.previewQuestionImport(instructorId, courseId, {
+      buffer: Buffer.alloc(0), mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      originalname: 'too-large.xlsx', size: 5 * 1024 * 1024 + 1,
+    })).rejects.toBeInstanceOf(BadRequestException);
+
+    const workbook = new Workbook();
+    const sheet = workbook.addWorksheet('Questions');
+    sheet.addRow(['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id']);
+    for (let index = 0; index < 2001; index += 1) sheet.addRow(['READING', 'SINGLE_CHOICE', 'EASY', `Question ${index}`, '', 'A', 'B', '', '', 'A', '']);
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    await expect(service.previewQuestionImport(instructorId, courseId, {
+      buffer, mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', originalname: 'too-many.xlsx', size: buffer.length,
+    })).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('confirms a validated import atomically and preserves objective option order', async () => {
+    transaction.question.create
+      .mockResolvedValueOnce({ id: 'imported-a' })
+      .mockResolvedValueOnce({ id: 'imported-b' });
+    const result = await service.confirmQuestionImport(instructorId, courseId, { rows: [
+      { type: QuestionResponseType.SINGLE_CHOICE, toeicSkill: ToeicSkill.READING, difficulty: QuestionDifficulty.EASY, content: 'Imported A', options: [{ content: 'A', isCorrect: true }, { content: 'B', isCorrect: false }] },
+      { type: QuestionResponseType.TRUE_FALSE, toeicSkill: ToeicSkill.LISTENING, difficulty: QuestionDifficulty.MEDIUM, content: 'Imported B', options: [{ content: 'True', isCorrect: true }, { content: 'False', isCorrect: false }] },
+    ] });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.question.create).toHaveBeenCalledTimes(2);
+    expect(transaction.question.create).toHaveBeenNthCalledWith(1, expect.objectContaining({ data: expect.objectContaining({ options: { create: [{ content: 'A', isCorrect: true, orderIndex: 0 }, { content: 'B', isCorrect: false, orderIndex: 1 }] } }) }));
+    expect(result).toEqual({ importedCount: 2, questionIds: ['imported-a', 'imported-b'] });
   });
 
   it.each([

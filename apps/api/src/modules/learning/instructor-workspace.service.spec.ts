@@ -32,11 +32,18 @@ describe('InstructorWorkspaceService', () => {
     prisma.lesson.count.mockResolvedValue(4);
     prisma.lessonProgress.count.mockResolvedValue(7);
     prisma.classAssessment.findMany.mockResolvedValue([{ id: 'assessment-a', stage: 'MIDTERM', openAt: null, closeAt: null, createdAt: new Date(), test: { id: 'test-a', title: 'Midterm' } }]);
-    prisma.testAttempt.findMany.mockResolvedValue([{ answers: [{ evaluations: [], testQuestion: { question: { toeicSkill: ToeicSkill.WRITING } } }] }]);
+    prisma.testAttempt.findMany.mockResolvedValue([{ learnerId: 'learner-a', classAssessmentId: 'assessment-a', answers: [{ evaluations: [], testQuestion: { question: { toeicSkill: ToeicSkill.WRITING } } }] }]);
     const result = await service.overview('instructor-a', 'class-a');
     expect(result).toMatchObject({ activeLearnerCount: 3, lessonProgress: { completed: 7, total: 12, percentage: 58 }, pendingGradingCount: 1 });
     expect(prisma.lessonProgress.count).toHaveBeenCalledTimes(1);
     expect(prisma.testAttempt.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('projects database time-only values without leaking the 1970 transport date', async () => {
+    prisma.classOffering.findMany.mockResolvedValue([{ ...classroom, scheduleSlots: [{ dayOfWeek: 2, startTime: new Date('1970-01-01T18:00:00.000Z'), endTime: new Date('1970-01-01T20:00:00.000Z'), locationText: null }], _count: { enrollments: 12 } }]);
+    const result = await service.listClasses('instructor-a');
+    expect(result[0].scheduleSlots).toEqual([{ dayOfWeek: 2, startTime: '18:00', endTime: '20:00', locationText: null }]);
+    expect(JSON.stringify(result)).not.toContain('1970');
   });
 
   it('keeps learner IDs scoped to the owned class', async () => {

@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { assessmentApi } from '@/features/assessments/api';
 import { loadCourseLessons, type LessonChoice } from '@/features/assessments/curriculum';
 import { assessmentTypeLabel, testStatusLabel, testTypeLabel } from '@/features/assessments/display';
@@ -9,6 +9,9 @@ import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 
 export function TestManagementPage() {
   const { courseId } = useParams<{ courseId: string }>();
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get('returnTo');
+  const safeReturnTo = returnTo?.startsWith('/instructor/') ? returnTo : '/instructor/teaching';
   const redirectExpiredSession = useSessionExpiry();
   const mutationInFlight = useRef(false);
   const [tests, setTests] = useState<AssessmentTestDetail[]>([]);
@@ -130,11 +133,12 @@ export function TestManagementPage() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Mẫu bài kiểm tra</h1>
+          <h1 className="text-2xl font-bold">Kho đề</h1>
           <p className="mt-1 text-sm text-slate-600">Tạo và biên soạn nội dung dùng lại trước khi giao cho một lớp cụ thể.</p>
         </div>
         <div className="flex gap-2">
-          {courseId && <Link className="rounded border px-4 py-2 text-sm" to={`/instructor/courses/${courseId}/question-bank`}>Ngân hàng câu hỏi</Link>}
+          <Link className="rounded border px-4 py-2 text-sm" to={safeReturnTo}>Quay lại lớp</Link>
+          {courseId && <Link className="rounded border px-4 py-2 text-sm" to={`/instructor/courses/${courseId}/question-bank?returnTo=${encodeURIComponent(safeReturnTo)}`}>Ngân hàng câu hỏi</Link>}
           <button className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={pendingAction !== null} onClick={() => { setCreateOpen(true); setActionError(null); }} type="button">Tạo bài kiểm tra</button>
         </div>
       </div>
