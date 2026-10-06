@@ -5,6 +5,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole } from '../../generated/prisma/client';
 import { PublicUser } from '../users/user.types';
+import { contentDisposition } from './content-disposition';
 
 @Roles(UserRole.STUDENT)
 @Controller('learning')
@@ -55,7 +56,7 @@ export class LearningController {
     const resource = await this.learningService.getResourceDownload(user.id, enrollmentId, resourceId);
     if (resource.delivery === 'STORAGE') {
       response.setHeader('Content-Type', resource.mimeType);
-      response.setHeader('Content-Disposition', `attachment; filename="${resource.fileName}"`);
+      response.setHeader('Content-Disposition', contentDisposition('attachment', resource.fileName));
       response.setHeader('Cache-Control', 'private, no-store');
       return new StreamableFile(resource.stream);
     }

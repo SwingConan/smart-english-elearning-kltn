@@ -61,11 +61,16 @@ export interface InstructorClassResults {
 
 export interface InstructorGradingInbox {
   classOffering: InstructorClass;
+  summary: { waiting: number; partial: number; final: number };
   submissions: Array<{
     id: string;
     attemptNumber: number;
     submittedAt: string;
     gradingState: string;
+    listeningScore: number | null;
+    readingScore: number | null;
+    productiveFinalizedCount: number;
+    productiveTotal: number;
     learner: { id: string; fullName: string; email: string };
     classAssessment: { id: string; stage: string; test: { id: string; title: string } };
   }>;

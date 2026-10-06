@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  AnswerEvaluationSource,
   AnswerEvaluationStatus,
   EnrollmentStatus,
   LessonProgressStatus,
@@ -178,15 +179,51 @@ export class InstructorWorkspaceService {
         id: true, attemptNumber: true, submittedAt: true,
         learner: { select: { id: true, fullName: true, email: true } },
         classAssessment: { select: { id: true, stage: true, test: { select: { id: true, title: true } } } },
-        answers: { where: { testQuestion: { question: { toeicSkill: { in: [ToeicSkill.SPEAKING, ToeicSkill.WRITING] } } } }, select: { evaluations: { where: { status: AnswerEvaluationStatus.REVIEWED_FINAL }, select: { id: true } } } },
+        answers: {
+          where: { testQuestion: { question: { toeicSkill: { in: [ToeicSkill.SPEAKING, ToeicSkill.WRITING] } } } },
+          select: {
+            evaluations: {
+              where: { source: AnswerEvaluationSource.INSTRUCTOR },
+              select: { id: true, status: true },
+            },
+          },
+        },
+        skillScores: {
+          where: { skill: { in: [ToeicSkill.LISTENING, ToeicSkill.READING] }, status: SkillScoreStatus.FINAL },
+          select: { skill: true, normalizedScore: true },
+        },
       },
+    });
+    const submissions = attempts.flatMap((attempt) => {
+      if (attempt.answers.length === 0) return [];
+      const evaluatedCount = attempt.answers.filter((answer) => answer.evaluations.length > 0).length;
+      const finalizedCount = attempt.answers.filter((answer) =>
+        answer.evaluations.some((evaluation) => evaluation.status === AnswerEvaluationStatus.REVIEWED_FINAL),
+      ).length;
+      const gradingState = evaluatedCount === 0 ? 'WAITING' : finalizedCount === attempt.answers.length ? 'FINAL' : 'PARTIAL';
+      const snapshot = (skill: ToeicSkill) => {
+        const score = attempt.skillScores.find((item) => item.skill === skill);
+        return score ? Number(score.normalizedScore) : null;
+      };
+      return [{
+        ...attempt,
+        answers: undefined,
+        skillScores: undefined,
+        gradingState,
+        listeningScore: snapshot(ToeicSkill.LISTENING),
+        readingScore: snapshot(ToeicSkill.READING),
+        productiveFinalizedCount: finalizedCount,
+        productiveTotal: attempt.answers.length,
+      }];
     });
     return {
       classOffering: classroom,
-      submissions: attempts.map((attempt) => {
-        const finalCount = attempt.answers.filter((answer) => answer.evaluations.length > 0).length;
-        return { ...attempt, answers: undefined, gradingState: finalCount === 0 ? 'WAITING' : finalCount === attempt.answers.length ? 'FINAL' : 'PARTIAL' };
-      }),
+      summary: {
+        waiting: submissions.filter((item) => item.gradingState === 'WAITING').length,
+        partial: submissions.filter((item) => item.gradingState === 'PARTIAL').length,
+        final: submissions.filter((item) => item.gradingState === 'FINAL').length,
+      },
+      submissions,
     };
   }
 

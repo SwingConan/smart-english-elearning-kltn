@@ -5,7 +5,15 @@ import type {
   TestPurpose,
   TestStatus,
   TestType,
+  ToeicSkill,
 } from './types';
+
+export const toeicSkillLabel: Record<ToeicSkill, string> = {
+  LISTENING: 'Nghe',
+  READING: 'Đọc',
+  SPEAKING: 'Nói',
+  WRITING: 'Viết',
+};
 
 export const questionTypeLabel: Partial<Record<QuestionType, string>> = {
   SINGLE_CHOICE: 'Một đáp án',

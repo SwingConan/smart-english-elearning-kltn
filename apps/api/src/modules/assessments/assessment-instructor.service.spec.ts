@@ -312,4 +312,13 @@ describe('AssessmentInstructorService', () => {
     transaction.testQuestionGroup.findFirst.mockResolvedValueOnce({ skill: ToeicSkill.LISTENING });
     await expect(service.moveTestQuestionGroup(instructorId, testId, 'test-question-id', 'group-id')).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('revalidates the complete invariant inside a published-test mutation', async () => {
+    transaction.test.findUnique.mockResolvedValue({ courseId, status: TestStatus.PUBLISHED });
+    transaction.question.findFirst.mockResolvedValue({ id: questionId, toeicSkill: ToeicSkill.READING });
+    const validate = jest.spyOn(service, 'validatePublishableTest').mockResolvedValue({} as never);
+    await service.addTestQuestion(instructorId, testId, { questionId, points: 1 });
+    expect(validate).toHaveBeenCalledWith(transaction, testId);
+    validate.mockRestore();
+  });
 });

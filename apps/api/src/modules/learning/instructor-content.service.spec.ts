@@ -110,6 +110,36 @@ describe('InstructorContentService', () => {
     expect(storage.delete).not.toHaveBeenCalledWith('old.txt');
   });
 
+  it('preserves stored-resource representation during generic edits', async () => {
+    transaction.learningResource.findUnique.mockResolvedValue({
+      updatedAt: new Date('2026-10-06T00:00:00.000Z'), storageKey: 'stored.pdf',
+      type: ResourceType.DOCUMENT, url: null, originalFileName: 'guide.pdf', mimeType: 'application/pdf',
+      lesson: { module: { courseId } },
+    });
+    transaction.learningResource.update.mockResolvedValue({ id: resourceId });
+    await expect(service.updateResource(instructorId, resourceId, {
+      title: 'Tên mới', expectedUpdatedAt: '2026-10-06T00:00:00.000Z',
+    })).resolves.toEqual({ id: resourceId });
+    await expect(service.updateResource(instructorId, resourceId, {
+      type: ResourceType.LINK, url: 'https://example.test', expectedUpdatedAt: '2026-10-06T00:00:00.000Z',
+    })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('cleans parent-owned stored files only after a successful database delete', async () => {
+    prisma.lesson.findUnique.mockResolvedValue({ id: lessonId, moduleId, module: { courseId } });
+    transaction.lesson.findUnique.mockResolvedValue({ moduleId });
+    transaction.lessonProgress.count.mockResolvedValue(0);
+    transaction.learningResource.findMany.mockResolvedValue([{ storageKey: 'lesson/file.pdf' }]);
+    transaction.lesson.findMany.mockResolvedValue([]);
+    await service.deleteLesson(instructorId, lessonId);
+    expect(storage.delete).toHaveBeenCalledWith('lesson/file.pdf');
+
+    storage.delete.mockClear();
+    transaction.lesson.delete.mockRejectedValueOnce(new Error('database failure'));
+    await expect(service.deleteLesson(instructorId, lessonId)).rejects.toThrow('database failure');
+    expect(storage.delete).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['module', () => service.createModule(instructorId, courseId, { title: 'Module' }), transaction.module.create, { courseId, orderIndex: 3 }],
     ['lesson', () => service.createLesson(instructorId, moduleId, { title: 'Lesson' }), transaction.lesson.create, { moduleId, orderIndex: 4 }],

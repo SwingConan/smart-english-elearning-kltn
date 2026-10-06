@@ -123,28 +123,25 @@ describe('class learning', () => {
     expect(await screen.findByText(/Đã hoàn thành bài học/i)).toBeInTheDocument();
   });
 
-  it('uses the authorized download contract and reports failure safely', async () => {
+  it('starts a real browser download for the visible stored-file action and reports failure safely', async () => {
     vi.spyOn(learningApi, 'getContent').mockResolvedValue(content);
     vi.spyOn(learningApi, 'openLesson').mockResolvedValue(detail());
-    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
-    vi.spyOn(learningApi, 'getResourceDownload').mockResolvedValueOnce({
-      url: 'https://example.test/authorized',
+    const objectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:stored-resource');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    vi.spyOn(learningApi, 'downloadStoredResource').mockResolvedValueOnce({
+      blob: new Blob(['document']),
       fileName: 'worksheet.pdf',
-      mimeType: 'application/pdf',
     });
     const page = renderLesson();
     fireEvent.click(await screen.findByRole('button', { name: /Tải xuống/i }));
-    await waitFor(() =>
-      expect(open).toHaveBeenCalledWith(
-        'https://example.test/authorized',
-        '_blank',
-        'noopener,noreferrer',
-      ),
-    );
+    await waitFor(() => expect(click).toHaveBeenCalledOnce());
+    expect(objectUrl).toHaveBeenCalledWith(expect.any(Blob));
+    expect(revoke).toHaveBeenCalledWith('blob:stored-resource');
     page.unmount();
     vi.spyOn(learningApi, 'getContent').mockResolvedValue(content);
     vi.spyOn(learningApi, 'openLesson').mockResolvedValue(detail());
-    vi.spyOn(learningApi, 'getResourceDownload').mockRejectedValueOnce(
+    vi.spyOn(learningApi, 'downloadStoredResource').mockRejectedValueOnce(
       new Error('private details'),
     );
     renderLesson();

@@ -47,7 +47,7 @@ describe('assessment navigation', () => {
       '/instructor/classes/offering-a/assessments',
     );
     expect(screen.getByText('Đang mở đăng ký')).toBeInTheDocument();
-    expect(screen.getByText('Công cụ nâng cao')).toBeInTheDocument();
+    expect(screen.getByText('Công cụ lớp học')).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/Adaptive Policy|Learner Mastery|Knowledge Model/);
   });
 

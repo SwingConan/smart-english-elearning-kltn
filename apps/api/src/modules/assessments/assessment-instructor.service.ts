@@ -438,11 +438,13 @@ export class AssessmentInstructorService {
           test.status === TestStatus.PUBLISHED,
         );
 
-        return transaction.test.update({
+        const updated = await transaction.test.update({
           where: { id: testId },
           data: input,
           select: instructorTestDetailSelect,
         });
+        await this.revalidatePublishedTest(transaction, testId, test.status);
+        return updated;
       },
       'Test changed concurrently; please try again',
       'Test references changed concurrently; please try again',
@@ -450,11 +452,14 @@ export class AssessmentInstructorService {
   }
 
   async deleteTest(instructorId: string, testId: string): Promise<{ message: string }> {
-    await this.runSerializableMutation(
+    const storageKeys = await this.runSerializableMutation(
       async (transaction) => {
         const test = await transaction.test.findUnique({
           where: { id: testId },
-          select: { courseId: true },
+          select: {
+            courseId: true,
+            questionGroups: { select: { stimuli: { select: { storageKey: true } } } },
+          },
         });
         if (!test) {
           throw new NotFoundException('Test not found');
@@ -464,16 +469,65 @@ export class AssessmentInstructorService {
         await this.assertTestHasNoHistoricalAttempts(transaction, testId);
         await transaction.testQuestion.deleteMany({ where: { testId } });
         await transaction.test.delete({ where: { id: testId } });
+        return test.questionGroups.flatMap((group) =>
+          group.stimuli.flatMap((stimulus) => stimulus.storageKey ? [stimulus.storageKey] : []),
+        );
       },
       'Test changed concurrently; please try again',
       'Test cannot be deleted because attempt history exists',
     );
 
+    await Promise.all(storageKeys.map((key) => this.stimulusStorage.delete(key).catch(() => undefined)));
+
     return { message: 'Test deleted successfully' };
+  }
+
+  /** Validates the complete published-test invariant without changing state. */
+  async validatePublishableTest(database: PrismaService | Prisma.TransactionClient, testId: string) {
+    const test = await database.test.findUnique({
+      where: { id: testId },
+      select: {
+        ...instructorTestSelect,
+        testQuestions: { orderBy: { orderIndex: 'asc' }, select: { id: true, groupId: true, orderIndex: true, points: true, question: { select: { courseId: true, responseType: true, toeicSkill: true, difficulty: true, content: true, explanation: true, rubricId: true, rubric: { select: { isActive: true } }, options: { orderBy: { orderIndex: 'asc' }, select: { content: true, isCorrect: true } } } } } },
+        questionGroups: { orderBy: { orderIndex: 'asc' }, select: { id: true, skill: true, orderIndex: true, preparationSeconds: true, responseSeconds: true, recommendedSeconds: true, maxRecordingSeconds: true, stimuli: { orderBy: { orderIndex: 'asc' } }, testQuestions: { select: { id: true } } } },
+      },
+    });
+    if (!test) throw new NotFoundException('Test not found');
+    await this.validateTestLessonRule(database, test.courseId, test.purpose, test.lessonId, true);
+    if (test.maxAttempts < 1) throw new BadRequestException('maxAttempts must be at least 1');
+    if (test.testQuestions.length === 0) throw new BadRequestException('Test must contain at least one question before publishing');
+    for (const [index, item] of test.testQuestions.entries()) {
+      if (item.orderIndex !== index) throw new BadRequestException('TestQuestion order must be contiguous before publishing');
+      if (item.points < 1) throw new BadRequestException('Every TestQuestion must have positive points');
+      if (item.question.courseId !== test.courseId) throw new BadRequestException('Every Question must belong to the Test course');
+      this.normalizeAndValidateQuestion({ type: item.question.responseType, toeicSkill: item.question.toeicSkill, difficulty: item.question.difficulty, content: item.question.content, explanation: item.question.explanation, rubricId: item.question.rubricId, options: item.question.options });
+      if (([ToeicSkill.SPEAKING, ToeicSkill.WRITING] as ToeicSkill[]).includes(item.question.toeicSkill) && !item.question.rubric?.isActive) {
+        throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `questions.${item.id}.rubricId`, message: 'Câu Speaking/Writing cần rubric đang hoạt động.' });
+      }
+    }
+    if (new Set(test.testQuestions.map((item) => item.question.toeicSkill)).size > 1 && test.questionGroups.length === 0) {
+      throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: 'groups', message: 'Mẫu bài kiểm tra nhiều kỹ năng cần ít nhất một nhóm câu hỏi.' });
+    }
+    if (test.questionGroups.length > 0) {
+      for (const [index, group] of test.questionGroups.entries()) {
+        if (group.orderIndex !== index) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.orderIndex`, message: 'Thứ tự nhóm câu hỏi phải liên tục.' });
+        if (group.testQuestions.length === 0) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Mỗi nhóm phải có ít nhất một câu hỏi.' });
+        if (test.testQuestions.some((item) => item.groupId === group.id && item.question.toeicSkill !== group.skill)) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Kỹ năng câu hỏi không khớp kỹ năng nhóm.' });
+        for (const stimulus of group.stimuli) if (stimulus.storageKey && !(await this.stimulusStorage.exists(stimulus.storageKey))) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.stimuli.${stimulus.id}`, message: 'Tệp stimulus không khả dụng.' });
+      }
+      const ungrouped = test.testQuestions.find((item) => !item.groupId);
+      if (ungrouped) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `questions.${ungrouped.id}.groupId`, message: 'Câu hỏi cần thuộc một nhóm trước khi xuất bản.' });
+    }
+    return test;
+  }
+
+  private async revalidatePublishedTest(database: Prisma.TransactionClient, testId: string, status: TestStatus) {
+    if (status === TestStatus.PUBLISHED) await this.validatePublishableTest(database, testId);
   }
 
   async publishTest(instructorId: string, testId: string) {
     return this.runSerializableMutation(async (transaction) => {
+      await this.validatePublishableTest(transaction, testId);
       const test = await transaction.test.findUnique({
         where: { id: testId },
         select: {
@@ -648,7 +702,7 @@ export class AssessmentInstructorService {
       async (transaction) => {
         const test = await transaction.test.findUnique({
           where: { id: testId },
-          select: { courseId: true },
+          select: { courseId: true, status: true },
         });
         if (!test) {
           throw new NotFoundException('Test not found');
@@ -691,7 +745,7 @@ export class AssessmentInstructorService {
           select: { orderIndex: true },
         });
 
-        return transaction.testQuestion.create({
+        const created = await transaction.testQuestion.create({
           data: {
             testId,
             questionId: dto.questionId,
@@ -701,6 +755,8 @@ export class AssessmentInstructorService {
           },
           select: instructorTestQuestionSelect,
         });
+        await this.revalidatePublishedTest(transaction, testId, test.status);
+        return created;
       },
       'Test question order changed concurrently; please try again',
       'Question already exists in this Test',
@@ -716,7 +772,7 @@ export class AssessmentInstructorService {
     return this.runSerializableMutation(async (transaction) => {
       const test = await transaction.test.findUnique({
         where: { id: testId },
-        select: { courseId: true },
+        select: { courseId: true, status: true },
       });
       if (!test) {
         throw new NotFoundException('Test not found');
@@ -726,11 +782,13 @@ export class AssessmentInstructorService {
       await this.assertTestHasNoHistoricalAttempts(transaction, testId);
       await this.requireNestedTestQuestion(transaction, testId, testQuestionId);
 
-      return transaction.testQuestion.update({
+      const updated = await transaction.testQuestion.update({
         where: { id: testQuestionId },
         data: { points: dto.points },
         select: instructorTestQuestionSelect,
       });
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return updated;
     }, 'Test question changed concurrently; please try again');
   }
 
@@ -743,7 +801,7 @@ export class AssessmentInstructorService {
       async (transaction) => {
         const test = await transaction.test.findUnique({
           where: { id: testId },
-          select: { courseId: true },
+          select: { courseId: true, status: true },
         });
         if (!test) {
           throw new NotFoundException('Test not found');
@@ -754,6 +812,7 @@ export class AssessmentInstructorService {
         await this.requireNestedTestQuestion(transaction, testId, testQuestionId);
         await transaction.testQuestion.delete({ where: { id: testQuestionId } });
         await this.reindexTestQuestions(transaction, testId);
+        await this.revalidatePublishedTest(transaction, testId, test.status);
       },
       'Test question order changed concurrently; please try again',
       'Test question cannot be deleted because attempt history exists',
@@ -766,7 +825,7 @@ export class AssessmentInstructorService {
     return this.runSerializableMutation(async (transaction) => {
       const test = await transaction.test.findUnique({
         where: { id: testId },
-        select: { courseId: true },
+        select: { courseId: true, status: true },
       });
       if (!test) {
         throw new NotFoundException('Test not found');
@@ -784,6 +843,7 @@ export class AssessmentInstructorService {
         dto.orderedIds,
       );
       await this.writeTestQuestionOrder(transaction, dto.orderedIds);
+      await this.revalidatePublishedTest(transaction, testId, test.status);
 
       return transaction.testQuestion.findMany({
         where: { testId },
@@ -795,7 +855,7 @@ export class AssessmentInstructorService {
 
   async moveTestQuestionGroup(instructorId: string, testId: string, testQuestionId: string, groupId: string | null) {
     return this.runSerializableMutation(async (transaction) => {
-      const test = await transaction.test.findUnique({ where: { id: testId }, select: { courseId: true } });
+      const test = await transaction.test.findUnique({ where: { id: testId }, select: { courseId: true, status: true } });
       if (!test) throw new NotFoundException('Test not found');
       await this.assertInstructorOwnsCourse(transaction, instructorId, test.courseId);
       await this.assertTestHasNoHistoricalAttempts(transaction, testId);
@@ -808,19 +868,21 @@ export class AssessmentInstructorService {
         if (!group) throw new NotFoundException('Test question group not found');
         if (group.skill !== testQuestion.question.toeicSkill) throw new BadRequestException('Question skill must match its group skill');
       }
-      return transaction.testQuestion.update({
+      const updated = await transaction.testQuestion.update({
         where: { id: testQuestionId }, data: { groupId }, select: instructorTestQuestionSelect,
       });
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return updated;
     }, 'Test question group changed concurrently; please try again');
   }
 
   async createTestGroup(instructorId: string, testId: string, dto: CreateTestGroupDto) {
     return this.runSerializableMutation(async (transaction) => {
-      await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
       const last = await transaction.testQuestionGroup.findFirst({
         where: { testId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true },
       });
-      return transaction.testQuestionGroup.create({
+      const created = await transaction.testQuestionGroup.create({
         data: {
           testId,
           orderIndex: (last?.orderIndex ?? -1) + 1,
@@ -828,6 +890,8 @@ export class AssessmentInstructorService {
         },
         include: { stimuli: true, testQuestions: true },
       });
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return created;
     }, 'Nhóm câu hỏi đang được cập nhật ở phiên khác. Vui lòng thử lại.');
   }
 
@@ -838,7 +902,7 @@ export class AssessmentInstructorService {
     dto: UpdateTestGroupDto,
   ) {
     return this.runSerializableMutation(async (transaction) => {
-      await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
       const group = await transaction.testQuestionGroup.findFirst({
         where: { id: groupId, testId },
         select: { id: true, skill: true, testQuestions: { select: { question: { select: { toeicSkill: true } } } } },
@@ -847,18 +911,20 @@ export class AssessmentInstructorService {
       if (group.testQuestions.some((item) => item.question.toeicSkill !== dto.skill)) {
         throw new BadRequestException('Hãy di chuyển câu hỏi không tương thích trước khi đổi kỹ năng nhóm.');
       }
-      return transaction.testQuestionGroup.update({
+      const updated = await transaction.testQuestionGroup.update({
         where: { id: groupId },
         data: this.normalizeGroup(dto),
         include: { stimuli: { orderBy: { orderIndex: 'asc' } }, testQuestions: { orderBy: { orderIndex: 'asc' } } },
       });
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return updated;
     }, 'Nhóm câu hỏi đang được cập nhật ở phiên khác. Vui lòng thử lại.');
   }
 
   async deleteTestGroup(instructorId: string, testId: string, groupId: string) {
     const mediaKeys: string[] = [];
     await this.runSerializableMutation(async (transaction) => {
-      await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
       const group = await transaction.testQuestionGroup.findFirst({
         where: { id: groupId, testId },
         select: { stimuli: { select: { storageKey: true } } },
@@ -867,6 +933,7 @@ export class AssessmentInstructorService {
       mediaKeys.push(...group.stimuli.flatMap((item) => item.storageKey ? [item.storageKey] : []));
       await transaction.testQuestionGroup.delete({ where: { id: groupId } });
       await this.reindexTestGroups(transaction, testId);
+      await this.revalidatePublishedTest(transaction, testId, test.status);
     }, 'Nhóm câu hỏi đang được cập nhật ở phiên khác. Vui lòng thử lại.');
     await Promise.all(mediaKeys.map((key) => this.stimulusStorage.delete(key).catch(() => undefined)));
     return { message: 'Test question group deleted successfully' };
@@ -874,7 +941,7 @@ export class AssessmentInstructorService {
 
   async reorderTestGroups(instructorId: string, testId: string, dto: ReorderTestGroupsDto) {
     return this.runSerializableMutation(async (transaction) => {
-      await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
       const existing = await transaction.testQuestionGroup.findMany({ where: { testId }, select: { id: true } });
       this.validateCompleteTestQuestionOrder(existing.map(({ id }) => id), dto.orderedGroupIds);
       for (const [index, id] of dto.orderedGroupIds.entries()) {
@@ -883,6 +950,7 @@ export class AssessmentInstructorService {
       for (const [index, id] of dto.orderedGroupIds.entries()) {
         await transaction.testQuestionGroup.update({ where: { id }, data: { orderIndex: index } });
       }
+      await this.revalidatePublishedTest(transaction, testId, test.status);
       return transaction.testQuestionGroup.findMany({ where: { testId }, orderBy: { orderIndex: 'asc' } });
     }, 'Thứ tự nhóm đang được cập nhật ở phiên khác. Vui lòng thử lại.');
   }
@@ -894,14 +962,14 @@ export class AssessmentInstructorService {
     dto: CreateTextStimulusDto,
   ) {
     return this.runSerializableMutation(async (transaction) => {
-      await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
       await this.requireNestedGroup(transaction, testId, groupId);
       const last = await transaction.assessmentStimulus.findFirst({
         where: { groupId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true },
       });
       const textContent = dto.textContent.trim();
       if (!textContent) throw new BadRequestException('Nội dung stimulus không được để trống.');
-      return transaction.assessmentStimulus.create({
+      const created = await transaction.assessmentStimulus.create({
         data: {
           groupId,
           type: AssessmentStimulusType.TEXT,
@@ -911,6 +979,8 @@ export class AssessmentInstructorService {
           isProtected: false,
         },
       });
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return created;
     }, 'Stimulus đang được cập nhật ở phiên khác. Vui lòng thử lại.');
   }
 
@@ -925,12 +995,12 @@ export class AssessmentInstructorService {
     const key = await this.stimulusStorage.put(file.buffer, media.extension);
     try {
       return await this.runSerializableMutation(async (transaction) => {
-        await this.requireMutableOwnedTest(transaction, instructorId, testId);
+        const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
         await this.requireNestedGroup(transaction, testId, groupId);
         const last = await transaction.assessmentStimulus.findFirst({
           where: { groupId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true },
         });
-        return transaction.assessmentStimulus.create({
+        const created = await transaction.assessmentStimulus.create({
           data: {
             groupId,
             type: media.type,
@@ -941,6 +1011,8 @@ export class AssessmentInstructorService {
             isProtected: true,
           },
         });
+        await this.revalidatePublishedTest(transaction, testId, test.status);
+        return created;
       }, 'Stimulus đang được cập nhật ở phiên khác. Vui lòng thử lại.');
     } catch (error) {
       await this.stimulusStorage.delete(key).catch(() => undefined);
@@ -951,13 +1023,14 @@ export class AssessmentInstructorService {
   async deleteStimulus(instructorId: string, testId: string, groupId: string, stimulusId: string) {
     let storageKey: string | null = null;
     await this.runSerializableMutation(async (transaction) => {
-      await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
       await this.requireNestedGroup(transaction, testId, groupId);
       const stimulus = await transaction.assessmentStimulus.findFirst({ where: { id: stimulusId, groupId } });
       if (!stimulus) throw new NotFoundException('Assessment stimulus not found');
       storageKey = stimulus.storageKey;
       await transaction.assessmentStimulus.delete({ where: { id: stimulusId } });
       await this.reindexStimuli(transaction, groupId);
+      await this.revalidatePublishedTest(transaction, testId, test.status);
     }, 'Stimulus đang được cập nhật ở phiên khác. Vui lòng thử lại.');
     if (storageKey) await this.stimulusStorage.delete(storageKey).catch(() => undefined);
     return { message: 'Assessment stimulus deleted successfully' };
@@ -965,7 +1038,7 @@ export class AssessmentInstructorService {
 
   async reorderStimuli(instructorId: string, testId: string, groupId: string, dto: ReorderStimuliDto) {
     return this.runSerializableMutation(async (transaction) => {
-      await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
       await this.requireNestedGroup(transaction, testId, groupId);
       const existing = await transaction.assessmentStimulus.findMany({ where: { groupId }, select: { id: true } });
       this.validateCompleteTestQuestionOrder(existing.map(({ id }) => id), dto.orderedStimulusIds);
@@ -975,6 +1048,7 @@ export class AssessmentInstructorService {
       for (const [index, id] of dto.orderedStimulusIds.entries()) {
         await transaction.assessmentStimulus.update({ where: { id }, data: { orderIndex: index } });
       }
+      await this.revalidatePublishedTest(transaction, testId, test.status);
       return transaction.assessmentStimulus.findMany({ where: { groupId }, orderBy: { orderIndex: 'asc' } });
     }, 'Thứ tự stimulus đang được cập nhật ở phiên khác. Vui lòng thử lại.');
   }
@@ -1015,7 +1089,7 @@ export class AssessmentInstructorService {
     instructorId: string,
     testId: string,
   ) {
-    const test = await transaction.test.findUnique({ where: { id: testId }, select: { id: true, courseId: true } });
+    const test = await transaction.test.findUnique({ where: { id: testId }, select: { id: true, courseId: true, status: true } });
     if (!test) throw new NotFoundException('Test not found');
     await this.assertInstructorOwnsCourse(transaction, instructorId, test.courseId);
     await this.assertTestHasNoHistoricalAttempts(transaction, testId);

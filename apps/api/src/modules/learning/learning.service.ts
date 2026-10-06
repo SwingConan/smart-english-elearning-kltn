@@ -120,7 +120,6 @@ export class LearningService {
             title: true,
             type: true,
             url: true,
-            storageKey: true,
             originalFileName: true,
             mimeType: true,
             orderIndex: true,

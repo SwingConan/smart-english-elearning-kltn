@@ -96,10 +96,11 @@ export const instructorApi = {
         method: 'PATCH',
         body: JSON.stringify({ orderedIds }),
       }),
-    upload: (lessonId: string, title: string, file: File, replaceResourceId?: string, expectedUpdatedAt?: string): Promise<LearningResource> => {
+    upload: (lessonId: string, title: string, file: File, isDownloadable: boolean, replaceResourceId?: string, expectedUpdatedAt?: string): Promise<LearningResource> => {
       const body = new FormData();
       body.append('title', title);
       body.append('file', file);
+      body.append('isDownloadable', String(isDownloadable));
       if (replaceResourceId) body.append('replaceResourceId', replaceResourceId);
       if (expectedUpdatedAt) body.append('expectedUpdatedAt', expectedUpdatedAt);
       return apiFetch(`/instructor/lessons/${lessonId}/resources/upload`, { method: 'POST', body });

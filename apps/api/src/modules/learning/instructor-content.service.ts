@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '../../generated/prisma/client';
+import { Prisma, ResourceType } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { UpdateModuleDto } from './dto/update-module.dto';
@@ -150,34 +150,28 @@ export class InstructorContentService {
       where: { id: moduleId },
       select: { id: true, courseId: true, orderIndex: true },
     });
-    if (!module) {
-      throw new NotFoundException('Module not found');
-    }
-
+    if (!module) throw new NotFoundException('Module not found');
     await this.assertInstructorOwnsCourse(instructorId, module.courseId);
 
-    await this.runDeleteTransaction(async (transaction) => {
+    const storageKeys = await this.runDeleteTransaction(async (transaction) => {
       const currentModule = await transaction.module.findUnique({
         where: { id: moduleId },
         select: { courseId: true },
       });
       if (!currentModule) throw new NotFoundException('Module not found');
-
-      const progressCount = await transaction.lessonProgress.count({
-        where: { lesson: { moduleId } },
+      const progressCount = await transaction.lessonProgress.count({ where: { lesson: { moduleId } } });
+      if (progressCount > 0) throw new ConflictException('Cannot delete module because learner progress exists.');
+      const storedResources = await transaction.learningResource.findMany({
+        where: { lesson: { moduleId }, storageKey: { not: null } },
+        select: { storageKey: true },
       });
-      if (progressCount > 0) {
-        throw new ConflictException('Cannot delete module because learner progress exists.');
-      }
-
-      await transaction.learningResource.deleteMany({
-        where: { lesson: { moduleId } },
-      });
+      await transaction.learningResource.deleteMany({ where: { lesson: { moduleId } } });
       await transaction.lesson.deleteMany({ where: { moduleId } });
       await transaction.module.delete({ where: { id: moduleId } });
       await this.reindexModules(transaction, currentModule.courseId);
+      return storedResources.flatMap((item) => item.storageKey ? [item.storageKey] : []);
     });
-
+    await Promise.all(storageKeys.map((key) => this.resourceStorage.delete(key).catch(() => undefined)));
     return { message: 'Module deleted successfully' };
   }
 
@@ -297,25 +291,24 @@ export class InstructorContentService {
     if (!lesson) throw new NotFoundException('Lesson not found');
     await this.assertInstructorOwnsCourse(instructorId, lesson.module.courseId);
 
-    await this.runDeleteTransaction(async (transaction) => {
+    const storageKeys = await this.runDeleteTransaction(async (transaction) => {
       const currentLesson = await transaction.lesson.findUnique({
         where: { id: lessonId },
         select: { moduleId: true },
       });
       if (!currentLesson) throw new NotFoundException('Lesson not found');
-
-      const progressCount = await transaction.lessonProgress.count({
-        where: { lessonId },
+      const progressCount = await transaction.lessonProgress.count({ where: { lessonId } });
+      if (progressCount > 0) throw new ConflictException('Cannot delete lesson because learner progress exists.');
+      const storedResources = await transaction.learningResource.findMany({
+        where: { lessonId, storageKey: { not: null } },
+        select: { storageKey: true },
       });
-      if (progressCount > 0) {
-        throw new ConflictException('Cannot delete lesson because learner progress exists.');
-      }
-
       await transaction.learningResource.deleteMany({ where: { lessonId } });
       await transaction.lesson.delete({ where: { id: lessonId } });
       await this.reindexLessons(transaction, currentLesson.moduleId);
+      return storedResources.flatMap((item) => item.storageKey ? [item.storageKey] : []);
     });
-
+    await Promise.all(storageKeys.map((key) => this.resourceStorage.delete(key).catch(() => undefined)));
     return { message: 'Lesson deleted successfully' };
   }
 
@@ -423,11 +416,17 @@ export class InstructorContentService {
     return this.prisma.$transaction(async (transaction) => {
       const resource = await transaction.learningResource.findUnique({
         where: { id: resourceId },
-        select: { updatedAt: true, lesson: { select: { module: { select: { courseId: true } } } } },
+        select: { updatedAt: true, storageKey: true, type: true, url: true, originalFileName: true, mimeType: true, lesson: { select: { module: { select: { courseId: true } } } } },
       });
       if (!resource) throw new NotFoundException('Resource not found');
       await this.assertInstructorOwnsCourseIn(transaction, instructorId, resource.lesson.module.courseId);
       this.assertFresh(resource.updatedAt, expectedUpdatedAt);
+      if (resource.storageKey && (data.type !== undefined && data.type !== ResourceType.DOCUMENT || data.url !== undefined && data.url !== null)) {
+        throw new BadRequestException('Tài liệu đã tải lên không thể đổi thành liên kết. Hãy xóa và tạo lại tài nguyên.');
+      }
+      if (resource.storageKey && (!resource.originalFileName || !resource.mimeType || resource.type !== ResourceType.DOCUMENT || resource.url !== null)) {
+        throw new BadRequestException('Trạng thái tài liệu lưu trữ không hợp lệ.');
+      }
       return transaction.learningResource.update({ where: { id: resourceId }, data });
     });
   }
@@ -623,15 +622,14 @@ export class InstructorContentService {
     }
   }
 
-  private async runDeleteTransaction(
-    operation: (transaction: Prisma.TransactionClient) => Promise<void>,
-  ): Promise<void> {
+  private async runDeleteTransaction<T>(
+    operation: (transaction: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
     for (let attempt = 1; attempt <= MAX_CONTENT_TRANSACTION_ATTEMPTS; attempt += 1) {
       try {
-        await this.prisma.$transaction(operation, {
+        return await this.prisma.$transaction(operation, {
           isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         });
-        return;
       } catch (error: unknown) {
         if (this.isPrismaError(error, 'P2003')) {
           throw new ConflictException(
@@ -649,6 +647,7 @@ export class InstructorContentService {
         }
       }
     }
+    throw new ConflictException('Content changed concurrently; please try again');
   }
 
   private async reindexModules(

@@ -1,5 +1,5 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { SkillScoreStatus, TestAttemptStatus, ToeicSkill } from '../../generated/prisma/client';
+import { AnswerEvaluationStatus, SkillScoreStatus, TestAttemptStatus, ToeicSkill } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { InstructorWorkspaceService } from './instructor-workspace.service';
 
@@ -74,5 +74,20 @@ describe('InstructorWorkspaceService', () => {
       where: { classAssessment: { classOfferingId: 'class-a' }, status: TestAttemptStatus.SUBMITTED },
       orderBy: [{ submittedAt: 'asc' }, { id: 'asc' }],
     }));
+  });
+
+  it('classifies productive grading truthfully and excludes objective-only attempts', async () => {
+    const base = { attemptNumber: 1, submittedAt: new Date(), learner: { id: 'learner', fullName: 'Learner', email: 'learner@test' }, classAssessment: { id: 'assessment', stage: 'MIDTERM', test: { id: 'test', title: 'Test' } }, skillScores: [] };
+    prisma.testAttempt.findMany.mockResolvedValue([
+      { ...base, id: 'objective-only', answers: [] },
+      { ...base, id: 'waiting', answers: [{ evaluations: [] }] },
+      { ...base, id: 'partial', answers: [{ evaluations: [{ id: 'draft', status: AnswerEvaluationStatus.PENDING_REVIEW }] }, { evaluations: [] }] },
+      { ...base, id: 'final', answers: [{ evaluations: [{ id: 'final-a', status: AnswerEvaluationStatus.REVIEWED_FINAL }] }, { evaluations: [{ id: 'final-b', status: AnswerEvaluationStatus.REVIEWED_FINAL }] }] },
+    ]);
+    const result = await service.gradingInbox('instructor-a', 'class-a');
+    expect(result.submissions.map(({ id, gradingState }) => [id, gradingState])).toEqual([
+      ['waiting', 'WAITING'], ['partial', 'PARTIAL'], ['final', 'FINAL'],
+    ]);
+    expect(result.summary).toEqual({ waiting: 1, partial: 1, final: 1 });
   });
 });

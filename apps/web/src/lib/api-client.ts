@@ -1,6 +1,10 @@
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 const baseUrl = configuredBaseUrl || '/api';
 
+export function apiUrl(path: string): string {
+  return `${baseUrl}${path}`;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -17,7 +21,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(`${baseUrl}${path}`, {
+  const response = await fetch(apiUrl(path), {
     ...init,
     credentials: 'include',
     headers,

@@ -33,10 +33,7 @@ describe('InstructorTeachingPage', () => {
     resolveList([teachingEntry()]);
     expect(await screen.findByText('Assigned English')).toBeInTheDocument();
     expect(screen.getByText('Evening class')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Mô hình kiến thức/i })).toHaveAttribute(
-      'href',
-      `/instructor/courses/${courseId}/skills`,
-    );
+    expect(screen.queryByRole('link', { name: /Mô hình kiến thức/i })).not.toBeInTheDocument();
     loading.unmount();
 
     vi.spyOn(instructorApi.teaching, 'list').mockResolvedValueOnce([]);

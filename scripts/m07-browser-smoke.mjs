@@ -11,7 +11,8 @@ for (let attempt = 0; attempt < 30; attempt += 1) {
   } catch {}
   await delay(250);
 }
-const target = targets?.find((candidate) => candidate.type === 'page');
+const target = targets?.find((candidate) => candidate.type === 'page' && candidate.url.startsWith('http://localhost:5173'))
+  ?? targets?.find((candidate) => candidate.type === 'page');
 if (!target?.webSocketDebuggerUrl) throw new Error('No Chromium page target is available');
 
 const socket = new WebSocket(target.webSocketDebuggerUrl);
@@ -21,8 +22,10 @@ await new Promise((resolve, reject) => {
 });
 let nextId = 0;
 const pending = new Map();
+const networkResponses = [];
 socket.addEventListener('message', (event) => {
   const message = JSON.parse(event.data);
+  if (message.method === 'Network.responseReceived') networkResponses.push(message.params.response);
   if (!message.id) return;
   const entry = pending.get(message.id);
   if (!entry) return;
@@ -87,6 +90,7 @@ function requireOk(response, label) {
 
 await command('Page.enable');
 await command('Runtime.enable');
+await command('Network.enable');
 await command('Page.navigate', { url: 'http://localhost:5173/login' });
 await delay(500);
 await login('instructor.demo@smart-elearning.local');
@@ -113,10 +117,10 @@ if (!groupedTest) throw new Error('No grouped four-skill test fixture was found'
 const checks = [];
 checks.push(['teaching list', await navigate('/instructor/teaching', ['Lớp giảng dạy của tôi', 'Vào lớp'])]);
 checks.push(['class overview', await navigate(`/instructor/classes/${classId}`, ['Tổng quan lớp', 'Bài chờ chấm'])]);
-checks.push(['roster', await navigate(`/instructor/classes/${classId}/learners`, ['Học viên', 'Chỉ xem tiến độ'])]);
+checks.push(['roster', await navigate(`/instructor/classes/${classId}/learners`, ['Học viên', 'Theo dõi tiến độ học tập'])]);
 checks.push(['learner detail', await navigate(`/instructor/classes/${classId}/learners/${learner.id}`, ['Ảnh chụp bốn kỹ năng gần nhất', 'Tiến độ bài học'])]);
 checks.push(['shared content warning', await navigate(`/instructor/classes/${classId}/content`, ['Nội dung này dùng chung cho các lớp thuộc khóa học này.', 'Quản lý nội dung khóa học'])]);
-checks.push(['question bank', await navigate(`/instructor/courses/${courseId}/question-bank`, ['Ngân hàng câu hỏi', 'SPEAKING', 'WRITING'])]);
+checks.push(['question bank', await navigate(`/instructor/courses/${courseId}/question-bank`, ['Ngân hàng câu hỏi', 'Nói', 'Viết'])]);
 checks.push(['grouped test builder', await navigate(`/instructor/tests/${groupedTest.id}/edit`, ['Cấu trúc nhóm bốn kỹ năng', 'stimulus'])]);
 checks.push(['class scheduling', await navigate(`/instructor/classes/${classId}/assessments`, ['Lịch đã giao', 'Áp dụng cho lớp này'])]);
 checks.push(['grading inbox', await navigate(`/instructor/classes/${classId}/grading`, ['Ưu tiên bài nộp sớm nhất', 'Chấm bài'])]);
@@ -128,12 +132,13 @@ checks.push(['class results', await navigate(`/instructor/classes/${classId}/res
 
 const modules = requireOk(await browserFetch(`/instructor/courses/${courseId}/modules`), 'Course modules');
 let storedResource;
+let storedLesson;
 for (const module of modules) {
   const lessons = requireOk(await browserFetch(`/instructor/modules/${module.id}/lessons`), 'Module lessons');
   for (const lesson of lessons) {
     const resources = requireOk(await browserFetch(`/instructor/lessons/${lesson.id}/resources`), 'Lesson resources');
     storedResource = resources.find((resource) => resource.storageKey && resource.isDownloadable);
-    if (storedResource) break;
+    if (storedResource) { storedLesson = lesson; break; }
   }
   if (storedResource) break;
 }
@@ -144,6 +149,21 @@ await login('student.demo@smart-elearning.local');
 const enrollments = requireOk(await browserFetch('/enrollments/my'), 'Student enrollments');
 const enrollment = enrollments.find((item) => item.classOffering?.id === classId || item.classOfferingId === classId);
 if (!enrollment) throw new Error('Student is not enrolled in the M07 demo class');
+const lessonState = await navigate(`/student/enrollments/${enrollment.id}/lessons/${storedLesson.id}`, [storedResource.title, 'Tải xuống']);
+await evaluate(`(() => {
+  const title = ${JSON.stringify(storedResource.title)};
+  const card = [...document.querySelectorAll('div')].find((item) => item.querySelector(':scope > div > p.font-semibold')?.textContent === title);
+  const button = card ? [...card.querySelectorAll('button')].find((item) => item.textContent.includes('Tải xuống')) : null;
+  if (!button) throw new Error('Visible stored-resource download action was not rendered');
+  button.click();
+  return true;
+})()`);
+await delay(800);
+const visibleDelivery = networkResponses.find((response) => response.url.includes(`/resources/${storedResource.id}/download`));
+if (!visibleDelivery || visibleDelivery.status !== 200 || !String(visibleDelivery.headers['content-disposition'] ?? '').includes('attachment')) {
+  throw new Error('Visible LessonPage download did not complete with a protected attachment response');
+}
+checks.push(['visible student LessonPage download', lessonState]);
 const delivery = await browserFetch(`/learning/enrollments/${enrollment.id}/resources/${storedResource.id}/download`);
 if (!delivery.ok || !delivery.disposition?.includes('attachment') || !String(delivery.body).includes('Smart English')) {
   throw new Error(`Protected student document delivery failed: HTTP ${delivery.status}`);
@@ -152,7 +172,7 @@ checks.push(['protected student document delivery', { overflow: false }]);
 
 await logout();
 await login('instructor.demo@smart-elearning.local');
-const mobile = await navigate(`/instructor/classes/${classId}/learners`, ['Học viên', 'Chỉ xem tiến độ'], 390, 844);
+const mobile = await navigate(`/instructor/classes/${classId}/learners`, ['Học viên', 'Theo dõi tiến độ học tập'], 390, 844);
 const hasMobileDrawerTrigger = await evaluate(`Boolean(document.querySelector('[aria-label="Mở điều hướng lớp"]'))`);
 if (!hasMobileDrawerTrigger) throw new Error('Mobile class workspace drawer trigger was not rendered');
 checks.push(['mobile workspace navigation', mobile]);

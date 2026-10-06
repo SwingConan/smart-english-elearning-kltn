@@ -39,10 +39,11 @@ describe('M07 Instructor class workspace', () => {
       { id: 'enrollment-b', status: 'ACTIVE', enrolledAt: '', learner: { id: 'learner-b', fullName: 'Trần Gia Bảo', email: 'gia.bao@test.local' }, completedLessons: 1, totalLessons: 3, progressPercentage: 33, submittedAssessmentCount: 1, pendingGradingCount: 0, latestGradedAssessmentAt: null },
     ] });
     render(<MemoryRouter initialEntries={['/instructor/classes/class-a/learners']}><Routes><Route path="/instructor/classes/:classOfferingId/learners" element={<InstructorRosterPage />} /></Routes></MemoryRouter>);
-    expect(await screen.findByText('Nguyễn Minh Anh')).toBeInTheDocument();
+    expect((await screen.findAllByText('Nguyễn Minh Anh')).length).toBeGreaterThan(0);
     fireEvent.change(screen.getByRole('textbox', { name: 'Tìm học viên' }), { target: { value: 'bảo' } });
     expect(screen.queryByText('Nguyễn Minh Anh')).not.toBeInTheDocument();
-    expect(screen.getByText('Trần Gia Bảo')).toBeInTheDocument();
+    expect(screen.getAllByText('Trần Gia Bảo').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('mobile-roster-cards')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /xóa|thêm học viên/i })).not.toBeInTheDocument();
   });
 
@@ -58,6 +59,7 @@ describe('M07 Instructor class workspace', () => {
     expect(summary).toHaveTextContent('1 học viên đã chấm đủ');
     expect(summary).toHaveTextContent('1 học viên đang chờ chấm');
     expect(screen.getByText((_content, element) => element?.tagName === 'P' && element.textContent === 'Mẫu 0 · loại trừ 2')).toBeInTheDocument();
-    expect(screen.getByText('Đang chờ')).toBeInTheDocument();
+    expect(screen.getAllByText('Đang chờ').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('mobile-results-cards')).toBeInTheDocument();
   });
 });

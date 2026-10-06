@@ -14,6 +14,8 @@ import { UpdateLessonDto } from './dto/update-lesson.dto';
 import { CreateResourceDto } from './dto/create-resource.dto';
 import { UpdateResourceDto } from './dto/update-resource.dto';
 import { ReorderDto } from './dto/reorder.dto';
+import { UploadResourceDto } from './dto/upload-resource.dto';
+import { contentDisposition } from './content-disposition';
 
 @ApiTags('instructor content')
 @Roles(UserRole.INSTRUCTOR)
@@ -154,7 +156,7 @@ export class InstructorContentController {
   uploadResource(
     @CurrentUser() user: PublicUser,
     @Param('lessonId', new ParseUUIDPipe()) lessonId: string,
-    @Body() body: { title?: string; isDownloadable?: string; replaceResourceId?: string; expectedUpdatedAt?: string },
+    @Body() body: UploadResourceDto,
     @UploadedFile() file?: { buffer: Buffer; mimetype: string; originalname: string; size: number },
   ) {
     if (!file) throw new BadRequestException('Document file is required');
@@ -163,7 +165,7 @@ export class InstructorContentController {
       lessonId,
       {
         title: body.title?.trim() || file.originalname,
-        isDownloadable: body.isDownloadable !== 'false',
+        isDownloadable: body.isDownloadable ?? true,
         replaceResourceId: body.replaceResourceId,
         expectedUpdatedAt: body.expectedUpdatedAt,
       },
@@ -180,7 +182,7 @@ export class InstructorContentController {
   ) {
     const file = await this.instructorContentService.openResource(user.id, resourceId);
     response.setHeader('Content-Type', file.mimeType);
-    response.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+    response.setHeader('Content-Disposition', contentDisposition('inline', file.fileName));
     response.setHeader('Cache-Control', 'private, no-store');
     return new StreamableFile(file.stream);
   }

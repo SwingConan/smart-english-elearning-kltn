@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/api-client';
+import { ApiError, apiFetch, apiUrl } from '@/lib/api-client';
 import type {
   CourseContent,
   CourseProgress,
@@ -29,11 +29,19 @@ export const learningApi = {
   getProgress: (enrollmentId: string, signal?: AbortSignal): Promise<CourseProgress> =>
     apiFetch(`/learning/enrollments/${enrollmentId}/progress`, { signal }),
 
-  getResourceDownload: (
+  downloadStoredResource: async (
     enrollmentId: string,
     resourceId: string,
-  ): Promise<{ url: string; fileName: string; mimeType: string | null }> =>
-    apiFetch(`/learning/enrollments/${enrollmentId}/resources/${resourceId}/download`),
+  ): Promise<{ blob: Blob; fileName: string }> => {
+    const response = await fetch(apiUrl(`/learning/enrollments/${enrollmentId}/resources/${resourceId}/download`), {
+      credentials: 'include',
+    });
+    if (!response.ok) throw new ApiError(response.status, await response.text());
+    return {
+      blob: await response.blob(),
+      fileName: fileNameFromDisposition(response.headers.get('content-disposition')) ?? 'tai-lieu',
+    };
+  },
 
   getMastery: (enrollmentId: string, signal?: AbortSignal): Promise<MasteryOverview> =>
     apiFetch(`/learning/enrollments/${enrollmentId}/mastery`, { signal }),
@@ -45,3 +53,12 @@ export const learningApi = {
   ): Promise<MasteryHistoryResponse> =>
     apiFetch(`/learning/enrollments/${enrollmentId}/mastery/${skillId}/history`, { signal }),
 };
+
+function fileNameFromDisposition(value: string | null): string | null {
+  if (!value) return null;
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(value)?.[1];
+  if (encoded) {
+    try { return decodeURIComponent(encoded); } catch { /* use the ASCII fallback */ }
+  }
+  return /filename="([^"]+)"/i.exec(value)?.[1] ?? null;
+}

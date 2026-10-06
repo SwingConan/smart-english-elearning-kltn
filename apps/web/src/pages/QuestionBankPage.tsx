@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { assessmentApi } from '@/features/assessments/api';
-import { difficultyLabel, questionTypeLabel } from '@/features/assessments/display';
+import { difficultyLabel, questionTypeLabel, toeicSkillLabel } from '@/features/assessments/display';
 import { assessmentErrorMessage } from '@/features/assessments/errors';
 import type {
   AssessmentQuestion,
@@ -205,7 +205,7 @@ export function QuestionBankPage() {
 
       <div className="grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-4">
         <input aria-label="Tìm câu hỏi" className="rounded border p-2" onChange={(event) => setSearch(event.target.value)} placeholder="Tìm nội dung" />
-        <select aria-label="Lọc kỹ năng" className="rounded border p-2" onChange={(event) => setSkillFilter(event.target.value)}><option value="ALL">Tất cả kỹ năng</option>{['LISTENING','READING','SPEAKING','WRITING'].map((value) => <option key={value}>{value}</option>)}</select>
+        <select aria-label="Lọc kỹ năng" className="rounded border p-2" onChange={(event) => setSkillFilter(event.target.value)}><option value="ALL">Tất cả kỹ năng</option>{(['LISTENING','READING','SPEAKING','WRITING'] as ToeicSkill[]).map((value) => <option key={value} value={value}>{toeicSkillLabel[value]}</option>)}</select>
         <select aria-label="Lọc loại trả lời" className="rounded border p-2" onChange={(event) => setTypeFilter(event.target.value)}><option value="ALL">Tất cả loại trả lời</option>{Object.entries(questionTypeLabel).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select>
         <select aria-label="Lọc độ khó" className="rounded border p-2" onChange={(event) => setDifficultyFilter(event.target.value)}><option value="ALL">Tất cả độ khó</option>{Object.entries(difficultyLabel).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select>
       </div>
@@ -227,7 +227,7 @@ export function QuestionBankPage() {
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-wrap gap-2 text-xs">
                     <span className="rounded bg-blue-100 px-2 py-1 text-blue-800">{questionTypeLabel[question.type]}</span>
-                    <span className="rounded bg-indigo-100 px-2 py-1 text-indigo-800">{question.toeicSkill}</span>
+                    <span className="rounded bg-indigo-100 px-2 py-1 text-indigo-800">{question.toeicSkill ? toeicSkillLabel[question.toeicSkill] : 'Chưa phân loại'}</span>
                     <span className="rounded bg-amber-100 px-2 py-1 text-amber-800">{difficultyLabel[question.difficulty]}</span>
                   </div>
                   <p className="whitespace-pre-wrap font-medium text-slate-900">{question.content}</p>
@@ -240,7 +240,6 @@ export function QuestionBankPage() {
                   </ol>
                 </div>
                 <div className="flex gap-2">
-                  <button className="rounded border border-emerald-300 px-3 py-1.5 text-sm text-emerald-700 disabled:opacity-50" disabled={pendingAction !== null} onClick={() => void openSkillMapping(question)} title="Tính năng nghiên cứu cũ" type="button">Legacy: Edit Skills</button>
                   <button
                     className="rounded border px-3 py-1.5 text-sm disabled:opacity-50"
                     disabled={pendingAction !== null}
@@ -249,6 +248,10 @@ export function QuestionBankPage() {
                   >
                     Sửa
                   </button>
+                  <details className="text-xs text-slate-500">
+                    <summary className="cursor-pointer">Công cụ nghiên cứu cũ</summary>
+                    <button aria-label="Edit Skills" className="mt-2 rounded border border-emerald-300 px-3 py-1.5 text-sm text-emerald-700" disabled={pendingAction !== null} onClick={() => void openSkillMapping(question)} type="button">Legacy: Edit Skills</button>
+                  </details>
                   <button
                     className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700 disabled:opacity-50"
                     disabled={pendingAction !== null}
@@ -407,7 +410,7 @@ function QuestionForm({
           else if (skill === 'WRITING') setType('TEXT_RESPONSE');
           else if (type === 'AUDIO_RESPONSE' || type === 'TEXT_RESPONSE') changeType('SINGLE_CHOICE');
         }}>
-          {['LISTENING','READING','SPEAKING','WRITING'].map((value) => <option key={value}>{value}</option>)}
+          {(['LISTENING','READING','SPEAKING','WRITING'] as ToeicSkill[]).map((value) => <option key={value} value={value}>{toeicSkillLabel[value]}</option>)}
         </select>
       </label>
       <label className="block text-sm font-medium">Nội dung

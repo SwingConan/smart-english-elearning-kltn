@@ -13,6 +13,7 @@ describe('M07 Instructor LMS acceptance journey (e2e)', () => {
   let classOfferingId: string;
   let enrollmentId: string;
   let resourceId: string;
+  let lessonId: string;
   const sessionIds = new Set<string>();
 
   beforeAll(async () => {
@@ -32,9 +33,10 @@ describe('M07 Instructor LMS acceptance journey (e2e)', () => {
     classOfferingId = enrollment.classOfferingId;
     const resource = await prisma.learningResource.findFirstOrThrow({
       where: { storageKey: 'm07/instructor-class-handbook.txt', lesson: { module: { course: { classOfferings: { some: { id: classOfferingId } } } } } },
-      select: { id: true },
+      select: { id: true, lessonId: true },
     });
     resourceId = resource.id;
+    lessonId = resource.lessonId;
     instructor = request.agent(app.getHttpServer());
     student = request.agent(app.getHttpServer());
     await loginAgent(instructor, 'instructor.demo@smart-elearning.local', password, sessionIds);
@@ -66,6 +68,11 @@ describe('M07 Instructor LMS acceptance journey (e2e)', () => {
   });
 
   it('delivers a stored document only to eligible authenticated users with safe headers', async () => {
+    await student.post(`/api/learning/enrollments/${enrollmentId}/lessons/${lessonId}/open`).expect(201)
+      .expect((response) => {
+        expect(response.body.resources).toEqual(expect.arrayContaining([expect.objectContaining({ id: resourceId })]));
+        expect(JSON.stringify(response.body.resources)).not.toContain('storageKey');
+      });
     await request(app.getHttpServer()).get(`/api/learning/enrollments/${enrollmentId}/resources/${resourceId}/download`).expect(401);
     await student.get(`/api/learning/enrollments/${enrollmentId}/resources/${resourceId}/download`).expect(200)
       .expect('Content-Type', /text\/plain/).expect('Content-Disposition', /attachment; filename="cam-nang-hoc-tap.txt"/);
@@ -83,6 +90,8 @@ describe('M07 Instructor LMS acceptance journey (e2e)', () => {
 
   it('projects oldest-first grading work and truthful latest-attempt class results', async () => {
     const grading = await instructor.get(`/api/instructor/classes/${classOfferingId}/grading`).expect(200);
+    expect(grading.body.summary).toEqual(expect.objectContaining({ waiting: expect.any(Number), partial: expect.any(Number), final: expect.any(Number) }));
+    expect(grading.body.submissions).toEqual(expect.arrayContaining([expect.objectContaining({ productiveFinalizedCount: expect.any(Number), productiveTotal: expect.any(Number) })]));
     const timestamps = grading.body.submissions.map((item: { submittedAt: string }) => new Date(item.submittedAt).getTime());
     expect(timestamps).toEqual([...timestamps].sort((a, b) => a - b));
     const results = await instructor.get(`/api/instructor/classes/${classOfferingId}/results`).expect(200);

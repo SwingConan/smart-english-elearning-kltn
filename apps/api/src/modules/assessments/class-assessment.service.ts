@@ -25,6 +25,7 @@ import {
   UpdateClassAssessmentDto,
 } from './dto/class-assessment.dto';
 import { GradeProductiveAnswerDto } from './dto/grade-answer.dto';
+import { AssessmentInstructorService } from './assessment-instructor.service';
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
 const PRODUCTIVE_TYPES = [
@@ -39,6 +40,7 @@ export class ClassAssessmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly responseStorage: AssessmentResponseStorage,
+    private readonly assessmentInstructorService: AssessmentInstructorService,
   ) {}
 
   async list(instructorId: string, classOfferingId: string) {
@@ -129,6 +131,7 @@ export class ClassAssessmentService {
           message: 'Chỉ có thể giao bài kiểm tra trong lớp đã xuất bản cùng khóa học.',
         });
       }
+      await this.assessmentInstructorService.validatePublishableTest(transaction, dto.testId);
       this.validateWindow(dto.openAt, dto.closeAt);
       if (dto.isActive !== false) {
         const duplicate = await transaction.classAssessment.findFirst({

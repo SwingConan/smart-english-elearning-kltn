@@ -78,8 +78,20 @@ export function LessonPage() {
   const download = async (resource: LessonResource) => {
     setDownloadError(null);
     try {
-      const response = await learningApi.getResourceDownload(enrollmentId, resource.id);
-      window.open(response.url, '_blank', 'noopener,noreferrer');
+      if (resource.url) {
+        window.open(resource.url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      const response = await learningApi.downloadStoredResource(enrollmentId, resource.id);
+      const objectUrl = URL.createObjectURL(response.blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = response.fileName;
+      anchor.style.display = 'none';
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
     } catch {
       setDownloadError(`Không thể tải ${resource.originalFileName ?? resource.title}.`);
     }

@@ -64,6 +64,15 @@
 - Workspace navigation, roster search/read-only semantics, and truthful results UI.
 - M07 E2E covers workspace/roster/detail, IDOR, protected file delivery, content concurrency, grading queue, and results.
 
+## GPT implementation review fixes
+
+- F-01/F-05/F-07/F-08: Student stored-resource downloads now use the visible Lesson action and an authenticated Blob flow; learner payloads omit `storageKey`; download headers use one RFC 5987 UTF-8 helper; multipart metadata is DTO-validated.
+- F-02: one reusable publishability validator now protects published-test mutations atomically and is rechecked defensively before class scheduling.
+- F-03/F-10: the grading inbox excludes objective-only attempts, distinguishes waiting/partial/final instructor review, and shows summary counts, L/R snapshots, and productive finalized/total evidence.
+- F-04/F-06: parent deletion removes stored objects only after database commit; upload downloadability is preserved; stored resources cannot be converted through generic link editing.
+- F-09/F-11/F-12: legacy research features are removed from the primary Instructor class flow; TOEIC skills and statuses use Vietnamese labels; roster/results have mobile cards; class Content uses a desktop outline/editor workspace with a stacked mobile fallback.
+- Regression coverage includes visible Blob download, raw-key stripping, multipart true/false transformation, storage cleanup timing, representation invariants, grading truth, published mutation validation, defensive scheduling, responsive cards, and browser-level visible download evidence.
+
 ## Verification
 
 | Gate | Result |
@@ -72,12 +81,12 @@
 | `npm run prisma:validate` | PASS |
 | `npm run prisma:generate` | PASS |
 | `npm run prisma:migrate:deploy` | PASS — 11 migrations, no pending migration |
-| `npm run prisma:migrate:status` | PASS — schema up to date |
+| `npm run prisma:status` | PASS — schema up to date |
 | `npm run prisma:drift-check` | PASS — no schema difference |
 | `npm run prisma:seed` ×2 | PASS — idempotent |
 | `npm run lint` | PASS |
 | `npm run typecheck` | PASS |
-| `npm run test` | PASS — API 357/357; Web 223/223 |
+| `npm run test` | PASS — API 367/367; Web 225/225 |
 | `npm run test:e2e -w @smart-elearning/api` | PASS — 96/96 |
 | `npm run build` | PASS |
 | `git diff --check` | PASS |
@@ -86,7 +95,7 @@
 
 The repeatable CDP smoke driver is `scripts/m07-browser-smoke.mjs`. It was run against local API `http://localhost:3000/api` and Web `http://localhost:5173` in Microsoft Edge headless with the local seed credential supplied only through `M07_SMOKE_PASSWORD`.
 
-All 14 checks passed:
+All 15 checks passed:
 
 1. Instructor teaching list.
 2. Class overview.
@@ -99,9 +108,10 @@ All 14 checks passed:
 9. Grading inbox.
 10. Grading detail and next-item actions.
 11. Class results.
-12. Protected student document delivery with attachment headers and body verification.
-13. Mobile class workspace/drawer at 390 × 844.
-14. Tablet results at 820 × 1180.
+12. Visible Student LessonPage stored-document download through the user-facing action.
+13. Protected student document delivery with attachment headers and body verification.
+14. Mobile class workspace/drawer at 390 × 844.
+15. Tablet results at 820 × 1180.
 
 No horizontal page overflow was detected in any checked viewport. The smoke pass exposed and corrected aborted-request handling on instructor pages under browser navigation, and corrected Question Bank copy to describe four-skill authoring truthfully.
 
@@ -109,7 +119,7 @@ This is a developer smoke pass, not the Product Owner Manual Visual Gate.
 
 ## Known non-blocking observations
 
-- Vite reports a 622.43 kB minified JavaScript bundle (170.55 kB gzip), above its 500 kB advisory threshold.
+- Vite reports a 631.20 kB minified JavaScript bundle (172.68 kB gzip), above its 500 kB advisory threshold.
 - PostgreSQL/`pg` emits the pre-existing deprecation warning during database verification.
 - Negative-path unit/E2E cases intentionally emit expected service error logs.
 - Windows Git reports LF-to-CRLF working-copy notices; `git diff --check` remains clean.
