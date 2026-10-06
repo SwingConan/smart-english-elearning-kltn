@@ -118,11 +118,39 @@ describe('InstructorContentService', () => {
     });
     transaction.learningResource.update.mockResolvedValue({ id: resourceId });
     await expect(service.updateResource(instructorId, resourceId, {
-      title: 'Tên mới', expectedUpdatedAt: '2026-10-06T00:00:00.000Z',
+      title: 'Tên mới', isDownloadable: false, expectedUpdatedAt: '2026-10-06T00:00:00.000Z',
     })).resolves.toEqual({ id: resourceId });
+    expect(transaction.learningResource.update).toHaveBeenLastCalledWith({
+      where: { id: resourceId },
+      data: { title: 'Tên mới', isDownloadable: false },
+    });
     await expect(service.updateResource(instructorId, resourceId, {
       type: ResourceType.LINK, url: 'https://example.test', expectedUpdatedAt: '2026-10-06T00:00:00.000Z',
     })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.updateResource(instructorId, resourceId, {
+      type: null as never, url: null as never, expectedUpdatedAt: '2026-10-06T00:00:00.000Z',
+    })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('continues to update a valid external resource', async () => {
+    transaction.learningResource.findUnique.mockResolvedValue({
+      updatedAt: new Date('2026-10-06T00:00:00.000Z'), storageKey: null,
+      type: ResourceType.LINK, url: 'https://example.test/old', originalFileName: null, mimeType: null,
+      lesson: { module: { courseId } },
+    });
+    transaction.learningResource.update.mockResolvedValue({ id: resourceId, title: 'New link' });
+
+    await expect(service.updateResource(instructorId, resourceId, {
+      title: 'New link', type: ResourceType.VIDEO, url: 'https://example.test/new',
+      isDownloadable: false, expectedUpdatedAt: '2026-10-06T00:00:00.000Z',
+    })).resolves.toEqual({ id: resourceId, title: 'New link' });
+    expect(transaction.learningResource.update).toHaveBeenLastCalledWith({
+      where: { id: resourceId },
+      data: {
+        title: 'New link', type: ResourceType.VIDEO, url: 'https://example.test/new',
+        isDownloadable: false,
+      },
+    });
   });
 
   it('cleans parent-owned stored files only after a successful database delete', async () => {

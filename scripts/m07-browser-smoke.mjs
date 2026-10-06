@@ -50,14 +50,18 @@ async function evaluate(expression) {
 async function navigate(path, expected, width = 1440, height = 900) {
   await command('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 });
   await command('Page.navigate', { url: `http://localhost:5173${path}` });
-  await delay(900);
-  const state = await evaluate(`({
-    text: document.body.innerText,
-    path: location.pathname,
-    overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
-  })`);
-  if (state.path === '/login') throw new Error(`Session was lost while opening ${path}`);
   const markers = Array.isArray(expected) ? expected : [expected];
+  let state;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await delay(250);
+    state = await evaluate(`({
+      text: document.body.innerText,
+      path: location.pathname,
+      overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
+    })`);
+    if (state.path === '/login') throw new Error(`Session was lost while opening ${path}`);
+    if (markers.every((marker) => state.text.includes(marker))) return state;
+  }
   if (!markers.every((marker) => state.text.includes(marker))) {
     throw new Error(`Expected marker was not rendered at ${path}: ${markers.join(' | ')}\nRendered: ${state.text.slice(0, 800)}`);
   }
@@ -86,6 +90,34 @@ async function logout() {
 function requireOk(response, label) {
   if (!response.ok) throw new Error(`${label} failed: HTTP ${response.status}`);
   return response.body;
+}
+
+async function editVisibleStoredResourceTitle(classId, currentTitle, nextTitle) {
+  await navigate(`/instructor/classes/${classId}/content`, [currentTitle, 'Quản lý nội dung khóa học']);
+  await evaluate(`(() => {
+    const currentTitle = ${JSON.stringify(currentTitle)};
+    const title = [...document.querySelectorAll('p')].find((item) => item.textContent?.trim() === currentTitle);
+    const card = title?.parentElement?.parentElement;
+    const editButton = card ? [...card.querySelectorAll('button')].find((item) => item.textContent?.trim() === 'Sửa') : null;
+    if (!editButton) throw new Error('Visible stored-resource metadata edit action was not rendered');
+    editButton.click();
+    return true;
+  })()`);
+  await delay(200);
+  await evaluate(`(() => {
+    const heading = [...document.querySelectorAll('h2')].find((item) => item.textContent?.includes('Sửa Tài liệu'));
+    const form = heading?.parentElement?.querySelector('form');
+    const titleInput = form?.querySelector('input[name="title"]');
+    if (!form || !titleInput) throw new Error('Stored-resource metadata form was not rendered');
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    if (!setter) throw new Error('Native input value setter is unavailable');
+    setter.call(titleInput, ${JSON.stringify(nextTitle)});
+    titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+    titleInput.dispatchEvent(new Event('change', { bubbles: true }));
+    form.requestSubmit();
+    return true;
+  })()`);
+  await delay(900);
 }
 
 await command('Page.enable');
@@ -143,6 +175,14 @@ for (const module of modules) {
   if (storedResource) break;
 }
 if (!storedResource) throw new Error('No stored downloadable document fixture was found');
+
+const originalStoredTitle = storedResource.title;
+const smokeStoredTitle = `${originalStoredTitle} — smoke metadata`;
+await editVisibleStoredResourceTitle(classId, originalStoredTitle, smokeStoredTitle);
+const storedMetadataReload = await navigate(`/instructor/classes/${classId}/content`, [smokeStoredTitle, 'Quản lý nội dung khóa học']);
+checks.push(['visible stored-document metadata edit + reload', storedMetadataReload]);
+await editVisibleStoredResourceTitle(classId, smokeStoredTitle, originalStoredTitle);
+await navigate(`/instructor/classes/${classId}/content`, [originalStoredTitle, 'Quản lý nội dung khóa học']);
 
 await logout();
 await login('student.demo@smart-elearning.local');

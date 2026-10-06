@@ -110,6 +110,63 @@ describe('CourseContentManagementPage', () => {
     expect(moduleHeadings()).toEqual(['Module 1: Beta module', 'Module 2: Alpha module']);
   });
 
+  it('sends only editable metadata when updating a stored document', async () => {
+    const stored: LearningResource = {
+      ...resource,
+      title: 'Stored guide',
+      type: 'DOCUMENT',
+      url: null,
+      storageKey: 'm07/stored-guide.pdf',
+      originalFileName: 'stored-guide.pdf',
+      mimeType: 'application/pdf',
+      updatedAt: '2026-10-06T10:00:00.000Z',
+    };
+    mockContent([moduleA], [lesson], [stored]);
+    const update = vi.spyOn(instructorApi.resources, 'update').mockResolvedValue({
+      ...stored,
+      title: 'Stored guide updated',
+      isDownloadable: false,
+      updatedAt: '2026-10-06T10:01:00.000Z',
+    });
+    renderContent();
+    fireEvent.click(await screen.findByRole('heading', { name: /Alpha module/ }));
+    fireEvent.click(await screen.findByText(/Alpha lesson/));
+    const resourceRow = (await screen.findByRole('link', { name: 'Stored guide' })).closest('li') as HTMLElement;
+    fireEvent.click(within(resourceRow).getByRole('button', { name: 'Sửa' }));
+    const form = screen.getByRole('heading', { name: 'Sửa Tài liệu' }).parentElement!.querySelector('form')!;
+    fireEvent.change(form.querySelector<HTMLInputElement>('input[name="title"]')!, { target: { value: 'Stored guide updated' } });
+    fireEvent.click(form.querySelector<HTMLInputElement>('input[name="isDownloadable"]')!);
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(update).toHaveBeenCalledWith(stored.id, {
+      title: 'Stored guide updated',
+      isDownloadable: false,
+      expectedUpdatedAt: stored.updatedAt,
+    }));
+    expect(update.mock.calls[0][1]).not.toHaveProperty('type');
+    expect(update.mock.calls[0][1]).not.toHaveProperty('url');
+  });
+
+  it('keeps type and URL in the generic external-resource edit payload', async () => {
+    const external = { ...resource, title: 'External guide', type: 'LINK' as const };
+    mockContent([moduleA], [lesson], [external]);
+    const update = vi.spyOn(instructorApi.resources, 'update').mockResolvedValue(external);
+    renderContent();
+    fireEvent.click(await screen.findByRole('heading', { name: /Alpha module/ }));
+    fireEvent.click(await screen.findByText(/Alpha lesson/));
+    const resourceRow = (await screen.findByRole('link', { name: 'External guide' })).closest('li') as HTMLElement;
+    fireEvent.click(within(resourceRow).getByRole('button', { name: 'Sửa' }));
+    const form = screen.getByRole('heading', { name: 'Sửa Tài liệu' }).parentElement!.querySelector('form')!;
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(update).toHaveBeenCalledWith(external.id, expect.objectContaining({
+      title: external.title,
+      type: external.type,
+      url: external.url,
+      expectedUpdatedAt: external.updatedAt,
+    })));
+  });
+
   it('refreshes auth and redirects safely on 401 without retrying the mutation', async () => {
     mockContent([], [], []);
     const refresh = vi.fn().mockResolvedValue(undefined);

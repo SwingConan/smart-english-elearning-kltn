@@ -421,11 +421,29 @@ export class InstructorContentService {
       if (!resource) throw new NotFoundException('Resource not found');
       await this.assertInstructorOwnsCourseIn(transaction, instructorId, resource.lesson.module.courseId);
       this.assertFresh(resource.updatedAt, expectedUpdatedAt);
-      if (resource.storageKey && (data.type !== undefined && data.type !== ResourceType.DOCUMENT || data.url !== undefined && data.url !== null)) {
-        throw new BadRequestException('Tài liệu đã tải lên không thể đổi thành liên kết. Hãy xóa và tạo lại tài nguyên.');
+      if (resource.storageKey) {
+        if (data.type !== undefined || data.url !== undefined) {
+          throw new BadRequestException('Tài liệu đã tải lên không thể đổi thành liên kết. Hãy xóa và tạo lại tài nguyên.');
+        }
+        if (!resource.originalFileName || !resource.mimeType || resource.type !== ResourceType.DOCUMENT || resource.url !== null) {
+          throw new BadRequestException('Trạng thái tài liệu lưu trữ không hợp lệ.');
+        }
+        const storedMetadataUpdate: Prisma.LearningResourceUpdateInput = {};
+        if (data.title !== undefined) storedMetadataUpdate.title = data.title;
+        if (data.isDownloadable !== undefined) storedMetadataUpdate.isDownloadable = data.isDownloadable;
+        return transaction.learningResource.update({
+          where: { id: resourceId },
+          data: storedMetadataUpdate,
+        });
       }
-      if (resource.storageKey && (!resource.originalFileName || !resource.mimeType || resource.type !== ResourceType.DOCUMENT || resource.url !== null)) {
-        throw new BadRequestException('Trạng thái tài liệu lưu trữ không hợp lệ.');
+
+      if (resource.originalFileName !== null || resource.mimeType !== null) {
+        throw new BadRequestException('Trạng thái liên kết ngoài không hợp lệ.');
+      }
+      const nextType = data.type ?? resource.type;
+      const nextUrl = data.url ?? resource.url;
+      if (!nextType || typeof nextUrl !== 'string' || nextUrl.trim().length === 0) {
+        throw new BadRequestException('Liên kết ngoài cần loại và URL hợp lệ.');
       }
       return transaction.learningResource.update({ where: { id: resourceId }, data });
     });

@@ -73,6 +73,13 @@
 - F-09/F-11/F-12: legacy research features are removed from the primary Instructor class flow; TOEIC skills and statuses use Vietnamese labels; roster/results have mobile cards; class Content uses a desktop outline/editor workspace with a stacked mobile fallback.
 - Regression coverage includes visible Blob download, raw-key stripping, multipart true/false transformation, storage cleanup timing, representation invariants, grading truth, published mutation validation, defensive scheduling, responsive cards, and browser-level visible download evidence.
 
+## GPT implementation re-review round 2
+
+- RR-01: Question Bank updates now collect every referencing `PUBLISHED` Test inside the same serializable transaction, preserve the historical-attempt lock, apply the Question/options mutation, and re-run the complete publishability invariant for every collected Test before commit. Any invalid referenced Test rejects the request and atomically rolls back the Question/options mutation; Tests are never demoted automatically.
+- RR-01 regression coverage verifies rejection of a grouped-Test skill mismatch, acceptance of safe wording/difficulty edits, validation of multiple referencing published Tests, and the unchanged pre-mutation historical-attempt lock.
+- RR-02: stored-document metadata edits now omit disabled `type` and `url` fields and send only `title`, `isDownloadable`, and `expectedUpdatedAt`. The service whitelists stored metadata updates, preserves `DOCUMENT`/null URL/storage metadata, rejects generic kind conversion and malformed null-bearing payloads, and keeps valid external-resource editing intact.
+- RR-02 regression coverage verifies stored title and downloadability edits, exact preserved update fields, malformed/conversion rejection, external editing, and a browser-level visible metadata edit with persistence after reload and fixture restoration.
+
 ## Verification
 
 | Gate | Result |
@@ -86,7 +93,7 @@
 | `npm run prisma:seed` ×2 | PASS — idempotent |
 | `npm run lint` | PASS |
 | `npm run typecheck` | PASS |
-| `npm run test` | PASS — API 367/367; Web 225/225 |
+| `npm run test` | PASS — API 372/372; Web 227/227 |
 | `npm run test:e2e -w @smart-elearning/api` | PASS — 96/96 |
 | `npm run build` | PASS |
 | `git diff --check` | PASS |
@@ -95,7 +102,7 @@
 
 The repeatable CDP smoke driver is `scripts/m07-browser-smoke.mjs`. It was run against local API `http://localhost:3000/api` and Web `http://localhost:5173` in Microsoft Edge headless with the local seed credential supplied only through `M07_SMOKE_PASSWORD`.
 
-All 15 checks passed:
+All 16 checks passed:
 
 1. Instructor teaching list.
 2. Class overview.
@@ -108,10 +115,11 @@ All 15 checks passed:
 9. Grading inbox.
 10. Grading detail and next-item actions.
 11. Class results.
-12. Visible Student LessonPage stored-document download through the user-facing action.
-13. Protected student document delivery with attachment headers and body verification.
-14. Mobile class workspace/drawer at 390 × 844.
-15. Tablet results at 820 × 1180.
+12. Visible stored-document metadata edit, persistence after reload, and deterministic title restoration.
+13. Visible Student LessonPage stored-document download through the user-facing action.
+14. Protected student document delivery with attachment headers and body verification.
+15. Mobile class workspace/drawer at 390 × 844.
+16. Tablet results at 820 × 1180.
 
 No horizontal page overflow was detected in any checked viewport. The smoke pass exposed and corrected aborted-request handling on instructor pages under browser navigation, and corrected Question Bank copy to describe four-skill authoring truthfully.
 
@@ -119,7 +127,7 @@ This is a developer smoke pass, not the Product Owner Manual Visual Gate.
 
 ## Known non-blocking observations
 
-- Vite reports a 631.20 kB minified JavaScript bundle (172.68 kB gzip), above its 500 kB advisory threshold.
+- Vite reports a 631.51 kB minified JavaScript bundle (172.73 kB gzip), above its 500 kB advisory threshold.
 - PostgreSQL/`pg` emits the pre-existing deprecation warning during database verification.
 - Negative-path unit/E2E cases intentionally emit expected service error logs.
 - Windows Git reports LF-to-CRLF working-copy notices; `git diff --check` remains clean.

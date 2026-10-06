@@ -275,6 +275,13 @@ export class AssessmentInstructorService {
 
       await this.assertInstructorOwnsCourse(transaction, instructorId, question.courseId);
       await this.assertQuestionHasNoHistoricalAttempts(transaction, questionId);
+      const publishedTestReferences = await transaction.testQuestion.findMany({
+        where: {
+          questionId,
+          test: { status: TestStatus.PUBLISHED },
+        },
+        select: { testId: true },
+      });
 
       const input = this.normalizeAndValidateQuestion({
         type: dto.type ?? question.responseType,
@@ -291,7 +298,7 @@ export class AssessmentInstructorService {
       await this.assertRubricRule(transaction, input.toeicSkill, input.rubricId);
       await transaction.questionOption.deleteMany({ where: { questionId } });
 
-      return transaction.question.update({
+      const updatedQuestion = await transaction.question.update({
         where: { id: questionId },
         data: {
           responseType: input.responseType,
@@ -304,6 +311,14 @@ export class AssessmentInstructorService {
         },
         select: instructorQuestionSelect,
       });
+
+      for (const referencedTestId of new Set(
+        publishedTestReferences.map((reference) => reference.testId),
+      )) {
+        await this.validatePublishableTest(transaction, referencedTestId);
+      }
+
+      return updatedQuestion;
     });
   }
 

@@ -37,6 +37,7 @@ describe('AssessmentInstructorService', () => {
     testQuestion: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       count: jest.fn(),
@@ -64,6 +65,7 @@ describe('AssessmentInstructorService', () => {
     transaction.testAttempt.count.mockResolvedValue(0);
     transaction.testQuestion.findUnique.mockResolvedValue(null);
     transaction.testQuestion.findFirst.mockResolvedValue(null);
+    transaction.testQuestion.findMany.mockResolvedValue([]);
     transaction.testQuestion.count.mockResolvedValue(0);
     transaction.question.findFirst.mockResolvedValue({ id: questionId });
     transaction.rubric.findFirst.mockResolvedValue({ id: 'rubric-id' });
@@ -320,5 +322,88 @@ describe('AssessmentInstructorService', () => {
     await service.addTestQuestion(instructorId, testId, { questionId, points: 1 });
     expect(validate).toHaveBeenCalledWith(transaction, testId);
     validate.mockRestore();
+  });
+
+  describe('published Question Bank mutation integrity', () => {
+    const existingQuestion = {
+      id: questionId,
+      courseId,
+      responseType: QuestionResponseType.SINGLE_CHOICE,
+      toeicSkill: ToeicSkill.READING,
+      difficulty: QuestionDifficulty.MEDIUM,
+      content: 'Original wording',
+      explanation: null,
+      rubricId: null,
+      options: [
+        { id: 'option-a', content: 'A', isCorrect: true, orderIndex: 0 },
+        { id: 'option-b', content: 'B', isCorrect: false, orderIndex: 1 },
+      ],
+    };
+
+    beforeEach(() => {
+      transaction.question.findUnique.mockResolvedValue(existingQuestion);
+      transaction.question.update.mockResolvedValue({ ...existingQuestion, content: 'Updated wording' });
+    });
+
+    it('rejects a skill-changing update when a referenced published grouped test becomes invalid', async () => {
+      transaction.testQuestion.findMany.mockResolvedValue([{ testId: 'published-test' }]);
+      const validationError = new BadRequestException('Question skill no longer matches its group');
+      const validate = jest.spyOn(service, 'validatePublishableTest').mockRejectedValue(validationError);
+
+      await expect(service.updateQuestion(instructorId, questionId, {
+        toeicSkill: ToeicSkill.SPEAKING,
+        type: QuestionResponseType.AUDIO_RESPONSE,
+        rubricId: 'rubric-id',
+        options: [],
+      })).rejects.toBe(validationError);
+
+      expect(transaction.question.update).toHaveBeenCalled();
+      expect(validate).toHaveBeenCalledWith(transaction, 'published-test');
+      expect(prisma.$transaction).toHaveReturned();
+      validate.mockRestore();
+    });
+
+    it('accepts a safe wording and difficulty update after the published test remains valid', async () => {
+      transaction.testQuestion.findMany.mockResolvedValue([{ testId: 'published-test' }]);
+      const validate = jest.spyOn(service, 'validatePublishableTest').mockResolvedValue({} as never);
+
+      await expect(service.updateQuestion(instructorId, questionId, {
+        content: 'Updated wording',
+        difficulty: QuestionDifficulty.HARD,
+      })).resolves.toEqual(expect.objectContaining({ content: 'Updated wording' }));
+
+      expect(validate).toHaveBeenCalledWith(transaction, 'published-test');
+      validate.mockRestore();
+    });
+
+    it('revalidates every published test that references the changed question', async () => {
+      transaction.testQuestion.findMany.mockResolvedValue([
+        { testId: 'published-test-a' },
+        { testId: 'published-test-b' },
+      ]);
+      const validate = jest.spyOn(service, 'validatePublishableTest').mockResolvedValue({} as never);
+
+      await service.updateQuestion(instructorId, questionId, { content: 'Updated wording' });
+
+      expect(validate).toHaveBeenCalledTimes(2);
+      expect(validate).toHaveBeenNthCalledWith(1, transaction, 'published-test-a');
+      expect(validate).toHaveBeenNthCalledWith(2, transaction, 'published-test-b');
+      validate.mockRestore();
+    });
+
+    it('keeps the historical-attempt lock ahead of any question mutation or revalidation', async () => {
+      transaction.testAttempt.count.mockResolvedValueOnce(1);
+      const validate = jest.spyOn(service, 'validatePublishableTest');
+
+      await expect(service.updateQuestion(instructorId, questionId, {
+        content: 'Blocked wording',
+      })).rejects.toBeInstanceOf(ConflictException);
+
+      expect(transaction.testQuestion.findMany).not.toHaveBeenCalled();
+      expect(transaction.questionOption.deleteMany).not.toHaveBeenCalled();
+      expect(transaction.question.update).not.toHaveBeenCalled();
+      expect(validate).not.toHaveBeenCalled();
+      validate.mockRestore();
+    });
   });
 });

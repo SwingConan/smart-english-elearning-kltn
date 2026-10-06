@@ -289,8 +289,6 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
     const lessonId = expandedLessonId;
     const formData = new FormData(e.currentTarget);
     const title = formData.get('title') as string;
-    const type = formData.get('type') as ResourceType;
-    const url = formData.get('url') as string;
     const isDownloadable = formData.get('isDownloadable') === 'on';
     const file = formData.get('file');
 
@@ -304,12 +302,25 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
             : [...(prev[lessonId] ?? []), uploaded],
         }));
       } else if (editingResource?.id) {
-        const updated = await instructorApi.resources.update(editingResource.id, { title, type, url, isDownloadable, expectedUpdatedAt: editingResource.updatedAt! });
+        const updated = await instructorApi.resources.update(
+          editingResource.id,
+          editingResource.storageKey
+            ? { title, isDownloadable, expectedUpdatedAt: editingResource.updatedAt! }
+            : {
+                title,
+                type: formData.get('type') as ResourceType,
+                url: formData.get('url') as string,
+                isDownloadable,
+                expectedUpdatedAt: editingResource.updatedAt!,
+              },
+        );
         setResourcesMap(prev => ({
           ...prev,
           [lessonId]: (prev[lessonId] ?? []).map((item) => item.id === updated.id ? updated : item)
         }));
       } else {
+        const type = formData.get('type') as ResourceType;
+        const url = formData.get('url') as string;
         const created = await instructorApi.resources.create(lessonId, { title, type, url, isDownloadable });
         setResourcesMap(prev => ({
           ...prev,
