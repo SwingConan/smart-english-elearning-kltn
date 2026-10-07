@@ -234,26 +234,64 @@ await evaluate(`(() => { [...document.querySelectorAll('button')].find((button) 
 
 const bankPath = `/instructor/courses/${courseId}/question-bank?returnTo=${encodeURIComponent(`/instructor/classes/${classId}/assessments`)}`;
 checks.push(['question bank pagination/import', await navigate(bankPath, ['Ngân hàng câu hỏi', 'Tải mẫu XLSX', 'Trang 1/'])]);
-await evaluate(`(async () => {
+await evaluate(`(() => {
+  const input = document.querySelector('input[type="file"][accept=".xlsx"]');
+  if (!input) throw new Error('XLSX picker was not rendered');
+  const transfer = new DataTransfer();
+  transfer.items.add(new File([new Uint8Array([0, 1, 2, 3])], 'invalid.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  input.files = transfer.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+})()`);
+let xlsxError;
+for (let attempt = 0; attempt < 40; attempt += 1) {
+  await delay(250);
+  xlsxError = await evaluate(`({ text: document.body.innerText, overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2 })`);
+  if (xlsxError.text.includes('Dữ liệu chưa hợp lệ')) break;
+}
+if (!xlsxError.text.includes('Dữ liệu chưa hợp lệ')) throw new Error(`XLSX row/file error state did not render: ${xlsxError.text.slice(-600)}`);
+checks.push(['XLSX error display', xlsxError]);
+
+const xlsxFixture = await evaluate(`(async () => {
   const response = await fetch('/api/instructor/courses/${courseId}/questions/import-template', { credentials: 'include' });
   if (!response.ok) throw new Error('Could not download XLSX import template');
   const file = new File([await response.blob()], 'm07-browser-smoke-template.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const formData = new FormData();
+  formData.append('file', file);
+  const previewResponse = await fetch('/api/instructor/courses/${courseId}/questions/import-preview', { method: 'POST', credentials: 'include', body: formData });
+  if (!previewResponse.ok) throw new Error('Could not preview XLSX import template');
+  const preview = await previewResponse.json();
+  const confirmResponse = await fetch('/api/instructor/courses/${courseId}/questions/import-confirm', {
+    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows: preview.rows.map((row) => row.input) })
+  });
+  if (!confirmResponse.ok) throw new Error('Could not create isolated XLSX duplicate fixture');
+  const confirmed = await confirmResponse.json();
   const input = document.querySelector('input[type="file"][accept=".xlsx"]');
   if (!input) throw new Error('XLSX picker was not rendered');
   const transfer = new DataTransfer();
   transfer.items.add(file);
   input.files = transfer.files;
   input.dispatchEvent(new Event('change', { bubbles: true }));
-  return true;
+  return { questionId: confirmed.questionIds[0] };
 })()`);
 let xlsxPreview;
-for (let attempt = 0; attempt < 40; attempt += 1) {
-  await delay(250);
-  xlsxPreview = await evaluate(`({ text: document.body.innerText, overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2 })`);
-  if (xlsxPreview.text.includes('Xem trước dữ liệu XLSX') && xlsxPreview.text.includes('1/1 dòng hợp lệ')) break;
+try {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    await delay(250);
+    xlsxPreview = await evaluate(`({
+      text: document.body.innerText,
+      overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
+      confirmDisabled: [...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Xác nhận nhập')?.disabled
+    })`);
+    if (xlsxPreview.text.includes('Xem trước dữ liệu XLSX') && xlsxPreview.text.includes('1/1 dòng hợp lệ') && xlsxPreview.text.includes('1 cảnh báo')) break;
+  }
+  if (!xlsxPreview.text.includes('Xem trước dữ liệu XLSX') || !xlsxPreview.text.includes('1/1 dòng hợp lệ') || !xlsxPreview.text.includes('trùng với câu hỏi hiện có') || xlsxPreview.confirmDisabled !== false) {
+    throw new Error('XLSX warning preview or safe warning-only confirm state did not render');
+  }
+  checks.push(['XLSX warning preview without confirm', xlsxPreview]);
+} finally {
+  if (xlsxFixture?.questionId) requireOk(await browserFetch(`/instructor/questions/${xlsxFixture.questionId}`, { method: 'DELETE' }), 'XLSX duplicate fixture cleanup');
 }
-if (!xlsxPreview.text.includes('Xem trước dữ liệu XLSX') || !xlsxPreview.text.includes('1/1 dòng hợp lệ')) throw new Error('XLSX validation preview did not render');
-checks.push(['XLSX validation preview without confirm', xlsxPreview]);
 await evaluate(`(() => { [...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Hủy')?.click(); return true; })()`);
 await evaluate(`(() => {
   const back = [...document.querySelectorAll('a')].find((link) => link.textContent?.trim() === 'Quay lại');

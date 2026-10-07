@@ -4,7 +4,7 @@ import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
 import { loginAgent } from './assessment-e2e-helpers';
-import { Workbook } from 'exceljs';
+import writeXlsxFile from 'write-excel-file/node';
 
 describe('M07 Instructor LMS acceptance journey (e2e)', () => {
   let app: INestApplication;
@@ -107,11 +107,10 @@ describe('M07 Instructor LMS acceptance journey (e2e)', () => {
 
   it('imports a question, finds it through pagination, adds it to a Part and publishes the draft', async () => {
     const marker = `M07 isolated import ${Date.now()}`;
-    const workbook = new Workbook();
-    const sheet = workbook.addWorksheet('Questions');
-    sheet.addRow(['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id']);
-    sheet.addRow(['READING', 'SINGLE_CHOICE', 'EASY', marker, 'Isolated E2E fixture', 'Correct', 'Distractor', '', '', 'A', '']);
-    const file = Buffer.from(await workbook.xlsx.writeBuffer());
+    const file = await writeXlsxFile([
+      ['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id'],
+      ['READING', 'SINGLE_CHOICE', 'EASY', marker, 'Isolated E2E fixture', 'Correct', 'Distractor', '', '', 'A', ''],
+    ], { sheet: 'Questions' }).toBuffer();
     let questionId: string | undefined;
     let testId: string | undefined;
     let published = false;
@@ -119,7 +118,7 @@ describe('M07 Instructor LMS acceptance journey (e2e)', () => {
       const preview = await instructor.post(`/api/instructor/courses/${courseId}/questions/import-preview`)
         .attach('file', file, { filename: 'm07-isolated.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
         .expect(201);
-      expect(preview.body).toEqual(expect.objectContaining({ canConfirm: true, summary: { total: 1, valid: 1, invalid: 0 } }));
+      expect(preview.body).toEqual(expect.objectContaining({ canConfirm: true, summary: { total: 1, valid: 1, invalid: 0, warnings: 0 } }));
       const confirmed = await instructor.post(`/api/instructor/courses/${courseId}/questions/import-confirm`)
         .send({ rows: [preview.body.rows[0].input] }).expect(201);
       questionId = confirmed.body.questionIds[0];

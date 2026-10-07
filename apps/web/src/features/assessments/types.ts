@@ -49,8 +49,8 @@ export interface QuestionQuery {
   usage?: 'ALL' | 'USED' | 'UNUSED';
 }
 export interface QuestionImportPreview {
-  rows: Array<{ rowNumber: number; input: QuestionInput | null; errors: string[] }>;
-  summary: { total: number; valid: number; invalid: number };
+  rows: Array<{ rowNumber: number; input: QuestionInput | null; errors: string[]; warnings: string[] }>;
+  summary: { total: number; valid: number; invalid: number; warnings: number };
   canConfirm: boolean;
 }
 export interface QuestionInput {

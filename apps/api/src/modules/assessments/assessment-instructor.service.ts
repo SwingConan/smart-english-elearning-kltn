@@ -5,7 +5,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Workbook } from 'exceljs';
+import { readSheet, type CellValue, type SheetData as ReadSheetData } from 'read-excel-file/node';
+import writeXlsxFile, { type SheetData as WriteSheetData } from 'write-excel-file/node';
 import {
   Prisma,
   AssessmentStimulusType,
@@ -146,23 +147,15 @@ interface NormalizedQuestionInput {
   }>;
 }
 
-function safeSpreadsheetText(value: unknown, errors: string[]): string {
+function safeSpreadsheetText(value: CellValue | null): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
   if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'object') {
-    const cell = value as Record<string, unknown>;
-    if ('formula' in cell || 'sharedFormula' in cell) {
-      errors.push('Không chấp nhận công thức trong tệp nhập.');
-      return '';
-    }
-    if (Array.isArray(cell.richText)) {
-      return cell.richText.map((part) => String((part as Record<string, unknown>).text ?? '')).join('');
-    }
-    if (typeof cell.text === 'string') return cell.text;
-  }
-  errors.push('Ô dữ liệu có định dạng không được hỗ trợ.');
   return '';
+}
+
+function questionImportKey(input: Pick<CreateQuestionDto, 'toeicSkill' | 'type' | 'content'>): string {
+  return `${input.toeicSkill}\u0000${input.type}\u0000${input.content.trim().normalize('NFKC').toLocaleLowerCase('en-US')}`;
 }
 
 interface NormalizedTestInput {
@@ -265,13 +258,12 @@ export class AssessmentInstructorService {
 
   async questionImportTemplate(instructorId: string, courseId: string): Promise<Buffer> {
     await this.assertInstructorOwnsCourse(this.prisma, instructorId, courseId);
-    const workbook = new Workbook();
-    const sheet = workbook.addWorksheet('Questions');
-    sheet.addRow(['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id']);
-    sheet.addRow(['READING', 'SINGLE_CHOICE', 'EASY', 'Choose the correct answer.', 'Project-authored explanation.', 'Option A', 'Option B', 'Option C', 'Option D', 'A', '']);
-    sheet.views = [{ state: 'frozen', ySplit: 1 }];
-    sheet.getRow(1).font = { bold: true };
-    return Buffer.from(await workbook.xlsx.writeBuffer());
+    const headers = ['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id'];
+    const data: WriteSheetData = [
+      headers.map((value) => ({ value, fontWeight: 'bold' })),
+      ['READING', 'SINGLE_CHOICE', 'EASY', 'Choose the correct answer.', 'Project-authored explanation.', 'Option A', 'Option B', 'Option C', 'Option D', 'A', ''],
+    ];
+    return writeXlsxFile(data, { sheet: 'Questions', stickyRowsCount: 1 }).toBuffer();
   }
 
   async previewQuestionImport(instructorId: string, courseId: string, file?: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
@@ -279,26 +271,26 @@ export class AssessmentInstructorService {
     if (!file) throw new BadRequestException('Vui lòng chọn tệp XLSX để kiểm tra.');
     if (file.size > 5 * 1024 * 1024) throw new BadRequestException('Tệp XLSX không được vượt quá 5 MB.');
     if (!file.originalname.toLowerCase().endsWith('.xlsx')) throw new BadRequestException('Chỉ hỗ trợ định dạng XLSX.');
-    const workbook = new Workbook();
+    let sheet: ReadSheetData;
     try {
-      await workbook.xlsx.load(file.buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+      sheet = await readSheet(file.buffer);
     } catch {
       throw new BadRequestException('Không thể đọc tệp XLSX.');
     }
-    const sheet = workbook.worksheets[0];
-    if (!sheet) throw new BadRequestException('Tệp XLSX không có trang dữ liệu.');
-    const headers = sheet.getRow(1).values as unknown[];
+    if (sheet.length === 0) throw new BadRequestException('Tệp XLSX không có trang dữ liệu.');
+    const headers = sheet[0] ?? [];
     const expected = ['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id'];
-    if (expected.some((header, index) => String(headers[index + 1] ?? '').trim().toLowerCase() !== header)) {
+    if (expected.some((header, index) => String(headers[index] ?? '').trim().toLowerCase() !== header)) {
       throw new BadRequestException('Tiêu đề cột không đúng mẫu nhập câu hỏi.');
     }
-    if (Math.max(0, sheet.actualRowCount - 1) > 2000) throw new BadRequestException('Mỗi lần chỉ được nhập tối đa 2.000 câu hỏi.');
-    const rows: Array<{ rowNumber: number; input: CreateQuestionDto | null; errors: string[] }> = [];
-    for (let rowNumber = 2; rowNumber <= sheet.actualRowCount; rowNumber += 1) {
-      const row = sheet.getRow(rowNumber);
-      if ((row.values as unknown[]).slice(1).every((value) => value === null || value === undefined || String(value).trim() === '')) continue;
+    const logicalRows = sheet.slice(1)
+      .map((values, index) => ({ rowNumber: index + 2, values }))
+      .filter((row) => !row.values.every((value) => value === null || value === undefined || String(value).trim() === ''));
+    if (logicalRows.length > 2000) throw new BadRequestException('Mỗi lần chỉ được nhập tối đa 2.000 câu hỏi.');
+    const rows: Array<{ rowNumber: number; input: CreateQuestionDto | null; errors: string[]; warnings: string[] }> = [];
+    for (const { rowNumber, values: sourceRow } of logicalRows) {
       const errors: string[] = [];
-      const values = Array.from({ length: expected.length }, (_, index) => safeSpreadsheetText(row.getCell(index + 1).value, errors));
+      const values = Array.from({ length: expected.length }, (_, columnIndex) => safeSpreadsheetText(sourceRow[columnIndex] ?? null));
       const [skill, type, difficulty, content, explanation, optionA, optionB, optionC, optionD, correctText, rubricId] = values;
       const correct = new Set(correctText.toUpperCase().split(/[;,\s]+/).filter(Boolean));
       const options = [optionA, optionB, optionC, optionD]
@@ -318,12 +310,64 @@ export class AssessmentInstructorService {
       } catch (error) {
         errors.push(error instanceof Error ? error.message : 'Dữ liệu câu hỏi không hợp lệ.');
       }
-      rows.push({ rowNumber, input: errors.length === 0 ? input : null, errors });
+      rows.push({ rowNumber, input: errors.length === 0 ? input : null, errors, warnings: [] });
     }
     if (rows.length === 0) throw new BadRequestException('Tệp XLSX không có câu hỏi để nhập.');
+
+    const rubricIds = [...new Set(rows.flatMap((row) => row.input?.rubricId ? [row.input.rubricId] : []))];
+    const activeRubrics = rubricIds.length === 0 ? [] : await this.prisma.rubric.findMany({
+      where: { id: { in: rubricIds }, isActive: true },
+      select: { id: true },
+    });
+    const activeRubricIds = new Set(activeRubrics.map((rubric) => rubric.id));
+    for (const row of rows) {
+      if (row.input?.rubricId && !activeRubricIds.has(row.input.rubricId)) {
+        row.errors.push('Rubric không tồn tại hoặc không còn hoạt động.');
+        row.input = null;
+      }
+    }
+
+    const importRowsByKey = new Map<string, typeof rows>();
+    for (const row of rows) {
+      if (!row.input) continue;
+      const key = questionImportKey(row.input);
+      const matchingRows = importRowsByKey.get(key) ?? [];
+      matchingRows.push(row);
+      importRowsByKey.set(key, matchingRows);
+    }
+    for (const matchingRows of importRowsByKey.values()) {
+      if (matchingRows.length < 2) continue;
+      const rowNumbers = matchingRows.map((row) => row.rowNumber).join(', ');
+      for (const row of matchingRows) row.warnings.push(`Nội dung trùng trong tệp tại các dòng ${rowNumbers}.`);
+    }
+
+    const validInputs = rows.flatMap((row) => row.input ? [row.input] : []);
+    const existingQuestions = validInputs.length === 0 ? [] : await this.prisma.question.findMany({
+      where: {
+        courseId,
+        toeicSkill: { in: [...new Set(validInputs.map((input) => input.toeicSkill))] },
+        responseType: { in: [...new Set(validInputs.map((input) => input.type))] },
+        content: { in: [...new Set(validInputs.map((input) => input.content))], mode: 'insensitive' },
+      },
+      select: { toeicSkill: true, responseType: true, content: true },
+      distinct: ['toeicSkill', 'responseType', 'content'],
+      take: 2000,
+    });
+    const existingKeys = new Set(existingQuestions.map((question) => questionImportKey({
+      toeicSkill: question.toeicSkill,
+      type: question.responseType,
+      content: question.content,
+    })));
+    for (const row of rows) {
+      if (row.input && existingKeys.has(questionImportKey(row.input))) {
+        row.warnings.push('Nội dung trùng với câu hỏi hiện có trong ngân hàng.');
+      }
+    }
+
+    const warningCount = rows.reduce((count, row) => count + row.warnings.length, 0);
     return {
       rows,
-      summary: { total: rows.length, valid: rows.filter((row) => row.errors.length === 0).length, invalid: rows.filter((row) => row.errors.length > 0).length },
+      summary: { total: rows.length, valid: rows.filter((row) => row.errors.length === 0).length, invalid: rows.filter((row) => row.errors.length > 0).length, warnings: warningCount },
       canConfirm: rows.every((row) => row.errors.length === 0),
     };
   }

@@ -14,7 +14,10 @@ import {
 } from '../../generated/prisma/client';
 import { AssessmentInstructorService } from './assessment-instructor.service';
 import { AssessmentStimulusMediaStorage } from '../placement/assessment-stimulus-media.storage';
-import { Workbook } from 'exceljs';
+import { readSheet } from 'read-excel-file/node';
+import writeXlsxFile, { type SheetData } from 'write-excel-file/node';
+
+const xlsxBuffer = (rows: SheetData) => writeXlsxFile(rows, { sheet: 'Questions' }).toBuffer();
 
 describe('AssessmentInstructorService', () => {
   const instructorId = 'instructor-id';
@@ -49,6 +52,7 @@ describe('AssessmentInstructorService', () => {
   const prisma = {
     classOffering: { findFirst: jest.fn() },
     question: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
+    rubric: { findMany: jest.fn() },
     test: { findMany: jest.fn(), findUnique: jest.fn() },
     $transaction: jest.fn(),
   };
@@ -62,6 +66,8 @@ describe('AssessmentInstructorService', () => {
     jest.clearAllMocks();
     prisma.classOffering.findFirst.mockResolvedValue({ id: 'offering-id' });
     prisma.question.count.mockResolvedValue(0);
+    prisma.question.findMany.mockResolvedValue([]);
+    prisma.rubric.findMany.mockResolvedValue([]);
     transaction.classOffering.findFirst.mockResolvedValue({ id: 'offering-id' });
     transaction.lesson.findFirst.mockResolvedValue({ id: 'lesson-id' });
     transaction.testAttempt.count.mockResolvedValue(0);
@@ -206,15 +212,21 @@ describe('AssessmentInstructorService', () => {
     expect(result).toMatchObject({ page: 3, pageSize: 20, total: 142, totalPages: 8 });
   });
 
-  it('previews XLSX safely and rejects formula cells without writing data', async () => {
-    const workbook = new Workbook();
-    const sheet = workbook.addWorksheet('Questions');
-    sheet.addRow(['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id']);
-    sheet.addRow(['READING', 'SINGLE_CHOICE', 'EASY', { formula: 'HYPERLINK("https://example.test")', result: 'unsafe' }, '', 'A', 'B', '', '', 'A', '']);
-    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+  it('generates a template readable by the maintained XLSX reader', async () => {
+    const buffer = await service.questionImportTemplate(instructorId, courseId);
+    const rows = await readSheet(buffer);
+    expect(rows[0]).toEqual(['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id']);
+    expect(rows[1]).toEqual(expect.arrayContaining(['READING', 'SINGLE_CHOICE', 'EASY']));
+  });
+
+  it('treats formula cells as inert values and never executes or writes them', async () => {
+    const buffer = await xlsxBuffer([
+      ['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id'],
+      ['READING', 'SINGLE_CHOICE', 'EASY', { type: 'Formula', value: 'HYPERLINK("https://example.test")' }, '', 'A', 'B', '', '', 'A', ''],
+    ]);
     const result = await service.previewQuestionImport(instructorId, courseId, { buffer, mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', originalname: 'questions.xlsx', size: buffer.length });
     expect(result.canConfirm).toBe(false);
-    expect(result.rows[0].errors.join(' ')).toContain('công thức');
+    expect(JSON.stringify(result)).not.toContain('unsafe');
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -224,15 +236,66 @@ describe('AssessmentInstructorService', () => {
       originalname: 'too-large.xlsx', size: 5 * 1024 * 1024 + 1,
     })).rejects.toBeInstanceOf(BadRequestException);
 
-    const workbook = new Workbook();
-    const sheet = workbook.addWorksheet('Questions');
-    sheet.addRow(['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id']);
-    for (let index = 0; index < 2001; index += 1) sheet.addRow(['READING', 'SINGLE_CHOICE', 'EASY', `Question ${index}`, '', 'A', 'B', '', '', 'A', '']);
-    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    const rows: SheetData = [['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id']];
+    for (let index = 0; index < 2001; index += 1) rows.push(['READING', 'SINGLE_CHOICE', 'EASY', `Question ${index}`, '', 'A', 'B', '', '', 'A', '']);
+    const buffer = await xlsxBuffer(rows);
     await expect(service.previewQuestionImport(instructorId, courseId, {
       buffer, mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', originalname: 'too-many.xlsx', size: buffer.length,
     })).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects a malformed XLSX without writing data', async () => {
+    await expect(service.previewQuestionImport(instructorId, courseId, {
+      buffer: Buffer.from('not-an-xlsx'), mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      originalname: 'malformed.xlsx', size: 11,
+    })).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('validates productive rubric activity during preview with one bounded query', async () => {
+    const activeRubricId = '11111111-1111-4111-8111-111111111111';
+    const inactiveRubricId = '22222222-2222-4222-8222-222222222222';
+    prisma.rubric.findMany.mockResolvedValue([{ id: activeRubricId }]);
+    const buffer = await xlsxBuffer([
+      ['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id'],
+      ['WRITING', 'TEXT_RESPONSE', 'MEDIUM', 'Write an email.', '', '', '', '', '', '', activeRubricId],
+      ['SPEAKING', 'AUDIO_RESPONSE', 'MEDIUM', 'Respond to the prompt.', '', '', '', '', '', '', activeRubricId],
+      ['SPEAKING', 'AUDIO_RESPONSE', 'MEDIUM', 'Describe the picture.', '', '', '', '', '', '', inactiveRubricId],
+    ]);
+    const result = await service.previewQuestionImport(instructorId, courseId, { buffer, mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', originalname: 'productive.xlsx', size: buffer.length });
+    expect(prisma.rubric.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.rubric.findMany).toHaveBeenCalledWith({ where: { id: { in: [activeRubricId, inactiveRubricId] }, isActive: true }, select: { id: true } });
+    expect(result.rows[0].errors).toEqual([]);
+    expect(result.rows[1].errors).toEqual([]);
+    expect(result.rows[2].errors.join(' ')).toContain('Rubric');
+    expect(result).toMatchObject({ canConfirm: false, summary: { total: 3, valid: 2, invalid: 1 } });
+  });
+
+  it('reports a missing productive rubric as a row-level preview error', async () => {
+    const buffer = await xlsxBuffer([
+      ['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id'],
+      ['WRITING', 'TEXT_RESPONSE', 'MEDIUM', 'Write a memo.', '', '', '', '', '', '', ''],
+    ]);
+    const result = await service.previewQuestionImport(instructorId, courseId, { buffer, mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', originalname: 'missing-rubric.xlsx', size: buffer.length });
+    expect(result.canConfirm).toBe(false);
+    expect(result.rows[0].errors.join(' ')).toContain('rubric');
+  });
+
+  it('reports duplicate warnings separately without blocking a valid preview', async () => {
+    prisma.question.findMany.mockResolvedValue([{ toeicSkill: ToeicSkill.READING, responseType: QuestionResponseType.SINGLE_CHOICE, content: 'Existing question' }]);
+    const buffer = await xlsxBuffer([
+      ['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id'],
+      ['READING', 'SINGLE_CHOICE', 'EASY', 'Repeated question', '', 'A', 'B', '', '', 'A', ''],
+      ['READING', 'SINGLE_CHOICE', 'EASY', 'Repeated question', '', 'A', 'B', '', '', 'A', ''],
+      ['READING', 'SINGLE_CHOICE', 'EASY', 'Existing question', '', 'A', 'B', '', '', 'A', ''],
+    ]);
+    const result = await service.previewQuestionImport(instructorId, courseId, { buffer, mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', originalname: 'duplicates.xlsx', size: buffer.length });
+    expect(result.canConfirm).toBe(true);
+    expect(result.summary).toEqual({ total: 3, valid: 3, invalid: 0, warnings: 3 });
+    expect(result.rows[0].warnings[0]).toContain('trùng trong tệp');
+    expect(result.rows[1].warnings[0]).toContain('trùng trong tệp');
+    expect(result.rows[2].warnings[0]).toContain('ngân hàng');
   });
 
   it('confirms a validated import atomically and preserves objective option order', async () => {
@@ -247,6 +310,26 @@ describe('AssessmentInstructorService', () => {
     expect(transaction.question.create).toHaveBeenCalledTimes(2);
     expect(transaction.question.create).toHaveBeenNthCalledWith(1, expect.objectContaining({ data: expect.objectContaining({ options: { create: [{ content: 'A', isCorrect: true, orderIndex: 0 }, { content: 'B', isCorrect: false, orderIndex: 1 }] } }) }));
     expect(result).toEqual({ importedCount: 2, questionIds: ['imported-a', 'imported-b'] });
+  });
+
+  it('keeps confirm all-or-nothing and rechecks productive rubrics', async () => {
+    transaction.rubric.findFirst.mockResolvedValueOnce(null);
+    await expect(service.confirmQuestionImport(instructorId, courseId, { rows: [{
+      type: QuestionResponseType.AUDIO_RESPONSE, toeicSkill: ToeicSkill.SPEAKING, difficulty: QuestionDifficulty.MEDIUM,
+      content: 'Speak now', rubricId: 'inactive-rubric', options: [],
+    }] })).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.question.create).not.toHaveBeenCalled();
+
+    jest.clearAllMocks();
+    prisma.$transaction.mockImplementation((operation: (client: typeof transaction) => Promise<unknown>) => operation(transaction));
+    transaction.classOffering.findFirst.mockResolvedValue({ id: 'offering-id' });
+    transaction.question.create.mockResolvedValueOnce({ id: 'first' }).mockRejectedValueOnce(new Error('write failure'));
+    await expect(service.confirmQuestionImport(instructorId, courseId, { rows: [
+      { type: QuestionResponseType.SINGLE_CHOICE, toeicSkill: ToeicSkill.READING, difficulty: QuestionDifficulty.EASY, content: 'First', options: [{ content: 'A', isCorrect: true }, { content: 'B', isCorrect: false }] },
+      { type: QuestionResponseType.SINGLE_CHOICE, toeicSkill: ToeicSkill.READING, difficulty: QuestionDifficulty.EASY, content: 'Second', options: [{ content: 'A', isCorrect: true }, { content: 'B', isCorrect: false }] },
+    ] })).rejects.toThrow('write failure');
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it.each([

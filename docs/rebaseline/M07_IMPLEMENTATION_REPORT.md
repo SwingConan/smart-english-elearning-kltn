@@ -93,7 +93,7 @@
 | `npm run prisma:seed` ×2 | PASS — idempotent |
 | `npm run lint` | PASS |
 | `npm run typecheck` | PASS |
-| `npm run test` | PASS — API 377/377; Web 230/230 |
+| `npm run test` | PASS — API 383/383; Web 231/231 |
 | `npm run test:e2e -w @smart-elearning/api` | PASS — 97/97 after deterministic reseed |
 | `npm run build` | PASS |
 | `git diff --check` | PASS |
@@ -102,7 +102,7 @@
 
 The repeatable CDP smoke driver is `scripts/m07-browser-smoke.mjs`. It was run against local API `http://localhost:3000/api` and Web `http://localhost:5173` in Chrome headless with the local seed credential supplied only through `M07_SMOKE_PASSWORD`.
 
-All 20 checks passed:
+All 21 checks passed:
 
 1. Isolated 1,000-question server-paginated picker, followed by complete fixture cleanup.
 2. Instructor teaching list.
@@ -112,18 +112,19 @@ All 20 checks passed:
 6. Shared-content warning.
 7. Upload, Video, and Link resource creation modes.
 8. Four-skill Question Bank pagination/import entry points.
-9. XLSX validation preview without confirmation/write.
-10. Safe Question Bank return to the originating class-assessment route.
-11. Guided grouped Test Builder.
-12. Class scheduling.
-13. Grading inbox.
-14. Grading detail and same-attempt response navigator.
-15. Class results.
-16. Visible stored-document metadata edit, persistence after reload, and deterministic title restoration.
-17. Visible Student LessonPage stored-document download through the user-facing action.
-18. Protected student document delivery with attachment headers and body verification.
-19. Mobile class workspace/drawer at 390 × 844.
-20. Tablet results at 820 × 1180.
+9. Malformed XLSX error display without persistence.
+10. Template download plus warning-only XLSX preview, row-level existing-bank warning, enabled safe confirm state, no UI confirmation, and temporary fixture cleanup.
+11. Safe Question Bank return to the originating class-assessment route.
+12. Guided grouped Test Builder.
+13. Class scheduling.
+14. Grading inbox.
+15. Grading detail and same-attempt response navigator.
+16. Class results.
+17. Visible stored-document metadata edit, persistence after reload, and deterministic title restoration.
+18. Visible Student LessonPage stored-document download through the user-facing action.
+19. Protected student document delivery with attachment headers and body verification.
+20. Mobile class workspace/drawer at 390 × 844.
+21. Tablet results at 820 × 1180.
 
 No horizontal page overflow was detected in any checked viewport. The smoke pass exposed and corrected aborted-request handling on instructor pages under browser navigation, and corrected Question Bank copy to describe four-skill authoring truthfully.
 
@@ -149,6 +150,19 @@ This is a developer smoke pass, not the Product Owner Manual Visual Gate.
 - **VG07-16 — Regression evidence:** added schedule projection, paginated question query, safe XLSX formula rejection, and updated browser-smoke checkpoints. Product Owner Round 2 remains required; this implementation report does not claim Visual Gate PASS.
 
 No Prisma schema change or migration was required for this redesign.
+
+## XLSX import security and preview correction
+
+- Removed the direct `exceljs@4.4.0` runtime dependency and its affected transitive chain. XLSX input now uses exact-pinned `read-excel-file@9.3.10`; deterministic templates use exact-pinned `write-excel-file@4.1.1`. Both packages support Node.js 22, are MIT licensed, and separate the untrusted read path from template generation.
+- The reader returns cell values only and does not evaluate formulas. Formula cells are therefore treated as inert cached values (or empty when no cached value exists); the server never executes spreadsheet formulas. The library does not expose formula metadata, so the import does not claim reliable formula detection or rejection.
+- Preview validates all referenced productive rubrics with one set-based active-rubric query and reports an inactive/missing rubric as a row-level error. Confirm retains the existing transactional rubric check as defense in depth.
+- Preview derives a canonical `(toeicSkill, responseType, normalized content)` key, reports duplicates inside the uploaded file and against the existing course Question Bank as row-level `warnings[]`, and keeps warnings separate from blocking `errors[]`.
+- Existing-bank detection uses one bounded, case-insensitive candidate query (distinct rows, maximum 2,000 results); preview still enforces `.xlsx`, 5 MB, and 2,000-row limits before persistence.
+- The UI shows valid/invalid/warning counts and row-level warning detail. Warning-only previews remain confirmable; any row error keeps all-or-nothing confirmation disabled.
+- Regression coverage includes template round-trip readability, malformed XLSX handling, inert formula behavior, size/row caps, preview-time active-rubric validation, duplicate warnings, warning/error UI states, and unchanged atomic confirmation.
+- `npm audit --json` changed from 46 findings (8 moderate, 36 high, 2 critical) before replacement to 44 findings (6 moderate, 36 high, 2 critical) afterward. High/Critical counts did not increase; the remaining High/Critical findings are pre-existing monorepo dependencies, and neither exact-pinned XLSX package appears in the audit findings.
+
+No Prisma schema change or migration was required for this correction.
 
 ## Known non-blocking observations
 

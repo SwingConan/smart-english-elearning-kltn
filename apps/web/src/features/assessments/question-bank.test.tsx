@@ -156,6 +156,34 @@ describe('QuestionBankPage', () => {
     expect(refresh).toHaveBeenCalledOnce();
   });
 
+  it('renders XLSX warnings separately from blocking row errors', async () => {
+    vi.spyOn(assessmentApi.questions, 'page').mockResolvedValue(questionPage([]));
+    vi.spyOn(assessmentApi.questions, 'previewImport')
+      .mockResolvedValueOnce({
+        rows: [{ rowNumber: 2, input: { type: 'SINGLE_CHOICE', toeicSkill: 'READING', difficulty: 'EASY', content: 'Duplicate', options: [{ content: 'A', isCorrect: true }, { content: 'B', isCorrect: false }] }, errors: [], warnings: ['Nội dung trùng với câu hỏi hiện có trong ngân hàng.'] }],
+        summary: { total: 1, valid: 1, invalid: 0, warnings: 1 },
+        canConfirm: true,
+      })
+      .mockResolvedValueOnce({
+        rows: [{ rowNumber: 2, input: null, errors: ['Rubric không tồn tại hoặc không còn hoạt động.'], warnings: [] }],
+        summary: { total: 1, valid: 0, invalid: 1, warnings: 0 },
+        canConfirm: false,
+      });
+    renderPage();
+    await screen.findByText(/Chưa có câu hỏi/i);
+    const fileInput = screen.getByLabelText(/Nhập XLSX/i);
+    const file = new File(['xlsx'], 'questions.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    expect(await screen.findByText(/1 cảnh báo/i)).toBeInTheDocument();
+    expect(screen.getByText(/trùng với câu hỏi hiện có/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Xác nhận nhập/i })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Hủy$/i }));
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    expect(await screen.findByText(/Rubric không tồn tại/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Xác nhận nhập/i })).toBeDisabled();
+  });
+
   it('loads existing Question Skills and sends exact multi/zero full sets', async () => {
     const existing = question('mapped', 'SINGLE_CHOICE', 'MEDIUM');
     const grammar = mappedSkill('grammar', 'GRAMMAR');
