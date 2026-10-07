@@ -12,8 +12,8 @@ export function InstructorLearnerDetailPage() {
     const c = new AbortController();
     void instructorApi.classes
       .learner(classOfferingId, enrollmentId, c.signal)
-      .then(setData)
-      .catch(() => setError(true));
+      .then((loaded) => { setData(loaded); setError(false); })
+      .catch((cause: unknown) => { if (!(cause instanceof Error && cause.name === 'AbortError')) setError(true); });
     return () => c.abort();
   }, [classOfferingId, enrollmentId]);
   const groups = useMemo(() => {

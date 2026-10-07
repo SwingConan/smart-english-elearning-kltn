@@ -147,7 +147,7 @@ This is a developer smoke pass, not the Product Owner Manual Visual Gate.
 - **VG07-13 — Grading continuity:** next-item actions now advance to the next unfinished productive response in the same attempt before moving to another learner attempt.
 - **VG07-14 — Results dashboard:** added top KPI cards, grading-completion progress, skill-average bars with sample/exclusion evidence, and a striped learner matrix/mobile cards.
 - **VG07-15 — Responsive consistency:** aligned cards, tables, chips, spacing, progress bars, and responsive fallbacks across the primary instructor workspace.
-- **VG07-16 — Regression evidence:** added schedule projection, paginated question query, safe XLSX formula rejection, and updated browser-smoke checkpoints. Product Owner Round 2 remains required; this implementation report does not claim Visual Gate PASS.
+- **VG07-16 — Regression evidence:** added schedule projection, paginated question query, safe XLSX inert-data handling, and updated browser-smoke checkpoints. Product Owner Round 2 remains required; this implementation report does not claim Visual Gate PASS.
 
 No Prisma schema change or migration was required for this redesign.
 
@@ -176,6 +176,15 @@ No Prisma schema change or migration was required for this correction.
 - **R2-14 — Results value:** results show completion composition, plain-language denominators, per-skill score distributions, finalized in-class cross-assessment trend, and the existing learner drill-down matrix with search.
 
 The redesign uses existing timestamps and assessment records only. It does not add predictive analytics, a chart dependency, a Prisma migration, or a new event model. Product Owner Round 3 remains required; this report does not claim Visual Gate PASS.
+
+## Round 3 browser smoke
+
+- Candidate before smoke: `f1a5838012c04a8e1e7b6863cb37ff8dc30d5faf`.
+- Dedicated Google Chrome was launched headless with CDP port `9333` and an isolated temporary profile; the process and profile were removed after the run.
+- Result: **40/40 checks PASS**, with zero horizontal-overflow failures at desktop `1440×900`, tablet `820×1180`, and mobile `390×844`.
+- Coverage includes Course-grouped Teaching and filters, meaningful Overview data/actions, enriched learner detail, the three-concept Assessment Hub, visible five-step Test Builder navigation, the 1,000-question server-paginated picker, Results completion/distribution/trend/matrix, inline `youtube-nocookie.com` playback and safe external-video fallback, protected downloads, resource modes, XLSX preview/warnings, grading hierarchy, same-attempt navigation, and safe class return context.
+- Temporary fixtures cleaned: 1,000 scale questions, one XLSX duplicate question, and two VIDEO resources. The deterministic seed was not changed.
+- Smoke found and corrected two narrow regressions: React StrictMode abort handling on learner detail, and primary Assessment Hub link labels. This remains engineering verification and does not claim Product Owner Visual Gate PASS.
 
 ## Known non-blocking observations
 

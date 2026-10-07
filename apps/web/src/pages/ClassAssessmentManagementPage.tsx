@@ -202,14 +202,14 @@ export function ClassAssessmentManagementPage() {
           title="Chuẩn bị câu hỏi"
           description="Tạo câu hỏi, đáp án và rubric dùng lại."
           to={`/instructor/courses/${workspace.classOffering.course.id}/question-bank?returnTo=/instructor/classes/${classOfferingId}/assessments`}
-          cta="Mở ngân hàng câu hỏi"
+        cta="Ngân hàng câu hỏi"
         />
         <FlowStep
           number="2"
           title="Tạo đề kiểm tra"
           description="Sắp xếp phần thi, ngữ liệu và câu hỏi."
           to={`/instructor/courses/${workspace.classOffering.course.id}/tests?returnTo=/instructor/classes/${classOfferingId}/assessments`}
-          cta="Mở đề kiểm tra"
+        cta="Đề kiểm tra"
         />
         <FlowStep
           number="3"
