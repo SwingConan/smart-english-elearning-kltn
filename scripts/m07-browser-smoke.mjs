@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+
 const port = process.env.M07_CDP_PORT ?? '9222';
 const password = process.env.M07_SMOKE_PASSWORD;
 if (!password) throw new Error('M07_SMOKE_PASSWORD is required');
@@ -138,7 +140,8 @@ const courseId = classroom.course.id;
 const overview = requireOk(await browserFetch(`/instructor/classes/${classId}/overview`), 'Overview');
 if (!Number.isInteger(overview.lessonProgress?.completed) || !Number.isInteger(overview.lessonProgress?.total)) throw new Error('Overview is missing real lesson progress numerator/denominator');
 const roster = requireOk(await browserFetch(`/instructor/classes/${classId}/learners`), 'Roster');
-if (roster.learners.length < 10) throw new Error(`Expected at least 10 active demo learners, got ${roster.learners.length}`);
+const activeRosterLearners = roster.learners.filter((item) => item.status === 'ACTIVE');
+if (activeRosterLearners.length !== 11) throw new Error(`Expected exactly 11 active demo learners, got ${activeRosterLearners.length}`);
 const learner = roster.learners.find((item) => item.status === 'ACTIVE') ?? roster.learners[0];
 const learnerDetail = requireOk(await browserFetch(`/instructor/classes/${classId}/learners/${learner.id}`), 'Learner detail');
 if (!Array.isArray(learnerDetail.attempts)) throw new Error('Learner attempt history is unavailable');
@@ -414,14 +417,14 @@ const overflowFailures = checks.filter(([, state]) => state.overflow);
 if (overflowFailures.length) throw new Error(`Horizontal overflow: ${overflowFailures.map(([name]) => name).join(', ')}`);
 const summary = {
   classCode: classroom.code,
-  activeLearners: roster.learners.length,
+  activeLearners: activeRosterLearners.length,
   gradingItems: grading.submissions.length,
   resultAssessments: results.assessments.length,
   groupedTestGroups: groupedTest.questionGroups.length,
   instructorClasses: classes.length,
   storedDocument: storedResource.originalFileName,
   fixtureCleanup: { scaleQuestions: 1000, xlsxQuestion: true, youtubeResources: 2 },
-  candidateHead: 'f1a5838012c04a8e1e7b6863cb37ff8dc30d5faf',
+  candidateHead: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
   totalChecks: checks.length,
   passedChecks: checks.length,
   horizontalOverflowFailures: overflowFailures.length,

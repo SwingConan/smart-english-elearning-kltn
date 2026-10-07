@@ -28,7 +28,14 @@ describe('M07 Instructor LMS acceptance journey (e2e)', () => {
     await app.init();
     prisma = app.get(PrismaService);
     const enrollment = await prisma.enrollment.findFirstOrThrow({
-      where: { learner: { email: 'student.demo@smart-elearning.local' }, status: 'ACTIVE', classOffering: { instructor: { email: 'instructor.demo@smart-elearning.local' } } },
+      where: {
+        learner: { email: 'student.demo@smart-elearning.local' },
+        status: 'ACTIVE',
+        classOffering: {
+          code: 'TOEIC-LR-2609-EVE',
+          instructor: { email: 'instructor.demo@smart-elearning.local' },
+        },
+      },
       select: { id: true, classOfferingId: true, classOffering: { select: { courseId: true } } },
     });
     enrollmentId = enrollment.id;

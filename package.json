@@ -32,7 +32,8 @@
     "seed": "npm run prisma:seed",
     "prisma:studio": "npm run prisma:studio -w @smart-elearning/api",
     "check:skeleton": "node scripts/check-skeleton.mjs",
-    "check:m05-manifest": "node scripts/check-m05-manifest.mjs"
+    "check:m05-manifest": "node scripts/check-m05-manifest.mjs",
+    "check:m07-visual-gate-data": "node scripts/check-m07-visual-gate-data.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import {
   AnswerEvaluationSource,
   AnswerEvaluationStatus,
+  ClassOfferingStatus,
   EnrollmentStatus,
   LessonProgressStatus,
   SkillScoreStatus,
@@ -45,6 +46,8 @@ export class InstructorWorkspaceService {
     });
     return classes.map((item) => ({
       ...item,
+      status:
+        item.status === ClassOfferingStatus.CANCELLED ? 'CLOSED' : item.status,
       scheduleSlots: item.scheduleSlots.map(projectScheduleSlot),
       activeLearnerCount: item._count.enrollments,
       _count: undefined,

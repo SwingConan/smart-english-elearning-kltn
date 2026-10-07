@@ -103,6 +103,14 @@ describe('InstructorWorkspaceService', () => {
     expect(JSON.stringify(result)).not.toContain('1970');
   });
 
+  it('presents a cancelled offering as the closed instructor-catalog state', async () => {
+    prisma.classOffering.findMany.mockResolvedValue([
+      { ...classroom, status: 'CANCELLED', _count: { enrollments: 0 } },
+    ]);
+    const result = await service.listClasses('instructor-a');
+    expect(result[0].status).toBe('CLOSED');
+  });
+
   it('keeps learner IDs scoped to the owned class', async () => {
     prisma.enrollment.findFirst.mockResolvedValue(null);
     prisma.module.findMany.mockResolvedValue([]);
