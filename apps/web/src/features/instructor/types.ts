@@ -7,7 +7,12 @@ export interface InstructorClassOffering {
   classStart?: string | null;
   classEnd?: string | null;
   activeLearnerCount?: number;
-  scheduleSlots?: Array<{ dayOfWeek: number; startTime: string; endTime: string; locationText: string | null }>;
+  scheduleSlots?: Array<{
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    locationText: string | null;
+  }>;
   course?: { id: string; title: string; level: string };
 }
 
@@ -21,8 +26,23 @@ export interface InstructorClassOverview {
   classOffering: InstructorClass;
   activeLearnerCount: number;
   lessonProgress: { completed: number; total: number; percentage: number };
-  assessments: Array<{ id: string; stage: string; openAt: string | null; closeAt: string | null; availability: string; submittedLearnerCount?: number; activeLearnerCount?: number; test: { id: string; title: string } }>;
+  assessments: Array<{
+    id: string;
+    stage: string;
+    openAt: string | null;
+    closeAt: string | null;
+    availability: string;
+    submittedLearnerCount: number;
+    inProgressLearnerCount: number;
+    notSubmittedLearnerCount: number;
+    activeLearnerCount: number;
+    test: { id: string; title: string };
+  }>;
   pendingGradingCount: number;
+  grading: { waiting: number; partial: number; final: number };
+  progressBuckets: Array<{ label: string; count: number }>;
+  upcomingDeadlines: Array<{ kind: string; at: string; assessmentId: string; title: string }>;
+  followUps: Array<{ kind: string; count: number; label: string }>;
 }
 
 export interface InstructorRoster {
@@ -39,7 +59,12 @@ export interface InstructorRoster {
     pendingGradingCount: number;
     latestGradedAssessmentAt: string | null;
     latestLearningActivityAt?: string | null;
-    latestAssessment?: null | { title: string; submittedAt: string | null; state: 'PENDING' | 'GRADED' | 'SUBMITTED'; average: number | null };
+    latestAssessment?: null | {
+      title: string;
+      submittedAt: string | null;
+      state: 'PENDING' | 'GRADED' | 'SUBMITTED';
+      average: number | null;
+    };
   }>;
 }
 
@@ -51,9 +76,46 @@ export interface InstructorLearnerDetail {
     enrolledAt: string;
     learner: { id: string; fullName: string; email: string };
   };
-  lessonProgress: Array<{ status: string; lastAccessedAt: string | null; completedAt: string | null; lesson: { id: string; title: string; module: { id: string; title: string } } }>;
-  attempts: Array<{ id: string; attemptNumber: number; submittedAt: string | null; classAssessment?: { id: string; stage: string; test: { title: string } }; skillScores: Array<{ skill: string; status: string; normalizedScore: number }>; feedback?: Array<{ feedback: string | null }> }>;
-  latestFourSkillSnapshot: null | { assessmentTitle: string; scores: Array<{ skill: string; normalizedScore: number }> };
+  lessonProgress: Array<{
+    status: string;
+    lastAccessedAt: string | null;
+    completedAt: string | null;
+    lesson: { id: string; title: string; module: { id: string; title: string } };
+  }>;
+  attempts: Array<{
+    id: string;
+    attemptNumber: number;
+    submittedAt: string | null;
+    classAssessment?: { id: string; stage: string; test: { title: string } };
+    skillScores: Array<{ skill: string; status: string; normalizedScore: number }>;
+    feedback?: Array<{ feedback: string | null }>;
+  }>;
+  latestFourSkillSnapshot: null | {
+    assessmentTitle: string;
+    scores: Array<{ skill: string; normalizedScore: number }>;
+  };
+  summary: {
+    completedLessons: number;
+    totalLessons: number;
+    submittedAssessmentCount: number;
+    pendingGradingCount: number;
+    lastActivityAt: string | null;
+  };
+  moduleProgress: Array<{
+    id: string;
+    title: string;
+    completed: number;
+    total: number;
+    percentage: number;
+  }>;
+  recentActivity: Array<{ type: string; at: string; label: string }>;
+  skillTrend: Array<{
+    attemptId: string;
+    assessmentTitle: string;
+    stage: string;
+    date: string;
+    scores: Array<{ skill: string; normalizedScore: number }>;
+  }>;
 }
 
 export interface InstructorClassResults {
@@ -78,7 +140,10 @@ export interface InstructorGradingInbox {
   }>;
   groups: Array<{
     classAssessment: { id: string; stage: string; test: { id: string; title: string } };
-    learners: Array<{ learner: { id: string; fullName: string; email: string }; attempts: InstructorGradingInbox['submissions'] }>;
+    learners: Array<{
+      learner: { id: string; fullName: string; email: string };
+      attempts: InstructorGradingInbox['submissions'];
+    }>;
   }>;
 }
 

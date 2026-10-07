@@ -164,6 +164,19 @@ No Prisma schema change or migration was required for this redesign.
 
 No Prisma schema change or migration was required for this correction.
 
+## Product Owner Visual Gate Round 2 targeted redesign
+
+- **R2-01 — Teaching hierarchy:** classes are grouped by Course by default, with course/status/day/search filters, deduplicated schedule chips, semantic status colors, and non-wrapping desktop actions.
+- **R2-02 — Overview value:** the class dashboard now answers learner count, aggregate progress, five progress buckets, assessment submission states, grading composition, actionable follow-ups, and upcoming open/close deadlines. Grading and assessment summaries link to existing workspaces.
+- **R2-04 — Learner evidence:** learner detail adds an operational summary, module completion, finalized in-class skill trend, timestamp-derived activity timeline, collapsed historical assessment groups, and duplicate-feedback removal.
+- **R2-06 improvement — Student video:** trusted YouTube watch, short, and embed URLs render through `youtube-nocookie.com`; arbitrary URLs remain external links.
+- **R2-09 — Assessment language:** primary copy now uses “Ngân hàng câu hỏi”, “Đề kiểm tra”, and “Lịch kiểm tra của lớp”, supported by a three-step teacher flow and an explicit media relationship panel.
+- **R2-10 unblock — Guided builder:** the Test Editor now exposes five navigable authoring steps, keeps selected-Part context for the paginated picker, and preserves the safe return path when creating a question.
+- **R2-11 — Scheduling language:** assignment copy follows the five teacher decisions from published test through class assignment; existing scheduling rules and locks are unchanged.
+- **R2-14 — Results value:** results show completion composition, plain-language denominators, per-skill score distributions, finalized in-class cross-assessment trend, and the existing learner drill-down matrix with search.
+
+The redesign uses existing timestamps and assessment records only. It does not add predictive analytics, a chart dependency, a Prisma migration, or a new event model. Product Owner Round 3 remains required; this report does not claim Visual Gate PASS.
+
 ## Known non-blocking observations
 
 - Vite reports a 655.72 kB minified JavaScript bundle (178.24 kB gzip), above its 500 kB advisory threshold.

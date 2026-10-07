@@ -10,37 +10,125 @@ import { instructorApi } from './api';
 import type { InstructorClass, InstructorClassOverview } from './types';
 
 const classroom: InstructorClass = {
-  id: 'class-a', code: 'A01', name: 'Lớp TOEIC tối', status: 'IN_PROGRESS', activeLearnerCount: 9,
-  course: { id: 'course-a', title: 'TOEIC Workplace', level: 'FOUNDATION' }, scheduleSlots: [],
+  id: 'class-a',
+  code: 'A01',
+  name: 'Lớp TOEIC tối',
+  status: 'IN_PROGRESS',
+  activeLearnerCount: 9,
+  course: { id: 'course-a', title: 'TOEIC Workplace', level: 'FOUNDATION' },
+  scheduleSlots: [],
 };
 const overview: InstructorClassOverview = {
-  classOffering: classroom, activeLearnerCount: 9,
-  lessonProgress: { completed: 18, total: 27, percentage: 67 }, pendingGradingCount: 2,
-  assessments: [{ id: 'assessment-a', stage: 'MIDTERM', openAt: null, closeAt: null, availability: 'OPEN', test: { id: 'test-a', title: 'Kiểm tra giữa kỳ' } }],
+  classOffering: classroom,
+  activeLearnerCount: 9,
+  lessonProgress: { completed: 18, total: 27, percentage: 67 },
+  pendingGradingCount: 2,
+  grading: { waiting: 1, partial: 1, final: 2 },
+  progressBuckets: [
+    { label: '0–24%', count: 1 },
+    { label: '25–49%', count: 2 },
+    { label: '50–74%', count: 3 },
+    { label: '75–99%', count: 2 },
+    { label: '100%', count: 1 },
+  ],
+  upcomingDeadlines: [],
+  followUps: [{ kind: 'GRADING', count: 2, label: 'Bài nộp đang chờ chấm' }],
+  assessments: [
+    {
+      id: 'assessment-a',
+      stage: 'MIDTERM',
+      openAt: null,
+      closeAt: null,
+      availability: 'OPEN',
+      submittedLearnerCount: 5,
+      inProgressLearnerCount: 2,
+      notSubmittedLearnerCount: 2,
+      activeLearnerCount: 9,
+      test: { id: 'test-a', title: 'Kiểm tra giữa kỳ' },
+    },
+  ],
 };
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe('M07 Instructor class workspace', () => {
   it('renders all six class-centric tabs, selected state and the mobile drawer', async () => {
     vi.spyOn(instructorApi.classes, 'overview').mockResolvedValue(overview);
-    render(<MemoryRouter initialEntries={['/instructor/classes/class-a']}><Routes><Route path="/instructor/classes/:classOfferingId" element={<InstructorClassWorkspaceLayout />}><Route index element={<InstructorClassOverviewPage />} /></Route></Routes></MemoryRouter>);
+    render(
+      <MemoryRouter initialEntries={['/instructor/classes/class-a']}>
+        <Routes>
+          <Route
+            path="/instructor/classes/:classOfferingId"
+            element={<InstructorClassWorkspaceLayout />}
+          >
+            <Route index element={<InstructorClassOverviewPage />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
     expect(await screen.findByText('Lớp TOEIC tối')).toBeInTheDocument();
     const nav = screen.getAllByRole('navigation', { name: 'Điều hướng lớp giảng dạy' })[0];
-    for (const label of ['Tổng quan', 'Học viên', 'Nội dung', 'Bài kiểm tra', 'Chấm bài', 'Kết quả']) expect(nav).toHaveTextContent(label);
+    for (const label of [
+      'Tổng quan',
+      'Học viên',
+      'Nội dung',
+      'Bài kiểm tra',
+      'Chấm bài',
+      'Kết quả',
+    ])
+      expect(nav).toHaveTextContent(label);
     expect(screen.getAllByRole('link', { name: 'Tổng quan' })[0]).toHaveClass('bg-indigo-600');
     fireEvent.click(screen.getByRole('button', { name: 'Mở điều hướng lớp' }));
     expect(screen.getAllByRole('navigation', { name: 'Điều hướng lớp giảng dạy' })).toHaveLength(2);
   });
 
   it('filters the read-only roster without exposing membership mutation controls', async () => {
-    vi.spyOn(instructorApi.classes, 'learners').mockResolvedValue({ classOffering: classroom, learners: [
-      { id: 'enrollment-a', status: 'ACTIVE', enrolledAt: '', learner: { id: 'learner-a', fullName: 'Nguyễn Minh Anh', email: 'minh.anh@test.local' }, completedLessons: 2, totalLessons: 3, progressPercentage: 67, submittedAssessmentCount: 2, pendingGradingCount: 1, latestGradedAssessmentAt: null },
-      { id: 'enrollment-b', status: 'ACTIVE', enrolledAt: '', learner: { id: 'learner-b', fullName: 'Trần Gia Bảo', email: 'gia.bao@test.local' }, completedLessons: 1, totalLessons: 3, progressPercentage: 33, submittedAssessmentCount: 1, pendingGradingCount: 0, latestGradedAssessmentAt: null },
-    ] });
-    render(<MemoryRouter initialEntries={['/instructor/classes/class-a/learners']}><Routes><Route path="/instructor/classes/:classOfferingId/learners" element={<InstructorRosterPage />} /></Routes></MemoryRouter>);
+    vi.spyOn(instructorApi.classes, 'learners').mockResolvedValue({
+      classOffering: classroom,
+      learners: [
+        {
+          id: 'enrollment-a',
+          status: 'ACTIVE',
+          enrolledAt: '',
+          learner: { id: 'learner-a', fullName: 'Nguyễn Minh Anh', email: 'minh.anh@test.local' },
+          completedLessons: 2,
+          totalLessons: 3,
+          progressPercentage: 67,
+          submittedAssessmentCount: 2,
+          pendingGradingCount: 1,
+          latestGradedAssessmentAt: null,
+        },
+        {
+          id: 'enrollment-b',
+          status: 'ACTIVE',
+          enrolledAt: '',
+          learner: { id: 'learner-b', fullName: 'Trần Gia Bảo', email: 'gia.bao@test.local' },
+          completedLessons: 1,
+          totalLessons: 3,
+          progressPercentage: 33,
+          submittedAssessmentCount: 1,
+          pendingGradingCount: 0,
+          latestGradedAssessmentAt: null,
+        },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={['/instructor/classes/class-a/learners']}>
+        <Routes>
+          <Route
+            path="/instructor/classes/:classOfferingId/learners"
+            element={<InstructorRosterPage />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
     expect((await screen.findAllByText('Nguyễn Minh Anh')).length).toBeGreaterThan(0);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Tìm học viên' }), { target: { value: 'bảo' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Tìm học viên' }), {
+      target: { value: 'bảo' },
+    });
     expect(screen.queryByText('Nguyễn Minh Anh')).not.toBeInTheDocument();
     expect(screen.getAllByText('Trần Gia Bảo').length).toBeGreaterThan(0);
     expect(screen.getByTestId('mobile-roster-cards')).toBeInTheDocument();
@@ -48,18 +136,53 @@ describe('M07 Instructor class workspace', () => {
   });
 
   it('shows truthful submitted, fully graded, pending and FINAL-only sample evidence', async () => {
-    vi.spyOn(instructorApi.classes, 'results').mockResolvedValue({ classOffering: classroom, assessments: [{
-      id: 'assessment-a', stage: 'MIDTERM', test: { title: 'Kiểm tra giữa kỳ' }, submittedCount: 3, latestAttemptCount: 2,
-      fullyGradedCount: 1, pendingGradingCount: 1,
-      skillAverages: [{ skill: 'LISTENING', average: 75, sampleCount: 2, excludedCount: 0 }, { skill: 'READING', average: null, sampleCount: 0, excludedCount: 2 }],
-      learners: [{ id: 'attempt-a', learner: { fullName: 'Nguyễn Minh Anh', email: 'a@test.local' }, attemptNumber: 2, label: 'Lượt gần nhất', skillScores: [{ skill: 'LISTENING', status: 'FINAL', normalizedScore: 80 }, { skill: 'READING', status: 'PROVISIONAL', normalizedScore: 60 }] }],
-    }] });
-    render(<MemoryRouter initialEntries={['/instructor/classes/class-a/results']}><Routes><Route path="/instructor/classes/:classOfferingId/results" element={<InstructorClassResultsPage />} /></Routes></MemoryRouter>);
-    expect((await screen.findByText('Lượt đã nộp')).parentElement).toHaveTextContent('3');
-    expect(screen.getByText('Đã chấm đủ').parentElement).toHaveTextContent('1');
-    expect(screen.getByText('Đang chờ chấm').parentElement).toHaveTextContent('1');
-    expect(screen.getByText((_content, element) => element?.tagName === 'P' && element.textContent === 'Mẫu 0 · loại trừ 2')).toBeInTheDocument();
+    vi.spyOn(instructorApi.classes, 'results').mockResolvedValue({
+      classOffering: classroom,
+      assessments: [
+        {
+          id: 'assessment-a',
+          stage: 'MIDTERM',
+          test: { title: 'Kiểm tra giữa kỳ' },
+          submittedCount: 3,
+          latestAttemptCount: 2,
+          fullyGradedCount: 1,
+          pendingGradingCount: 1,
+          notSubmittedCount: 7,
+          completion: { fullyGraded: 1, pendingGrading: 1, notSubmitted: 7, total: 9 },
+          skillAverages: [
+            { skill: 'LISTENING', average: 75, sampleCount: 2, excludedCount: 7, distribution: { below50: 0, from50To69: 0, from70To84: 2, from85To100: 0 } },
+            { skill: 'READING', average: null, sampleCount: 0, excludedCount: 9, distribution: { below50: 0, from50To69: 0, from70To84: 0, from85To100: 0 } },
+          ],
+          learners: [
+            {
+              id: 'attempt-a',
+              learner: { fullName: 'Nguyễn Minh Anh', email: 'a@test.local' },
+              attemptNumber: 2,
+              label: 'Lượt gần nhất',
+              skillScores: [
+                { skill: 'LISTENING', status: 'FINAL', normalizedScore: 80 },
+                { skill: 'READING', status: 'PROVISIONAL', normalizedScore: 60 },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={['/instructor/classes/class-a/results']}>
+        <Routes>
+          <Route
+            path="/instructor/classes/:classOfferingId/results"
+            element={<InstructorClassResultsPage />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText('1 đã chấm đủ')).toBeInTheDocument();
+    expect(screen.getByText('1 chờ chấm')).toBeInTheDocument();
+    expect(screen.getByText('2/9 học viên đã có điểm cuối')).toBeInTheDocument();
+    expect(screen.getByText('9 chưa đủ dữ liệu')).toBeInTheDocument();
     expect(screen.getAllByText('Đang chờ').length).toBeGreaterThan(0);
-    expect(screen.getByTestId('mobile-results-cards')).toBeInTheDocument();
+    expect(screen.getByText('Phân bố điểm')).toBeInTheDocument();
   });
 });
