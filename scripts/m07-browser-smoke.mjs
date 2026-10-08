@@ -167,7 +167,8 @@ const tests = requireOk(await browserFetch(`/instructor/courses/${courseId}/test
 let groupedTest;
 for (const summary of tests) {
   const detail = requireOk(await browserFetch(`/instructor/tests/${summary.id}`), 'Test detail');
-  if (detail.questionGroups?.length) { groupedTest = detail; break; }
+  if (detail.title === 'VG-R3 — Đề demo hướng dẫn') { groupedTest = detail; break; }
+  if (!groupedTest && detail.questionGroups?.length) groupedTest = detail;
 }
 if (!groupedTest) throw new Error('No grouped four-skill test fixture was found');
 const checks = [];
@@ -197,17 +198,10 @@ try {
   const scalePage = requireOk(await browserFetch(`/instructor/courses/${courseId}/questions?page=1&pageSize=20&search=${encodeURIComponent(scaleMarker)}&skill=LISTENING`), '1,000-question paginated query');
   if (scalePage.total !== 1000 || scalePage.totalPages !== 50 || scalePage.items.length !== 20) throw new Error(`Unexpected scale page: ${JSON.stringify({ total: scalePage.total, totalPages: scalePage.totalPages, items: scalePage.items.length })}`);
   await navigate(`/instructor/tests/${groupedTest.id}/edit`, ['Bước 1 / 5']);
-  await evaluate(`(() => { [...document.querySelectorAll('button')].find((button) => button.textContent?.includes('3. Nội dung phần thi'))?.click(); return true; })()`);
+  await evaluate(`(() => { const step=[...document.querySelectorAll('button')].find((button) => button.textContent?.trim().startsWith('3.')); if(!step) throw new Error('Builder Step 3 was not rendered'); step.click(); return true; })()`);
   await delay(200);
-  await evaluate(`(() => {
-    const activeStep = [...document.querySelectorAll('section')].find((section) => !section.classList.contains('hidden') && section.querySelector('h2')?.textContent?.includes('Soạn câu hỏi'));
-    const partButtons = activeStep ? [...activeStep.querySelectorAll('button.rounded-xl')] : [];
-    const selectPart = partButtons.find((button) => button.textContent?.includes('Phần Đọc')) ?? partButtons[1];
-    if (!selectPart) throw new Error('No Reading Part contextual action was rendered');
-    selectPart.click();
-    return true;
-  })()`);
-  await delay(200);
+  const listeningContext = await evaluate(`document.body.innerText.includes('Đang soạn: Phần Nghe')`);
+  if (!listeningContext) throw new Error('The deterministic Listening group was not selected in Step 3');
   await evaluate(`(() => {
     const open = document.querySelector('button[aria-label="Mở bộ chọn câu hỏi"]');
     if (!open) throw new Error('Question picker action was not rendered');
@@ -251,10 +245,13 @@ const cancelledUi = await evaluate(`(() => { const filter=document.querySelector
 if (!cancelledUi.hasCancelledOption || cancelledUi.hasClosedOption || !cancelledUi.cancelledLabel) throw new Error(`Cancelled class presentation failed: ${JSON.stringify(cancelledUi)}`);
 checks.push(['teaching course groups and filters', teachingState]);
 checks.push(['cancelled class semantics', { overflow: teachingState.overflow }]);
-checks.push(['class overview', await navigate(`/instructor/classes/${classId}`, ['Tổng quan lớp', 'Phân bố tiến độ', 'Cần theo dõi', 'Mốc sắp tới'])]);
+const overviewState = await navigate(`/instructor/classes/${classId}`, ['Tổng quan lớp', 'Phân bố tiến độ', 'Cần theo dõi', 'Mốc sắp tới']);
+const timelineEvidence = await evaluate(`(() => { const heading=[...document.querySelectorAll('h3')].find((node)=>node.textContent?.includes('Mốc sắp tới')); const panel=heading?.closest('section'); const item=panel?.querySelector('ol li'); return { item:Boolean(item), time:Boolean(item?.querySelector('time[datetime]')), chip:[...(item?.querySelectorAll('span') ?? [])].some((node)=>['Mở','Đóng'].includes(node.textContent?.trim())), wrapping:Boolean(item?.querySelector('.break-words')) }; })()`);
+if (overview.upcomingDeadlines.length && (!timelineEvidence.item || !timelineEvidence.time || !timelineEvidence.chip || !timelineEvidence.wrapping)) throw new Error(`Overview timeline structure failed: ${JSON.stringify(timelineEvidence)}`);
+checks.push(['class overview timeline', overviewState]);
 checks.push(['roster', await navigate(`/instructor/classes/${classId}/learners`, ['Học viên', 'Theo dõi tiến độ học tập'])]);
 const learnerState = await navigate(`/instructor/classes/${classId}/learners/${learner.id}`, ['Kết quả 4 kỹ năng gần nhất', 'Tiến độ theo mô-đun', 'Hoạt động gần đây', 'Xu hướng kỹ năng', 'Lịch sử bài kiểm tra']);
-const learnerChart = await evaluate(`Boolean(document.querySelector('svg[aria-label="Biểu đồ xu hướng kỹ năng theo đợt kiểm tra"]'))`);
+const learnerChart = await evaluate(`Boolean(document.querySelector('svg[aria-label="Biểu đồ xu hướng kỹ năng theo đợt kiểm tra"], [data-testid="two-point-skill-slope"]'))`);
 if (learnerDetail.skillTrend.length && !learnerChart) throw new Error('Learner trend chart did not render');
 checks.push(['learner detail and trend chart', learnerState]);
 checks.push(['shared content warning', await navigate(`/instructor/classes/${classId}/content`, ['Nội dung này dùng chung cho các lớp thuộc khóa học này.', 'Quản lý nội dung khóa học', 'BÀI HỌC ĐANG CHỌN'])]);
@@ -361,8 +358,8 @@ for (const step of [2,3,4,5]) {
   await delay(100);
   const marker = await evaluate('document.body.innerText');
   if (!marker.includes(`Bước ${step} / 5`)) throw new Error('Wizard did not move to step ${step}');
-  if (step === 2 && !marker.includes('Phần thi theo bốn kỹ năng')) throw new Error('Builder Step 2 structure is missing');
-  if (step === 3 && (!marker.includes('Soạn câu hỏi & ngữ liệu') || !marker.includes('Thêm từ ngân hàng câu hỏi'))) throw new Error('Builder Step 3 content authoring is missing');
+  if (step === 2 && !marker.includes('Cụm câu hỏi theo bốn kỹ năng')) throw new Error('Builder Step 2 structure is missing');
+  if (step === 3 && (!marker.includes('Soạn cụm câu hỏi') || !marker.includes('Tài liệu đi kèm câu hỏi') || !marker.includes('Thêm từ ngân hàng câu hỏi'))) throw new Error('Builder Step 3 grouped content authoring is missing');
   if (step === 4 && (!marker.includes('Số lượt làm') || !marker.includes('Kiểm tra khả năng xuất bản'))) throw new Error('Builder Step 4 settings/readiness is missing');
   if (step === 5) {
     const preview = await evaluate(`(() => { const root=document.querySelector('[aria-label="Bản xem trước dành cho học viên"]'); return { root:Boolean(root), choices:root?.querySelectorAll('input[type="radio"],input[type="checkbox"]').length ?? 0, leaked:[...(root?.querySelectorAll('*') ?? [])].some((node)=>/đáp án đúng/i.test(node.textContent ?? '')) }; })()`);
@@ -370,6 +367,30 @@ for (const step of [2,3,4,5]) {
   }
 }
 checks.push(['guided five-step test builder', builder]);
+const originalQuestionIds = new Set(groupedTest.testQuestions.map((item) => item.id));
+await evaluate(`(() => { const target=[...document.querySelectorAll('button')].find((button)=>button.textContent?.trim().startsWith('3.')); target?.click(); return Boolean(target); })()`);
+await delay(150);
+await evaluate(`(() => { const open=document.querySelector('button[aria-label="Mở bộ chọn câu hỏi"]'); open?.click(); return Boolean(open); })()`);
+await delay(200);
+await evaluate(`(() => { const input=document.querySelector('input[aria-label="Tìm trong bộ chọn câu hỏi"]'); const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')?.set; if(!input||!setter) return false; setter.call(input,'M07-VG-L-13'); input.dispatchEvent(new Event('input',{bubbles:true})); return true; })()`);
+for (let attempt = 0; attempt < 20; attempt += 1) {
+  await delay(200);
+  if (await evaluate(`document.body.innerText.includes('M07-VG-L-13')`)) break;
+}
+await evaluate(`(() => { const dialog=document.querySelector('[aria-label="Bộ chọn câu hỏi"]'); const checkbox=dialog?.querySelector('input[type="checkbox"]'); if(!checkbox) throw new Error('L-13 was not available in the selected Listening group'); checkbox.click(); const add=[...dialog.querySelectorAll('button')].find((button)=>button.textContent?.includes('Thêm 1 câu')); if(!add) throw new Error('L-13 batch add action was not enabled'); add.click(); return true; })()`);
+for (let attempt = 0; attempt < 20; attempt += 1) {
+  await delay(200);
+  if ((await evaluate(`document.body.innerText.match(/M07-VG-L-13/g)?.length ?? 0`)) === 1) break;
+}
+await evaluate(`(() => { const target=[...document.querySelectorAll('button')].find((button)=>button.textContent?.trim().startsWith('5.')); target?.click(); return Boolean(target); })()`);
+await delay(200);
+const immediatePreview = await evaluate(`(() => { const root=document.querySelector('[aria-label="Bản xem trước dành cho học viên"]'); return { count:(root?.innerText.match(/M07-VG-L-13/g) ?? []).length, hierarchy:Boolean(root?.textContent?.includes('Phần Nghe') && root?.textContent?.includes('Cụm câu hỏi')), leaked:/đáp án đúng/i.test(root?.textContent ?? '') }; })()`);
+if (immediatePreview.count !== 1 || !immediatePreview.hierarchy || immediatePreview.leaked) throw new Error(`L-13 immediate preview failed: ${JSON.stringify(immediatePreview)}`);
+checks.push(['L-13 immediate grouped preview', { overflow: false }]);
+const mutatedTest = requireOk(await browserFetch(`/instructor/tests/${groupedTest.id}`), 'Mutated test detail');
+const addedQuestion = mutatedTest.testQuestions.find((item) => !originalQuestionIds.has(item.id));
+if (!addedQuestion) throw new Error('Could not identify L-13 for smoke cleanup');
+requireOk(await browserFetch(`/instructor/tests/${groupedTest.id}/questions/${addedQuestion.id}`, { method: 'DELETE' }), 'L-13 smoke cleanup');
 checks.push(['class scheduling', await navigate(`/instructor/classes/${classId}/assessments`, ['Ngân hàng câu hỏi', 'Đề kiểm tra', 'Lịch kiểm tra của lớp', 'Chuẩn bị câu hỏi', 'Tạo đề kiểm tra', 'Giao đề cho lớp'])]);
 checks.push(['grading inbox', await navigate(`/instructor/classes/${classId}/grading`, ['Ưu tiên bài nộp sớm nhất', 'Chấm bài'])]);
 if (grading.submissions.length) {
@@ -383,14 +404,14 @@ const resultState = await navigate(`/instructor/classes/${classId}/results`, ['K
 if (resultState.text.includes('Mẫu ') || resultState.text.includes('loại trừ')) throw new Error('Results still exposes technical sample/exclusion jargon');
 const resultsChart = await evaluate(`(() => {
   const chart=document.querySelector('svg[aria-label="Biểu đồ xu hướng kỹ năng theo đợt kiểm tra"]');
-  const labels=[...(chart?.querySelectorAll('text') ?? [])];
-  const periodic=labels.find((node)=>node.textContent?.startsWith('Kiểm tra thường'));
-  const midterm=labels.find((node)=>node.textContent?.startsWith('Kiểm tra giữa kỳ'));
+  const slope=document.querySelector('[data-testid="two-point-skill-slope"]');
   const table=[...document.querySelectorAll('.sr-only table')].find((item)=>item.querySelector('caption')?.textContent?.includes('xu hướng kỹ năng'));
   const rowTitles=[...(table?.querySelectorAll('tbody th') ?? [])].map((node)=>node.textContent?.trim());
-  return { chart:Boolean(chart), sample:(chart?.textContent ?? '').includes('n='), periodicX:Number(periodic?.getAttribute('x')), midtermX:Number(midterm?.getAttribute('x')), rowTitles, table:Boolean(table) };
+  return { visual:Boolean(chart || slope), sample:(chart?.textContent ?? slope?.textContent ?? '').includes('n='), slope:Boolean(slope), rowTitles, table:Boolean(table) };
 })()`);
-if (!resultsChart.chart || !resultsChart.sample || !resultsChart.table || !(resultsChart.periodicX < resultsChart.midtermX) || JSON.stringify(resultsChart.rowTitles) !== JSON.stringify(['Kiểm tra thường kỳ 01', 'Kiểm tra giữa kỳ'])) throw new Error(`Class results chronological trend evidence failed: ${JSON.stringify(resultsChart)}`);
+if (!resultsChart.visual || !resultsChart.sample || !resultsChart.table || !resultsChart.slope || JSON.stringify(resultsChart.rowTitles) !== JSON.stringify(['Kiểm tra thường kỳ 01', 'Kiểm tra giữa kỳ'])) throw new Error(`Class results chronological trend evidence failed: ${JSON.stringify(resultsChart)}`);
+const resultGrammar = await evaluate(`(() => { const skillHeading=[...document.querySelectorAll('h3')].find((node)=>node.textContent?.includes('So sánh kỹ năng')); return { completion: Boolean(document.querySelector('[aria-label="Thanh tiến độ kết quả 100 phần trăm"]')), distributions: document.querySelectorAll('[aria-label^="Phân bố "][aria-label$="100 phần trăm"]').length, skillBars: skillHeading?.parentElement?.querySelectorAll('button').length ?? 0 }; })()`);
+if (!resultGrammar.completion || resultGrammar.distributions < 4 || resultGrammar.skillBars < 4) throw new Error(`Class results chart grammar failed: ${JSON.stringify(resultGrammar)}`);
 checks.push(['class results Round 3 story', resultState]);
 
 const modules = requireOk(await browserFetch(`/instructor/courses/${courseId}/modules`), 'Course modules');

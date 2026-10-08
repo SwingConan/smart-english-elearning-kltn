@@ -287,7 +287,7 @@ describe('TestEditorPage', () => {
       return { items: [item], page, pageSize: 20, total: 1000, totalPages: 50 };
     });
     renderEditor();
-    await screen.findByText('Reading');
+    expect((await screen.findAllByText('Reading')).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: /Chọn để thêm câu hỏi/i }));
     fireEvent.click(screen.getByRole('button', { name: /Mở bộ chọn câu hỏi/i }));
     const dialog = await screen.findByRole('dialog', { name: /Bộ chọn câu hỏi/i });
@@ -302,6 +302,39 @@ describe('TestEditorPage', () => {
     const pageOne = await within(dialog).findByText('Question page 1');
     expect(pageOne.closest('label')!.querySelector('input')).toBeChecked();
     expect(assessmentApi.questions.page).toHaveBeenCalledWith(courseId, expect.objectContaining({ page: 2, pageSize: 20, skill: 'READING' }), expect.any(AbortSignal));
+  });
+
+  it('adds L-13 atomically to the selected group and shows it exactly once in immediate Step 5 preview', async () => {
+    const group = { ...testGroup('reading-group', 'READING', 0), title: 'Cụm đọc chung' };
+    let server = { ...detail(testId, 'QUIZ', 'DRAFT', []), questionGroups: [group] };
+    const l13 = question('q-l13', 'M07-VG-L-13');
+    mockEditor(server, [l13]);
+    vi.mocked(assessmentApi.tests.get).mockImplementation(async () => server);
+    const addBatch = vi.spyOn(assessmentApi.testQuestions, 'addBatch').mockImplementation(async (_testId, questionIds, points, groupId) => {
+      const added = testQuestion('tq-l13', questionIds[0], l13.content, 0);
+      added.points = points;
+      added.groupId = groupId;
+      server = {
+        ...server,
+        testQuestions: [added],
+        questionGroups: [{ ...group, testQuestions: [added] }],
+      };
+      return [added];
+    });
+    renderEditor();
+    await screen.findByText(server.title);
+    fireEvent.click(screen.getByRole('button', { name: /3\. Nội dung phần thi/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Mở bộ chọn câu hỏi/i }));
+    const dialog = await screen.findByRole('dialog', { name: /Bộ chọn câu hỏi/i });
+    fireEvent.click(within(dialog).getByRole('checkbox'));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Thêm 1 câu/i }));
+    await waitFor(() => expect(addBatch).toHaveBeenCalledWith(testId, ['q-l13'], 1, 'reading-group'));
+    expect(screen.getAllByText('M07-VG-L-13')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: /5\. Xem trước/i }));
+    const preview = screen.getByLabelText(/Bản xem trước dành cho học viên/i);
+    expect(within(preview).getAllByText('M07-VG-L-13')).toHaveLength(1);
+    expect(within(preview).queryByText(/đáp án đúng/i)).not.toBeInTheDocument();
+    expect(assessmentApi.tests.get).toHaveBeenCalledTimes(2);
   });
 
   it('guards duplicate add/points requests and maps duplicate Question conflict safely', async () => {
@@ -339,8 +372,14 @@ describe('TestEditorPage', () => {
     const second = testQuestion('tq-b', 'q-b', 'Question B', 1);
     const current = detail(testId, 'PLACEMENT', 'DRAFT', [first, second]);
     mockEditor(current, []);
+    let server = current;
+    vi.mocked(assessmentApi.tests.get).mockImplementation(async () => server);
     const reorder = vi.spyOn(assessmentApi.testQuestions, 'reorder')
-      .mockResolvedValueOnce([{ ...second, orderIndex: 0 }, { ...first, orderIndex: 1 }]);
+      .mockImplementationOnce(async () => {
+        const reordered = [{ ...second, orderIndex: 0 }, { ...first, orderIndex: 1 }];
+        server = { ...server, testQuestions: reordered };
+        return reordered;
+      });
     renderEditor();
     await screen.findByText('Question A');
     fireEvent.click(screen.getByLabelText(/Đưa câu 1 xuống/i));
@@ -362,10 +401,15 @@ describe('TestEditorPage', () => {
   it('removes on success but retains the Question after historical failure', async () => {
     const first = testQuestion('tq-a', 'q-a', 'Question A', 0);
     const second = testQuestion('tq-b', 'q-b', 'Question B', 1);
-    mockEditor(detail(testId, 'PLACEMENT', 'DRAFT', [first, second]), []);
+    let server = detail(testId, 'PLACEMENT', 'DRAFT', [first, second]);
+    mockEditor(server, []);
+    vi.mocked(assessmentApi.tests.get).mockImplementation(async () => server);
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.spyOn(assessmentApi.testQuestions, 'delete')
-      .mockResolvedValueOnce({ message: 'ok' })
+      .mockImplementationOnce(async (_testId, testQuestionId) => {
+        server = { ...server, testQuestions: server.testQuestions.filter((item) => item.id !== testQuestionId) };
+        return { message: 'ok' };
+      })
       .mockRejectedValueOnce(new ApiError(409, { message: 'raw history' }));
     renderEditor();
     await screen.findByText('Question A');

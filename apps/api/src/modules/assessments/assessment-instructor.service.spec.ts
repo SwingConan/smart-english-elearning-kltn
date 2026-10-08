@@ -30,6 +30,7 @@ describe('AssessmentInstructorService', () => {
     question: {
       create: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
@@ -43,6 +44,7 @@ describe('AssessmentInstructorService', () => {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
+      createMany: jest.fn(),
       update: jest.fn(),
       count: jest.fn(),
       deleteMany: jest.fn(),
@@ -76,6 +78,7 @@ describe('AssessmentInstructorService', () => {
     transaction.testQuestion.findMany.mockResolvedValue([]);
     transaction.testQuestion.count.mockResolvedValue(0);
     transaction.question.findFirst.mockResolvedValue({ id: questionId });
+    transaction.question.findMany.mockResolvedValue([]);
     transaction.rubric.findFirst.mockResolvedValue({ id: 'rubric-id' });
     transaction.testQuestionGroup.findFirst.mockResolvedValue({ skill: ToeicSkill.READING });
     transaction.testQuestionGroup.findMany.mockResolvedValue([]);
@@ -89,6 +92,7 @@ describe('AssessmentInstructorService', () => {
     transaction.testQuestion.create.mockImplementation(({ data }) =>
       Promise.resolve({ id: 'test-question-id', ...data }),
     );
+    transaction.testQuestion.createMany.mockResolvedValue({ count: 0 });
     prisma.$transaction.mockImplementation(
       (operation: (client: typeof transaction) => Promise<unknown>) => operation(transaction),
     );
@@ -462,6 +466,45 @@ describe('AssessmentInstructorService', () => {
         points: 1,
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('adds a bounded question batch in one transaction with contiguous order', async () => {
+    transaction.test.findUnique.mockResolvedValue({ courseId, status: TestStatus.DRAFT });
+    transaction.question.findMany.mockResolvedValue([
+      { id: 'question-a', toeicSkill: ToeicSkill.READING },
+      { id: 'question-b', toeicSkill: ToeicSkill.READING },
+    ]);
+    transaction.testQuestion.findFirst.mockResolvedValue({ orderIndex: 4 });
+    transaction.testQuestion.findMany.mockResolvedValue([
+      { id: 'test-question-a' },
+      { id: 'test-question-b' },
+    ]);
+
+    await expect(service.addTestQuestions(instructorId, testId, {
+      questionIds: ['question-a', 'question-b'],
+      groupId: 'group-id',
+      points: 2,
+    })).resolves.toHaveLength(2);
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.testQuestion.createMany).toHaveBeenCalledWith({
+      data: [
+        { testId, questionId: 'question-a', groupId: 'group-id', points: 2, orderIndex: 5 },
+        { testId, questionId: 'question-b', groupId: 'group-id', points: 2, orderIndex: 6 },
+      ],
+    });
+  });
+
+  it('rejects an invalid batch before any write', async () => {
+    transaction.test.findUnique.mockResolvedValue({ courseId, status: TestStatus.DRAFT });
+    transaction.question.findMany.mockResolvedValue([
+      { id: 'question-a', toeicSkill: ToeicSkill.READING },
+    ]);
+    await expect(service.addTestQuestions(instructorId, testId, {
+      questionIds: ['question-a', 'missing-question'],
+      points: 1,
+    })).rejects.toBeInstanceOf(NotFoundException);
+    expect(transaction.testQuestion.createMany).not.toHaveBeenCalled();
   });
 
   it('enforces group skill compatibility and historical-attempt structure locks', async () => {

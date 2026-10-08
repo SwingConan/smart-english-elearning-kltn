@@ -5,6 +5,12 @@ import type { ToeicSkill } from '@/features/assessments/types';
 import { instructorApi } from '@/features/instructor/api';
 import { SkillTrendChart } from '@/components/SkillTrendChart';
 const skills: ToeicSkill[] = ['LISTENING', 'READING', 'SPEAKING', 'WRITING'];
+const distributionMeta = {
+  below50: { label: '<50', color: 'bg-rose-500' },
+  from50To69: { label: '50–69', color: 'bg-amber-400' },
+  from70To84: { label: '70–84', color: 'bg-sky-500' },
+  from85To100: { label: '85–100', color: 'bg-emerald-500' },
+} as const;
 type Score = { skill: ToeicSkill; status: string; normalizedScore: number };
 type Average = {
   skill: ToeicSkill;
@@ -112,18 +118,27 @@ export function InstructorClassResultsPage() {
             <p className="text-sm text-slate-500">
               {assessment.completion.total} học viên đang học
             </p>
-            <div className="mt-4 flex h-6 overflow-hidden rounded-full bg-slate-100">
+            <div className="mt-4 flex h-8 overflow-hidden rounded-full bg-slate-100" aria-label="Thanh tiến độ kết quả 100 phần trăm">
               {[
-                ['fullyGraded', 'bg-emerald-500'],
-                ['pendingGrading', 'bg-amber-400'],
-                ['notSubmitted', 'bg-slate-300'],
-              ].map(([key, color]) => (
-                <div
-                  className={color}
+                ['fullyGraded', 'bg-emerald-500', 'Đã chấm đủ'],
+                ['pendingGrading', 'bg-amber-400', 'Chờ chấm'],
+                ['notSubmitted', 'bg-slate-300', 'Chưa nộp'],
+              ].map(([key, color, label]) => (
+                <button
+                  aria-label={`${label}: ${assessment.completion[key as keyof typeof assessment.completion]}/${assessment.completion.total}`}
+                  className={`${color} min-w-0 focus:outline focus:outline-2 focus:outline-indigo-700`}
                   key={key}
+                  onClick={() => {
+                    if (key === 'notSubmitted') { setAttemptFilter(new Set()); setFilterLabel('Chưa nộp'); return; }
+                    const complete = key === 'fullyGraded';
+                    const ids = assessment.learners.filter((row) => skills.every((skill) => row.skillScores.some((score) => score.skill === skill && score.status === 'FINAL')) === complete).map((row) => row.id);
+                    setAttemptFilter(new Set(ids)); setFilterLabel(label);
+                  }}
                   style={{
                     width: `${assessment.completion.total ? ((assessment.completion[key as keyof typeof assessment.completion] as number) / assessment.completion.total) * 100 : 0}%`,
                   }}
+                  title={`${label}: ${assessment.completion[key as keyof typeof assessment.completion]}/${assessment.completion.total}`}
+                  type="button"
                 />
               ))}
             </div>
@@ -135,26 +150,22 @@ export function InstructorClassResultsPage() {
           </section>
           <section>
             <h3 className="mb-3 text-lg font-bold">So sánh kỹ năng</h3>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-3">
               {assessment.skillAverages.map((item) => (
-                <div className="rounded-xl border bg-white p-4" key={item.skill}>
-                  <strong>{toeicSkillLabel[item.skill]}</strong>
-                  <p className="mt-2 text-2xl font-bold text-indigo-700">
-                    {item.average === null ? '—' : `${item.average}%`}
-                  </p>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
-                    <div
+                <button className="block w-full rounded-xl border bg-white p-4 text-left hover:border-indigo-300" key={item.skill} onClick={() => { const ids = assessment.learners.filter((row) => row.skillScores.some((score) => score.skill === item.skill && score.status === 'FINAL')).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel(`${toeicSkillLabel[item.skill]} · có điểm cuối`); }} type="button">
+                  <div className="flex items-center justify-between gap-3"><strong>{toeicSkillLabel[item.skill]}</strong><span className="text-lg font-bold text-indigo-700">{item.average === null ? 'Chưa có dữ liệu' : `${item.average}%`}</span></div>
+                  <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-200">
+                    {item.average !== null ? <div
                       className="h-full bg-indigo-600"
-                      style={{ width: `${item.average ?? 0}%` }}
-                    />
+                      style={{ width: `${item.average}%` }}
+                    /> : null}
                   </div>
                   <p className="mt-2 text-xs text-slate-500">
-                    {item.sampleCount}/{assessment.completion.total} học viên đã có điểm cuối
+                    n={item.sampleCount}/{assessment.completion.total} học viên đang học · {assessment.completion.total - item.sampleCount} chưa đủ dữ liệu
+                    <span className="sr-only">{item.sampleCount}/{assessment.completion.total} học viên đã có điểm cuối</span>
                   </p>
-                  <p className="text-xs text-slate-500">
-                    {assessment.completion.total - item.sampleCount} chưa đủ dữ liệu
-                  </p>
-                </div>
+                  <span className="sr-only">{assessment.completion.total - item.sampleCount} chưa đủ dữ liệu</span>
+                </button>
               ))}
             </div>
           </section>
@@ -167,23 +178,15 @@ export function InstructorClassResultsPage() {
               {assessment.skillAverages.map((item) => (
                 <div className="mt-4" key={item.skill}>
                   <strong className="text-sm">{toeicSkillLabel[item.skill]}</strong>
-                  <div className="mt-1 grid grid-cols-4 gap-1 text-center text-xs">
+                  <div className="mt-2 flex h-9 overflow-hidden rounded-lg bg-slate-100" aria-label={`Phân bố ${toeicSkillLabel[item.skill]} 100 phần trăm`}>
                     {Object.entries(item.distribution).map(([key, count]) => (
-                      <button className="rounded bg-indigo-50 p-2 hover:bg-indigo-100" key={key} onClick={() => { const ids = (item.distributionLearners?.[key] ?? []).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel(`${toeicSkillLabel[item.skill]} · ${({ below50: '<50', from50To69: '50–69', from70To84: '70–84', from85To100: '85–100' } as Record<string,string>)[key]}`); }} type="button">
-                        <b className="block text-indigo-700">{count}</b>
-                        {
-                          (
-                            {
-                              below50: '<50',
-                              from50To69: '50–69',
-                              from70To84: '70–84',
-                              from85To100: '85–100',
-                            } as Record<string, string>
-                          )[key]
-                        }
+                      <button aria-label={`${toeicSkillLabel[item.skill]} ${distributionMeta[key as keyof typeof distributionMeta].label}: ${count}/${item.sampleCount}`} className={`${distributionMeta[key as keyof typeof distributionMeta].color} overflow-hidden text-ellipsis whitespace-nowrap px-1 text-xs font-bold text-white focus:outline focus:outline-2 focus:outline-indigo-800`} key={key} onClick={() => { const ids = (item.distributionLearners?.[key] ?? []).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel(`${toeicSkillLabel[item.skill]} · ${distributionMeta[key as keyof typeof distributionMeta].label}`); }} style={{ width: `${item.sampleCount ? count / item.sampleCount * 100 : 0}%` }} title={`${distributionMeta[key as keyof typeof distributionMeta].label}: ${count}`} type="button">
+                        {count > 0 ? count : ''}
                       </button>
                     ))}
                   </div>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">{Object.entries(distributionMeta).map(([key, meta]) => <span className="flex items-center gap-1" key={key}><i className={`h-2.5 w-2.5 rounded-sm ${meta.color}`} />{meta.label}: {item.distribution[key as keyof typeof item.distribution]}</span>)}</div>
+                  <p className="mt-1 text-xs text-slate-500">n={item.sampleCount} điểm cuối; dữ liệu thiếu không tính là 0.</p>
                 </div>
               ))}
             </div>

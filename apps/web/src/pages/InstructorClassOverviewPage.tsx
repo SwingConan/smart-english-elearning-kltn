@@ -193,14 +193,17 @@ export function InstructorClassOverviewPage() {
         </Panel>
         <Panel title="Mốc sắp tới" caption="Thời gian mở/đóng đã thiết lập">
           <ol className="mt-3 space-y-2">
-            {overview.upcomingDeadlines.map((item) => (
-              <li className="flex gap-3 text-sm" key={`${item.assessmentId}-${item.kind}`}>
-                <time className="whitespace-nowrap font-semibold">{formatDate(item.at)}</time>
-                <span>
-                  {item.kind === 'OPEN' ? 'Mở' : 'Đóng'} · {item.title}
-                </span>
-              </li>
-            ))}
+            {overview.upcomingDeadlines.map((item) => {
+              const [title, ...subtitle] = item.title.split(' — ');
+              return <li className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-xl border bg-slate-50 p-3 text-sm" key={`${item.assessmentId}-${item.kind}`}>
+                <time className="self-start rounded-lg bg-white px-2 py-1 text-center font-semibold shadow-sm" dateTime={item.at}>{formatDate(item.at)}</time>
+                <div className="min-w-0">
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${item.kind === 'OPEN' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>{item.kind === 'OPEN' ? 'Mở' : 'Đóng'}</span>
+                  <strong className="mt-1 block break-words">{title}</strong>
+                  {subtitle.length ? <span className="mt-0.5 block break-words text-xs text-slate-500">{subtitle.join(' — ')}</span> : null}
+                </div>
+              </li>;
+            })}
             {!overview.upcomingDeadlines.length && (
               <li className="text-sm text-slate-500">Chưa có mốc sắp tới.</li>
             )}

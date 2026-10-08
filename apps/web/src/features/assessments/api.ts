@@ -101,6 +101,16 @@ export const assessmentApi = {
     reorderStimuli: (testId: string, groupId: string, orderedStimulusIds: string[]) => apiFetch(`/instructor/tests/${segment(testId)}/groups/${segment(groupId)}/stimuli/reorder`, { method: 'PATCH', body: JSON.stringify({ orderedStimulusIds }) }),
   },
   testQuestions: {
+    addBatch: (
+      testId: string,
+      questionIds: string[],
+      points: number,
+      groupId?: string,
+    ): Promise<AssessmentTestQuestion[]> =>
+      apiFetch(`/instructor/tests/${segment(testId)}/questions/batch`, {
+        method: 'POST',
+        body: JSON.stringify({ questionIds, points, groupId }),
+      }),
     add: (
       testId: string,
       questionId: string,

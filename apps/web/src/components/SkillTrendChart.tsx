@@ -17,6 +17,9 @@ export type SkillTrendPoint = {
 };
 
 export function SkillTrendChart({ points, showSampleCount = false }: { points: SkillTrendPoint[]; showSampleCount?: boolean }) {
+  if (points.length === 2) {
+    return <TwoPointSkillSlope points={points} showSampleCount={showSampleCount} />;
+  }
   const width = 760;
   const height = 300;
   const left = 52;
@@ -43,9 +46,16 @@ export function SkillTrendChart({ points, showSampleCount = false }: { points: S
           {points.map((point, index) => <g key={point.id}>
             <text fill="#334155" fontSize="10" textAnchor="middle" x={x(index)} y={height - 36}>{point.title.length > 18 ? `${point.title.slice(0, 16)}…` : point.title}</text>
             <text fill="#64748b" fontSize="9" textAnchor="middle" x={x(index)} y={height - 21}>{new Date(point.date).toLocaleDateString('vi-VN')}</text>
-            {skills.map((skill) => { const value = point.values[skill]; return value ? <g key={skill}><circle cx={x(index)} cy={y(value.score)} fill="white" r="5" stroke={colors[skill]} strokeWidth="3" /><text fill={colors[skill]} fontSize="9" fontWeight="700" textAnchor="middle" x={x(index)} y={y(value.score) - 8}>{value.score}%{showSampleCount && value.sampleCount !== undefined ? ` · n=${value.sampleCount}` : ''}</text></g> : null; })}
+            {skills.map((skill) => { const value = point.values[skill]; return value ? <circle key={skill} cx={x(index)} cy={y(value.score)} fill="white" r="5" stroke={colors[skill]} strokeWidth="3" /> : null; })}
           </g>)}
         </svg>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="Giá trị kỹ năng gần nhất">
+        {skills.map((skill) => {
+          const latest = [...points].reverse().find((point) => point.values[skill]);
+          const value = latest?.values[skill];
+          return <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm" key={skill}><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[skill] }} />{toeicSkillLabel[skill]}</span><strong>{value ? `${value.score}%${showSampleCount ? ` · n=${value.sampleCount ?? 0}` : ''}` : 'Chưa có dữ liệu'}</strong></div>;
+        })}
       </div>
       <div className="sr-only">
         <table>
@@ -56,4 +66,36 @@ export function SkillTrendChart({ points, showSampleCount = false }: { points: S
       </div>
     </div>
   );
+}
+
+function TwoPointSkillSlope({ points, showSampleCount }: { points: [SkillTrendPoint, SkillTrendPoint] | SkillTrendPoint[]; showSampleCount: boolean }) {
+  const first = points[0]!;
+  const last = points[1]!;
+  return <div className="mt-4 min-w-0" data-testid="two-point-skill-slope">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+      <div><strong className="block break-words text-slate-800">{first.title}</strong>{new Date(first.date).toLocaleDateString('vi-VN')}</div>
+      <span aria-hidden="true">→</span>
+      <div className="text-right"><strong className="block break-words text-slate-800">{last.title}</strong>{new Date(last.date).toLocaleDateString('vi-VN')}</div>
+    </div>
+    <div className="mt-3 space-y-3">
+      {skills.map((skill) => {
+        const before = first.values[skill];
+        const after = last.values[skill];
+        const delta = before && after ? after.score - before.score : null;
+        return <div className="rounded-xl border bg-white p-3" key={skill}>
+          <div className="flex items-center justify-between gap-3 text-sm"><strong>{toeicSkillLabel[skill]}</strong><span className="font-bold" style={{ color: colors[skill] }}>{delta === null ? 'Chưa đủ dữ liệu' : `${delta > 0 ? '+' : ''}${delta} điểm`}</span></div>
+          <div className="mt-2 grid grid-cols-[auto_minmax(3rem,1fr)_auto] items-center gap-3">
+            <span className="font-bold">{before ? `${before.score}%` : '—'}{showSampleCount && before ? <small className="block font-normal text-slate-500">n={before.sampleCount ?? 0}</small> : null}</span>
+            <svg aria-hidden="true" className="h-8 w-full" preserveAspectRatio="none" viewBox="0 0 100 32"><line stroke="#e2e8f0" x1="0" x2="100" y1="16" y2="16" /><line stroke={colors[skill]} strokeWidth="3" x1="2" x2="98" y1={before ? 30 - before.score * 0.28 : 16} y2={after ? 30 - after.score * 0.28 : 16} /><circle cx="2" cy={before ? 30 - before.score * 0.28 : 16} fill={colors[skill]} r="3" /><circle cx="98" cy={after ? 30 - after.score * 0.28 : 16} fill={colors[skill]} r="3" /></svg>
+            <span className="text-right font-bold">{after ? `${after.score}%` : '—'}{showSampleCount && after ? <small className="block font-normal text-slate-500">n={after.sampleCount ?? 0}</small> : null}</span>
+          </div>
+        </div>;
+      })}
+    </div>
+    <TrendDataTable points={points} showSampleCount={showSampleCount} />
+  </div>;
+}
+
+function TrendDataTable({ points, showSampleCount }: { points: SkillTrendPoint[]; showSampleCount: boolean }) {
+  return <div className="sr-only"><table><caption>Dữ liệu xu hướng kỹ năng theo đợt kiểm tra</caption><thead><tr><th>Đợt kiểm tra</th><th>Ngày</th>{skills.map((skill) => <th key={skill}>{toeicSkillLabel[skill]}</th>)}</tr></thead><tbody>{points.map((point) => <tr key={point.id}><th>{point.title}</th><td>{new Date(point.date).toLocaleDateString('vi-VN')}</td>{skills.map((skill) => { const value = point.values[skill]; return <td key={skill}>{value ? `${value.score}%${showSampleCount ? `, ${value.sampleCount ?? 0} học viên` : ''}` : 'Chưa có dữ liệu'}</td>; })}</tr>)}</tbody></table></div>;
 }

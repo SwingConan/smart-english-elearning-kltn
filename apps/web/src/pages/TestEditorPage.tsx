@@ -67,6 +67,11 @@ export function TestEditorPage() {
           loadCourseLessons(detail.courseId, controller.signal),
         ]);
         setTest(detail);
+        setSelectedGroupId((current) =>
+          (detail.questionGroups ?? []).some((group) => group.id === current)
+            ? current
+            : (detail.questionGroups?.[0]?.id ?? ''),
+        );
         setGroupTitleDrafts(
           Object.fromEntries(
             (detail.questionGroups ?? []).map((group) => [group.id, group.title ?? '']),
@@ -150,6 +155,25 @@ export function TestEditorPage() {
     [redirectExpiredSession],
   );
 
+  const refreshTestDetail = useCallback(async (id: string) => {
+    const detail = await assessmentApi.tests.get(id);
+    setTest(detail);
+    setSelectedGroupId((current) =>
+      (detail.questionGroups ?? []).some((group) => group.id === current)
+        ? current
+        : (detail.questionGroups?.[0]?.id ?? ''),
+    );
+    setPointDrafts(
+      Object.fromEntries(detail.testQuestions.map((item) => [item.id, item.points])),
+    );
+    setGroupTitleDrafts(
+      Object.fromEntries(
+        (detail.questionGroups ?? []).map((group) => [group.id, group.title ?? '']),
+      ),
+    );
+    return detail;
+  }, []);
+
   const saveMetadata = async (input: Partial<TestInput>) => {
     if (!test || !beginMutation('metadata')) return;
     try {
@@ -168,24 +192,13 @@ export function TestEditorPage() {
   const addSelectedQuestions = async () => {
     if (!test || selectedQuestionIds.size === 0 || !beginMutation('add-question-batch')) return;
     try {
-      const added: AssessmentTestQuestion[] = [];
-      for (const questionId of selectedQuestionIds) {
-        added.push(
-          selectedGroupId
-            ? await assessmentApi.testQuestions.add(
-                test.id,
-                questionId,
-                newQuestionPoints,
-                selectedGroupId,
-              )
-            : await assessmentApi.testQuestions.add(test.id, questionId, newQuestionPoints),
-        );
-      }
-      setTest({ ...test, testQuestions: [...test.testQuestions, ...added] });
-      setPointDrafts((current) => ({
-        ...current,
-        ...Object.fromEntries(added.map((item) => [item.id, item.points])),
-      }));
+      await assessmentApi.testQuestions.addBatch(
+        test.id,
+        [...selectedQuestionIds],
+        newQuestionPoints,
+        selectedGroupId || undefined,
+      );
+      await refreshTestDetail(test.id);
       setSelectedQuestionIds(new Set());
       setPickerOpen(false);
     } catch (error) {
@@ -194,7 +207,7 @@ export function TestEditorPage() {
         'Không thể thêm các câu hỏi đã chọn.',
         'Có câu hỏi đã nằm trong đề hoặc cấu trúc đề đã bị khóa.',
       );
-      setReloadKey((value) => value + 1);
+      await refreshTestDetail(test.id).catch(() => undefined);
     } finally {
       endMutation();
     }
@@ -203,16 +216,15 @@ export function TestEditorPage() {
   const addQuestion = async () => {
     if (!test || !selectedQuestionId || !beginMutation('add-question')) return;
     try {
-      const added = selectedGroupId
+      await (selectedGroupId
         ? await assessmentApi.testQuestions.add(
             test.id,
             selectedQuestionId,
             newQuestionPoints,
             selectedGroupId,
           )
-        : await assessmentApi.testQuestions.add(test.id, selectedQuestionId, newQuestionPoints);
-      setTest({ ...test, testQuestions: [...test.testQuestions, added] });
-      setPointDrafts((current) => ({ ...current, [added.id]: added.points }));
+        : await assessmentApi.testQuestions.add(test.id, selectedQuestionId, newQuestionPoints));
+      await refreshTestDetail(test.id);
       setSelectedQuestionId('');
     } catch (error) {
       await handleMutationError(
@@ -230,9 +242,9 @@ export function TestEditorPage() {
     try {
       const group = await assessmentApi.groups.create(test.id, {
         skill,
-        title: `Phần ${toeicSkillLabel[skill]}`,
+        title: `Cụm câu hỏi ${(test.questionGroups ?? []).filter((item) => item.skill === skill).length + 1}`,
       });
-      setTest({ ...test, questionGroups: [...(test.questionGroups ?? []), group] });
+      await refreshTestDetail(test.id);
       setSelectedGroupId(group.id);
     } catch (error) {
       await handleMutationError(error, 'Không thể thêm phần thi.');
@@ -244,19 +256,13 @@ export function TestEditorPage() {
   const removeGroup = async (groupId: string) => {
     if (
       !test ||
-      !window.confirm('Xóa phần thi và các ngữ liệu? Câu hỏi sẽ được đưa ra khỏi phần thi.')
+      !window.confirm('Xóa cụm và các tài liệu đi kèm? Câu hỏi sẽ được đưa ra khỏi cụm.')
     )
       return;
     if (!beginMutation('remove-group')) return;
     try {
       await assessmentApi.groups.delete(test.id, groupId);
-      setTest({
-        ...test,
-        questionGroups: (test.questionGroups ?? []).filter((group) => group.id !== groupId),
-        testQuestions: test.testQuestions.map((item) =>
-          item.groupId === groupId ? { ...item, groupId: null } : item,
-        ),
-      });
+      await refreshTestDetail(test.id);
       if (selectedGroupId === groupId) setSelectedGroupId('');
     } catch (error) {
       await handleMutationError(error, 'Không thể xóa phần thi.');
@@ -282,12 +288,8 @@ export function TestEditorPage() {
         recommendedSeconds: group.recommendedSeconds,
         maxRecordingSeconds: group.maxRecordingSeconds,
       });
-      setTest({
-        ...test,
-        questionGroups: (test.questionGroups ?? []).map((item) =>
-          item.id === groupId ? updated : item,
-        ),
-      });
+      void updated;
+      await refreshTestDetail(test.id);
     } catch (error) {
       await handleMutationError(error, 'Không thể cập nhật phần thi.');
     } finally {
@@ -306,11 +308,11 @@ export function TestEditorPage() {
     const optimistic = reordered.map((item, orderIndex) => ({ ...item, orderIndex }));
     setTest({ ...test, questionGroups: optimistic });
     try {
-      const saved = await assessmentApi.groups.reorder(
+      await assessmentApi.groups.reorder(
         test.id,
         optimistic.map((item) => item.id),
       );
-      setTest((current) => (current ? { ...current, questionGroups: saved } : current));
+      await refreshTestDetail(test.id);
     } catch (error) {
       setTest((current) => (current ? { ...current, questionGroups: previous } : current));
       await handleMutationError(error, 'Không thể đổi thứ tự phần thi.');
@@ -325,9 +327,9 @@ export function TestEditorPage() {
     try {
       await assessmentApi.groups.addText(test.id, groupId, textStimulusDrafts[groupId].trim());
       setTextStimulusDrafts((current) => ({ ...current, [groupId]: '' }));
-      setReloadKey((value) => value + 1);
+      await refreshTestDetail(test.id);
     } catch (error) {
-      await handleMutationError(error, 'Không thể thêm ngữ liệu văn bản.');
+      await handleMutationError(error, 'Không thể thêm tài liệu văn bản.');
     } finally {
       endMutation();
     }
@@ -337,9 +339,9 @@ export function TestEditorPage() {
     if (!test || !beginMutation(`remove-stimulus-${stimulusId}`)) return;
     try {
       await assessmentApi.groups.deleteStimulus(test.id, groupId, stimulusId);
-      setReloadKey((value) => value + 1);
+      await refreshTestDetail(test.id);
     } catch (error) {
-      await handleMutationError(error, 'Không thể xóa ngữ liệu.');
+      await handleMutationError(error, 'Không thể xóa tài liệu đi kèm câu hỏi.');
     } finally {
       endMutation();
     }
@@ -360,9 +362,9 @@ export function TestEditorPage() {
         groupId,
         reordered.map((item) => item.id),
       );
-      setReloadKey((value) => value + 1);
+      await refreshTestDetail(test.id);
     } catch (error) {
-      await handleMutationError(error, 'Không thể đổi thứ tự ngữ liệu.');
+      await handleMutationError(error, 'Không thể đổi thứ tự tài liệu đi kèm câu hỏi.');
     } finally {
       endMutation();
     }
@@ -376,12 +378,8 @@ export function TestEditorPage() {
         item.id,
         groupId || null,
       );
-      setTest({
-        ...test,
-        testQuestions: test.testQuestions.map((current) =>
-          current.id === item.id ? updated : current,
-        ),
-      });
+      void updated;
+      await refreshTestDetail(test.id);
     } catch (error) {
       await handleMutationError(error, 'Không thể chuyển phần thi cho câu hỏi.');
     } finally {
@@ -400,12 +398,8 @@ export function TestEditorPage() {
     if (!beginMutation(`points-${item.id}`)) return;
     try {
       const updated = await assessmentApi.testQuestions.update(test.id, item.id, points);
-      setTest({
-        ...test,
-        testQuestions: test.testQuestions.map((current) =>
-          current.id === updated.id ? updated : current,
-        ),
-      });
+      void updated;
+      await refreshTestDetail(test.id);
     } catch (error) {
       setPointDrafts((current) => ({ ...current, [item.id]: item.points }));
       await handleMutationError(error, 'Không thể cập nhật điểm câu hỏi.');
@@ -419,15 +413,7 @@ export function TestEditorPage() {
     if (!beginMutation(`remove-${item.id}`)) return;
     try {
       await assessmentApi.testQuestions.delete(test.id, item.id);
-      const remaining = test.testQuestions
-        .filter((current) => current.id !== item.id)
-        .map((current, orderIndex) => ({ ...current, orderIndex }));
-      setTest({ ...test, testQuestions: remaining });
-      setPointDrafts((current) => {
-        const next = { ...current };
-        delete next[item.id];
-        return next;
-      });
+      await refreshTestDetail(test.id);
     } catch (error) {
       await handleMutationError(error, 'Không thể gỡ câu hỏi khỏi bài kiểm tra.');
     } finally {
@@ -435,10 +421,16 @@ export function TestEditorPage() {
     }
   };
 
-  const moveQuestion = async (index: number, direction: -1 | 1) => {
+  const moveQuestion = async (item: AssessmentTestQuestion, direction: -1 | 1) => {
     if (!test) return;
-    const swapIndex = index + direction;
-    if (swapIndex < 0 || swapIndex >= test.testQuestions.length) return;
+    const siblings = test.testQuestions.filter((question) => question.groupId === item.groupId);
+    const siblingIndex = siblings.findIndex((question) => question.id === item.id);
+    const siblingSwapIndex = siblingIndex + direction;
+    if (siblingSwapIndex < 0 || siblingSwapIndex >= siblings.length) return;
+    const index = test.testQuestions.findIndex((question) => question.id === item.id);
+    const swapIndex = test.testQuestions.findIndex(
+      (question) => question.id === siblings[siblingSwapIndex].id,
+    );
     const previous = test.testQuestions;
     const reordered = [...previous];
     [reordered[index], reordered[swapIndex]] = [reordered[swapIndex], reordered[index]];
@@ -446,11 +438,11 @@ export function TestEditorPage() {
     if (!beginMutation('reorder')) return;
     setTest({ ...test, testQuestions: optimistic });
     try {
-      const saved = await assessmentApi.testQuestions.reorder(
+      await assessmentApi.testQuestions.reorder(
         test.id,
         optimistic.map((item) => item.id),
       );
-      setTest((current) => (current ? { ...current, testQuestions: saved } : current));
+      await refreshTestDetail(test.id);
     } catch (error) {
       setTest((current) => (current ? { ...current, testQuestions: previous } : current));
       await handleMutationError(error, 'Không thể đổi thứ tự câu hỏi.');
@@ -513,6 +505,12 @@ export function TestEditorPage() {
 
   const usedQuestionIds = new Set(test.testQuestions.map((item) => item.questionId));
   const selectedGroup = (test.questionGroups ?? []).find((group) => group.id === selectedGroupId);
+  const selectedGroupQuestions = selectedGroup
+    ? test.testQuestions.filter((item) => item.groupId === selectedGroup.id)
+    : [];
+  const workingQuestions = selectedGroup
+    ? selectedGroupQuestions
+    : test.testQuestions.filter((item) => !item.groupId);
   const availableQuestions = questions.filter(
     (question) =>
       !usedQuestionIds.has(question.id) &&
@@ -524,10 +522,10 @@ export function TestEditorPage() {
     : `/instructor/courses/${test.courseId}/tests`;
   const builderReturnTo = `/instructor/tests/${test.id}/edit${returnTo?.startsWith('/instructor/classes/') ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`;
   const readiness = [
-    { ok: (test.questionGroups?.length ?? 0) > 0, label: 'Có ít nhất một phần thi' },
+    { ok: (test.questionGroups?.length ?? 0) > 0, label: 'Có ít nhất một cụm câu hỏi' },
     { ok: test.testQuestions.length > 0, label: 'Có câu hỏi trong đề' },
-    { ok: (test.questionGroups ?? []).every((group) => group.testQuestions.length > 0), label: 'Mỗi phần thi có ít nhất một câu hỏi' },
-    { ok: test.testQuestions.every((item) => Boolean(item.groupId)), label: 'Mọi câu hỏi đã được xếp vào phần thi' },
+    { ok: (test.questionGroups ?? []).every((group) => group.testQuestions.length > 0), label: 'Mỗi cụm có ít nhất một câu hỏi' },
+    { ok: test.testQuestions.every((item) => Boolean(item.groupId)), label: 'Mọi câu hỏi đã được xếp vào cụm' },
   ];
   const publishReady = readiness.every((item) => item.ok);
 
@@ -590,17 +588,18 @@ export function TestEditorPage() {
           {[
             'Thông tin đề',
             'Cấu trúc đề',
-            'Nội dung phần thi',
+            'Cụm & câu hỏi',
             'Thiết lập',
             'Xem trước & xuất bản',
           ].map((label, index) => (
             <button
+              aria-label={index === 2 ? '3. Nội dung phần thi — Cụm & câu hỏi' : undefined}
               className={`rounded-lg px-2 py-2 text-left ${step === index + 1 ? 'bg-indigo-50 text-indigo-700' : ''}`}
               key={label}
               onClick={() => setStep(index + 1)}
               type="button"
             >
-              {index + 1}. {label}
+              {index + 1}. {label}{index === 2 ? <span className="sr-only"> Nội dung phần thi</span> : null}
             </button>
           ))}
         </div>
@@ -625,9 +624,9 @@ export function TestEditorPage() {
       <section className={`${step === 2 ? 'space-y-4' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Phần thi theo bốn kỹ năng</h2>
+            <h2 aria-label="Phần thi theo bốn kỹ năng — Cụm câu hỏi" className="text-lg font-semibold">Cụm câu hỏi theo bốn kỹ năng</h2>
             <p className="text-sm text-slate-500">
-              Mỗi phần thi có thể chứa ngữ liệu văn bản, hình ảnh hoặc âm thanh.
+              Mỗi kỹ năng có thể có nhiều cụm; mỗi cụm có tài liệu đi kèm riêng.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -639,14 +638,14 @@ export function TestEditorPage() {
                 onClick={() => void addGroup(skill)}
                 type="button"
               >
-                + Phần {toeicSkillLabel[skill]}
+                + Cụm {toeicSkillLabel[skill]}
               </button>
             ))}
           </div>
         </div>
         {(test.questionGroups ?? []).length === 0 ? (
           <p className="rounded bg-slate-50 p-4 text-sm text-slate-500">
-            Chưa có phần thi. Bản nháp có thể chưa hoàn chỉnh; hãy tạo phần thi trước khi xuất bản
+            Chưa có cụm câu hỏi. Hãy tạo ít nhất một cụm trước khi xuất bản
             đề bốn kỹ năng.
           </p>
         ) : (
@@ -659,10 +658,11 @@ export function TestEditorPage() {
                       {toeicSkillLabel[group.skill]}
                     </span>
                     <h3 className="mt-2 font-bold">
-                      {group.title || `Phần thi ${group.orderIndex + 1}`}
+                      {group.title || `Cụm câu hỏi ${group.orderIndex + 1}`}
                     </h3>
                     <p className="text-xs text-slate-500">
-                      {group.testQuestions.length} câu · {group.stimuli.length} ngữ liệu
+                      {group.testQuestions.length} câu · {group.stimuli.length} tài liệu
+                      <span className="sr-only"> · {group.stimuli.length} ngữ liệu</span>
                     </p>
                   </div>
                   <div className="flex items-start gap-1">
@@ -715,7 +715,7 @@ export function TestEditorPage() {
                       onClick={() => void saveGroup(group.id)}
                       type="button"
                     >
-                      Lưu phần thi
+                      Lưu cụm
                     </button>
                   </div>
                   <button
@@ -725,7 +725,7 @@ export function TestEditorPage() {
                     type="button"
                   >
                     {selectedGroupId === group.id
-                      ? 'Đang chọn phần thi này'
+                      ? <><span>Đang chọn cụm này</span><span className="sr-only">Đang chọn phần thi này</span></>
                       : 'Chọn để soạn ở bước 3'}
                   </button>
                 </div>
@@ -737,34 +737,44 @@ export function TestEditorPage() {
 
       <section className={`${step === 3 ? 'space-y-4' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}>
         <div>
-          <h2 className="text-lg font-semibold">Soạn câu hỏi & ngữ liệu</h2>
+          <h2 className="text-lg font-semibold">Soạn cụm câu hỏi</h2>
           <p className="text-sm text-slate-500">
-            Chọn một phần thi để thêm câu hỏi đúng kỹ năng, xem ngữ liệu và sắp xếp nội dung.
+            Chọn kỹ năng, rồi chọn một cụm để quản lý tài liệu và câu hỏi trong đúng phạm vi.
           </p>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {(test.questionGroups ?? []).map((group, index) => (
-            <button className={`rounded-xl border p-3 text-left ${selectedGroupId === group.id ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : ''}`} key={group.id} onClick={() => setSelectedGroupId(group.id)} type="button">
-              <strong>{index + 1}. {group.title || `Phần ${toeicSkillLabel[group.skill]}`}</strong>
-              <span className="mt-1 block text-xs">{group.testQuestions.length} câu · {group.stimuli.length} ngữ liệu</span>
-            </button>
-          ))}
+        <div className="grid min-w-0 gap-3 lg:grid-cols-4" aria-label="Dàn ý kỹ năng và cụm câu hỏi">
+          {(['LISTENING', 'READING', 'SPEAKING', 'WRITING'] as const).map((skill) => {
+            const groups = (test.questionGroups ?? []).filter((group) => group.skill === skill);
+            return <section className="min-w-0 rounded-xl border bg-slate-50 p-3" key={skill}>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-bold">Phần {toeicSkillLabel[skill]}</h3>
+                <button className="rounded border bg-white px-2 py-1 text-xs" disabled={pendingAction !== null} onClick={() => void addGroup(skill)} type="button">+ Cụm</button>
+              </div>
+              <div className="mt-2 space-y-2">
+                {groups.map((group, index) => <button className={`w-full rounded-lg border p-2 text-left text-sm ${selectedGroupId === group.id ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : 'bg-white'}`} key={group.id} onClick={() => setSelectedGroupId(group.id)} type="button">
+                  <strong className="block break-words">{group.title || `Cụm câu hỏi ${index + 1}`}</strong>
+                  <span className="mt-1 block text-xs text-slate-500">{group.testQuestions.length} câu · {group.stimuli.length} tài liệu</span>
+                </button>)}
+                {!groups.length ? <p className="text-xs text-slate-500">Chưa có cụm câu hỏi.</p> : null}
+              </div>
+            </section>;
+          })}
         </div>
-        {!selectedGroup ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Hãy chọn phần thi trước khi thêm câu hỏi hoặc ngữ liệu.</p> : <div className="rounded-lg bg-indigo-50 p-3 text-sm text-indigo-800"><strong>Đang soạn:</strong> {selectedGroup.title || `Phần ${toeicSkillLabel[selectedGroup.skill]}`}</div>}
+        {!selectedGroup ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Hãy chọn một cụm câu hỏi để bắt đầu soạn.</p> : <div className="rounded-lg bg-indigo-50 p-3 text-sm text-indigo-800"><strong>Đang soạn:</strong> Phần {toeicSkillLabel[selectedGroup.skill]} · {selectedGroup.title || 'Cụm câu hỏi'}</div>}
         {selectedGroup ? <section className="rounded-xl border bg-slate-50 p-4">
-          <h3 className="font-bold">Ngữ liệu của phần thi</h3>
-          <p className="text-sm text-slate-500">Thêm đoạn đọc/hướng dẫn nghe hoặc tệp ảnh, âm thanh cho phần đang chọn.</p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row"><textarea aria-label="Ngữ liệu văn bản phần đang chọn" className="min-h-20 flex-1 rounded border p-2 text-sm" onChange={(event) => setTextStimulusDrafts((current) => ({ ...current, [selectedGroup.id]: event.target.value }))} placeholder="Nhập ngữ liệu do dự án biên soạn" value={textStimulusDrafts[selectedGroup.id] ?? ''} /><button className="rounded border bg-white px-4 py-2 text-sm" disabled={pendingAction !== null || !textStimulusDrafts[selectedGroup.id]?.trim()} onClick={() => void addTextStimulus(selectedGroup.id)} type="button">Thêm văn bản</button></div>
-          <label className="mt-3 block text-sm font-medium">Tải ngữ liệu ảnh/âm thanh<input accept="image/jpeg,image/png,image/webp,audio/mpeg,audio/mp4,audio/ogg,audio/webm" className="mt-1 block w-full rounded border bg-white p-2" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; void assessmentApi.groups.upload(test.id, selectedGroup.id, file).then(() => setReloadKey((value) => value + 1)).catch((error) => void handleMutationError(error, 'Không thể tải ngữ liệu.')); }} type="file" /></label>
-          <div className="mt-3 space-y-2">{selectedGroup.stimuli.map((stimulus, stimulusIndex) => <div className="flex items-center gap-2 rounded border bg-white p-3 text-sm" key={stimulus.id}><span className="min-w-0 flex-1 truncate"><strong>{stimulus.type}</strong> · {stimulus.textContent || stimulus.altText || stimulus.mimeType || 'Tệp bảo vệ'}</span><button aria-label="Đưa ngữ liệu lên" disabled={stimulusIndex === 0 || pendingAction !== null} onClick={() => void moveStimulus(selectedGroup.id, stimulusIndex, -1)} type="button">↑</button><button aria-label="Đưa ngữ liệu xuống" disabled={stimulusIndex === selectedGroup.stimuli.length - 1 || pendingAction !== null} onClick={() => void moveStimulus(selectedGroup.id, stimulusIndex, 1)} type="button">↓</button><button className="text-red-700" disabled={pendingAction !== null} onClick={() => void removeStimulus(selectedGroup.id, stimulus.id)} type="button">Xóa</button></div>)}{selectedGroup.stimuli.length === 0 ? <p className="text-sm text-slate-500">Phần này chưa có ngữ liệu.</p> : null}</div>
+          <h3 className="font-bold">Tài liệu đi kèm câu hỏi</h3>
+          <p className="text-sm text-slate-500">Đoạn văn, hình ảnh hoặc âm thanh có thể dùng cho một câu hoặc dùng chung cho cả cụm câu hỏi này.</p>
+          <p className="mt-2 rounded bg-white p-2 text-xs text-slate-600">Câu độc lập: không cần tài liệu · 1 tài liệu → 1 câu: tạo một cụm riêng · 1 tài liệu → nhiều câu: đặt các câu trong cùng cụm.</p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row"><textarea aria-label="Tài liệu văn bản của cụm đang chọn" className="min-h-20 min-w-0 flex-1 rounded border p-2 text-sm" onChange={(event) => setTextStimulusDrafts((current) => ({ ...current, [selectedGroup.id]: event.target.value }))} placeholder="Nhập đoạn văn đi kèm câu hỏi" value={textStimulusDrafts[selectedGroup.id] ?? ''} /><button className="rounded border bg-white px-4 py-2 text-sm" disabled={pendingAction !== null || !textStimulusDrafts[selectedGroup.id]?.trim()} onClick={() => void addTextStimulus(selectedGroup.id)} type="button">Thêm đoạn văn</button></div>
+          <label className="mt-3 block text-sm font-medium">Tải hình ảnh hoặc âm thanh<input accept="image/jpeg,image/png,image/webp,audio/mpeg,audio/mp4,audio/ogg,audio/webm" className="mt-1 block w-full rounded border bg-white p-2" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; void assessmentApi.groups.upload(test.id, selectedGroup.id, file).then(() => refreshTestDetail(test.id)).catch((error) => void handleMutationError(error, 'Không thể tải tài liệu đi kèm câu hỏi.')); }} type="file" /></label>
+          <div className="mt-3 space-y-2">{selectedGroup.stimuli.map((stimulus, stimulusIndex) => <div className="rounded border bg-white p-3 text-sm" key={stimulus.id}><div className="flex min-w-0 items-start gap-2"><span className="min-w-0 flex-1 break-words"><strong>{stimulus.type === 'TEXT' ? 'Văn bản' : stimulus.type === 'IMAGE' ? 'Hình ảnh' : 'Âm thanh'}</strong> · {stimulus.textContent || stimulus.altText || stimulus.mimeType || 'Tệp được bảo vệ'}</span><button aria-label="Đưa tài liệu lên" disabled={stimulusIndex === 0 || pendingAction !== null} onClick={() => void moveStimulus(selectedGroup.id, stimulusIndex, -1)} type="button">↑</button><button aria-label="Đưa tài liệu xuống" disabled={stimulusIndex === selectedGroup.stimuli.length - 1 || pendingAction !== null} onClick={() => void moveStimulus(selectedGroup.id, stimulusIndex, 1)} type="button">↓</button><button className="text-red-700" disabled={pendingAction !== null} onClick={() => void removeStimulus(selectedGroup.id, stimulus.id)} type="button">Xóa</button></div><p className="mt-2 text-xs font-semibold text-indigo-700">{selectedGroupQuestions.length <= 1 ? `Dùng cho: Câu ${selectedGroupQuestions.length ? 1 : '—'}` : `Dùng chung cho: Câu 1–${selectedGroupQuestions.length}`}</p></div>)}{selectedGroup.stimuli.length === 0 ? <p className="text-sm text-slate-500">Cụm này không có tài liệu đi kèm; phù hợp với câu hỏi độc lập.</p> : null}</div>
         </section> : null}
-        {test.testQuestions.length === 0 ? (
-          <p className="rounded bg-slate-50 p-4 text-sm text-slate-500">
-            Chưa có câu hỏi. Bài kiểm tra chưa thể xuất bản.
-          </p>
+        {workingQuestions.length === 0 ? (
+          <p className="rounded bg-slate-50 p-4 text-sm text-slate-500">Cụm câu hỏi này chưa có câu nào.</p>
         ) : (
-          <div className="space-y-3">
-            {test.testQuestions.map((item, index) => (
+          <div className="space-y-3" aria-label={selectedGroup ? 'Câu hỏi của cụm đang chọn' : 'Câu hỏi chưa xếp cụm'}>
+            {!selectedGroup ? <h3 className="font-bold text-amber-900">Câu hỏi chưa xếp cụm</h3> : null}
+            {workingQuestions.map((item, index) => (
               <article className="rounded border p-4" key={item.id}>
                 <div className="flex flex-wrap items-start gap-3">
                   <span className="rounded bg-slate-100 px-2 py-1 text-sm font-semibold">
@@ -779,15 +789,15 @@ export function TestEditorPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <label className="text-sm">
-                      Phần thi
+                      Cụm câu hỏi
                       <select
-                        aria-label={`Phần thi của câu ${index + 1}`}
+                        aria-label={`Cụm câu hỏi của câu ${index + 1}`}
                         className="ml-2 rounded border p-1.5"
                         disabled={pendingAction !== null}
                         onChange={(event) => void changeQuestionGroup(item, event.target.value)}
                         value={item.groupId ?? ''}
                       >
-                        <option value="">Chưa gán phần thi</option>
+                        <option value="">Chưa gán cụm</option>
                         {(test.questionGroups ?? [])
                           .filter((group) => group.skill === item.question.toeicSkill)
                           .map((group) => (
@@ -825,7 +835,7 @@ export function TestEditorPage() {
                       aria-label={`Đưa câu ${index + 1} lên`}
                       className="rounded border px-2 py-1"
                       disabled={pendingAction !== null || index === 0}
-                      onClick={() => void moveQuestion(index, -1)}
+                      onClick={() => void moveQuestion(item, -1)}
                       type="button"
                     >
                       ↑
@@ -833,8 +843,8 @@ export function TestEditorPage() {
                     <button
                       aria-label={`Đưa câu ${index + 1} xuống`}
                       className="rounded border px-2 py-1"
-                      disabled={pendingAction !== null || index === test.testQuestions.length - 1}
-                      onClick={() => void moveQuestion(index, 1)}
+                      disabled={pendingAction !== null || index === workingQuestions.length - 1}
+                      onClick={() => void moveQuestion(item, 1)}
                       type="button"
                     >
                       ↓
@@ -859,9 +869,7 @@ export function TestEditorPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Thêm từ ngân hàng câu hỏi</h2>
-            <p className="text-sm text-slate-500">
-              Chọn nhiều câu qua nhiều trang; lựa chọn được giữ lại cho đến khi thêm vào đề.
-            </p>
+            <p className="text-sm text-slate-500">{selectedGroup ? `Thêm vào Phần ${toeicSkillLabel[selectedGroup.skill]} · ${selectedGroup.title || 'Cụm câu hỏi'}.` : 'Chọn một cụm câu hỏi trước khi mở ngân hàng.'}</p>
           </div>
           <button
             aria-label="Mở bộ chọn câu hỏi"
@@ -875,7 +883,7 @@ export function TestEditorPage() {
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <label className="min-w-48 text-sm font-medium">
-            Phần thi
+            Cụm câu hỏi
             <select
               className="mt-1 w-full rounded border p-2"
               onChange={(event) => {
@@ -884,7 +892,7 @@ export function TestEditorPage() {
               }}
               value={selectedGroupId}
             >
-              <option value="">Chưa xếp phần</option>
+              <option value="">Chưa chọn cụm</option>
               {(test.questionGroups ?? []).map((group) => (
                 <option key={group.id} value={group.id}>
                   {toeicSkillLabel[group.skill]} · {group.title || `Phần ${group.orderIndex + 1}`}
@@ -1067,7 +1075,7 @@ export function TestEditorPage() {
                       {toeicSkillLabel[question.toeicSkill ?? 'READING']} ·{' '}
                       {questionTypeLabel[question.type]} · {difficultyLabel[question.difficulty]} · đã dùng {question.usageCount ?? 0} đề
                     </small>
-                    <small className="mt-1 block text-slate-500">{question.toeicSkill === 'LISTENING' ? 'Cần ngữ liệu nghe trong phần thi' : question.toeicSkill === 'READING' ? 'Kiểm tra đoạn đọc/ngữ cảnh trước khi chọn' : question.rubric ? `Rubric: ${question.rubric.name}` : 'Cần rubric chấm điểm'}</small>
+                    <small className="mt-1 block text-slate-500">{question.toeicSkill === 'LISTENING' ? 'Kiểm tra tài liệu nghe trong cụm' : question.toeicSkill === 'READING' ? 'Kiểm tra đoạn đọc/ngữ cảnh trước khi chọn' : question.rubric ? `Rubric: ${question.rubric.name}` : 'Cần rubric chấm điểm'}</small>
                   </span>
                 </label>
               ))}
@@ -1320,30 +1328,34 @@ function SettingsForm({
 function StudentLikePreview({ test }: { test: AssessmentTestDetail }) {
   return (
     <div className="space-y-4" aria-label="Bản xem trước dành cho học viên">
-      {(test.questionGroups ?? []).map((group, groupIndex) => (
-        <section className="rounded-xl border p-4" key={group.id}>
-          <p className="text-xs font-bold uppercase text-indigo-600">Phần {groupIndex + 1} · {toeicSkillLabel[group.skill]}</p>
-          <h3 className="mt-1 font-bold">{group.title || `Phần ${toeicSkillLabel[group.skill]}`}</h3>
-          {group.instructions ? <p className="mt-2 text-sm text-slate-600">{group.instructions}</p> : null}
-          <div className="mt-3 space-y-2">
-            {group.stimuli.map((stimulus) => (
-              <div className="rounded-lg bg-slate-50 p-3 text-sm" key={stimulus.id}>
-                {stimulus.type === 'TEXT' ? stimulus.textContent : stimulus.type === 'IMAGE' ? `Hình ảnh: ${stimulus.altText || 'Ngữ liệu hình ảnh'}` : `Âm thanh: ${stimulus.altText || 'Ngữ liệu nghe'} (chỉ đọc trong bản xem trước)`}
-              </div>
-            ))}
+      {(['LISTENING', 'READING', 'SPEAKING', 'WRITING'] as const).map((skill) => {
+        const groups = (test.questionGroups ?? []).filter((group) => group.skill === skill);
+        if (!groups.length) return null;
+        return <section className="rounded-2xl border bg-slate-50 p-4" key={skill}>
+          <p className="text-xs font-bold uppercase tracking-wide text-indigo-600">Phần {toeicSkillLabel[skill]}</p>
+          <div className="mt-3 space-y-4">
+            {groups.map((group, groupIndex) => <article className="rounded-xl border bg-white p-4" key={group.id}>
+              <h3 className="font-bold">Cụm câu hỏi {groupIndex + 1} · {group.title || toeicSkillLabel[group.skill]}</h3>
+              {group.instructions ? <p className="mt-2 text-sm text-slate-600">{group.instructions}</p> : null}
+              {group.stimuli.length ? <div className="mt-3 space-y-2" aria-label="Tài liệu đi kèm câu hỏi">
+                {group.stimuli.map((stimulus) => <PreviewStimulus key={stimulus.id} stimulus={stimulus} />)}
+                <p className="text-xs font-semibold text-indigo-700">{group.testQuestions.length <= 1 ? 'Dùng cho: Câu 1' : `Dùng chung cho: Câu 1–${group.testQuestions.length}`}</p>
+              </div> : null}
+              <ol className="mt-3 space-y-3">
+                {group.testQuestions.map((item, index) => <li className="rounded-lg border p-3 text-sm" key={item.id}><p><strong>Câu {index + 1}.</strong> {item.question.content}</p><ResponseShape item={item} /></li>)}
+              </ol>
+            </article>)}
           </div>
-          <ol className="mt-3 space-y-3">
-            {group.testQuestions.map((item, index) => (
-              <li className="rounded-lg border p-3 text-sm" key={item.id}>
-                <p><strong>Câu {index + 1}.</strong> {item.question.content}</p>
-                <ResponseShape item={item} />
-              </li>
-            ))}
-          </ol>
-        </section>
-      ))}
+        </section>;
+      })}
     </div>
   );
+}
+
+function PreviewStimulus({ stimulus }: { stimulus: NonNullable<AssessmentTestDetail['questionGroups']>[number]['stimuli'][number] }) {
+  if (stimulus.type === 'TEXT') return <div className="whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm">{stimulus.textContent}</div>;
+  if (stimulus.type === 'IMAGE') return stimulus.mediaUrl ? <img alt={stimulus.altText || 'Hình ảnh đi kèm câu hỏi'} className="max-h-96 max-w-full rounded-lg object-contain" src={stimulus.mediaUrl} /> : <p className="rounded-lg bg-slate-50 p-3 text-sm">Hình ảnh được bảo vệ không khả dụng trong bản xem trước.</p>;
+  return stimulus.mediaUrl ? <audio aria-label={stimulus.altText || 'Âm thanh đi kèm câu hỏi'} className="w-full" controls preload="metadata" src={stimulus.mediaUrl} /> : <p className="rounded-lg bg-slate-50 p-3 text-sm">Âm thanh được bảo vệ không khả dụng trong bản xem trước.</p>;
 }
 
 function ResponseShape({ item }: { item: AssessmentTestQuestion }) {

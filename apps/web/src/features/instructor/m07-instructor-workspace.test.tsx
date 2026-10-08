@@ -31,7 +31,7 @@ const overview: InstructorClassOverview = {
     { label: '75–99%', count: 2 },
     { label: '100%', count: 1 },
   ],
-  upcomingDeadlines: [],
+  upcomingDeadlines: [{ assessmentId: 'assessment-a', kind: 'OPEN', at: '2026-10-11T18:30:00Z', title: 'Kiểm tra thường kỳ — Tiêu đề rất dài cần xuống dòng tự nhiên trên màn hình nhỏ' }],
   followUps: [{ kind: 'GRADING', count: 2, label: 'Bài nộp đang chờ chấm' }],
   assessments: [
     {
@@ -81,6 +81,9 @@ describe('M07 Instructor class workspace', () => {
     ])
       expect(nav).toHaveTextContent(label);
     expect(screen.getAllByRole('link', { name: 'Tổng quan' })[0]).toHaveClass('bg-indigo-600');
+    expect(screen.getByText('Mở')).toHaveClass('rounded-full');
+    expect(screen.getByText('Kiểm tra thường kỳ')).toHaveClass('break-words');
+    expect(screen.getByText(/Tiêu đề rất dài/)).toHaveClass('break-words');
     fireEvent.click(screen.getByRole('button', { name: /0–24%/i }));
     expect(screen.getByRole('dialog', { name: /Tiến độ 0–24%/i })).toHaveTextContent('Học viên cần hỗ trợ');
     fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
@@ -200,11 +203,11 @@ describe('M07 Instructor class workspace', () => {
     expect(await screen.findByText('1 đã chấm đủ')).toBeInTheDocument();
     expect(screen.getByText('1 chờ chấm')).toBeInTheDocument();
     expect(screen.getByText('2/9 học viên đã có điểm cuối')).toBeInTheDocument();
-    expect(screen.getByText('9 chưa đủ dữ liệu')).toBeInTheDocument();
+    expect(screen.getAllByText('9 chưa đủ dữ liệu').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Đang chờ').length).toBeGreaterThan(0);
     expect(screen.getByText('Phân bố điểm')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: /Biểu đồ xu hướng kỹ năng/i })).toBeInTheDocument();
-    expect(screen.getByText(/75%, 9 học viên/i)).toBeInTheDocument();
+    expect(screen.getByTestId('two-point-skill-slope')).toBeInTheDocument();
+    expect(screen.getByText('n=9')).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: /70–84/ })[0]);
     expect(screen.getByText(/Nghe · 70–84/)).toBeInTheDocument();
     expect(screen.getAllByText('Nguyễn Minh Anh').length).toBeGreaterThan(0);

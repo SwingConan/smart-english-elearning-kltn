@@ -269,3 +269,23 @@ These are engineering verification results only. GPT narrow re-review and the Pr
 - Smoke-owned fixtures and the isolated Chrome profile were removed; a final deterministic reseed and M07 data validation passed afterward.
 
 These results are engineering evidence for GPT verification only. Product Owner correction retest remains blocked until GPT accepts this narrow correction.
+
+## Product Owner correction-retest UX corrections
+
+- **Test Builder mental model:** the UI now derives four top-level skill sections from existing `TestQuestionGroup.skill` values and presents every group as a separate `Cụm câu hỏi`. A group remains the persisted 0..N-media/1..N-question bundle, so multiple groups of the same skill, one-media/one-question, shared-media/many-question, and no-media independent questions require no schema change.
+- **Media scope and safe preview:** primary copy is `Tài liệu đi kèm câu hỏi`; helper and scope labels distinguish `Dùng cho: Câu 1` from `Dùng chung cho: Câu 1–N`. Step 5 renders skill → group → protected media → questions → response shape. Instructor media uses a new ownership-checked, no-store route; storage keys and answer flags are not exposed.
+- **Stale preview root cause:** structural mutations previously updated only `test.testQuestions`, while Step 5 rendered `questionGroups[].testQuestions`. Every structural mutation now reloads one complete `AssessmentTestDetail`. Multi-select add uses a bounded, serializable transaction (maximum 50 questions), preventing partial batch writes; L-13 is therefore visible once in Step 3 and immediately once in Step 5.
+- **Trend grammar:** exactly two scored assessments render four independent skill slope rows with left/right scores, dates, sample counts where applicable, and delta. Three or more points use the restrained line view without per-point value-label collisions. Both modes retain the accessible table and missing-data gaps; learner copy still states internal 0–100 and not official TOEIC.
+- **Class Results grammar:** completion is a clickable 100% stacked bar, skill comparison uses clickable horizontal bars with `n/active`, distribution uses one clickable 100% stacked bar per skill, and the two-assessment trend uses the shared slope view. Missing FINAL values remain absent rather than becoming zero; the learner matrix/drill-down remains intact.
+- **Overview timeline:** each chronological event now has a separate date/time badge, `Mở`/`Đóng` chip, wrapping title, and optional subtitle split from a long em-dash title. The layout uses bounded responsive columns and breakable text.
+- No chart dependency, Prisma schema change, migration, Product Owner source-artifact edit, merge, or `main` mutation was introduced. This engineering work does not claim Product Owner Manual Visual Gate PASS.
+
+### Product Owner correction-retest engineering verification
+
+- Focused API Assessment Instructor regression: **39/39 PASS**; focused Web builder/trend/workspace regression: **22/22 PASS**.
+- Full unit regression: API **390/390 PASS**, Web **239/239 PASS**; API E2E **97/97 PASS**.
+- Dedicated headless-Chrome smoke: **43/43 PASS**, including the responsive timeline, two-point learner/Results slopes, combined Results chart grammar, grouped Step 3 authoring, transactional L-13 add and immediate Step 5 preview exactly once, existing student resource delivery, and **0 horizontal-overflow failures** at `1440×900`, `820×1180`, and `390×844`.
+- Prisma validate/generate/status/drift, deterministic seed/data validator, M05 manifest, lint, typecheck, build, and `git diff --check`: **PASS**. No migration was created.
+- Smoke-owned questions/resources and the isolated Chrome profile were removed; a final deterministic reseed and M07 validator were run afterward.
+
+These are engineering results for GPT review. Product Owner correction retest remains blocked until that review accepts the correction.

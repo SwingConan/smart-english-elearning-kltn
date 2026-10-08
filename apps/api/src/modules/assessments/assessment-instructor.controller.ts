@@ -10,6 +10,7 @@ import {
   Post,
   Query,
   Res,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -23,6 +24,7 @@ import { PublicUser } from '../users/user.types';
 import { AssessmentInstructorService } from './assessment-instructor.service';
 import { AssessmentCompatibilityInterceptor } from './assessment-compatibility.interceptor';
 import { AddTestQuestionDto } from './dto/add-test-question.dto';
+import { AddTestQuestionsDto } from './dto/add-test-questions.dto';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { CreateTestDto } from './dto/create-test.dto';
 import { ReorderTestQuestionsDto } from './dto/reorder-test-questions.dto';
@@ -273,6 +275,33 @@ export class AssessmentInstructorController {
     @Param('stimulusId', new ParseUUIDPipe()) stimulusId: string,
   ) {
     return this.assessmentInstructorService.deleteStimulus(user.id, testId, groupId, stimulusId);
+  }
+
+  @Get('tests/:testId/stimuli/:stimulusId/media')
+  async getStimulusMedia(
+    @CurrentUser() user: PublicUser,
+    @Param('testId', new ParseUUIDPipe()) testId: string,
+    @Param('stimulusId', new ParseUUIDPipe()) stimulusId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const media = await this.assessmentInstructorService.openStimulusMedia(
+      user.id,
+      testId,
+      stimulusId,
+    );
+    response.setHeader('Content-Type', media.mimeType);
+    response.setHeader('Cache-Control', 'private, no-store');
+    return new StreamableFile(media.body);
+  }
+
+  @Post('tests/:testId/questions/batch')
+  @ApiOperation({ summary: 'Append a bounded batch of questions to a test atomically' })
+  addTestQuestions(
+    @CurrentUser() user: PublicUser,
+    @Param('testId', new ParseUUIDPipe()) testId: string,
+    @Body() dto: AddTestQuestionsDto,
+  ) {
+    return this.assessmentInstructorService.addTestQuestions(user.id, testId, dto);
   }
 
   @Post('tests/:testId/questions')

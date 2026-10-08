@@ -130,3 +130,36 @@ Kiểm tra tối thiểu Tổng quan, Hồ sơ học viên, Test Builder, Result
 Không được overflow ngang toàn trang, chart/card/button không đè nhau, drawer/picker/wizard phải thao tác được.
 
 Sau mọi mutation, chạy lại seed và validator. Gửi screenshot FAIL cùng bước, kích thước viewport, tên learner/assessment và Console/Network đã sanitized. Product Owner tự ghi PASS/FAIL; tài liệu này không tuyên bố Visual Gate PASS.
+
+## 12. Product Owner correction retest — grouped authoring and reporting visuals
+
+Chỉ thực hiện phần này sau khi GPT chấp nhận correction. Không ghi kết quả vào Product Owner artifact gốc từ repo.
+
+### 12.1 Test Builder media scope và immediate preview
+
+1. Mở draft `VG-R3 — Đề demo hướng dẫn`, vào Bước 3.
+2. Phải thấy bốn section `Phần Nghe/Đọc/Nói/Viết`; trong mỗi section có thể có nhiều `Cụm câu hỏi`. Vùng thao tác chỉ hiển thị tài liệu và câu hỏi của cụm đang chọn, không dùng danh sách phẳng toàn đề làm vùng chính.
+3. Copy chính xác phải là `Tài liệu đi kèm câu hỏi`; helper phải nói rõ đoạn văn, hình ảnh, âm thanh dùng cho một câu hoặc cả cụm.
+4. Với cụm một câu, media card phải ghi `Dùng cho: Câu 1`. Với cụm nhiều câu, phải ghi `Dùng chung cho: Câu 1–N`. Cụm không media phải được mô tả là câu độc lập.
+5. Chọn cụm Listening, mở ngân hàng, tìm và thêm `M07-VG-L-13`. Câu phải xuất hiện đúng một lần trong cụm. Chuyển ngay sang Bước 5 mà không refresh: câu phải xuất hiện đúng một lần dưới hierarchy Phần Nghe → Cụm → tài liệu → câu → hình thức trả lời.
+6. Ảnh phải hiển thị, audio phải play qua route có authorization; không được lộ storage key hoặc đáp án đúng.
+7. Refresh phải giữ L-13; thử move/remove phải cập nhật nhất quán ở Bước 3 và Bước 5. Reseed ngay sau retest để trả draft về trạng thái xác định.
+
+### 12.2 Learner trend
+
+- Với đúng hai assessment đã chấm, phải thấy bốn slope row độc lập; mỗi row có score trái/phải và delta, tên/ngày hai assessment không đè nhau.
+- Với từ ba assessment, phải thấy line fallback dễ đọc và bảng accessible.
+- Copy phải giữ `điểm nội bộ 0–100`, không phải điểm TOEIC chính thức; missing là khoảng trống, không phải 0.
+
+### 12.3 Class Results
+
+- Completion: một thanh stacked 100% gồm đã chấm đủ/chờ chấm/chưa nộp; mỗi segment click được và có count/denominator.
+- Skill comparison: bốn horizontal bar, average và `n/11`, click được.
+- Distribution: mỗi kỹ năng đúng một thanh stacked 100% với bốn khoảng `<50`, `50–69`, `70–84`, `85–100`; segment có count và drill-down.
+- Trend hai assessment phải là slope Periodic → Midterm; từ ba assessment mới dùng line fallback. Sample count hiển thị, missing FINAL không thành 0.
+- Learner matrix và link hồ sơ vẫn hoạt động.
+
+### 12.4 Overview timeline và responsive
+
+- `Mốc sắp tới` phải tách date/time badge, chip `Mở`/`Đóng`, title và subtitle; title dài xuống dòng tự nhiên và thứ tự thời gian tăng dần.
+- Lặp các kiểm tra trên ở `1440×900`, `820×1180`, `390×844`; không có overflow ngang, label/chart/control không chồng nhau.

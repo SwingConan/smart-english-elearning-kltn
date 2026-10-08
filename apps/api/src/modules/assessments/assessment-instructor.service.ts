@@ -19,6 +19,7 @@ import {
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AddTestQuestionDto } from './dto/add-test-question.dto';
+import { AddTestQuestionsDto } from './dto/add-test-questions.dto';
 import { CreateQuestionDto, QuestionOptionInputDto } from './dto/create-question.dto';
 import { CreateTestDto } from './dto/create-test.dto';
 import { ReorderTestQuestionsDto } from './dto/reorder-test-questions.dto';
@@ -557,7 +558,101 @@ export class AssessmentInstructorService {
     }
 
     await this.assertInstructorOwnsCourse(this.prisma, instructorId, test.courseId);
-    return test;
+    return {
+      ...test,
+      questionGroups: test.questionGroups.map((group) => ({
+        ...group,
+        stimuli: group.stimuli.map(({ storageKey: _storageKey, ...stimulus }) => ({
+          ...stimulus,
+          mediaUrl:
+            stimulus.type === AssessmentStimulusType.TEXT
+              ? null
+              : `/api/instructor/tests/${testId}/stimuli/${stimulus.id}/media`,
+        })),
+      })),
+    };
+  }
+
+  async openStimulusMedia(instructorId: string, testId: string, stimulusId: string) {
+    const stimulus = await this.prisma.assessmentStimulus.findFirst({
+      where: { id: stimulusId, group: { testId } },
+      select: {
+        storageKey: true,
+        mimeType: true,
+        isProtected: true,
+        group: { select: { test: { select: { courseId: true } } } },
+      },
+    });
+    if (!stimulus) throw new NotFoundException('Assessment stimulus not found');
+    await this.assertInstructorOwnsCourse(
+      this.prisma,
+      instructorId,
+      stimulus.group.test.courseId,
+    );
+    if (!stimulus.storageKey || !stimulus.mimeType || stimulus.isProtected) {
+      throw new NotFoundException('Assessment stimulus not found');
+    }
+    return {
+      body: await this.stimulusStorage.read(stimulus.storageKey),
+      mimeType: stimulus.mimeType,
+    };
+  }
+
+  async addTestQuestions(instructorId: string, testId: string, dto: AddTestQuestionsDto) {
+    return this.runSerializableMutation(async (transaction) => {
+      const test = await transaction.test.findUnique({
+        where: { id: testId },
+        select: { courseId: true, status: true },
+      });
+      if (!test) throw new NotFoundException('Test not found');
+      await this.assertInstructorOwnsCourse(transaction, instructorId, test.courseId);
+      await this.assertTestHasNoHistoricalAttempts(transaction, testId);
+
+      const questionIds = [...new Set(dto.questionIds)];
+      if (questionIds.length !== dto.questionIds.length) {
+        throw new BadRequestException('Question batch contains duplicates');
+      }
+      const questions = await transaction.question.findMany({
+        where: { id: { in: questionIds }, courseId: test.courseId },
+        select: { id: true, toeicSkill: true },
+      });
+      if (questions.length !== questionIds.length) throw new NotFoundException('Question not found');
+      if (dto.groupId) {
+        const group = await transaction.testQuestionGroup.findFirst({
+          where: { id: dto.groupId, testId },
+          select: { skill: true },
+        });
+        if (!group) throw new NotFoundException('Test question group not found');
+        if (questions.some((question) => question.toeicSkill !== group.skill)) {
+          throw new BadRequestException('Question skill must match its group skill');
+        }
+      }
+      const duplicateCount = await transaction.testQuestion.count({
+        where: { testId, questionId: { in: questionIds } },
+      });
+      if (duplicateCount) throw new ConflictException('Question already exists in this Test');
+      const last = await transaction.testQuestion.findFirst({
+        where: { testId },
+        orderBy: { orderIndex: 'desc' },
+        select: { orderIndex: true },
+      });
+      const firstOrderIndex = (last?.orderIndex ?? -1) + 1;
+      await transaction.testQuestion.createMany({
+        data: questionIds.map((questionId, index) => ({
+          testId,
+          questionId,
+          groupId: dto.groupId ?? null,
+          points: dto.points ?? 1,
+          orderIndex: firstOrderIndex + index,
+        })),
+      });
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return transaction.testQuestion.findMany({
+        where: { testId, questionId: { in: questionIds } },
+        orderBy: { orderIndex: 'asc' },
+        select: instructorTestQuestionSelect,
+      });
+    }, 'Test question order changed concurrently; please try again');
   }
 
   async createTest(instructorId: string, courseId: string, dto: CreateTestDto) {

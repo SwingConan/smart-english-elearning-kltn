@@ -99,6 +99,7 @@ export interface AssessmentStimulus {
   textContent: string | null;
   mimeType: string | null;
   altText: string | null;
+  mediaUrl?: string | null;
 }
 export interface AssessmentTestGroup {
   id: string;
