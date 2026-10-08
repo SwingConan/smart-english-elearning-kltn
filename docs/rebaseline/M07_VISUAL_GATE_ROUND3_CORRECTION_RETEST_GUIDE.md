@@ -30,6 +30,7 @@ Mọi bước xem, lọc, tìm kiếm, mở drawer, preview và tải tài liệ
 
 Mở một học viên có kết quả → kiểm tra `Hoạt động gần đây` và `Xu hướng kỹ năng`.
 
+- `Chờ chấm` phải tính cả attempt IN_CLASS thiếu một hay nhiều điểm kỹ năng FINAL; trường hợp chỉ có Nghe/Đọc FINAL hoặc thiếu Viết không được hiển thị là 0 chờ chấm.
 - Một attempt đã chấm chỉ tạo một dòng kết quả chấm dễ hiểu, không lặp theo từng criterion.
 - Copy phải nói rõ điểm nội bộ 0–100, chỉ dùng đợt đã chấm hoàn tất, không phải điểm TOEIC.
 - Mỗi mốc có tên bài, ngày, kỹ năng; dữ liệu thiếu để trống.
@@ -85,7 +86,7 @@ Mở `Kết quả` → `Kiểm tra thường kỳ 01`.
 - Denominator cuối: Nghe 8/11, Đọc 8/11, Nói 7/11, Viết 6/11.
 - Bucket là số học viên trong `<50`, `50–69`, `70–84`, `85–100`, FINAL-only.
 - Click bucket phải lọc ra đúng tên; `Mở hồ sơ` phải đi đúng learner.
-- Biểu đồ trend có đúng một mốc Periodic và một mốc Midterm, trục 0–100, bốn chuỗi kỹ năng, chú giải, ngày, giá trị và sample count; dữ liệu thiếu phải tạo khoảng trống.
+- Biểu đồ trend có đúng một mốc Periodic rồi đến Midterm từ trái sang phải, ngày tăng dần, trục 0–100, bốn chuỗi kỹ năng, chú giải, ngày, giá trị và sample count; assessment không có mẫu điểm không xuất hiện và dữ liệu kỹ năng thiếu không được đổi thành 0.
 
 ## 8. Residual checks — status, demo answers, activity and XLSX
 

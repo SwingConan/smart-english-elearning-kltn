@@ -488,9 +488,15 @@ export class InstructorWorkspaceService {
     const submittedAssessmentCount = new Set(
       enrollment.testAttempts.map((attempt) => attempt.classAssessment?.id).filter(Boolean),
     ).size;
-    const pendingGrading = enrollment.testAttempts.filter((attempt) =>
-      attempt.skillScores.some((score) => score.status !== SkillScoreStatus.FINAL),
-    ).length;
+    const pendingGrading = enrollment.testAttempts.filter((attempt) => {
+      if (attempt.classAssessment?.test.purpose !== TestPurpose.IN_CLASS) return false;
+      const finalizedSkills = new Set(
+        attempt.skillScores
+          .filter((score) => score.status === SkillScoreStatus.FINAL)
+          .map((score) => score.skill),
+      );
+      return !SKILLS.every((skill) => finalizedSkills.has(skill));
+    }).length;
     const representativeTrendByAssessment = new Map<
       string,
       (typeof enrollment.testAttempts)[number]
@@ -615,18 +621,26 @@ export class InstructorWorkspaceService {
       classOffering: classroom,
       activeLearnerCount: enrollments.length,
       assessments: projected,
-      trend: projected
-        .filter((item, index) => assessments[index].test.purpose === TestPurpose.IN_CLASS)
-        .map((item, index) => ({
-          assessmentId: item.id,
-          title: item.test.title,
-          stage: item.stage,
-          date:
-            assessments[index].closeAt ?? assessments[index].openAt ?? assessments[index].createdAt,
-          skills: item.skillAverages
-            .filter((score) => score.average !== null)
-            .map(({ skill, average, sampleCount }) => ({ skill, average, sampleCount })),
-        })),
+      trend: assessments
+        .map((assessment, index) => {
+          const item = projected[index];
+          return {
+            purpose: assessment.test.purpose,
+            assessmentId: item.id,
+            title: item.test.title,
+            stage: item.stage,
+            date: assessment.closeAt ?? assessment.openAt ?? assessment.createdAt,
+            skills: item.skillAverages
+              .filter((score) => score.average !== null)
+              .map(({ skill, average, sampleCount }) => ({ skill, average, sampleCount })),
+          };
+        })
+        .filter((item) => item.purpose === TestPurpose.IN_CLASS && item.skills.length > 0)
+        .map(({ purpose: _purpose, ...item }) => item)
+        .sort(
+          (a, b) =>
+            a.date.getTime() - b.date.getTime() || a.assessmentId.localeCompare(b.assessmentId),
+        ),
     };
   }
 

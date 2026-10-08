@@ -124,7 +124,7 @@ describe('InstructorWorkspaceService', () => {
     );
   });
 
-  it('projects one fully-final four-skill learner trend point per assessment', async () => {
+  it('keeps the deterministic learner story while missing required FINAL skills stay pending', async () => {
     const score = (skill: ToeicSkill, status: SkillScoreStatus, normalizedScore: number) => ({
       skill,
       status,
@@ -155,8 +155,15 @@ describe('InstructorWorkspaceService', () => {
           skillScores: [
             score(ToeicSkill.LISTENING, SkillScoreStatus.FINAL, 70),
             score(ToeicSkill.READING, SkillScoreStatus.FINAL, 71),
-            score(ToeicSkill.SPEAKING, SkillScoreStatus.PROVISIONAL, 0),
-            score(ToeicSkill.WRITING, SkillScoreStatus.PROVISIONAL, 0),
+          ], answers: [],
+        },
+        {
+          id: 'practice-partial', attemptNumber: 1, submittedAt: new Date('2026-02-15T00:00:00Z'),
+          classAssessment: { id: 'practice', stage: 'PERIODIC', test: { title: 'Practice', purpose: 'IN_CLASS' } },
+          skillScores: [
+            score(ToeicSkill.LISTENING, SkillScoreStatus.FINAL, 65),
+            score(ToeicSkill.READING, SkillScoreStatus.FINAL, 66),
+            score(ToeicSkill.SPEAKING, SkillScoreStatus.FINAL, 67),
           ], answers: [],
         },
         {
@@ -172,13 +179,41 @@ describe('InstructorWorkspaceService', () => {
 
     const result = await service.learnerDetail('instructor-a', 'class-a', 'enrollment-a');
 
-    expect(result.attempts).toHaveLength(3);
+    expect(result.attempts).toHaveLength(4);
+    expect(result.summary.pendingGradingCount).toBe(2);
+    expect(result.latestFourSkillSnapshot?.attemptId).toBe('midterm-final');
+    expect(result.attempts.find((attempt) => attempt.id === 'midterm-pending')?.skillScores).toHaveLength(2);
+    expect(result.attempts.find((attempt) => attempt.id === 'practice-partial')?.skillScores).toHaveLength(3);
+    expect(result.attempts.find((attempt) => attempt.id === 'midterm-final')?.skillScores).toHaveLength(4);
     expect(result.skillTrend.map((point) => [point.assessmentTitle, point.attemptId])).toEqual([
       ['Periodic', 'periodic-final'],
       ['Midterm', 'midterm-final'],
     ]);
     expect(result.recentActivity.find((item) => item.type === 'GRADING_FINAL')?.label).toContain('2 câu tự luận đã có kết quả chấm');
     expect(result.recentActivity.map((item) => item.label).join(' ')).not.toContain('tiêu chí');
+  });
+
+  it('does not count non-IN_CLASS attempts as four-skill grading work', async () => {
+    prisma.module.findMany.mockResolvedValue([]);
+    prisma.enrollment.findFirst.mockResolvedValue({
+      id: 'enrollment-a',
+      status: 'ACTIVE',
+      enrolledAt: new Date('2026-01-01T00:00:00Z'),
+      learner: { id: 'learner-a', fullName: 'Learner A', email: 'a@test' },
+      lessonProgress: [],
+      testAttempts: [{
+        id: 'practice-mock',
+        attemptNumber: 1,
+        submittedAt: new Date('2026-02-01T00:00:00Z'),
+        classAssessment: { id: 'mock', stage: 'FINAL', test: { title: 'Mock', purpose: 'PRACTICE_MOCK' } },
+        skillScores: [],
+        answers: [],
+      }],
+    });
+
+    const result = await service.learnerDetail('instructor-a', 'class-a', 'enrollment-a');
+
+    expect(result.summary.pendingGradingCount).toBe(0);
   });
 
   it('uses latest submitted attempts and FINAL-only scores for class averages', async () => {
@@ -284,6 +319,66 @@ describe('InstructorWorkspaceService', () => {
       fullyGradedCount: 0,
       pendingGradingCount: 2,
     });
+  });
+
+  it('returns scored class trend points in chronological event-date order without zero samples', async () => {
+    prisma.enrollment.findMany.mockResolvedValue([
+      { id: 'enrollment-a', learnerId: 'learner-a', learner: { fullName: 'A', email: 'a@test' } },
+    ]);
+    const finalScore = (skill: ToeicSkill, normalizedScore: number) => ({
+      skill,
+      status: SkillScoreStatus.FINAL,
+      normalizedScore,
+    });
+    const assessment = (
+      id: string,
+      title: string,
+      dates: { createdAt: Date; openAt: Date | null; closeAt: Date | null },
+      skillScores: Array<ReturnType<typeof finalScore>>,
+    ) => ({
+      id,
+      stage: 'PERIODIC',
+      ...dates,
+      test: { id: `test-${id}`, title, purpose: 'IN_CLASS' },
+      attempts: skillScores.length ? [{
+        id: `attempt-${id}`,
+        learnerId: 'learner-a',
+        attemptNumber: 1,
+        submittedAt: dates.createdAt,
+        learner: { fullName: 'A', email: 'a@test' },
+        skillScores,
+      }] : [],
+    });
+    prisma.classAssessment.findMany.mockResolvedValue([
+      assessment(
+        'final-empty',
+        'Final',
+        { createdAt: new Date('2026-04-01T00:00:00Z'), openAt: new Date('2026-04-02T00:00:00Z'), closeAt: null },
+        [],
+      ),
+      assessment(
+        'midterm',
+        'Midterm',
+        { createdAt: new Date('2026-03-01T00:00:00Z'), openAt: new Date('2026-03-02T00:00:00Z'), closeAt: new Date('2026-03-03T00:00:00Z') },
+        [finalScore(ToeicSkill.LISTENING, 80)],
+      ),
+      assessment(
+        'periodic',
+        'Periodic',
+        { createdAt: new Date('2026-02-01T00:00:00Z'), openAt: new Date('2026-02-02T00:00:00Z'), closeAt: null },
+        [finalScore(ToeicSkill.READING, 70)],
+      ),
+    ]);
+
+    const result = await service.results('instructor-a', 'class-a');
+
+    expect(result.assessments.map((item) => item.test.title)).toEqual(['Final', 'Midterm', 'Periodic']);
+    expect(result.trend.map((point) => point.title)).toEqual(['Periodic', 'Midterm']);
+    expect(result.trend.map((point) => point.date.getTime())).toEqual([
+      new Date('2026-02-02T00:00:00Z').getTime(),
+      new Date('2026-03-03T00:00:00Z').getTime(),
+    ]);
+    expect(result.trend.every((point) => point.skills.every((skill) => skill.sampleCount > 0))).toBe(true);
   });
 
   it('requests the class grading queue in deterministic oldest-first order', async () => {

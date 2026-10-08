@@ -159,6 +159,10 @@ if (new Set(assessmentTrendIds).size !== assessmentTrendIds.length) throw new Er
 if (learnerDetail.skillTrend.some((point) => point.scores.length !== 4)) throw new Error('Learner trend includes a partially graded attempt');
 const grading = requireOk(await browserFetch(`/instructor/classes/${classId}/grading`), 'Grading inbox');
 const results = requireOk(await browserFetch(`/instructor/classes/${classId}/results`), 'Class results');
+const resultTrendTitles = results.trend.map((point) => point.title);
+if (JSON.stringify(resultTrendTitles) !== JSON.stringify(['Kiểm tra thường kỳ 01', 'Kiểm tra giữa kỳ'])) throw new Error(`Class results API trend is not the scored Periodic → Midterm story: ${JSON.stringify(resultTrendTitles)}`);
+if (results.trend.some((point, index) => index > 0 && new Date(point.date) < new Date(results.trend[index - 1].date))) throw new Error('Class results API trend dates are not monotonic ascending');
+if (results.trend.some((point) => point.skills.length === 0 || point.skills.some((skill) => skill.sampleCount < 1 || skill.average === null))) throw new Error('Class results API trend fabricated or retained an empty sample');
 const tests = requireOk(await browserFetch(`/instructor/courses/${courseId}/tests`), 'Test templates');
 let groupedTest;
 for (const summary of tests) {
@@ -377,8 +381,16 @@ if (grading.submissions.length) {
 }
 const resultState = await navigate(`/instructor/classes/${classId}/results`, ['Kết quả lớp', 'Mức độ hoàn chỉnh kết quả', 'So sánh kỹ năng', 'Phân bố điểm', 'Xu hướng qua các đợt kiểm tra', 'Kết quả từng học viên']);
 if (resultState.text.includes('Mẫu ') || resultState.text.includes('loại trừ')) throw new Error('Results still exposes technical sample/exclusion jargon');
-const resultsChart = await evaluate(`(() => { const chart=document.querySelector('svg[aria-label="Biểu đồ xu hướng kỹ năng theo đợt kiểm tra"]'); return { chart:Boolean(chart), sample:(chart?.textContent ?? '').includes('n='), sampleText:chart?.textContent?.slice(0,500), table:Boolean(document.querySelector('.sr-only table')) }; })()`);
-if (!resultsChart.chart || !resultsChart.sample || !resultsChart.table) throw new Error(`Class results trend evidence failed: ${JSON.stringify(resultsChart)}`);
+const resultsChart = await evaluate(`(() => {
+  const chart=document.querySelector('svg[aria-label="Biểu đồ xu hướng kỹ năng theo đợt kiểm tra"]');
+  const labels=[...(chart?.querySelectorAll('text') ?? [])];
+  const periodic=labels.find((node)=>node.textContent?.startsWith('Kiểm tra thường'));
+  const midterm=labels.find((node)=>node.textContent?.startsWith('Kiểm tra giữa kỳ'));
+  const table=[...document.querySelectorAll('.sr-only table')].find((item)=>item.querySelector('caption')?.textContent?.includes('xu hướng kỹ năng'));
+  const rowTitles=[...(table?.querySelectorAll('tbody th') ?? [])].map((node)=>node.textContent?.trim());
+  return { chart:Boolean(chart), sample:(chart?.textContent ?? '').includes('n='), periodicX:Number(periodic?.getAttribute('x')), midtermX:Number(midterm?.getAttribute('x')), rowTitles, table:Boolean(table) };
+})()`);
+if (!resultsChart.chart || !resultsChart.sample || !resultsChart.table || !(resultsChart.periodicX < resultsChart.midtermX) || JSON.stringify(resultsChart.rowTitles) !== JSON.stringify(['Kiểm tra thường kỳ 01', 'Kiểm tra giữa kỳ'])) throw new Error(`Class results chronological trend evidence failed: ${JSON.stringify(resultsChart)}`);
 checks.push(['class results Round 3 story', resultState]);
 
 const modules = requireOk(await browserFetch(`/instructor/courses/${courseId}/modules`), 'Course modules');

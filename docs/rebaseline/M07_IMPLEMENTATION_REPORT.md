@@ -251,3 +251,21 @@ These are engineering verification results only. Product Owner Round 3 correctio
 - Prisma validate/generate/deploy/status/drift, project skeleton, lint, typecheck, build, and `git diff --check`: **PASS**.
 
 These are engineering verification results only. GPT narrow re-review and the Product Owner correction retest remain required.
+
+## Final narrow truth correction (N1/N2)
+
+- **N1 — Learner pending grading:** `learnerDetail()` now derives the set of FINAL skills for each submitted IN_CLASS attempt and counts it as pending unless all Listening, Reading, Speaking, and Writing skills are present and FINAL. Missing Speaking/Writing rows therefore remain truthful pending work; no provisional or synthetic score rows are created. The existing bounded learner query, attempt history, latest finalized snapshot, and one-complete-attempt-per-assessment trend behavior are preserved.
+- **N2 — Class Results chronology:** the class assessment selector remains newest-first, while each IN_CLASS trend point now keeps its own `closeAt ?? openAt ?? createdAt` event date, omits assessments with no scored skill samples, and is sorted oldest-first with a deterministic assessment-ID tie-break. Missing skill samples remain absent rather than becoming zero.
+- Regression coverage includes WAITING (Listening/Reading FINAL only), PARTIAL (Writing missing), FULL (all four FINAL), the deterministic primary learner history/snapshot/trend story, newest-first assessment input, Periodic → Midterm output, monotonic event dates, positive sample counts, and browser-level SVG/table order.
+- The deterministic seed now removes non-seeded skill-score residue from its legacy objective demo attempt so repeated reseeds restore the intended two-assessment scored story. No Prisma schema, migration, fake score row, or Product Owner source artifact was changed. This engineering correction does not claim Product Owner Manual Visual Gate PASS.
+
+### Final narrow correction verification
+
+- Focused Instructor Workspace service regression: **11/11 PASS**.
+- Full unit regression: API **388/388 PASS**; Web **236/236 PASS**.
+- API E2E: **97/97 PASS**.
+- Dedicated headless-Chrome smoke: **42/42 PASS**, including API event-date monotonicity, exact Periodic → Midterm returned order, SVG left-to-right order, accessible table row order, and **0 horizontal-overflow failures** across desktop, tablet, and mobile.
+- Prisma validate/generate/status/drift, deterministic seed/data validator, M05 manifest, lint, typecheck, build, and `git diff --check`: **PASS**.
+- Smoke-owned fixtures and the isolated Chrome profile were removed; a final deterministic reseed and M07 data validation passed afterward.
+
+These results are engineering evidence for GPT verification only. Product Owner correction retest remains blocked until GPT accepts this narrow correction.
