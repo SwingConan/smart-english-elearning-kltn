@@ -61,7 +61,12 @@ async function navigate(path, expected, width = 1440, height = 900) {
     state = await evaluate(`({
       text: document.body.innerText,
       path: location.pathname,
-      overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
+      overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
+      overflowDetails: [...document.querySelectorAll('body *')]
+        .map((element) => ({ element, rect: element.getBoundingClientRect() }))
+        .filter(({ rect }) => rect.right > document.documentElement.clientWidth + 2 || rect.left < -2)
+        .slice(0, 8)
+        .map(({ element, rect }) => ({ tag: element.tagName, className: String(element.className).slice(0, 160), left: Math.round(rect.left), right: Math.round(rect.right), width: Math.round(rect.width), text: (element.textContent ?? '').trim().slice(0, 80) }))
     })`);
     if (state.path === '/login') throw new Error(`Session was lost while opening ${path}`);
     if (markers.every((marker) => state.text.includes(marker))) return state;
@@ -135,6 +140,8 @@ const classes = requireOk(await browserFetch('/instructor/classes'), 'Instructor
 if (classes.length < 10) throw new Error(`Expected at least 10 instructor classes, got ${classes.length}`);
 if (JSON.stringify(classes).includes('1970-01-01')) throw new Error('Instructor schedule leaked the database transport date');
 if (JSON.stringify(classes).includes('undefined')) throw new Error('Instructor schedule rendered an undefined field');
+if (!classes.some((item) => item.status === 'CANCELLED')) throw new Error('Instructor classes do not preserve the CANCELLED state');
+if (classes.some((item) => item.status === 'CLOSED')) throw new Error('Instructor classes expose the removed pseudo-CLOSED state');
 const classroom = classes.find((item) => item.activeLearnerCount >= 10) ?? classes[0];
 if (!classroom) throw new Error('No instructor class fixture was found');
 const classId = classroom.id;
@@ -147,6 +154,9 @@ if (activeRosterLearners.length !== 11) throw new Error(`Expected exactly 11 act
 const learner = roster.learners.find((item) => item.status === 'ACTIVE') ?? roster.learners[0];
 const learnerDetail = requireOk(await browserFetch(`/instructor/classes/${classId}/learners/${learner.id}`), 'Learner detail');
 if (!Array.isArray(learnerDetail.attempts)) throw new Error('Learner attempt history is unavailable');
+const assessmentTrendIds = learnerDetail.skillTrend.map((point) => point.assessmentTitle);
+if (new Set(assessmentTrendIds).size !== assessmentTrendIds.length) throw new Error('Learner trend contains duplicate assessment points');
+if (learnerDetail.skillTrend.some((point) => point.scores.length !== 4)) throw new Error('Learner trend includes a partially graded attempt');
 const grading = requireOk(await browserFetch(`/instructor/classes/${classId}/grading`), 'Grading inbox');
 const results = requireOk(await browserFetch(`/instructor/classes/${classId}/results`), 'Class results');
 const tests = requireOk(await browserFetch(`/instructor/courses/${courseId}/tests`), 'Test templates');
@@ -233,10 +243,16 @@ await delay(1000);
 const teachingState = await navigate('/instructor/teaching', ['Lớp giảng dạy của tôi', 'Vào lớp']);
 const teachingUi = await evaluate(`(() => { const course=document.querySelector('[aria-label="Lọc khóa học"]'); const status=document.querySelector('[aria-label="Lọc trạng thái lớp"]'); const day=document.querySelector('[aria-label="Lọc ngày học"]'); const duplicateSchedules=[...document.querySelectorAll('tbody tr')].filter((row)=>{const values=[...row.querySelectorAll('td:nth-child(2) span span')].map((node)=>node.textContent?.trim());return values.length!==new Set(values).size;}).length; return { groups: document.querySelectorAll('details').length, filters: Boolean(course&&status&&day), duplicateSchedules, semantic: document.body.innerText.includes('Đang học') || document.body.innerText.includes('Đang mở đăng ký') }; })()`);
 if (teachingUi.groups < 1 || !teachingUi.filters || teachingUi.duplicateSchedules || !teachingUi.semantic) throw new Error(`Teaching Round 3 checks failed: ${JSON.stringify(teachingUi)}`);
+const cancelledUi = await evaluate(`(() => { const filter=document.querySelector('[aria-label="Lọc trạng thái lớp"]'); return { hasCancelledOption:[...filter.options].some((item)=>item.value==='CANCELLED'), hasClosedOption:[...filter.options].some((item)=>item.value==='CLOSED'), cancelledLabel:document.body.innerText.includes('Đã hủy') }; })()`);
+if (!cancelledUi.hasCancelledOption || cancelledUi.hasClosedOption || !cancelledUi.cancelledLabel) throw new Error(`Cancelled class presentation failed: ${JSON.stringify(cancelledUi)}`);
 checks.push(['teaching course groups and filters', teachingState]);
+checks.push(['cancelled class semantics', { overflow: teachingState.overflow }]);
 checks.push(['class overview', await navigate(`/instructor/classes/${classId}`, ['Tổng quan lớp', 'Phân bố tiến độ', 'Cần theo dõi', 'Mốc sắp tới'])]);
 checks.push(['roster', await navigate(`/instructor/classes/${classId}/learners`, ['Học viên', 'Theo dõi tiến độ học tập'])]);
-checks.push(['learner detail', await navigate(`/instructor/classes/${classId}/learners/${learner.id}`, ['Kết quả 4 kỹ năng gần nhất', 'Tiến độ theo mô-đun', 'Hoạt động gần đây', 'Xu hướng kỹ năng', 'Lịch sử bài kiểm tra'])]);
+const learnerState = await navigate(`/instructor/classes/${classId}/learners/${learner.id}`, ['Kết quả 4 kỹ năng gần nhất', 'Tiến độ theo mô-đun', 'Hoạt động gần đây', 'Xu hướng kỹ năng', 'Lịch sử bài kiểm tra']);
+const learnerChart = await evaluate(`Boolean(document.querySelector('svg[aria-label="Biểu đồ xu hướng kỹ năng theo đợt kiểm tra"]'))`);
+if (learnerDetail.skillTrend.length && !learnerChart) throw new Error('Learner trend chart did not render');
+checks.push(['learner detail and trend chart', learnerState]);
 checks.push(['shared content warning', await navigate(`/instructor/classes/${classId}/content`, ['Nội dung này dùng chung cho các lớp thuộc khóa học này.', 'Quản lý nội dung khóa học', 'BÀI HỌC ĐANG CHỌN'])]);
 await evaluate(`(() => {
   const add = [...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '+ Tài liệu');
@@ -308,7 +324,13 @@ try {
   if (!xlsxPreview.text.includes('Xem trước dữ liệu XLSX') || !xlsxPreview.text.includes('1/1 dòng hợp lệ') || !xlsxPreview.text.includes('trùng với câu hỏi hiện có') || xlsxPreview.confirmDisabled !== false) {
     throw new Error('XLSX warning preview or safe warning-only confirm state did not render');
   }
+  await evaluate(`(() => { const button=[...document.querySelectorAll('button')].find((item)=>item.textContent?.trim()==='Xác nhận nhập'); if(!button) throw new Error('XLSX confirm action missing'); button.click(); return true; })()`);
+  await delay(150);
+  const destinationDialog = await evaluate(`(() => { const dialog=document.querySelector('[role="dialog"][aria-label="Xác nhận nhập câu hỏi"]'); return { open:Boolean(dialog), hasTitle:dialog?.innerText.includes(${JSON.stringify(classroom.course.title)}) ?? false, leaksUuid:dialog?.innerText.includes(${JSON.stringify(courseId)}) ?? false }; })()`);
+  if (!destinationDialog.open || !destinationDialog.hasTitle || destinationDialog.leaksUuid) throw new Error(`XLSX destination title failed: ${JSON.stringify(destinationDialog)}`);
+  await evaluate(`(() => { const dialog=document.querySelector('[role="dialog"][aria-label="Xác nhận nhập câu hỏi"]'); [...dialog.querySelectorAll('button')].find((item)=>item.textContent?.includes('Quay lại xem trước'))?.click(); return true; })()`);
   checks.push(['XLSX warning preview without confirm', xlsxPreview]);
+  checks.push(['XLSX human-readable destination', { overflow: xlsxPreview.overflow }]);
 } finally {
   if (xlsxFixture?.questionId) requireOk(await browserFetch(`/instructor/questions/${xlsxFixture.questionId}`, { method: 'DELETE' }), 'XLSX duplicate fixture cleanup');
 }
@@ -328,7 +350,21 @@ for (let attempt = 0; attempt < 20; attempt += 1) {
 if (returnPath !== `/instructor/classes/${classId}/assessments`) throw new Error(`Question Bank return context was lost: ${returnPath}`);
 checks.push(['question bank safe return context', { overflow: false }]);
 const builder = await navigate(`/instructor/tests/${groupedTest.id}/edit`, ['Bước 1 / 5', '1. Thông tin đề']);
-for (const step of [2,3,4,5]) { await evaluate(`(() => { const target=[...document.querySelectorAll('button')].find((button)=>button.textContent?.trim().startsWith('${step}.')); if(!target) throw new Error('Missing wizard step ${step}'); target.click(); return true; })()`); await delay(100); const marker=await evaluate('document.body.innerText'); if(!marker.includes(`Bước ${step} / 5`)) throw new Error('Wizard did not move to step ${step}'); }
+const step1 = await evaluate(`({ hasTitle:Boolean(document.querySelector('input[maxlength="300"]')), hasAttempts:[...document.querySelectorAll('label')].some((item)=>item.textContent.includes('Số lượt làm') && !item.closest('.hidden')) })`);
+if (!step1.hasTitle || step1.hasAttempts) throw new Error(`Builder Step 1 separation failed: ${JSON.stringify(step1)}`);
+for (const step of [2,3,4,5]) {
+  await evaluate(`(() => { const target=[...document.querySelectorAll('button')].find((button)=>button.textContent?.trim().startsWith('${step}.')); if(!target) throw new Error('Missing wizard step ${step}'); target.click(); return true; })()`);
+  await delay(100);
+  const marker = await evaluate('document.body.innerText');
+  if (!marker.includes(`Bước ${step} / 5`)) throw new Error('Wizard did not move to step ${step}');
+  if (step === 2 && !marker.includes('Phần thi theo bốn kỹ năng')) throw new Error('Builder Step 2 structure is missing');
+  if (step === 3 && (!marker.includes('Soạn câu hỏi & ngữ liệu') || !marker.includes('Thêm từ ngân hàng câu hỏi'))) throw new Error('Builder Step 3 content authoring is missing');
+  if (step === 4 && (!marker.includes('Số lượt làm') || !marker.includes('Kiểm tra khả năng xuất bản'))) throw new Error('Builder Step 4 settings/readiness is missing');
+  if (step === 5) {
+    const preview = await evaluate(`(() => { const root=document.querySelector('[aria-label="Bản xem trước dành cho học viên"]'); return { root:Boolean(root), choices:root?.querySelectorAll('input[type="radio"],input[type="checkbox"]').length ?? 0, leaked:[...(root?.querySelectorAll('*') ?? [])].some((node)=>/đáp án đúng/i.test(node.textContent ?? '')) }; })()`);
+    if (!preview.root || preview.choices < 1 || preview.leaked) throw new Error(`Builder Step 5 safe preview failed: ${JSON.stringify(preview)}`);
+  }
+}
 checks.push(['guided five-step test builder', builder]);
 checks.push(['class scheduling', await navigate(`/instructor/classes/${classId}/assessments`, ['Ngân hàng câu hỏi', 'Đề kiểm tra', 'Lịch kiểm tra của lớp', 'Chuẩn bị câu hỏi', 'Tạo đề kiểm tra', 'Giao đề cho lớp'])]);
 checks.push(['grading inbox', await navigate(`/instructor/classes/${classId}/grading`, ['Ưu tiên bài nộp sớm nhất', 'Chấm bài'])]);
@@ -341,6 +377,8 @@ if (grading.submissions.length) {
 }
 const resultState = await navigate(`/instructor/classes/${classId}/results`, ['Kết quả lớp', 'Mức độ hoàn chỉnh kết quả', 'So sánh kỹ năng', 'Phân bố điểm', 'Xu hướng qua các đợt kiểm tra', 'Kết quả từng học viên']);
 if (resultState.text.includes('Mẫu ') || resultState.text.includes('loại trừ')) throw new Error('Results still exposes technical sample/exclusion jargon');
+const resultsChart = await evaluate(`(() => { const chart=document.querySelector('svg[aria-label="Biểu đồ xu hướng kỹ năng theo đợt kiểm tra"]'); return { chart:Boolean(chart), sample:(chart?.textContent ?? '').includes('n='), sampleText:chart?.textContent?.slice(0,500), table:Boolean(document.querySelector('.sr-only table')) }; })()`);
+if (!resultsChart.chart || !resultsChart.sample || !resultsChart.table) throw new Error(`Class results trend evidence failed: ${JSON.stringify(resultsChart)}`);
 checks.push(['class results Round 3 story', resultState]);
 
 const modules = requireOk(await browserFetch(`/instructor/courses/${courseId}/modules`), 'Course modules');
@@ -433,7 +471,7 @@ for (const [width, height, label] of [[1440,900,'desktop'],[820,1180,'tablet'],[
 }
 
 const overflowFailures = checks.filter(([, state]) => state.overflow);
-if (overflowFailures.length) throw new Error(`Horizontal overflow: ${overflowFailures.map(([name]) => name).join(', ')}`);
+if (overflowFailures.length) throw new Error(`Horizontal overflow: ${JSON.stringify(overflowFailures.map(([name, state]) => ({ name, details: state.overflowDetails })))}`);
 const summary = {
   classCode: classroom.code,
   activeLearners: activeRosterLearners.length,

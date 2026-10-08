@@ -8,6 +8,7 @@ import { deferred, renderAssessmentRoute } from './assessment-test-utils';
 import type { AssessmentQuestion, QuestionPage, QuestionType } from './types';
 import { knowledgeModelApi } from '@/features/knowledge-model/api';
 import type { Skill } from '@/features/knowledge-model/types';
+import { instructorApi } from '@/features/instructor/api';
 
 const courseId = 'course-a';
 
@@ -157,6 +158,7 @@ describe('QuestionBankPage', () => {
   });
 
   it('renders XLSX warnings separately from blocking row errors', async () => {
+    vi.spyOn(instructorApi.teaching, 'list').mockResolvedValue([{ course: { id: courseId, title: 'TOEIC Workplace Foundations', slug: 'toeic-workplace-foundations', level: 'FOUNDATION', isPublished: true, _count: { modules: 1 } }, classOfferings: [] }]);
     vi.spyOn(assessmentApi.questions, 'page').mockResolvedValue(questionPage([]));
     vi.spyOn(assessmentApi.questions, 'previewImport')
       .mockResolvedValueOnce({
@@ -182,6 +184,8 @@ describe('QuestionBankPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Xác nhận nhập/i }));
     const confirmation = await screen.findByRole('dialog', { name: /Xác nhận nhập câu hỏi/i });
     expect(within(confirmation).getByText(/1 câu/)).toBeInTheDocument();
+    expect(within(confirmation).getByText('TOEIC Workplace Foundations')).toBeInTheDocument();
+    expect(within(confirmation).queryByText(courseId)).not.toBeInTheDocument();
     fireEvent.click(within(confirmation).getByRole('button', { name: /Quay lại xem trước/i }));
     expect(confirmImport).not.toHaveBeenCalled();
 

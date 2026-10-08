@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import { toeicSkillLabel } from '@/features/assessments/display';
 import type { ToeicSkill } from '@/features/assessments/types';
 import { instructorApi } from '@/features/instructor/api';
+import { SkillTrendChart } from '@/components/SkillTrendChart';
 const skills: ToeicSkill[] = ['LISTENING', 'READING', 'SPEAKING', 'WRITING'];
 type Score = { skill: ToeicSkill; status: string; normalizedScore: number };
 type Average = {
@@ -62,7 +63,7 @@ export function InstructorClassResultsPage() {
       .then((data) => {
         const rows = data.assessments as Assessment[];
         setAssessments(rows);
-        setTrend((data as unknown as { trend: Trend[] }).trend ?? []);
+        setTrend(data.trend ?? []);
         setSelected(rows[0]?.id ?? '');
         setState('ready');
       })
@@ -157,8 +158,8 @@ export function InstructorClassResultsPage() {
               ))}
             </div>
           </section>
-          <section className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border bg-white p-5">
+          <section className="grid min-w-0 gap-4 md:grid-cols-2">
+            <div className="min-w-0 overflow-hidden rounded-2xl border bg-white p-5">
               <h3 className="font-bold">Phân bố điểm</h3>
               <p className="text-sm text-slate-500">
                 Số học viên theo khoảng điểm cuối của từng kỹ năng.
@@ -186,31 +187,11 @@ export function InstructorClassResultsPage() {
                 </div>
               ))}
             </div>
-            <div className="rounded-2xl border bg-white p-5">
+            <div className="min-w-0 overflow-hidden rounded-2xl border bg-white p-5">
               <h3 className="font-bold">Xu hướng qua các đợt kiểm tra</h3>
               <p className="text-sm text-slate-500">Chỉ dùng bài trong lớp và điểm đã chấm cuối.</p>
               {trend.length >= 2 ? (
-                <div className="mt-4 space-y-3">
-                  {trend.map((point) => (
-                    <div className="rounded-lg border p-3" key={point.assessmentId}>
-                      <strong>{point.title}</strong>
-                      <p className="text-xs text-slate-500">
-                        {new Date(point.date).toLocaleDateString('vi-VN')}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {point.skills.map((score) => (
-                          <span
-                            className="rounded-full bg-indigo-50 px-2 py-1 text-xs"
-                            key={score.skill}
-                          >
-                            {toeicSkillLabel[score.skill]} {score.average}% · {score.sampleCount}{' '}
-                            học viên
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <SkillTrendChart showSampleCount points={trend.map((point) => ({ id: point.assessmentId, title: point.title, date: point.date, values: Object.fromEntries(point.skills.map((score) => [score.skill, { score: score.average, sampleCount: score.sampleCount }])) }))} />
               ) : (
                 <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
                   Cần ít nhất 2 đợt kiểm tra có điểm cuối để hiển thị xu hướng.

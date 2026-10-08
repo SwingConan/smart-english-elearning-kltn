@@ -103,12 +103,12 @@ describe('InstructorWorkspaceService', () => {
     expect(JSON.stringify(result)).not.toContain('1970');
   });
 
-  it('presents a cancelled offering as the closed instructor-catalog state', async () => {
+  it('presents a cancelled offering with its persisted cancellation state', async () => {
     prisma.classOffering.findMany.mockResolvedValue([
       { ...classroom, status: 'CANCELLED', _count: { enrollments: 0 } },
     ]);
     const result = await service.listClasses('instructor-a');
-    expect(result[0].status).toBe('CLOSED');
+    expect(result[0].status).toBe('CANCELLED');
   });
 
   it('keeps learner IDs scoped to the owned class', async () => {
@@ -122,6 +122,63 @@ describe('InstructorWorkspaceService', () => {
         where: { id: 'enrollment-from-class-b', classOfferingId: 'class-a' },
       }),
     );
+  });
+
+  it('projects one fully-final four-skill learner trend point per assessment', async () => {
+    const score = (skill: ToeicSkill, status: SkillScoreStatus, normalizedScore: number) => ({
+      skill,
+      status,
+      normalizedScore,
+    });
+    const allFinal = (base: number) => [
+      score(ToeicSkill.LISTENING, SkillScoreStatus.FINAL, base),
+      score(ToeicSkill.READING, SkillScoreStatus.FINAL, base + 1),
+      score(ToeicSkill.SPEAKING, SkillScoreStatus.FINAL, base + 2),
+      score(ToeicSkill.WRITING, SkillScoreStatus.FINAL, base + 3),
+    ];
+    prisma.module.findMany.mockResolvedValue([]);
+    prisma.enrollment.findFirst.mockResolvedValue({
+      id: 'enrollment-a',
+      status: 'ACTIVE',
+      enrolledAt: new Date('2026-01-01T00:00:00Z'),
+      learner: { id: 'learner-a', fullName: 'Learner A', email: 'a@test' },
+      lessonProgress: [],
+      testAttempts: [
+        {
+          id: 'midterm-final', attemptNumber: 2, submittedAt: new Date('2026-03-03T00:00:00Z'),
+          classAssessment: { id: 'midterm', stage: 'MIDTERM', test: { title: 'Midterm', purpose: 'IN_CLASS' } },
+          skillScores: allFinal(80), answers: [],
+        },
+        {
+          id: 'midterm-pending', attemptNumber: 1, submittedAt: new Date('2026-03-02T00:00:00Z'),
+          classAssessment: { id: 'midterm', stage: 'MIDTERM', test: { title: 'Midterm', purpose: 'IN_CLASS' } },
+          skillScores: [
+            score(ToeicSkill.LISTENING, SkillScoreStatus.FINAL, 70),
+            score(ToeicSkill.READING, SkillScoreStatus.FINAL, 71),
+            score(ToeicSkill.SPEAKING, SkillScoreStatus.PROVISIONAL, 0),
+            score(ToeicSkill.WRITING, SkillScoreStatus.PROVISIONAL, 0),
+          ], answers: [],
+        },
+        {
+          id: 'periodic-final', attemptNumber: 1, submittedAt: new Date('2026-02-01T00:00:00Z'),
+          classAssessment: { id: 'periodic', stage: 'PERIODIC', test: { title: 'Periodic', purpose: 'IN_CLASS' } },
+          skillScores: allFinal(60), answers: [{ evaluations: [
+            { id: 'evaluation-a', updatedAt: new Date('2026-02-02T00:00:00Z') },
+            { id: 'evaluation-b', updatedAt: new Date('2026-02-02T01:00:00Z') },
+          ] }],
+        },
+      ],
+    });
+
+    const result = await service.learnerDetail('instructor-a', 'class-a', 'enrollment-a');
+
+    expect(result.attempts).toHaveLength(3);
+    expect(result.skillTrend.map((point) => [point.assessmentTitle, point.attemptId])).toEqual([
+      ['Periodic', 'periodic-final'],
+      ['Midterm', 'midterm-final'],
+    ]);
+    expect(result.recentActivity.find((item) => item.type === 'GRADING_FINAL')?.label).toContain('2 câu tự luận đã có kết quả chấm');
+    expect(result.recentActivity.map((item) => item.label).join(' ')).not.toContain('tiêu chí');
   });
 
   it('uses latest submitted attempts and FINAL-only scores for class averages', async () => {

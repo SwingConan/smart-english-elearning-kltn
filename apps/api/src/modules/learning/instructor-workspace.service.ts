@@ -2,7 +2,6 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import {
   AnswerEvaluationSource,
   AnswerEvaluationStatus,
-  ClassOfferingStatus,
   EnrollmentStatus,
   LessonProgressStatus,
   SkillScoreStatus,
@@ -46,8 +45,7 @@ export class InstructorWorkspaceService {
     });
     return classes.map((item) => ({
       ...item,
-      status:
-        item.status === ClassOfferingStatus.CANCELLED ? 'CLOSED' : item.status,
+      status: item.status,
       scheduleSlots: item.scheduleSlots.map(projectScheduleSlot),
       activeLearnerCount: item._count.enrollments,
       _count: undefined,
@@ -480,7 +478,7 @@ export class InstructorWorkspaceService {
           return [{
             type: 'GRADING_FINAL',
             at: latest.updatedAt,
-            label: `${attempt.classAssessment?.test.title ?? 'Bài kiểm tra'} · Lượt ${attempt.attemptNumber} · ${evaluations.length} tiêu chí đã chấm`,
+            label: `${attempt.classAssessment?.test.title ?? 'Bài kiểm tra'} · Lượt ${attempt.attemptNumber} · ${evaluations.length} câu tự luận đã có kết quả chấm`,
           }];
         })(),
       ]),
@@ -493,6 +491,40 @@ export class InstructorWorkspaceService {
     const pendingGrading = enrollment.testAttempts.filter((attempt) =>
       attempt.skillScores.some((score) => score.status !== SkillScoreStatus.FINAL),
     ).length;
+    const representativeTrendByAssessment = new Map<
+      string,
+      (typeof enrollment.testAttempts)[number]
+    >();
+    for (const attempt of enrollment.testAttempts) {
+      const assessmentId = attempt.classAssessment?.id;
+      if (
+        !assessmentId ||
+        representativeTrendByAssessment.has(assessmentId) ||
+        attempt.classAssessment?.test.purpose !== TestPurpose.IN_CLASS
+      ) continue;
+      const finals = new Set(
+        attempt.skillScores
+          .filter((score) => score.status === SkillScoreStatus.FINAL)
+          .map((score) => score.skill),
+      );
+      if (SKILLS.every((skill) => finals.has(skill))) {
+        representativeTrendByAssessment.set(assessmentId, attempt);
+      }
+    }
+    const skillTrend = [...representativeTrendByAssessment.values()]
+      .map((attempt) => ({
+        attemptId: attempt.id,
+        assessmentTitle: attempt.classAssessment?.test.title,
+        stage: attempt.classAssessment?.stage,
+        date: attempt.submittedAt,
+        scores: attempt.skillScores
+          .filter((score) => score.status === SkillScoreStatus.FINAL)
+          .map((score) => ({
+            skill: score.skill,
+            normalizedScore: Number(score.normalizedScore),
+          })),
+      }))
+      .sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0));
     return {
       classOffering: classroom,
       enrollment: {
@@ -540,22 +572,7 @@ export class InstructorWorkspaceService {
       },
       moduleProgress,
       recentActivity: allActivity.slice(0, 12),
-      skillTrend: enrollment.testAttempts
-        .filter((attempt) => attempt.classAssessment?.test.purpose === TestPurpose.IN_CLASS)
-        .map((attempt) => ({
-          attemptId: attempt.id,
-          assessmentTitle: attempt.classAssessment?.test.title,
-          stage: attempt.classAssessment?.stage,
-          date: attempt.submittedAt,
-          scores: attempt.skillScores
-            .filter((score) => score.status === SkillScoreStatus.FINAL)
-            .map((score) => ({
-              skill: score.skill,
-              normalizedScore: Number(score.normalizedScore),
-            })),
-        }))
-        .filter((item) => item.scores.length > 0)
-        .reverse(),
+      skillTrend,
     };
   }
 

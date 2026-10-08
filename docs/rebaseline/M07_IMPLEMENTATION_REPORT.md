@@ -203,7 +203,7 @@ Candidate before this correction: `331a30d34187b68210fc33bee8539b23c0f8b796`.
 
 | Finding | Disposition |
 | --- | --- |
-| R3-01 | Preserved the teaching catalog regression. Persistence has `CANCELLED`, not a distinct `CLOSED` enum; the Instructor catalog continues to project `CANCELLED` as the visible `CLOSED` state and keeps `COMPLETED` distinct. No schema state was invented. |
+| R3-01 | Preserved the persistence status without inventing a schema state: `CANCELLED` is now exposed as `CANCELLED` and labeled `Đã hủy`; `COMPLETED` remains `Đã kết thúc`. The Instructor filter no longer offers a pseudo-`CLOSED` class state. |
 | R3-02 | Added learner-backed drill-downs for every progress bucket, grading state, assessment submission state, and the 7-day inactive cohort. The progress numerator now explicitly explains `learners × lessons`; timeline labels separate opening and closing events. |
 | R3-03 | Preserved roster ownership, search, responsive cards, and read-only membership behavior. |
 | R3-04 | Collapsed multiple final rubric evaluations from one attempt into one user activity event. Clarified that the skill trend uses final internal 0–100 results and is not a TOEIC score or causal ability claim. |
@@ -229,3 +229,25 @@ No Prisma schema change or migration was required. This implementation report do
 - Smoke-owned fixtures were cleaned: 1,000 scale questions, one XLSX duplicate, and two temporary VIDEO resources. A final deterministic reseed/data-manifest check was run after smoke.
 
 These are engineering verification results only. Product Owner Round 3 correction retest remains the release gate.
+
+## Round 3 residual correction pass
+
+- The five-step Test Builder now separates identity/context, section structure, question/stimulus authoring, attempt/result settings with readiness, and a learner-like read-only preview. Preview response controls mirror choice, text, and audio shapes without consuming or rendering answer-key flags.
+- Learner trend selection now emits at most one point per `ClassAssessment`: the latest submitted attempt whose Listening, Reading, Speaking, and Writing scores are all `FINAL`. Full attempt history remains unchanged.
+- Learner and class result trends now use an accessible responsive SVG chart with a 0–100 axis, four skill series, legend, visible values, dates, gaps for missing data, and a screen-reader table. Class points also show sample counts.
+- Instructor class status preserves `CANCELLED` end-to-end and presents it as `Đã hủy`; `COMPLETED` remains `Đã kết thúc`, and the pseudo-`CLOSED` class filter was removed.
+- Deterministic M07 Listening/Reading demo items now have four coherent workplace options and exactly one correct option. The data validator verifies those invariants.
+- Grouped grading activity describes productive responses instead of rubric criteria. XLSX confirmation resolves and displays the destination Course title rather than its UUID.
+- No Prisma schema or migration change was required. Product Owner correction retest remains required; this section does not claim Manual Visual Gate PASS.
+
+### Residual correction verification
+
+- Focused API Instructor Workspace regression: **9/9 PASS**.
+- Focused Web builder, Question Bank, status, trend, and accessibility regression: **39/39 PASS**.
+- Full API unit: **386/386 PASS**; full Web: **236/236 PASS**; API E2E: **97/97 PASS**.
+- Dedicated headless-Chrome smoke: **42/42 PASS** with **0 horizontal-overflow failures** at desktop `1440×900`, tablet `820×1180`, and mobile `390×844`.
+- Browser coverage includes all five distinct builder steps, learner-safe preview controls, one finalized trend point per assessment, four-series learner/class charts, class sample counts, `CANCELLED` presentation, human-readable XLSX destination, and existing protected-resource workflows.
+- Smoke-owned fixtures were cleaned. A final deterministic seed and M07 data-manifest validation passed after browser smoke; the M05 content manifest also remained valid.
+- Prisma validate/generate/deploy/status/drift, project skeleton, lint, typecheck, build, and `git diff --check`: **PASS**.
+
+These are engineering verification results only. GPT narrow re-review and the Product Owner correction retest remain required.

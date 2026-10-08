@@ -29,12 +29,12 @@ try {
 
   const catalog = await one(`
     SELECT count(*)::int classes, count(DISTINCT co."courseId")::int courses,
-      array_agg(DISTINCT CASE WHEN co.status::text = 'CANCELLED' THEN 'CLOSED' ELSE co.status::text END) statuses
+      array_agg(DISTINCT co.status::text) statuses
     FROM class_offerings co JOIN users u ON u.id = co."instructorId"
     WHERE u.email = 'instructor.demo@smart-elearning.local'`);
   expect(catalog.classes >= 10, `Instructor classes expected >=10, got ${catalog.classes}`);
   expect(catalog.courses === 5, `Instructor courses expected 5, got ${catalog.courses}`);
-  for (const status of ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CLOSED'])
+  for (const status of ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'])
     expect(catalog.statuses.includes(status), `Teaching catalog is missing ${status}`);
   const duplicateSlots = await one(`
     SELECT count(*)::int count FROM (
@@ -127,6 +127,25 @@ try {
   for (const [key, count] of expectedBank) expect(bankKey.get(key)?.count === count, `${key} expected ${count}, got ${bankKey.get(key)?.count ?? 0}`);
   expect(bankKey.get('SPEAKING:AUDIO_RESPONSE')?.activeRubricCount === 16, 'Speaking questions require active rubrics');
   expect(bankKey.get('WRITING:TEXT_RESPONSE')?.activeRubricCount === 16, 'Writing questions require active rubrics');
+  const objectiveSamples = await pool.query(`
+    SELECT q.content, q."toeicSkill"::text skill,
+      array_agg(qo.content ORDER BY qo."orderIndex") options,
+      count(*) FILTER (WHERE qo."isCorrect")::int "correctCount",
+      max(qo.content) FILTER (WHERE qo."isCorrect") "correctOption"
+    FROM questions q JOIN question_options qo ON qo."questionId" = q.id
+    WHERE q."courseId" = $1 AND (q.content LIKE 'M07-VG-L-01%' OR q.content LIKE 'M07-VG-R-01%')
+    GROUP BY q.id ORDER BY skill`, [primary.courseId]);
+  expect(objectiveSamples.rowCount === 2, `Representative objective samples expected 2, got ${objectiveSamples.rowCount}`);
+  for (const sample of objectiveSamples.rows) {
+    expect(sample.correctCount === 1, `${sample.skill} sample must have exactly one correct option`);
+    expect(sample.options.length === 4 && new Set(sample.options).size === 4, `${sample.skill} sample options must be four distinct choices`);
+    expect(
+      sample.skill === 'LISTENING'
+        ? sample.correctOption === 'The desk closes at 5:30 p.m.'
+        : sample.correctOption === "Yes, I will attend Friday's project meeting at 2:00 p.m.",
+      `${sample.skill} representative option does not answer its prompt`,
+    );
+  }
 
   const draft = await one(`
     SELECT t.id, t.title, t.purpose::text, t.status::text,
@@ -245,7 +264,7 @@ try {
     console.log('');
     console.log(`Classes: ${catalog.classes}`);
     console.log(`Courses: ${catalog.courses}`);
-    console.log(`Class statuses: ${['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CLOSED'].join(' / ')}`);
+    console.log(`Class statuses: ${['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].join(' / ')}`);
     console.log(`Primary class active learners: ${learners.count}`);
     console.log(`Progress buckets: ${buckets.join(' / ')}`);
     console.log(`Question Bank: ${bankTotal} (24 Listening / 24 Reading / 16 Speaking / 16 Writing)`);

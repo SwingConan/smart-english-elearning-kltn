@@ -34,7 +34,7 @@ The Instructor catalog contains **10 classes across 5 Courses**:
 | TOEIC Listening Focus | `TOEIC-LIS-01` | Listening buổi tối | OPEN |
 | TOEIC Listening Focus | `TOEIC-LIS-02` | Listening cuối tuần | COMPLETED |
 | TOEIC Reading Strategies | `TOEIC-REA-01` | Reading tăng tốc | IN_PROGRESS |
-| TOEIC Reading Strategies | `TOEIC-REA-02` | Reading thực hành | CLOSED (`CANCELLED` persistence state) |
+| TOEIC Reading Strategies | `TOEIC-REA-02` | Reading thực hành | CANCELLED (`Đã hủy`) |
 | TOEIC L&R Advancing | `TOEIC-LR-ADV-01` | L&R nâng cao tối | OPEN |
 | TOEIC L&R Advancing | `TOEIC-LR-ADV-02` | L&R nâng cao cuối tuần | OPEN |
 | Workplace Writing Foundations | `WRITING-FDN-01` | Writing nền tảng | OPEN |
@@ -187,7 +187,7 @@ M07 Visual Gate data manifest PASS
 
 Classes: 10
 Courses: 5
-Class statuses: OPEN / IN_PROGRESS / COMPLETED / CLOSED
+Class statuses: OPEN / IN_PROGRESS / COMPLETED / CANCELLED
 Primary class active learners: 11
 Progress buckets: 2 / 2 / 3 / 2 / 2
 Question Bank: 80 (24 Listening / 24 Reading / 16 Speaking / 16 Writing)

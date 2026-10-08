@@ -20,6 +20,7 @@ import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { knowledgeModelApi } from '@/features/knowledge-model/api';
 import { SkillChecklistDialog } from '@/features/knowledge-model/SkillChecklistDialog';
 import type { Skill } from '@/features/knowledge-model/types';
+import { instructorApi } from '@/features/instructor/api';
 
 type EditableOption = { content: string; isCorrect: boolean };
 
@@ -61,6 +62,21 @@ export function QuestionBankPage() {
   const [mappedSkillIds, setMappedSkillIds] = useState<string[]>([]);
   const [mappingError, setMappingError] = useState<string | null>(null);
   const [mappingLoading, setMappingLoading] = useState(false);
+  const [courseTitle, setCourseTitle] = useState('');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!courseId) return () => controller.abort();
+    void instructorApi.teaching
+      .list(controller.signal)
+      .then((entries) => {
+        setCourseTitle(entries.find((entry) => entry.course.id === courseId)?.course.title ?? '');
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof Error && error.name === 'AbortError')) setCourseTitle('');
+      });
+    return () => controller.abort();
+  }, [courseId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -423,7 +439,7 @@ export function QuestionBankPage() {
             <dl className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
               <div className="flex justify-between"><dt>Câu hợp lệ</dt><dd className="font-bold">{importPreview.summary.valid}</dd></div>
               <div className="flex justify-between"><dt>Cảnh báo</dt><dd className="font-bold text-amber-700">{importPreview.summary.warnings}</dd></div>
-              <div className="flex justify-between"><dt>Khóa học đích</dt><dd className="font-mono text-xs">{courseId}</dd></div>
+              <div className="flex justify-between gap-4"><dt>Khóa học đích</dt><dd className="text-right font-semibold">{courseTitle || 'Khóa học đang chọn'}</dd></div>
             </dl>
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button className="rounded border px-4 py-2" disabled={importing} onClick={() => setImportConfirmOpen(false)} type="button">Quay lại xem trước</button>

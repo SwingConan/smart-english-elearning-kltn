@@ -33,6 +33,8 @@ describe('InstructorTeachingPage', () => {
     resolveList([teachingEntry()]);
     expect((await screen.findAllByText('Assigned English')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Evening class').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Đã hủy').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Đã đóng')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Mô hình kiến thức/i })).not.toBeInTheDocument();
     loading.unmount();
 
@@ -281,5 +283,5 @@ function enabledDownButton() { return screen.getAllByRole('button').find((button
 function moduleView(id: string, title: string, orderIndex: number): Module { return { id, courseId, title, description: null, orderIndex, createdAt: '', updatedAt: '' }; }
 function lessonView(id: string, moduleId: string, title: string, orderIndex: number): Lesson { return { id, moduleId, title, description: null, orderIndex, createdAt: '', updatedAt: '' }; }
 function resourceView(id: string, lessonId: string, title: string, orderIndex: number): LearningResource { return { id, lessonId, title, type: 'DOCUMENT', url: 'https://example.test/document', orderIndex, isDownloadable: true, createdAt: '', updatedAt: '' }; }
-function teachingEntry(): TeachingEntry { return { course: { id: courseId, title: 'Assigned English', slug: 'assigned-english', level: 'A1', isPublished: true, _count: { modules: 1 } }, classOfferings: [{ id: 'offering-id', name: 'Evening class', status: 'OPEN' }] }; }
+function teachingEntry(): TeachingEntry { return { course: { id: courseId, title: 'Assigned English', slug: 'assigned-english', level: 'A1', isPublished: true, _count: { modules: 1 } }, classOfferings: [{ id: 'offering-id', name: 'Evening class', status: 'CANCELLED' }] }; }
 function mappedSkill(id: string, code: string): Skill { return { id, courseId, code, name: code, description: null, pInit: 0.5, pLearn: 0.1, pGuess: 0.2, pSlip: 0.1, createdAt: '', updatedAt: '' }; }

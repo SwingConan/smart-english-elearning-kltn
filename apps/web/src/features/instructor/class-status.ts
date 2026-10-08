@@ -5,7 +5,7 @@ export const classStatusPresentation: Record<string, { label: string; className:
     label: 'Đã kết thúc',
     className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   },
-  CLOSED: { label: 'Đã đóng', className: 'border-slate-200 bg-slate-100 text-slate-700' },
+  CANCELLED: { label: 'Đã hủy', className: 'border-rose-200 bg-rose-50 text-rose-700' },
   DRAFT: { label: 'Bản nháp', className: 'border-slate-300 bg-white text-slate-600' },
 };
 

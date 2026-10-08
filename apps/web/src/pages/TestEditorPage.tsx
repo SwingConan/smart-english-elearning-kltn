@@ -605,71 +605,24 @@ export function TestEditorPage() {
           ))}
         </div>
       </div>
-      <div
-        className={`${step === 1 ? 'grid' : 'hidden'} gap-5 xl:grid-cols-[220px_minmax(0,1fr)_240px]`}
-      >
-        <aside className="rounded-2xl border bg-white p-4">
-          <h2 className="font-bold">Cấu trúc đề</h2>
-          <ol className="mt-3 space-y-2 text-sm">
-            {(test.questionGroups ?? []).map((group, index) => (
-              <li key={group.id}>
-                <button
-                  className={`w-full rounded-lg px-3 py-2 text-left ${selectedGroupId === group.id ? 'bg-indigo-50 font-semibold text-indigo-700' : 'bg-slate-50'}`}
-                  onClick={() => setSelectedGroupId(group.id)}
-                  type="button"
-                >
-                  {index + 1}. {group.title || `Phần ${toeicSkillLabel[group.skill]}`}
-                  <small className="block text-slate-500">
-                    {group.testQuestions.length} câu · {group.stimuli.length} ngữ liệu
-                  </small>
-                </button>
-              </li>
-            ))}
-          </ol>
-        </aside>
-        <MetadataForm
+      {step === 1 ? (
+        <IdentityForm
           key={`${test.id}-${test.updatedAt}`}
           lessons={lessons}
           pending={pendingAction !== null}
           test={test}
           onSave={saveMetadata}
         />
-        <aside className="rounded-2xl border bg-white p-4">
-          <h2 className="font-bold">Kiểm tra đề</h2>
-          <dl className="mt-3 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt>Phần thi</dt>
-              <dd className="font-semibold">{test.questionGroups?.length ?? 0}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt>Câu hỏi</dt>
-              <dd className="font-semibold">{test.testQuestions.length}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt>Trạng thái</dt>
-              <dd className="font-semibold">{testStatusLabel[test.status]}</dd>
-            </div>
-          </dl>
-          <button
-            className="mt-4 w-full rounded border border-indigo-300 px-3 py-2 text-sm font-semibold text-indigo-700"
-            onClick={() => setPreviewOpen(true)}
-            type="button"
-          >
-            Xem trước như học viên
-          </button>
-        </aside>
-      </div>
+      ) : null}
 
       {step === 4 ? <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <MetadataForm key={`${test.id}-${test.updatedAt}-settings`} lessons={lessons} pending={pendingAction !== null} test={test} onSave={saveMetadata} />
+        <SettingsForm key={`${test.id}-${test.updatedAt}-settings`} pending={pendingAction !== null} test={test} onSave={saveMetadata} />
         <aside className="rounded-2xl border bg-white p-5 shadow-sm"><h2 className="text-lg font-bold">Kiểm tra khả năng xuất bản</h2><p className="mt-1 text-sm text-slate-500">Rà soát cấu trúc và chính sách trước khi xem thử như học viên.</p><ul className="mt-4 space-y-2 text-sm">{readiness.map((item) => <li className={`rounded-lg p-3 ${item.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`} key={item.label}>{item.ok ? '✓' : '!'} {item.label}</li>)}</ul></aside>
       </section> : null}
 
-      {step === 5 ? <section className="rounded-2xl border bg-white p-6 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-bold uppercase text-indigo-600">Bước cuối</p><h2 className="mt-1 text-2xl font-bold">Xem trước & xuất bản</h2><p className="mt-2 text-sm text-slate-600">Kiểm tra trải nghiệm học viên và chỉ xuất bản khi mọi điều kiện đã đạt.</p></div><button className="rounded border border-indigo-300 px-4 py-2 font-semibold text-indigo-700" onClick={() => setPreviewOpen(true)} type="button">Xem trước như học viên</button></div><div className="mt-5 grid gap-3 sm:grid-cols-2">{(test.questionGroups ?? []).map((group, index) => <article className="rounded-xl border p-4" key={group.id}><strong>{index + 1}. {group.title || `Phần ${toeicSkillLabel[group.skill]}`}</strong><p className="mt-1 text-sm text-slate-500">{group.testQuestions.length} câu · {group.stimuli.length} ngữ liệu</p></article>)}</div><div className={`mt-5 rounded-xl p-4 text-sm ${publishReady ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`}>{publishReady ? 'Đề đã sẵn sàng để xuất bản.' : 'Đề chưa sẵn sàng. Quay lại các bước trước để hoàn thiện những mục còn thiếu.'}</div>{test.status === 'DRAFT' ? <button className="mt-4 rounded bg-green-600 px-5 py-2 font-semibold text-white disabled:opacity-50" disabled={!publishReady || pendingAction !== null} onClick={() => void publish()} type="button">Xuất bản đề</button> : null}</section> : null}
+      {step === 5 ? <section className="rounded-2xl border bg-white p-6 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-bold uppercase text-indigo-600">Bước cuối</p><h2 className="mt-1 text-2xl font-bold">Xem trước & xuất bản</h2><p className="mt-2 text-sm text-slate-600">Bản xem trước chỉ đọc mô phỏng hình thức trả lời của học viên và không hiển thị đáp án đúng.</p></div><button className="rounded border border-indigo-300 px-4 py-2 font-semibold text-indigo-700" onClick={() => setPreviewOpen(true)} type="button">Mở bản xem trước</button></div><div className="mt-5"><StudentLikePreview test={test} /></div><div className={`mt-5 rounded-xl p-4 text-sm ${publishReady ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`}>{publishReady ? 'Đề đã sẵn sàng để xuất bản.' : 'Đề chưa sẵn sàng. Quay lại các bước trước để hoàn thiện những mục còn thiếu.'}</div>{test.status === 'DRAFT' ? <button className="mt-4 rounded bg-green-600 px-5 py-2 font-semibold text-white disabled:opacity-50" disabled={!publishReady || pendingAction !== null} onClick={() => void publish()} type="button">Xuất bản đề</button> : null}</section> : null}
 
-      <section
-        className={`${step === 2 ? 'space-y-4' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}
-      >
+      <section className={`${step === 2 ? 'space-y-4' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Phần thi theo bốn kỹ năng</h2>
@@ -782,9 +735,7 @@ export function TestEditorPage() {
         )}
       </section>
 
-      <section
-        className={`${step === 3 ? 'space-y-4' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}
-      >
+      <section className={`${step === 3 ? 'space-y-4' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}>
         <div>
           <h2 className="text-lg font-semibold">Soạn câu hỏi & ngữ liệu</h2>
           <p className="text-sm text-slate-500">
@@ -904,9 +855,7 @@ export function TestEditorPage() {
         )}
       </section>
 
-      <section
-        className={`${step === 3 ? 'space-y-3' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}
-      >
+      <section className={`${step === 3 ? 'space-y-3' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Thêm từ ngân hàng câu hỏi</h2>
@@ -1184,21 +1133,7 @@ export function TestEditorPage() {
                 Đóng
               </button>
             </div>
-            <div className="mt-5 space-y-4">
-              {(test.questionGroups ?? []).map((group) => (
-                <section className="rounded-xl border p-4" key={group.id}>
-                  <h3 className="font-bold">
-                    {group.title || `Phần ${toeicSkillLabel[group.skill]}`}
-                  </h3>
-                  <p className="text-sm text-slate-500">
-                    {group.testQuestions.length} câu · {group.stimuli.length} ngữ liệu
-                  </p>
-                  {group.instructions ? <p className="mt-2 text-sm">{group.instructions}</p> : null}
-                  <div className="mt-3 space-y-2">{group.stimuli.map((stimulus) => <div className="rounded bg-slate-50 p-3 text-sm" key={stimulus.id}>{stimulus.type === 'TEXT' ? stimulus.textContent : stimulus.altText || 'Ngữ liệu được bảo vệ'}</div>)}</div>
-                  <ol className="mt-3 space-y-2">{group.testQuestions.map((item, index) => <li className="rounded border p-3 text-sm" key={item.id}><strong>Câu {index + 1}.</strong> {item.question.content}</li>)}</ol>
-                </section>
-              ))}
-            </div>
+            <div className="mt-5"><StudentLikePreview test={test} /></div>
           </div>
         </div>
       ) : null}
@@ -1206,7 +1141,7 @@ export function TestEditorPage() {
   );
 }
 
-function MetadataForm({
+function IdentityForm({
   test,
   lessons,
   pending,
@@ -1223,8 +1158,6 @@ function MetadataForm({
   const [title, setTitle] = useState(test.title);
   const [description, setDescription] = useState(test.description ?? '');
   const [lessonId, setLessonId] = useState(test.lessonId ?? '');
-  const [maxAttempts, setMaxAttempts] = useState(test.maxAttempts);
-  const [showResult, setShowResult] = useState(test.showResultAfterSubmit);
   const [formError, setFormError] = useState<string | null>(null);
 
   const submit = (event: FormEvent) => {
@@ -1233,27 +1166,17 @@ function MetadataForm({
       setFormError('Tiêu đề không được để trống.');
       return;
     }
-    if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
-      setFormError('Số lượt làm phải là số nguyên lớn hơn hoặc bằng 1.');
-      return;
-    }
-    const effective: TestInput = {
+    const effective: Partial<TestInput> = {
       type,
       title: title.trim(),
       description: description.trim() || null,
       lessonId: lockedInClass ? test.lessonId : type === 'QUIZ' ? lessonId || null : null,
-      maxAttempts,
-      showResultAfterSubmit: showResult,
     };
     const delta: Partial<TestInput> = {};
     if (!lockedInClass && effective.type !== test.type) delta.type = effective.type;
     if (effective.title !== test.title) delta.title = effective.title;
     if (effective.description !== test.description) delta.description = effective.description;
     if (effective.lessonId !== test.lessonId) delta.lessonId = effective.lessonId;
-    if (effective.maxAttempts !== test.maxAttempts) delta.maxAttempts = effective.maxAttempts;
-    if (effective.showResultAfterSubmit !== test.showResultAfterSubmit) {
-      delta.showResultAfterSubmit = effective.showResultAfterSubmit;
-    }
 
     setFormError(null);
     if (Object.keys(delta).length === 0) return;
@@ -1262,7 +1185,7 @@ function MetadataForm({
 
   return (
     <form className="space-y-4 rounded-lg border bg-white p-5 shadow-sm" onSubmit={submit}>
-      <h2 className="text-lg font-semibold">Thông tin bài kiểm tra</h2>
+      <h2 className="text-lg font-semibold">Thông tin đề</h2>
       {formError && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
       <div className="grid gap-4 sm:grid-cols-2">
         {lockedInClass ? (
@@ -1293,18 +1216,6 @@ function MetadataForm({
             </select>
           </label>
         )}
-        <label className="text-sm font-medium">
-          Số lượt làm
-          <input
-            className="mt-1 w-full rounded border p-2"
-            disabled={pending}
-            min={1}
-            required
-            type="number"
-            value={maxAttempts}
-            onChange={(event) => setMaxAttempts(Number(event.target.value))}
-          />
-        </label>
       </div>
       <label className="block text-sm font-medium">
         Tiêu đề
@@ -1345,18 +1256,8 @@ function MetadataForm({
           </select>
         </label>
       )}
-      <label className="flex items-center gap-2 text-sm font-medium">
-        <input
-          checked={showResult}
-          disabled={pending}
-          onChange={(event) => setShowResult(event.target.checked)}
-          type="checkbox"
-        />
-        Cho học viên xem đáp án/kết quả sau khi nộp
-      </label>
       <p className="text-xs text-slate-500">
-        Sau khi có lượt làm, loại, bài học, số lượt làm và cấu trúc câu hỏi bị khóa; tiêu đề, mô tả
-        và chính sách xem kết quả vẫn chỉnh sửa được.
+        Bước này chỉ xác định danh tính và ngữ cảnh của đề. Cấu trúc, nội dung và thiết lập được quản lý ở các bước tiếp theo.
       </p>
       <div className="flex justify-end">
         <button
@@ -1369,4 +1270,86 @@ function MetadataForm({
       </div>
     </form>
   );
+}
+
+function SettingsForm({
+  test,
+  pending,
+  onSave,
+}: {
+  test: AssessmentTestDetail;
+  pending: boolean;
+  onSave: (input: Partial<TestInput>) => Promise<void>;
+}) {
+  const [maxAttempts, setMaxAttempts] = useState(test.maxAttempts);
+  const [showResult, setShowResult] = useState(test.showResultAfterSubmit);
+  const [formError, setFormError] = useState<string | null>(null);
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
+      setFormError('Số lượt làm phải là số nguyên lớn hơn hoặc bằng 1.');
+      return;
+    }
+    const delta: Partial<TestInput> = {};
+    if (maxAttempts !== test.maxAttempts) delta.maxAttempts = maxAttempts;
+    if (showResult !== test.showResultAfterSubmit) delta.showResultAfterSubmit = showResult;
+    setFormError(null);
+    if (Object.keys(delta).length) void onSave(delta);
+  };
+  return (
+    <form className="space-y-4 rounded-lg border bg-white p-5 shadow-sm" onSubmit={submit}>
+      <div>
+        <h2 className="text-lg font-semibold">Thiết lập bài kiểm tra</h2>
+        <p className="text-sm text-slate-500">Cấu hình số lượt làm và chính sách hiển thị kết quả.</p>
+      </div>
+      {formError ? <p className="rounded bg-red-50 p-3 text-sm text-red-700">{formError}</p> : null}
+      <label className="block text-sm font-medium">
+        Số lượt làm
+        <input className="mt-1 w-full rounded border p-2" disabled={pending} min={1} required type="number" value={maxAttempts} onChange={(event) => setMaxAttempts(Number(event.target.value))} />
+      </label>
+      <label className="flex items-center gap-2 text-sm font-medium">
+        <input checked={showResult} disabled={pending} onChange={(event) => setShowResult(event.target.checked)} type="checkbox" />
+        Cho học viên xem đáp án/kết quả sau khi nộp
+      </label>
+      <p className="text-xs text-slate-500">Sau khi đã có lượt làm, số lượt làm có thể bị khóa để bảo toàn lịch sử. Chính sách xem kết quả vẫn có thể cập nhật theo quyền hiện hành.</p>
+      <div className="flex justify-end"><button className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50" disabled={pending} type="submit">{pending ? 'Đang lưu...' : 'Lưu thiết lập'}</button></div>
+    </form>
+  );
+}
+
+function StudentLikePreview({ test }: { test: AssessmentTestDetail }) {
+  return (
+    <div className="space-y-4" aria-label="Bản xem trước dành cho học viên">
+      {(test.questionGroups ?? []).map((group, groupIndex) => (
+        <section className="rounded-xl border p-4" key={group.id}>
+          <p className="text-xs font-bold uppercase text-indigo-600">Phần {groupIndex + 1} · {toeicSkillLabel[group.skill]}</p>
+          <h3 className="mt-1 font-bold">{group.title || `Phần ${toeicSkillLabel[group.skill]}`}</h3>
+          {group.instructions ? <p className="mt-2 text-sm text-slate-600">{group.instructions}</p> : null}
+          <div className="mt-3 space-y-2">
+            {group.stimuli.map((stimulus) => (
+              <div className="rounded-lg bg-slate-50 p-3 text-sm" key={stimulus.id}>
+                {stimulus.type === 'TEXT' ? stimulus.textContent : stimulus.type === 'IMAGE' ? `Hình ảnh: ${stimulus.altText || 'Ngữ liệu hình ảnh'}` : `Âm thanh: ${stimulus.altText || 'Ngữ liệu nghe'} (chỉ đọc trong bản xem trước)`}
+              </div>
+            ))}
+          </div>
+          <ol className="mt-3 space-y-3">
+            {group.testQuestions.map((item, index) => (
+              <li className="rounded-lg border p-3 text-sm" key={item.id}>
+                <p><strong>Câu {index + 1}.</strong> {item.question.content}</p>
+                <ResponseShape item={item} />
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function ResponseShape({ item }: { item: AssessmentTestQuestion }) {
+  const type = item.question.type;
+  if (type === 'TEXT_RESPONSE') return <textarea aria-label="Câu trả lời viết (xem trước)" className="mt-3 w-full rounded border p-2" disabled placeholder="Học viên nhập câu trả lời tại đây" />;
+  if (type === 'AUDIO_RESPONSE') return <button className="mt-3 rounded border px-3 py-2 text-slate-500" disabled type="button">Ghi âm câu trả lời</button>;
+  const inputType = type === 'MULTIPLE_CHOICE' ? 'checkbox' : 'radio';
+  return <div className="mt-3 space-y-2">{item.question.options.map((option) => <label className="flex items-center gap-2 rounded border p-2" key={option.id}><input disabled name={`preview-${item.id}`} type={inputType} />{option.content}</label>)}</div>;
 }

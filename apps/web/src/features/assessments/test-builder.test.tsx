@@ -163,18 +163,21 @@ describe('TestEditorPage', () => {
     renderEditor();
     await screen.findByText('Question A');
     fireEvent.click(screen.getByRole('button', { name: /^Gỡ$/i }));
-    expect(await screen.findByText(/cấu trúc.*khóa|lịch sử làm bài/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Không thể thay đổi cấu trúc bài kiểm tra/i)).toBeInTheDocument();
     expect(screen.getByText('Question A')).toBeInTheDocument();
 
-    const form = screen.getByRole('heading', { name: /Thông tin bài kiểm tra/i }).closest('form')!;
+    const form = screen.getByRole('heading', { name: /Thông tin đề/i }).closest('form')!;
     fireEvent.change(within(form).getByLabelText(/Tiêu đề/i), { target: { value: 'Updated title' } });
     fireEvent.change(within(form).getByLabelText(/^Mô tả$/i), { target: { value: 'Updated description' } });
-    fireEvent.click(within(form).getByRole('checkbox'));
     fireEvent.submit(form);
     await waitFor(() => expect(update).toHaveBeenCalledOnce());
-    expect(update.mock.calls[0][1]).toEqual({
-      title: 'Updated title', description: 'Updated description', showResultAfterSubmit: false,
-    });
+    expect(update.mock.calls[0][1]).toEqual({ title: 'Updated title', description: 'Updated description' });
+    fireEvent.click(screen.getByRole('button', { name: /4\. Thiết lập/i }));
+    const settings = screen.getByRole('heading', { name: /Thiết lập bài kiểm tra/i }).closest('form')!;
+    fireEvent.click(within(settings).getByRole('checkbox'));
+    fireEvent.submit(settings);
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+    expect(update.mock.calls[1][1]).toEqual({ showResultAfterSubmit: false });
   });
 
   it('PATCHes only effective metadata deltas while retaining genuine locked-field edits', async () => {
@@ -184,7 +187,7 @@ describe('TestEditorPage', () => {
       .mockImplementation(async (_id, input) => ({ ...current, ...input, updatedAt: `updated-${update.mock.calls.length}` }));
     renderEditor();
     await screen.findByText(current.title);
-    let form = screen.getByRole('heading', { name: /Thông tin bài kiểm tra/i }).closest('form')!;
+    let form = screen.getByRole('heading', { name: /Thông tin đề/i }).closest('form')!;
 
     fireEvent.submit(form);
     expect(update).not.toHaveBeenCalled();
@@ -199,11 +202,44 @@ describe('TestEditorPage', () => {
     expect(update.mock.calls[0][1]).not.toHaveProperty('description');
     expect(update.mock.calls[0][1]).not.toHaveProperty('showResultAfterSubmit');
 
-    form = screen.getByRole('heading', { name: /Thông tin bài kiểm tra/i }).closest('form')!;
+    fireEvent.click(screen.getByRole('button', { name: /4\. Thiết lập/i }));
+    form = screen.getByRole('heading', { name: /Thiết lập bài kiểm tra/i }).closest('form')!;
     fireEvent.change(within(form).getByLabelText(/Số lượt làm/i), { target: { value: '4' } });
     fireEvent.submit(form);
     await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
     expect(update.mock.calls[1][1]).toEqual({ maxAttempts: 4 });
+  });
+
+  it('keeps all five builder steps distinct and renders a safe learner-like preview', async () => {
+    const item = testQuestion('tq-a', 'q-a', 'Which time is confirmed?', 0);
+    const group = { ...testGroup('group-reading', 'READING', 0), title: 'Reading Part', instructions: 'Choose the best answer.', testQuestions: [item] };
+    const current = { ...detail(testId, 'QUIZ', 'DRAFT', [item]), questionGroups: [group] };
+    mockEditor(current, [question('q-b', 'Question B')]);
+    renderEditor();
+    const identity = (await screen.findByRole('heading', { name: /Thông tin đề/i })).closest('form')!;
+    expect(within(identity).getByLabelText(/^Tiêu đề$/i)).toBeInTheDocument();
+    expect(within(identity).queryByLabelText(/Số lượt làm/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /2\. Cấu trúc đề/i }));
+    const structure = screen.getByRole('heading', { name: /Phần thi theo bốn kỹ năng/i }).closest('section')!;
+    expect(within(structure).queryByText(/Thêm từ ngân hàng câu hỏi/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /3\. Nội dung phần thi/i }));
+    expect(screen.getByRole('heading', { name: /Thêm từ ngân hàng câu hỏi/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /4\. Thiết lập/i }));
+    const settings = screen.getByRole('heading', { name: /Thiết lập bài kiểm tra/i }).closest('form')!;
+    expect(within(settings).getByLabelText(/Số lượt làm/i)).toBeInTheDocument();
+    expect(within(settings).queryByLabelText(/^Tiêu đề$/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Kiểm tra khả năng xuất bản/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /5\. Xem trước/i }));
+    const preview = screen.getByLabelText(/Bản xem trước dành cho học viên/i);
+    expect(preview).toBeInTheDocument();
+    expect(within(preview).getByText('Which time is confirmed?')).toBeInTheDocument();
+    expect(within(preview).getByText('A')).toBeInTheDocument();
+    expect(within(preview).getByText('B')).toBeInTheDocument();
+    expect(within(preview).queryByText(/đáp án đúng/i)).not.toBeInTheDocument();
   });
 
   it('adds only available same-course Questions and validates/saves positive integer points', async () => {
@@ -318,7 +354,7 @@ describe('TestEditorPage', () => {
     expect(screen.getByLabelText(/Đưa câu 1 xuống/i)).toBeDisabled();
     expect(questionOrder()).toEqual(['Question A', 'Question B']);
     pending.reject(new ApiError(409, { message: 'raw reorder conflict' }));
-    await screen.findByText(/lịch sử làm bài|cấu trúc.*khóa/i);
+    await screen.findByText(/Không thể thay đổi cấu trúc bài kiểm tra/i);
     expect(questionOrder()).toEqual(['Question B', 'Question A']);
     expect(screen.queryByText(/raw reorder conflict/i)).not.toBeInTheDocument();
   });
@@ -336,7 +372,7 @@ describe('TestEditorPage', () => {
     fireEvent.click(within(screen.getByText('Question A').closest('article')!).getByRole('button', { name: /^Gỡ$/i }));
     await waitFor(() => expect(screen.queryByText('Question A')).not.toBeInTheDocument());
     fireEvent.click(within(screen.getByText('Question B').closest('article')!).getByRole('button', { name: /^Gỡ$/i }));
-    expect(await screen.findByText(/lịch sử làm bài|cấu trúc.*khóa/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Không thể thay đổi cấu trúc bài kiểm tra/i)).toBeInTheDocument();
     expect(screen.getByText('Question B')).toBeInTheDocument();
   });
 

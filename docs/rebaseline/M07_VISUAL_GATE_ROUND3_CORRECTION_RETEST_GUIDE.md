@@ -59,15 +59,15 @@ Error:
 
 Nếu FAIL, chụp preview và dialog/disabled CTA. Không click nút `Nhập N câu` trong retest an toàn.
 
-## 6. R3-10 — Test Builder
+## 6. R3-10 — Test Builder residual retest
 
 1. Mở `Đề kiểm tra` → `VG-R3 — Đề demo hướng dẫn` → `Chỉnh sửa`.
-2. Bước 1 chỉ chứa thông tin đề.
-3. Bước 2 phải có `1. Phần Nghe`, `2. Phần Đọc`, `3. Phần Nói`, `4. Phần Viết`.
+2. Bước 1 chỉ chứa loại/mục đích, tiêu đề, mô tả và bài học/ngữ cảnh; không có số lượt làm hoặc chính sách kết quả.
+3. Bước 2 chỉ quản lý cấu trúc phần thi và phải có `1. Phần Nghe`, `2. Phần Đọc`, `3. Phần Nói`, `4. Phần Viết`; không có trình soạn ngữ liệu/câu hỏi.
 4. Thử ↑/↓ ở phần đầu, giữa và cuối; thử hai click nhanh. Không được trắng trang. Refresh phải giữ thứ tự đã lưu và selected context hợp lệ.
 5. Bước 3 chọn `Phần Nghe`, click `Thêm câu hỏi từ ngân hàng`, tìm `M07-VG-L-`; skill phải giữ Nghe, pagination rõ, selection giữ qua trang. Đóng picker mà không thêm.
-6. Bước 4 phải có thiết lập được phép sửa và checklist readiness, không lặp nguyên Step 1.
-7. Bước 5 phải có cấu trúc bốn kỹ năng, preview như học viên và safeguard xuất bản. Không click `Xuất bản`.
+6. Bước 4 chỉ có số lượt làm, chính sách xem kết quả và checklist readiness; không lặp tiêu đề/mô tả/bài học của Bước 1.
+7. Bước 5 phải là preview chỉ đọc giống học viên: hiển thị ngữ liệu, nội dung câu và đúng hình thức radio/checkbox/text/audio; tuyệt đối không lộ đáp án đúng. Không click `Xuất bản`.
 8. Nếu FAIL, chụp toàn trang, Console và Network response đã lược bỏ token/cookie.
 
 Sau thao tác reorder, reset:
@@ -85,11 +85,18 @@ Mở `Kết quả` → `Kiểm tra thường kỳ 01`.
 - Denominator cuối: Nghe 8/11, Đọc 8/11, Nói 7/11, Viết 6/11.
 - Bucket là số học viên trong `<50`, `50–69`, `70–84`, `85–100`, FINAL-only.
 - Click bucket phải lọc ra đúng tên; `Mở hồ sơ` phải đi đúng learner.
-- Trend có Periodic và Midterm, ngày, trung bình, sample count.
+- Biểu đồ trend có đúng một mốc Periodic và một mốc Midterm, trục 0–100, bốn chuỗi kỹ năng, chú giải, ngày, giá trị và sample count; dữ liệu thiếu phải tạo khoảng trống.
+
+## 8. Residual checks — status, demo answers, activity and XLSX
+
+- Trong `Lớp giảng dạy`, lớp `TOEIC-REA-02` phải hiển thị `Đã hủy`; bộ lọc có `Đã hủy`, không có pseudo-status `Đã đóng`. Lớp hoàn tất vẫn hiển thị `Đã kết thúc`.
+- Trong Question Bank, mở `M07-VG-L-01` và `M07-VG-R-01`: mỗi câu có bốn phương án có nghĩa, khác nhau và chỉ một đáp án đúng theo ngữ cảnh workplace.
+- Trong hồ sơ học viên, một nhóm `AnswerEvaluation` phải được mô tả là số câu tự luận đã có kết quả chấm, không gọi là số “tiêu chí”.
+- Trong xác nhận XLSX, `Khóa học đích` phải là tên khóa học dễ đọc, không phải UUID.
 
 Nếu FAIL, chụp completion, bucket đã click và learner matrix đã lọc.
 
-## 8. R3-12 — Pending/missing evidence
+## 9. R3-12 — Pending/missing evidence
 
 Mở `Kiểm tra giữa kỳ`, tìm `Đặng Bảo Long`.
 
@@ -100,7 +107,7 @@ Mở `Kiểm tra giữa kỳ`, tìm `Đặng Bảo Long`.
 
 Nếu FAIL, chụp cả completion, denominator và dòng Đặng Bảo Long. Đây là bằng chứng riêng bắt buộc cho R3-12.
 
-## 9. R3-15 — Student resource
+## 10. R3-15 — Student resource
 
 Đăng xuất Instructor, đăng nhập `student.demo@smart-elearning.local`, mở lớp `TOEIC-LR-2609-EVE` → `Nội dung học tập` → `Welcome & Course Overview`.
 
@@ -111,7 +118,7 @@ Nếu FAIL, chụp cả completion, denominator và dòng Đặng Bảo Long. Đ
 
 Nếu FAIL, chụp danh sách resource ở trạng thái thu gọn và video sau khi mở.
 
-## 10. Responsive và kết thúc
+## 11. Responsive và kết thúc
 
 Kiểm tra tối thiểu Tổng quan, Hồ sơ học viên, Test Builder, Results và Student resource tại:
 

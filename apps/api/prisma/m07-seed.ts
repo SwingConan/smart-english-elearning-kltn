@@ -353,8 +353,19 @@ function productivePrompt(skill: ToeicSkill, code: string, index: number) {
 }
 
 function objectiveOption(skill: ToeicSkill, questionIndex: number, optionIndex: number) {
-  const labels = ['Schedule confirmed', 'Venue changed', 'Request declined', 'Follow-up required'];
-  return `${labels[optionIndex]} — ${skill.toLowerCase()} demo ${questionIndex}`;
+  const correctIndex = questionIndex % 4;
+  const correct = skill === ToeicSkill.LISTENING
+    ? 'The desk closes at 5:30 p.m.'
+    : "Yes, I will attend Friday's project meeting at 2:00 p.m.";
+  const distractors = skill === ToeicSkill.LISTENING
+    ? ['The desk closes at 4:30 p.m.', 'The desk closes at 5:00 p.m.', 'The desk closes at 6:00 p.m.']
+    : [
+        "No, the Friday meeting starts at 9:00 a.m.",
+        'Please cancel the project meeting without notifying the team.',
+        'The delivery request was declined yesterday.',
+      ];
+  if (optionIndex === correctIndex) return correct;
+  return distractors[optionIndex < correctIndex ? optionIndex : optionIndex - 1];
 }
 
 async function seedSafeDraft(

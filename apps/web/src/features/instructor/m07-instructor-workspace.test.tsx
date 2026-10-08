@@ -182,6 +182,10 @@ describe('M07 Instructor class workspace', () => {
           ],
         },
       ],
+      trend: [
+        { assessmentId: 'periodic-a', title: 'Kiểm tra thường kỳ', stage: 'PERIODIC', date: '2026-09-10T00:00:00Z', skills: [{ skill: 'LISTENING', average: 70, sampleCount: 8 }] },
+        { assessmentId: 'assessment-a', title: 'Kiểm tra giữa kỳ', stage: 'MIDTERM', date: '2026-10-01T00:00:00Z', skills: [{ skill: 'LISTENING', average: 75, sampleCount: 9 }] },
+      ],
     });
     render(
       <MemoryRouter initialEntries={['/instructor/classes/class-a/results']}>
@@ -199,6 +203,8 @@ describe('M07 Instructor class workspace', () => {
     expect(screen.getByText('9 chưa đủ dữ liệu')).toBeInTheDocument();
     expect(screen.getAllByText('Đang chờ').length).toBeGreaterThan(0);
     expect(screen.getByText('Phân bố điểm')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /Biểu đồ xu hướng kỹ năng/i })).toBeInTheDocument();
+    expect(screen.getByText(/75%, 9 học viên/i)).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: /70–84/ })[0]);
     expect(screen.getByText(/Nghe · 70–84/)).toBeInTheDocument();
     expect(screen.getAllByText('Nguyễn Minh Anh').length).toBeGreaterThan(0);

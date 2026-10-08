@@ -100,7 +100,7 @@ export function InstructorTeachingPage() {
           value={status}
         >
           <option value="ALL">Tất cả trạng thái</option>
-          {['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CLOSED', 'DRAFT'].map((value) => (
+          {['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'DRAFT'].map((value) => (
             <option key={value} value={value}>
               {classStatus(value).label}
             </option>

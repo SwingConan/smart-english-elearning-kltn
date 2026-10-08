@@ -4,6 +4,7 @@ import { toeicSkillLabel } from '@/features/assessments/display';
 import type { ToeicSkill } from '@/features/assessments/types';
 import { instructorApi } from '@/features/instructor/api';
 import type { InstructorLearnerDetail } from '@/features/instructor/types';
+import { SkillTrendChart } from '@/components/SkillTrendChart';
 export function InstructorLearnerDetailPage() {
   const { classOfferingId = '', enrollmentId = '' } = useParams();
   const [data, setData] = useState<InstructorLearnerDetail | null>(null);
@@ -125,24 +126,7 @@ export function InstructorLearnerDetailPage() {
         title="Xu hướng kỹ năng"
         caption="Điểm nội bộ 0–100 theo từng đợt kiểm tra đã chấm hoàn tất. Đây là diễn biến kết quả bài làm, không phải điểm TOEIC hoặc khẳng định năng lực thực tế; dữ liệu thiếu được để trống."
       >
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {data.skillTrend.map((point) => (
-            <div className="rounded-lg border p-3" key={point.attemptId}>
-              <strong>{point.assessmentTitle}</strong>
-              <p className="text-xs text-slate-500">{formatDate(point.date)}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {point.scores.map((score) => (
-                  <span className="rounded-full bg-indigo-50 px-2 py-1 text-xs" key={score.skill}>
-                    {toeicSkillLabel[score.skill as ToeicSkill]} {score.normalizedScore}%
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
-          {!data.skillTrend.length && (
-            <p className="text-sm text-slate-500">Chưa có điểm cuối để hiển thị xu hướng.</p>
-          )}
-        </div>
+        {data.skillTrend.length ? <SkillTrendChart points={data.skillTrend.map((point) => ({ id: point.attemptId, title: point.assessmentTitle, date: point.date, values: Object.fromEntries(point.scores.map((score) => [score.skill, { score: score.normalizedScore }])) }))} /> : <p className="mt-3 text-sm text-slate-500">Chưa có điểm cuối để hiển thị xu hướng.</p>}
       </Panel>
       <Panel title="Lịch sử bài kiểm tra" caption="Lượt gần nhất mở sẵn; các đợt cũ được thu gọn.">
         <div className="mt-3 space-y-3">

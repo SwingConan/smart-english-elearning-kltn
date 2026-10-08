@@ -152,6 +152,13 @@ export interface InstructorLearnerDetail {
 export interface InstructorClassResults {
   classOffering: InstructorClass;
   assessments: Array<Record<string, unknown>>;
+  trend: Array<{
+    assessmentId: string;
+    title: string;
+    stage: string;
+    date: string;
+    skills: Array<{ skill: 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING'; average: number; sampleCount: number }>;
+  }>;
 }
 
 export interface InstructorGradingInbox {
