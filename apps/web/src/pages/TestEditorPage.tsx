@@ -523,6 +523,13 @@ export function TestEditorPage() {
     ? returnTo
     : `/instructor/courses/${test.courseId}/tests`;
   const builderReturnTo = `/instructor/tests/${test.id}/edit${returnTo?.startsWith('/instructor/classes/') ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`;
+  const readiness = [
+    { ok: (test.questionGroups?.length ?? 0) > 0, label: 'Có ít nhất một phần thi' },
+    { ok: test.testQuestions.length > 0, label: 'Có câu hỏi trong đề' },
+    { ok: (test.questionGroups ?? []).every((group) => group.testQuestions.length > 0), label: 'Mỗi phần thi có ít nhất một câu hỏi' },
+    { ok: test.testQuestions.every((item) => Boolean(item.groupId)), label: 'Mọi câu hỏi đã được xếp vào phần thi' },
+  ];
+  const publishReady = readiness.every((item) => item.ok);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -552,7 +559,7 @@ export function TestEditorPage() {
           {test.status === 'DRAFT' ? (
             <button
               className="rounded bg-green-600 px-4 py-2 text-sm text-white disabled:opacity-50"
-              disabled={pendingAction !== null}
+              disabled={pendingAction !== null || !publishReady}
               onClick={() => void publish()}
               type="button"
             >
@@ -599,7 +606,7 @@ export function TestEditorPage() {
         </div>
       </div>
       <div
-        className={`${step === 1 || step === 4 || step === 5 ? 'grid' : 'hidden'} gap-5 xl:grid-cols-[220px_minmax(0,1fr)_240px]`}
+        className={`${step === 1 ? 'grid' : 'hidden'} gap-5 xl:grid-cols-[220px_minmax(0,1fr)_240px]`}
       >
         <aside className="rounded-2xl border bg-white p-4">
           <h2 className="font-bold">Cấu trúc đề</h2>
@@ -653,8 +660,15 @@ export function TestEditorPage() {
         </aside>
       </div>
 
+      {step === 4 ? <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <MetadataForm key={`${test.id}-${test.updatedAt}-settings`} lessons={lessons} pending={pendingAction !== null} test={test} onSave={saveMetadata} />
+        <aside className="rounded-2xl border bg-white p-5 shadow-sm"><h2 className="text-lg font-bold">Kiểm tra khả năng xuất bản</h2><p className="mt-1 text-sm text-slate-500">Rà soát cấu trúc và chính sách trước khi xem thử như học viên.</p><ul className="mt-4 space-y-2 text-sm">{readiness.map((item) => <li className={`rounded-lg p-3 ${item.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`} key={item.label}>{item.ok ? '✓' : '!'} {item.label}</li>)}</ul></aside>
+      </section> : null}
+
+      {step === 5 ? <section className="rounded-2xl border bg-white p-6 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-bold uppercase text-indigo-600">Bước cuối</p><h2 className="mt-1 text-2xl font-bold">Xem trước & xuất bản</h2><p className="mt-2 text-sm text-slate-600">Kiểm tra trải nghiệm học viên và chỉ xuất bản khi mọi điều kiện đã đạt.</p></div><button className="rounded border border-indigo-300 px-4 py-2 font-semibold text-indigo-700" onClick={() => setPreviewOpen(true)} type="button">Xem trước như học viên</button></div><div className="mt-5 grid gap-3 sm:grid-cols-2">{(test.questionGroups ?? []).map((group, index) => <article className="rounded-xl border p-4" key={group.id}><strong>{index + 1}. {group.title || `Phần ${toeicSkillLabel[group.skill]}`}</strong><p className="mt-1 text-sm text-slate-500">{group.testQuestions.length} câu · {group.stimuli.length} ngữ liệu</p></article>)}</div><div className={`mt-5 rounded-xl p-4 text-sm ${publishReady ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`}>{publishReady ? 'Đề đã sẵn sàng để xuất bản.' : 'Đề chưa sẵn sàng. Quay lại các bước trước để hoàn thiện những mục còn thiếu.'}</div>{test.status === 'DRAFT' ? <button className="mt-4 rounded bg-green-600 px-5 py-2 font-semibold text-white disabled:opacity-50" disabled={!publishReady || pendingAction !== null} onClick={() => void publish()} type="button">Xuất bản đề</button> : null}</section> : null}
+
       <section
-        className={`${step === 2 || step === 3 ? 'space-y-4' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}
+        className={`${step === 2 ? 'space-y-4' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -752,94 +766,15 @@ export function TestEditorPage() {
                     </button>
                   </div>
                   <button
+                    aria-label={`Chọn để thêm câu hỏi vào phần thi ${groupIndex + 1}`}
                     className={`w-full rounded border px-3 py-2 text-sm ${selectedGroupId === group.id ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : ''}`}
                     onClick={() => setSelectedGroupId(group.id)}
                     type="button"
                   >
                     {selectedGroupId === group.id
                       ? 'Đang chọn phần thi này'
-                      : 'Chọn để thêm câu hỏi'}
+                      : 'Chọn để soạn ở bước 3'}
                   </button>
-                  <div className="flex gap-2">
-                    <textarea
-                      aria-label={`Ngữ liệu văn bản phần thi ${groupIndex + 1}`}
-                      className="min-h-16 min-w-0 flex-1 rounded border p-2 text-sm"
-                      onChange={(event) =>
-                        setTextStimulusDrafts((current) => ({
-                          ...current,
-                          [group.id]: event.target.value,
-                        }))
-                      }
-                      placeholder="Nhập đoạn đọc hoặc hướng dẫn nghe"
-                      value={textStimulusDrafts[group.id] ?? ''}
-                    />
-                    <button
-                      className="rounded border px-3 text-sm"
-                      disabled={pendingAction !== null || !textStimulusDrafts[group.id]?.trim()}
-                      onClick={() => void addTextStimulus(group.id)}
-                      type="button"
-                    >
-                      Thêm văn bản
-                    </button>
-                  </div>
-                  <label className="block text-xs font-medium">
-                    Tải ngữ liệu ảnh/âm thanh
-                    <input
-                      accept="image/jpeg,image/png,image/webp,audio/mpeg,audio/mp4,audio/ogg,audio/webm"
-                      className="mt-1 block w-full rounded border p-2"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (!file) return;
-                        void assessmentApi.groups
-                          .upload(test.id, group.id, file)
-                          .then(() => setReloadKey((value) => value + 1))
-                          .catch(
-                            (error) => void handleMutationError(error, 'Không thể tải ngữ liệu.'),
-                          );
-                      }}
-                      type="file"
-                    />
-                  </label>
-                  {group.stimuli.map((stimulus, stimulusIndex) => (
-                    <div
-                      className="flex items-center gap-2 rounded bg-slate-50 p-2 text-xs"
-                      key={stimulus.id}
-                    >
-                      <span className="min-w-0 flex-1 truncate">
-                        {stimulus.type}:{' '}
-                        {stimulus.textContent ||
-                          stimulus.altText ||
-                          stimulus.mimeType ||
-                          'Tệp bảo vệ'}
-                      </span>
-                      <button
-                        aria-label="Đưa ngữ liệu lên"
-                        disabled={stimulusIndex === 0 || pendingAction !== null}
-                        onClick={() => void moveStimulus(group.id, stimulusIndex, -1)}
-                        type="button"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        aria-label="Đưa ngữ liệu xuống"
-                        disabled={
-                          stimulusIndex === group.stimuli.length - 1 || pendingAction !== null
-                        }
-                        onClick={() => void moveStimulus(group.id, stimulusIndex, 1)}
-                        type="button"
-                      >
-                        ↓
-                      </button>
-                      <button
-                        className="text-red-700"
-                        disabled={pendingAction !== null}
-                        onClick={() => void removeStimulus(group.id, stimulus.id)}
-                        type="button"
-                      >
-                        Xóa
-                      </button>
-                    </div>
-                  ))}
                 </div>
               </article>
             ))}
@@ -851,11 +786,27 @@ export function TestEditorPage() {
         className={`${step === 3 ? 'space-y-4' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}
       >
         <div>
-          <h2 className="text-lg font-semibold">Câu hỏi trong bài kiểm tra</h2>
+          <h2 className="text-lg font-semibold">Soạn câu hỏi & ngữ liệu</h2>
           <p className="text-sm text-slate-500">
-            Dùng mũi tên để đổi thứ tự; luôn gửi toàn bộ danh sách lên máy chủ.
+            Chọn một phần thi để thêm câu hỏi đúng kỹ năng, xem ngữ liệu và sắp xếp nội dung.
           </p>
         </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {(test.questionGroups ?? []).map((group, index) => (
+            <button className={`rounded-xl border p-3 text-left ${selectedGroupId === group.id ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : ''}`} key={group.id} onClick={() => setSelectedGroupId(group.id)} type="button">
+              <strong>{index + 1}. {group.title || `Phần ${toeicSkillLabel[group.skill]}`}</strong>
+              <span className="mt-1 block text-xs">{group.testQuestions.length} câu · {group.stimuli.length} ngữ liệu</span>
+            </button>
+          ))}
+        </div>
+        {!selectedGroup ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Hãy chọn phần thi trước khi thêm câu hỏi hoặc ngữ liệu.</p> : <div className="rounded-lg bg-indigo-50 p-3 text-sm text-indigo-800"><strong>Đang soạn:</strong> {selectedGroup.title || `Phần ${toeicSkillLabel[selectedGroup.skill]}`}</div>}
+        {selectedGroup ? <section className="rounded-xl border bg-slate-50 p-4">
+          <h3 className="font-bold">Ngữ liệu của phần thi</h3>
+          <p className="text-sm text-slate-500">Thêm đoạn đọc/hướng dẫn nghe hoặc tệp ảnh, âm thanh cho phần đang chọn.</p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row"><textarea aria-label="Ngữ liệu văn bản phần đang chọn" className="min-h-20 flex-1 rounded border p-2 text-sm" onChange={(event) => setTextStimulusDrafts((current) => ({ ...current, [selectedGroup.id]: event.target.value }))} placeholder="Nhập ngữ liệu do dự án biên soạn" value={textStimulusDrafts[selectedGroup.id] ?? ''} /><button className="rounded border bg-white px-4 py-2 text-sm" disabled={pendingAction !== null || !textStimulusDrafts[selectedGroup.id]?.trim()} onClick={() => void addTextStimulus(selectedGroup.id)} type="button">Thêm văn bản</button></div>
+          <label className="mt-3 block text-sm font-medium">Tải ngữ liệu ảnh/âm thanh<input accept="image/jpeg,image/png,image/webp,audio/mpeg,audio/mp4,audio/ogg,audio/webm" className="mt-1 block w-full rounded border bg-white p-2" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; void assessmentApi.groups.upload(test.id, selectedGroup.id, file).then(() => setReloadKey((value) => value + 1)).catch((error) => void handleMutationError(error, 'Không thể tải ngữ liệu.')); }} type="file" /></label>
+          <div className="mt-3 space-y-2">{selectedGroup.stimuli.map((stimulus, stimulusIndex) => <div className="flex items-center gap-2 rounded border bg-white p-3 text-sm" key={stimulus.id}><span className="min-w-0 flex-1 truncate"><strong>{stimulus.type}</strong> · {stimulus.textContent || stimulus.altText || stimulus.mimeType || 'Tệp bảo vệ'}</span><button aria-label="Đưa ngữ liệu lên" disabled={stimulusIndex === 0 || pendingAction !== null} onClick={() => void moveStimulus(selectedGroup.id, stimulusIndex, -1)} type="button">↑</button><button aria-label="Đưa ngữ liệu xuống" disabled={stimulusIndex === selectedGroup.stimuli.length - 1 || pendingAction !== null} onClick={() => void moveStimulus(selectedGroup.id, stimulusIndex, 1)} type="button">↓</button><button className="text-red-700" disabled={pendingAction !== null} onClick={() => void removeStimulus(selectedGroup.id, stimulus.id)} type="button">Xóa</button></div>)}{selectedGroup.stimuli.length === 0 ? <p className="text-sm text-slate-500">Phần này chưa có ngữ liệu.</p> : null}</div>
+        </section> : null}
         {test.testQuestions.length === 0 ? (
           <p className="rounded bg-slate-50 p-4 text-sm text-slate-500">
             Chưa có câu hỏi. Bài kiểm tra chưa thể xuất bản.
@@ -964,11 +915,13 @@ export function TestEditorPage() {
             </p>
           </div>
           <button
-            className="rounded bg-indigo-600 px-4 py-2 font-semibold text-white"
+            aria-label="Mở bộ chọn câu hỏi"
+            className="rounded bg-indigo-600 px-4 py-2 font-semibold text-white disabled:opacity-40"
+            disabled={!selectedGroupId}
             onClick={() => setPickerOpen(true)}
             type="button"
           >
-            Mở bộ chọn câu hỏi
+            Thêm câu hỏi từ ngân hàng
           </button>
         </div>
         <div className="flex flex-wrap items-end gap-3">
@@ -1163,8 +1116,9 @@ export function TestEditorPage() {
                     <strong className="text-sm">{question.content}</strong>
                     <small className="mt-1 block text-slate-500">
                       {toeicSkillLabel[question.toeicSkill ?? 'READING']} ·{' '}
-                      {difficultyLabel[question.difficulty]} · đã dùng {question.usageCount ?? 0} đề
+                      {questionTypeLabel[question.type]} · {difficultyLabel[question.difficulty]} · đã dùng {question.usageCount ?? 0} đề
                     </small>
+                    <small className="mt-1 block text-slate-500">{question.toeicSkill === 'LISTENING' ? 'Cần ngữ liệu nghe trong phần thi' : question.toeicSkill === 'READING' ? 'Kiểm tra đoạn đọc/ngữ cảnh trước khi chọn' : question.rubric ? `Rubric: ${question.rubric.name}` : 'Cần rubric chấm điểm'}</small>
                   </span>
                 </label>
               ))}
@@ -1239,6 +1193,9 @@ export function TestEditorPage() {
                   <p className="text-sm text-slate-500">
                     {group.testQuestions.length} câu · {group.stimuli.length} ngữ liệu
                   </p>
+                  {group.instructions ? <p className="mt-2 text-sm">{group.instructions}</p> : null}
+                  <div className="mt-3 space-y-2">{group.stimuli.map((stimulus) => <div className="rounded bg-slate-50 p-3 text-sm" key={stimulus.id}>{stimulus.type === 'TEXT' ? stimulus.textContent : stimulus.altText || 'Ngữ liệu được bảo vệ'}</div>)}</div>
+                  <ol className="mt-3 space-y-2">{group.testQuestions.map((item, index) => <li className="rounded border p-3 text-sm" key={item.id}><strong>Câu {index + 1}.</strong> {item.question.content}</li>)}</ol>
                 </section>
               ))}
             </div>

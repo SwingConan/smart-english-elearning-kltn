@@ -25,7 +25,7 @@ const overview: InstructorClassOverview = {
   pendingGradingCount: 2,
   grading: { waiting: 1, partial: 1, final: 2 },
   progressBuckets: [
-    { label: '0–24%', count: 1 },
+    { label: '0–24%', count: 1, learners: [{ enrollmentId: 'enrollment-low', learnerId: 'learner-low', learner: { fullName: 'Học viên cần hỗ trợ', email: 'low@test.local' }, completedLessons: 0, totalLessons: 3, percentage: 0, lastActivityAt: '2026-09-01T00:00:00Z' }] },
     { label: '25–49%', count: 2 },
     { label: '50–74%', count: 3 },
     { label: '75–99%', count: 2 },
@@ -81,6 +81,9 @@ describe('M07 Instructor class workspace', () => {
     ])
       expect(nav).toHaveTextContent(label);
     expect(screen.getAllByRole('link', { name: 'Tổng quan' })[0]).toHaveClass('bg-indigo-600');
+    fireEvent.click(screen.getByRole('button', { name: /0–24%/i }));
+    expect(screen.getByRole('dialog', { name: /Tiến độ 0–24%/i })).toHaveTextContent('Học viên cần hỗ trợ');
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mở điều hướng lớp' }));
     expect(screen.getAllByRole('navigation', { name: 'Điều hướng lớp giảng dạy' })).toHaveLength(2);
   });
@@ -150,7 +153,19 @@ describe('M07 Instructor class workspace', () => {
           notSubmittedCount: 7,
           completion: { fullyGraded: 1, pendingGrading: 1, notSubmitted: 7, total: 9 },
           skillAverages: [
-            { skill: 'LISTENING', average: 75, sampleCount: 2, excludedCount: 7, distribution: { below50: 0, from50To69: 0, from70To84: 2, from85To100: 0 } },
+            {
+              skill: 'LISTENING',
+              average: 75,
+              sampleCount: 2,
+              excludedCount: 7,
+              distribution: { below50: 0, from50To69: 0, from70To84: 2, from85To100: 0 },
+              distributionLearners: {
+                below50: [],
+                from50To69: [],
+                from70To84: [{ id: 'attempt-a', learner: { fullName: 'Nguyễn Minh Anh', email: 'a@test.local' } }],
+                from85To100: [],
+              },
+            },
             { skill: 'READING', average: null, sampleCount: 0, excludedCount: 9, distribution: { below50: 0, from50To69: 0, from70To84: 0, from85To100: 0 } },
           ],
           learners: [
@@ -184,5 +199,8 @@ describe('M07 Instructor class workspace', () => {
     expect(screen.getByText('9 chưa đủ dữ liệu')).toBeInTheDocument();
     expect(screen.getAllByText('Đang chờ').length).toBeGreaterThan(0);
     expect(screen.getByText('Phân bố điểm')).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: /70–84/ })[0]);
+    expect(screen.getByText(/Nghe · 70–84/)).toBeInTheDocument();
+    expect(screen.getAllByText('Nguyễn Minh Anh').length).toBeGreaterThan(0);
   });
 });

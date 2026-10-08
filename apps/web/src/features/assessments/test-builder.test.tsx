@@ -7,7 +7,7 @@ import { TestManagementPage } from '@/pages/TestManagementPage';
 import { assessmentApi } from './api';
 import * as curriculum from './curriculum';
 import { deferred, renderAssessmentRoute } from './assessment-test-utils';
-import type { AssessmentQuestion, AssessmentTestDetail, AssessmentTestQuestion, TestStatus, TestType } from './types';
+import type { AssessmentQuestion, AssessmentTestDetail, AssessmentTestGroup, AssessmentTestQuestion, TestStatus, TestType } from './types';
 
 const courseId = 'course-a';
 const testId = 'test-a';
@@ -135,6 +135,25 @@ describe('TestManagementPage', () => {
 });
 
 describe('TestEditorPage', () => {
+  it('reorders complete groups without losing relations or selected context', async () => {
+    const listening = testGroup('group-listening', 'LISTENING', 0);
+    const reading = testGroup('group-reading', 'READING', 1);
+    const current = { ...detail(testId, 'QUIZ', 'DRAFT', []), questionGroups: [listening, reading] };
+    mockEditor(current, []);
+    const reorder = vi.spyOn(assessmentApi.groups, 'reorder').mockResolvedValue([
+      { ...reading, orderIndex: 0 },
+      { ...listening, orderIndex: 1 },
+    ]);
+    renderEditor();
+    await screen.findByText(current.title);
+    fireEvent.click(screen.getByRole('button', { name: /2\. Cấu trúc đề/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Chọn để thêm câu hỏi vào phần thi 1/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Đưa phần thi 1 xuống/i }));
+    await waitFor(() => expect(reorder).toHaveBeenCalledWith(testId, ['group-reading', 'group-listening']));
+    expect(screen.getByText('Đang chọn phần thi này')).toBeInTheDocument();
+    expect(screen.getAllByText(/0 ngữ liệu/i).length).toBeGreaterThanOrEqual(2);
+  });
+
   it('edits allowed metadata and keeps title/description/result policy usable after structural 409', async () => {
     const current = detail(testId, 'QUIZ', 'PUBLISHED', [testQuestion('tq-a', 'q-a', 'Question A', 0)]);
     mockEditor(current, [question('q-b', 'Question B')]);
@@ -396,6 +415,14 @@ function testQuestion(id: string, questionId: string, content: string, orderInde
         { id: `${questionId}-b`, content: 'B', isCorrect: false, orderIndex: 1 },
       ],
     },
+  };
+}
+
+function testGroup(id: string, skill: AssessmentTestGroup['skill'], orderIndex: number): AssessmentTestGroup {
+  return {
+    id, skill, orderIndex, title: `Phần ${skill === 'LISTENING' ? 'Nghe' : 'Đọc'}`,
+    instructions: null, preparationSeconds: null, responseSeconds: null,
+    recommendedSeconds: null, maxRecordingSeconds: null, stimuli: [], testQuestions: [],
   };
 }
 

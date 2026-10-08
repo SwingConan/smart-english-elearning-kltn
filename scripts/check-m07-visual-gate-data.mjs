@@ -94,12 +94,12 @@ try {
     FROM learning_resources lr JOIN lessons l ON l.id = lr."lessonId" JOIN modules m ON m.id = l."moduleId"
     WHERE m."courseId" = $1 AND lr.title = ANY($2::text[]) ORDER BY lr.title`, [primary.courseId, [
       'Cẩm nang học tập của lớp',
-      'M07 Demo — Video YouTube trong bài học',
+      'Trải nghiệm bài thi TOEIC Listening & Reading',
       'Tài nguyên TOEIC tham khảo',
     ]]);
   expect(resources.rowCount === 3, `Required resources expected 3, got ${resources.rowCount}`);
   const stored = resources.rows.find((row) => row.title === 'Cẩm nang học tập của lớp');
-  const youtube = resources.rows.find((row) => row.title === 'M07 Demo — Video YouTube trong bài học');
+  const youtube = resources.rows.find((row) => row.title === 'Trải nghiệm bài thi TOEIC Listening & Reading');
   const external = resources.rows.find((row) => row.title === 'Tài nguyên TOEIC tham khảo');
   expect(stored?.type === 'DOCUMENT' && stored.storageKey && stored.originalFileName && stored.mimeType && stored.isDownloadable, 'Protected stored document metadata is invalid');
   if (stored?.storageKey) {

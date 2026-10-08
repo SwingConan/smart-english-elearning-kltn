@@ -46,7 +46,9 @@ async function evaluate(expression) {
     awaitPromise: true,
     returnByValue: true,
   });
-  if (result.exceptionDetails) throw new Error(result.exceptionDetails.text);
+  if (result.exceptionDetails) {
+    throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text);
+  }
   return result.result.value;
 }
 async function navigate(path, expected, width = 1440, height = 900) {
@@ -165,7 +167,7 @@ for (;;) {
 
 const scaleMarker = `M07-SCALE-${Date.now()}`;
 const scaleRows = Array.from({ length: 1000 }, (_, index) => ({
-  type: 'SINGLE_CHOICE', toeicSkill: 'READING', difficulty: index % 3 === 0 ? 'EASY' : index % 3 === 1 ? 'MEDIUM' : 'HARD',
+  type: 'SINGLE_CHOICE', toeicSkill: 'LISTENING', difficulty: index % 3 === 0 ? 'EASY' : index % 3 === 1 ? 'MEDIUM' : 'HARD',
   content: `${scaleMarker} question ${String(index + 1).padStart(4, '0')}`, explanation: 'Isolated browser-smoke fixture', rubricId: null,
   options: [{ content: 'Correct', isCorrect: true }, { content: 'Distractor', isCorrect: false }],
 }));
@@ -178,21 +180,22 @@ for (let offset = 0; offset < scaleRows.length; offset += 100) {
 }
 if (scaleImport.questionIds.length !== 1000) throw new Error(`Expected 1,000 isolated questions, got ${scaleImport.questionIds.length}`);
 try {
-  const scalePage = requireOk(await browserFetch(`/instructor/courses/${courseId}/questions?page=1&pageSize=20&search=${encodeURIComponent(scaleMarker)}&skill=READING`), '1,000-question paginated query');
+  const scalePage = requireOk(await browserFetch(`/instructor/courses/${courseId}/questions?page=1&pageSize=20&search=${encodeURIComponent(scaleMarker)}&skill=LISTENING`), '1,000-question paginated query');
   if (scalePage.total !== 1000 || scalePage.totalPages !== 50 || scalePage.items.length !== 20) throw new Error(`Unexpected scale page: ${JSON.stringify({ total: scalePage.total, totalPages: scalePage.totalPages, items: scalePage.items.length })}`);
   await navigate(`/instructor/tests/${groupedTest.id}/edit`, ['Bước 1 / 5']);
   await evaluate(`(() => { [...document.querySelectorAll('button')].find((button) => button.textContent?.includes('3. Nội dung phần thi'))?.click(); return true; })()`);
   await delay(200);
   await evaluate(`(() => {
-    const readingCard = [...document.querySelectorAll('article')].find((article) => [...article.querySelectorAll('span')].some((span) => span.textContent?.trim() === 'Đọc'));
-    const selectPart = readingCard ? [...readingCard.querySelectorAll('button')].find((button) => button.textContent?.includes('Chọn để thêm câu hỏi')) : null;
-    if (!selectPart) throw new Error('No Reading Part selection action was rendered');
+    const activeStep = [...document.querySelectorAll('section')].find((section) => !section.classList.contains('hidden') && section.querySelector('h2')?.textContent?.includes('Soạn câu hỏi'));
+    const partButtons = activeStep ? [...activeStep.querySelectorAll('button.rounded-xl')] : [];
+    const selectPart = partButtons.find((button) => button.textContent?.includes('Phần Đọc')) ?? partButtons[1];
+    if (!selectPart) throw new Error('No Reading Part contextual action was rendered');
     selectPart.click();
     return true;
   })()`);
   await delay(200);
   await evaluate(`(() => {
-    const open = [...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Mở bộ chọn câu hỏi'));
+    const open = document.querySelector('button[aria-label="Mở bộ chọn câu hỏi"]');
     if (!open) throw new Error('Question picker action was not rendered');
     open.click();
     return true;
@@ -354,6 +357,18 @@ for (const module of modules) {
 }
 if (!storedResource) throw new Error('No stored downloadable document fixture was found');
 
+const smokeResourceTitles = new Set(['M07 Round 3 YouTube smoke', 'M07 Round 3 external video smoke']);
+const existingSmokeResources = requireOk(
+  await browserFetch(`/instructor/lessons/${storedLesson.id}/resources`),
+  'Existing smoke resources',
+).filter((resource) => smokeResourceTitles.has(resource.title));
+for (const resource of existingSmokeResources) {
+  requireOk(
+    await browserFetch(`/instructor/resources/${resource.id}`, { method: 'DELETE' }),
+    'Previous smoke resource cleanup',
+  );
+}
+
 const youtubeResource = requireOk(await browserFetch(`/instructor/lessons/${storedLesson.id}/resources`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'M07 Round 3 YouTube smoke', type: 'VIDEO', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', isDownloadable: false }) }), 'YouTube smoke resource');
 const externalVideoResource = requireOk(await browserFetch(`/instructor/lessons/${storedLesson.id}/resources`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'M07 Round 3 external video smoke', type: 'VIDEO', url: 'https://example.com/video', isDownloadable: false }) }), 'External video smoke resource');
 
@@ -389,6 +404,10 @@ if (!visibleDelivery || visibleDelivery.status !== 200 || !String(visibleDeliver
 }
 checks.push(['visible student LessonPage download', lessonState]);
 const videoLessonState = await navigate(`/student/enrollments/${enrollment.id}/lessons/${storedLesson.id}`, [youtubeResource.title, externalVideoResource.title, 'Mở trên YouTube']);
+const collapsedVideoEvidence = await evaluate(`(() => ({ iframe: Boolean(document.querySelector('iframe[src*="www.youtube-nocookie.com/embed/dQw4w9WgXcQ"]')), expand: [...document.querySelectorAll('button')].some((button) => button.textContent.includes('Xem video trong bài học')) }))()`);
+if (collapsedVideoEvidence.iframe || !collapsedVideoEvidence.expand) throw new Error(`YouTube lazy/collapsed evidence failed: ${JSON.stringify(collapsedVideoEvidence)}`);
+await evaluate(`(() => { const card=[...document.querySelectorAll('[data-testid="youtube-resource"]')].find((item)=>item.innerText.includes(${JSON.stringify(youtubeResource.title)})); const button=card ? [...card.querySelectorAll('button')].find((item)=>item.textContent.includes('Xem video trong bài học')) : null; if (!button) throw new Error('YouTube expand action missing'); button.click(); return true; })()`);
+await delay(300);
 const videoEvidence = await evaluate(`(() => { const iframe=document.querySelector('iframe[src*="www.youtube-nocookie.com/embed/dQw4w9WgXcQ"]'); const external=[...document.querySelectorAll('a')].find((link)=>link.closest('div')?.innerText.includes(${JSON.stringify('M07 Round 3 external video smoke')})); return { iframe: Boolean(iframe), src: iframe?.src, autoplay: iframe?.src.includes('autoplay'), responsive: Boolean(iframe?.parentElement?.classList.contains('aspect-video')), externalIframe: [...document.querySelectorAll('iframe')].some((item)=>item.src.includes('example.com')), externalLink: Boolean(external) }; })()`);
 if (!videoEvidence.iframe || videoEvidence.autoplay || !videoEvidence.responsive || videoEvidence.externalIframe || !videoEvidence.externalLink) throw new Error(`YouTube inline evidence failed: ${JSON.stringify(videoEvidence)}`);
 checks.push(['student inline YouTube + safe fallback', videoLessonState]);

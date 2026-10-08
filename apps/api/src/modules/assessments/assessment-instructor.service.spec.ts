@@ -47,7 +47,7 @@ describe('AssessmentInstructorService', () => {
       count: jest.fn(),
       deleteMany: jest.fn(),
     },
-    testQuestionGroup: { findFirst: jest.fn() },
+    testQuestionGroup: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
   };
   const prisma = {
     classOffering: { findFirst: jest.fn() },
@@ -78,6 +78,8 @@ describe('AssessmentInstructorService', () => {
     transaction.question.findFirst.mockResolvedValue({ id: questionId });
     transaction.rubric.findFirst.mockResolvedValue({ id: 'rubric-id' });
     transaction.testQuestionGroup.findFirst.mockResolvedValue({ skill: ToeicSkill.READING });
+    transaction.testQuestionGroup.findMany.mockResolvedValue([]);
+    transaction.testQuestionGroup.update.mockResolvedValue({});
     transaction.question.create.mockImplementation(({ data }) =>
       Promise.resolve({ id: questionId, ...data }),
     );
@@ -202,6 +204,37 @@ describe('AssessmentInstructorService', () => {
     await expect(service.listQuestions('unassigned', courseId)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  it('returns complete ordered groups after reordering so the editor can render safely', async () => {
+    const completeGroups = [
+      { id: 'group-b', orderIndex: 0, stimuli: [{ id: 'stimulus-b' }], testQuestions: [] },
+      { id: 'group-a', orderIndex: 1, stimuli: [], testQuestions: [{ id: 'question-a' }] },
+    ];
+    transaction.test.findUnique.mockResolvedValue({
+      id: testId,
+      courseId,
+      status: TestStatus.DRAFT,
+      course: { instructorId },
+    });
+    transaction.testQuestionGroup.findMany
+      .mockResolvedValueOnce([{ id: 'group-a' }, { id: 'group-b' }])
+      .mockResolvedValueOnce(completeGroups);
+
+    await expect(
+      service.reorderTestGroups(instructorId, testId, {
+        orderedGroupIds: ['group-b', 'group-a'],
+      }),
+    ).resolves.toEqual(completeGroups);
+
+    expect(transaction.testQuestionGroup.findMany).toHaveBeenLastCalledWith({
+      where: { testId },
+      orderBy: { orderIndex: 'asc' },
+      include: {
+        stimuli: { orderBy: { orderIndex: 'asc' } },
+        testQuestions: { orderBy: { orderIndex: 'asc' } },
+      },
+    });
   });
 
   it('uses bounded server-side question pagination and usage filtering', async () => {

@@ -149,6 +149,36 @@ describe('class learning', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/Không thể tải worksheet.pdf/i);
     expect(screen.queryByText('private details')).not.toBeInTheDocument();
   });
+
+  it('keeps YouTube resources compact and mounts the privacy-enhanced player only on demand', async () => {
+    vi.spyOn(learningApi, 'getContent').mockResolvedValue(content);
+    vi.spyOn(learningApi, 'openLesson').mockResolvedValue({
+      ...detail(),
+      resources: [
+        ...detail().resources,
+        {
+          id: 'video-1', title: 'Video bài học', type: 'VIDEO',
+          url: 'https://www.youtube.com/watch?v=abcDEF_1234', originalFileName: null,
+          mimeType: null, updatedAt: '2026-09-20T00:00:00Z', orderIndex: 2,
+          isDownloadable: false,
+        },
+      ],
+    });
+    renderLesson();
+    await screen.findByText('Video bài học');
+    expect(screen.queryByTitle('Video bài học')).not.toBeInTheDocument();
+    const expand = screen.getByRole('button', { name: /Xem video trong bài học/i });
+    expect(expand).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(expand);
+    expect(screen.getByTitle('Video bài học')).toHaveAttribute(
+      'src',
+      'https://www.youtube-nocookie.com/embed/abcDEF_1234',
+    );
+    expect(screen.getByRole('button', { name: /Thu gọn video/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
 });
 
 describe('learning API contract', () => {

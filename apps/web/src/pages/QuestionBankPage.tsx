@@ -54,6 +54,7 @@ export function QuestionBankPage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [importPreview, setImportPreview] = useState<QuestionImportPreview | null>(null);
+  const [importConfirmOpen, setImportConfirmOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [courseSkills, setCourseSkills] = useState<Skill[] | null>(null);
   const [mappingQuestion, setMappingQuestion] = useState<AssessmentQuestion | null>(null);
@@ -133,6 +134,7 @@ export function QuestionBankPage() {
       const result = await assessmentApi.questions.confirmImport(courseId, rows);
       setActionMessage(`Đã nhập ${result.importedCount} câu hỏi.`);
       setImportPreview(null);
+      setImportConfirmOpen(false);
       setPage(1);
       setReloadKey((value) => value + 1);
     } catch (error) {
@@ -374,7 +376,7 @@ export function QuestionBankPage() {
               <button
                 className="rounded bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 disabled={!importPreview.canConfirm || importing}
-                onClick={() => void confirmImport()}
+                onClick={() => setImportConfirmOpen(true)}
                 type="button"
               >
                 Xác nhận nhập
@@ -411,6 +413,24 @@ export function QuestionBankPage() {
             </ul>
           ) : null}
         </section>
+      ) : null}
+
+      {importConfirmOpen && importPreview ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog" aria-modal="true" aria-label="Xác nhận nhập câu hỏi">
+          <section className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-xl font-bold">Xác nhận nhập câu hỏi</h2>
+            <p className="mt-2 text-sm text-slate-600">Dữ liệu chỉ được ghi sau bước xác nhận này. Máy chủ sẽ kiểm tra lại toàn bộ lô và ghi theo một giao dịch.</p>
+            <dl className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
+              <div className="flex justify-between"><dt>Câu hợp lệ</dt><dd className="font-bold">{importPreview.summary.valid}</dd></div>
+              <div className="flex justify-between"><dt>Cảnh báo</dt><dd className="font-bold text-amber-700">{importPreview.summary.warnings}</dd></div>
+              <div className="flex justify-between"><dt>Khóa học đích</dt><dd className="font-mono text-xs">{courseId}</dd></div>
+            </dl>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button className="rounded border px-4 py-2" disabled={importing} onClick={() => setImportConfirmOpen(false)} type="button">Quay lại xem trước</button>
+              <button className="rounded bg-indigo-600 px-4 py-2 font-semibold text-white disabled:opacity-50" disabled={importing} onClick={() => void confirmImport()} type="button">{importing ? 'Đang nhập...' : `Nhập ${importPreview.summary.valid} câu`}</button>
+            </div>
+          </section>
+        </div>
       ) : null}
 
       <div className="grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2 lg:grid-cols-6">
@@ -585,6 +605,11 @@ export function QuestionBankPage() {
                   <p className="mt-2 text-xs text-slate-500">
                     Đã dùng trong {question.usageCount ?? 0} đề
                   </p>
+                  <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+                    <p><strong>Loại trả lời:</strong> {questionTypeLabel[question.type]}</p>
+                    <p><strong>Ngữ liệu khi biên soạn:</strong> {question.toeicSkill === 'LISTENING' ? 'Cần đoạn nghe hoặc hướng dẫn nghe trong phần thi.' : question.toeicSkill === 'READING' ? 'Có thể gắn đoạn đọc trong phần thi; câu demo M07-VG đã có ngữ cảnh độc lập.' : 'Câu hỏi đã nêu bối cảnh độc lập; có thể bổ sung ngữ liệu nếu đề yêu cầu.'}</p>
+                    {question.rubric ? <p><strong>Rubric:</strong> {question.rubric.name}</p> : null}
+                  </div>
                   <ol className="mt-3 list-inside list-[upper-alpha] space-y-1 text-sm text-slate-600">
                     {question.options.map((option) => (
                       <li

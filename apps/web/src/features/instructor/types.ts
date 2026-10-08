@@ -37,12 +37,43 @@ export interface InstructorClassOverview {
     notSubmittedLearnerCount: number;
     activeLearnerCount: number;
     test: { id: string; title: string };
+    learners?: OverviewLearner[];
   }>;
   pendingGradingCount: number;
-  grading: { waiting: number; partial: number; final: number };
-  progressBuckets: Array<{ label: string; count: number }>;
+  grading: {
+    waiting: number;
+    partial: number;
+    final: number;
+    attempts?: Array<{
+      state: 'WAITING' | 'PARTIAL' | 'FINAL';
+      attemptId: string;
+      attemptNumber: number;
+      submittedAt: string | null;
+      learnerId: string;
+      learner: { fullName: string; email: string };
+      assessmentId: string | null;
+      assessmentTitle: string;
+    }>;
+  };
+  progressBuckets: Array<{ label: string; count: number; learners?: OverviewLearner[] }>;
   upcomingDeadlines: Array<{ kind: string; at: string; assessmentId: string; title: string }>;
-  followUps: Array<{ kind: string; count: number; label: string }>;
+  followUps: Array<{
+    kind: string;
+    count: number;
+    label: string;
+    learners?: OverviewLearner[];
+  }>;
+}
+
+export interface OverviewLearner {
+  enrollmentId: string;
+  learnerId: string;
+  learner: { fullName: string; email: string };
+  completedLessons: number;
+  totalLessons: number;
+  percentage: number;
+  lastActivityAt: string;
+  state?: 'SUBMITTED' | 'IN_PROGRESS' | 'NOT_SUBMITTED';
 }
 
 export interface InstructorRoster {

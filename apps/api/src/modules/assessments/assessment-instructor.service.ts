@@ -1146,7 +1146,14 @@ export class AssessmentInstructorService {
         await transaction.testQuestionGroup.update({ where: { id }, data: { orderIndex: index } });
       }
       await this.revalidatePublishedTest(transaction, testId, test.status);
-      return transaction.testQuestionGroup.findMany({ where: { testId }, orderBy: { orderIndex: 'asc' } });
+      return transaction.testQuestionGroup.findMany({
+        where: { testId },
+        orderBy: { orderIndex: 'asc' },
+        include: {
+          stimuli: { orderBy: { orderIndex: 'asc' } },
+          testQuestions: { orderBy: { orderIndex: 'asc' } },
+        },
+      });
     }, 'Thứ tự nhóm đang được cập nhật ở phiên khác. Vui lòng thử lại.');
   }
 

@@ -87,10 +87,15 @@ export class InstructorWorkspaceService {
       this.prisma.testAttempt.findMany({
         where: { classAssessment: { classOfferingId } },
         select: {
+          id: true,
           learnerId: true,
+          attemptNumber: true,
           status: true,
+          startedAt: true,
           submittedAt: true,
           classAssessmentId: true,
+          learner: { select: { fullName: true, email: true } },
+          classAssessment: { select: { test: { select: { title: true } } } },
           answers: {
             select: {
               evaluations: {
@@ -108,6 +113,7 @@ export class InstructorWorkspaceService {
           id: true,
           enrolledAt: true,
           learnerId: true,
+          learner: { select: { fullName: true, email: true } },
           lessonProgress: { select: { status: true, lastAccessedAt: true, completedAt: true } },
         },
       }),
@@ -115,46 +121,69 @@ export class InstructorWorkspaceService {
     const submittedAttempts = attempts.filter(
       (attempt) => attempt.status === TestAttemptStatus.SUBMITTED,
     );
-    const gradingState = submittedAttempts.map((attempt) => {
+    const gradingDetails = submittedAttempts.map((attempt) => {
       const productive = attempt.answers.filter((answer) =>
         PRODUCTIVE_SKILLS.includes(answer.testQuestion.question.toeicSkill),
       );
       const finalized = productive.filter((answer) => answer.evaluations.length > 0).length;
-      return productive.length === 0 || finalized === productive.length
+      const state = productive.length === 0 || finalized === productive.length
         ? 'FINAL'
         : finalized === 0
           ? 'WAITING'
           : 'PARTIAL';
+      return {
+        state,
+        attemptId: attempt.id,
+        attemptNumber: attempt.attemptNumber,
+        submittedAt: attempt.submittedAt,
+        learnerId: attempt.learnerId,
+        learner: attempt.learner,
+        assessmentId: attempt.classAssessmentId,
+        assessmentTitle: attempt.classAssessment?.test.title ?? 'Bài kiểm tra',
+      };
     });
-    const pendingGradingCount = gradingState.filter((state) => state !== 'FINAL').length;
-    const percentages = activeEnrollments.map((enrollment) =>
-      totalLessons === 0
-        ? 0
-        : Math.round(
-            (enrollment.lessonProgress.filter(
-              (item) => item.status === LessonProgressStatus.COMPLETED,
-            ).length /
-              totalLessons) *
-              100,
-          ),
-    );
-    const progressBuckets = [
-      { label: '0–24%', count: percentages.filter((value) => value < 25).length },
-      { label: '25–49%', count: percentages.filter((value) => value >= 25 && value < 50).length },
-      { label: '50–74%', count: percentages.filter((value) => value >= 50 && value < 75).length },
-      { label: '75–99%', count: percentages.filter((value) => value >= 75 && value < 100).length },
-      { label: '100%', count: percentages.filter((value) => value === 100).length },
-    ];
-    const inactiveLearnerCount = activeEnrollments.filter((enrollment) => {
-      const latest = enrollment.lessonProgress.reduce<Date>(
+    const pendingGradingCount = gradingDetails.filter(({ state }) => state !== 'FINAL').length;
+    const learnerProgress = activeEnrollments.map((enrollment) => {
+      const completedLessons = enrollment.lessonProgress.filter(
+        (item) => item.status === LessonProgressStatus.COMPLETED,
+      ).length;
+      const lastActivityAt = enrollment.lessonProgress.reduce<Date>(
         (value, item) =>
           [item.lastAccessedAt, item.completedAt]
             .filter((date): date is Date => Boolean(date))
             .reduce((a, b) => (a > b ? a : b), value),
         enrollment.enrolledAt,
       );
-      return now.getTime() - latest.getTime() >= 7 * 86_400_000;
-    }).length;
+      return {
+        enrollmentId: enrollment.id,
+        learnerId: enrollment.learnerId,
+        learner: enrollment.learner,
+        completedLessons,
+        totalLessons,
+        lastActivityAt,
+        percentage: totalLessons === 0
+        ? 0
+        : Math.round(
+            (completedLessons / totalLessons) *
+              100,
+          ),
+      };
+    });
+    const progressBuckets = [
+      { label: '0–24%', min: 0, max: 24 },
+      { label: '25–49%', min: 25, max: 49 },
+      { label: '50–74%', min: 50, max: 74 },
+      { label: '75–99%', min: 75, max: 99 },
+      { label: '100%', min: 100, max: 100 },
+    ].map((bucket) => {
+      const learners = learnerProgress.filter(
+        ({ percentage }) => percentage >= bucket.min && percentage <= bucket.max,
+      );
+      return { label: bucket.label, count: learners.length, learners };
+    });
+    const inactiveLearners = learnerProgress.filter(
+      ({ lastActivityAt }) => now.getTime() - lastActivityAt.getTime() >= 7 * 86_400_000,
+    );
     return {
       classOffering: classroom,
       activeLearnerCount,
@@ -181,6 +210,14 @@ export class InstructorWorkspaceService {
             )
             .map((attempt) => attempt.learnerId),
         );
+        const learnerStatus = learnerProgress.map((learner) => ({
+          ...learner,
+          state: submittedLearners.has(learner.learnerId)
+            ? 'SUBMITTED'
+            : inProgressLearners.has(learner.learnerId)
+              ? 'IN_PROGRESS'
+              : 'NOT_SUBMITTED',
+        }));
         return {
           ...item,
           availability:
@@ -196,13 +233,15 @@ export class InstructorWorkspaceService {
             activeLearnerCount - submittedLearners.size - inProgressLearners.size,
           ),
           activeLearnerCount,
+          learners: learnerStatus,
         };
       }),
       pendingGradingCount,
       grading: {
-        waiting: gradingState.filter((state) => state === 'WAITING').length,
-        partial: gradingState.filter((state) => state === 'PARTIAL').length,
-        final: gradingState.filter((state) => state === 'FINAL').length,
+        waiting: gradingDetails.filter(({ state }) => state === 'WAITING').length,
+        partial: gradingDetails.filter(({ state }) => state === 'PARTIAL').length,
+        final: gradingDetails.filter(({ state }) => state === 'FINAL').length,
+        attempts: gradingDetails,
       },
       progressBuckets,
       upcomingDeadlines: assessments
@@ -217,12 +256,13 @@ export class InstructorWorkspaceService {
         ...(pendingGradingCount
           ? [{ kind: 'GRADING', count: pendingGradingCount, label: 'Bài nộp đang chờ chấm' }]
           : []),
-        ...(inactiveLearnerCount
+        ...(inactiveLearners.length
           ? [
               {
                 kind: 'INACTIVE',
-                count: inactiveLearnerCount,
+                count: inactiveLearners.length,
                 label: 'Học viên chưa có hoạt động trong 7 ngày',
+                learners: inactiveLearners,
               },
             ]
           : []),
@@ -433,13 +473,16 @@ export class InstructorWorkspaceService {
           at: attempt.submittedAt,
           label: attempt.classAssessment?.test.title ?? 'Bài kiểm tra',
         },
-        ...attempt.answers.flatMap((answer) =>
-          answer.evaluations.map((evaluation) => ({
+        ...(() => {
+          const evaluations = attempt.answers.flatMap((answer) => answer.evaluations);
+          if (evaluations.length === 0) return [];
+          const latest = evaluations.reduce((a, b) => (a.updatedAt > b.updatedAt ? a : b));
+          return [{
             type: 'GRADING_FINAL',
-            at: evaluation.updatedAt,
-            label: attempt.classAssessment?.test.title ?? 'Bài kiểm tra',
-          })),
-        ),
+            at: latest.updatedAt,
+            label: `${attempt.classAssessment?.test.title ?? 'Bài kiểm tra'} · Lượt ${attempt.attemptNumber} · ${evaluations.length} tiêu chí đã chấm`,
+          }];
+        })(),
       ]),
     ]
       .filter((item): item is { type: string; at: Date; label: string } => Boolean(item.at))
@@ -549,7 +592,7 @@ export class InstructorWorkspaceService {
       }),
     ]);
     const projected = assessments.map((assessment) =>
-      this.projectAssessmentResults(assessment, enrollments.length),
+      this.projectAssessmentResults(assessment, enrollments),
     );
     return {
       classOffering: classroom,
@@ -697,8 +740,14 @@ export class InstructorWorkspaceService {
         }>;
       }>;
     },
-    activeLearnerCount: number,
+    enrollments: Array<{
+      id: string;
+      learnerId: string;
+      learner: { fullName: string; email: string };
+    }>,
   ) {
+    const activeLearnerCount = enrollments.length;
+    const enrollmentByLearner = new Map(enrollments.map((item) => [item.learnerId, item]));
     const latestByLearner = new Map<string, (typeof assessment.attempts)[number]>();
     for (const attempt of assessment.attempts)
       if (!latestByLearner.has(attempt.learnerId)) latestByLearner.set(attempt.learnerId, attempt);
@@ -714,6 +763,21 @@ export class InstructorWorkspaceService {
         from70To84: values.filter((value) => value >= 70 && value < 85).length,
         from85To100: values.filter((value) => value >= 85).length,
       };
+      const bucketLearners = (matches: (value: number) => boolean) =>
+        [...latestByLearner.values()]
+          .filter((attempt) =>
+            attempt.skillScores.some(
+              (score) =>
+                score.skill === skill &&
+                score.status === SkillScoreStatus.FINAL &&
+                matches(Number(score.normalizedScore)),
+            ),
+          )
+          .map((attempt) => ({
+            id: attempt.id,
+            enrollmentId: enrollmentByLearner.get(attempt.learnerId)?.id ?? null,
+            learner: attempt.learner,
+          }));
       return {
         skill,
         average: values.length
@@ -722,6 +786,12 @@ export class InstructorWorkspaceService {
         sampleCount: values.length,
         excludedCount: activeLearnerCount - values.length,
         distribution: buckets,
+        distributionLearners: {
+          below50: bucketLearners((value) => value < 50),
+          from50To69: bucketLearners((value) => value >= 50 && value < 70),
+          from70To84: bucketLearners((value) => value >= 70 && value < 85),
+          from85To100: bucketLearners((value) => value >= 85),
+        },
       };
     });
     const latestAttempts = [...latestByLearner.values()];
@@ -750,12 +820,20 @@ export class InstructorWorkspaceService {
       skillAverages: averages,
       learners: latestAttempts.map((attempt) => ({
         ...attempt,
+        enrollmentId: enrollmentByLearner.get(attempt.learnerId)?.id ?? null,
         label: 'Lượt gần nhất',
         skillScores: attempt.skillScores.map((score) => ({
           ...score,
           normalizedScore: Number(score.normalizedScore),
         })),
       })),
+      notSubmittedLearners: enrollments
+        .filter((enrollment) => !latestByLearner.has(enrollment.learnerId))
+        .map((enrollment) => ({
+          enrollmentId: enrollment.id,
+          learnerId: enrollment.learnerId,
+          learner: enrollment.learner,
+        })),
     };
   }
 

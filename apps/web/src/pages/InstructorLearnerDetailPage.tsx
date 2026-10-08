@@ -123,7 +123,7 @@ export function InstructorLearnerDetailPage() {
       </section>
       <Panel
         title="Xu hướng kỹ năng"
-        caption="Chỉ gồm điểm cuối của bài kiểm tra trong lớp; thiếu điểm được để trống."
+        caption="Điểm nội bộ 0–100 theo từng đợt kiểm tra đã chấm hoàn tất. Đây là diễn biến kết quả bài làm, không phải điểm TOEIC hoặc khẳng định năng lực thực tế; dữ liệu thiếu được để trống."
       >
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {data.skillTrend.map((point) => (

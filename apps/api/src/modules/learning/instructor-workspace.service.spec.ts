@@ -201,20 +201,26 @@ describe('InstructorWorkspaceService', () => {
     const result = await service.results('instructor-a', 'class-a');
     const assessment = result.assessments[0];
     expect(assessment.learners.map((item) => item.id)).toEqual(['new-a', 'only-b']);
-    expect(assessment.skillAverages.find((item) => item.skill === ToeicSkill.LISTENING)).toEqual({
+    expect(assessment.skillAverages.find((item) => item.skill === ToeicSkill.LISTENING)).toEqual(expect.objectContaining({
       skill: ToeicSkill.LISTENING,
       average: 70,
       sampleCount: 2,
       excludedCount: 0,
       distribution: { below50: 0, from50To69: 1, from70To84: 1, from85To100: 0 },
-    });
-    expect(assessment.skillAverages.find((item) => item.skill === ToeicSkill.READING)).toEqual({
+    }));
+    expect(assessment.skillAverages.find((item) => item.skill === ToeicSkill.READING)).toEqual(expect.objectContaining({
       skill: ToeicSkill.READING,
       average: null,
       sampleCount: 0,
       excludedCount: 2,
       distribution: { below50: 0, from50To69: 0, from70To84: 0, from85To100: 0 },
-    });
+    }));
+    expect(
+      assessment.skillAverages.find((item) => item.skill === ToeicSkill.LISTENING)
+        ?.distributionLearners.from70To84,
+    ).toEqual([
+      expect.objectContaining({ id: 'new-a', learner: { fullName: 'A', email: 'a@test' } }),
+    ]);
     expect(assessment).toMatchObject({
       submittedCount: 3,
       latestAttemptCount: 2,

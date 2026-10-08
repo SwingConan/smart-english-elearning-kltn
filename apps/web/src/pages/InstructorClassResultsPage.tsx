@@ -11,6 +11,7 @@ type Average = {
   sampleCount: number;
   excludedCount: number;
   distribution: { below50: number; from50To69: number; from70To84: number; from85To100: number };
+  distributionLearners?: Record<string, Array<{ id: string; learner: { fullName: string; email: string } }>>;
 };
 type Assessment = {
   id: string;
@@ -25,11 +26,14 @@ type Assessment = {
   skillAverages: Average[];
   learners: Array<{
     id: string;
+    learnerId?: string;
+    enrollmentId?: string | null;
     learner: { fullName: string; email: string };
     attemptNumber: number;
     label: string;
     skillScores: Score[];
   }>;
+  notSubmittedLearners?: Array<{ enrollmentId: string; learnerId: string; learner: { fullName: string; email: string } }>;
 };
 type Trend = {
   assessmentId: string;
@@ -48,6 +52,8 @@ export function InstructorClassResultsPage() {
   const [trend, setTrend] = useState<Trend[]>([]);
   const [selected, setSelected] = useState('');
   const [query, setQuery] = useState('');
+  const [attemptFilter, setAttemptFilter] = useState<Set<string> | null>(null);
+  const [filterLabel, setFilterLabel] = useState('');
   const [state, setState] = useState('loading');
   useEffect(() => {
     const controller = new AbortController();
@@ -69,6 +75,7 @@ export function InstructorClassResultsPage() {
   );
   const learners =
     assessment?.learners.filter((row) =>
+      (!attemptFilter || attemptFilter.has(row.id)) &&
       `${row.learner.fullName} ${row.learner.email}`.toLowerCase().includes(query.toLowerCase()),
     ) ?? [];
   if (state === 'error') return <div className="state-error">Không thể tải kết quả lớp.</div>;
@@ -86,7 +93,7 @@ export function InstructorClassResultsPage() {
           <select
             aria-label="Chọn bài kiểm tra"
             className="rounded-lg border px-3 py-2"
-            onChange={(e) => setSelected(e.target.value)}
+            onChange={(e) => { setSelected(e.target.value); setAttemptFilter(null); setFilterLabel(''); }}
             value={selected}
           >
             {assessments.map((item) => (
@@ -120,9 +127,9 @@ export function InstructorClassResultsPage() {
               ))}
             </div>
             <div className="mt-3 flex flex-wrap gap-5 text-sm">
-              <span>{assessment.completion.fullyGraded} đã chấm đủ</span>
-              <span>{assessment.completion.pendingGrading} chờ chấm</span>
-              <span>{assessment.completion.notSubmitted} chưa nộp</span>
+              <button className="font-semibold text-indigo-700 underline" onClick={() => { const ids = assessment.learners.filter((row) => skills.every((skill) => row.skillScores.some((score) => score.skill === skill && score.status === 'FINAL'))).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel('Đã chấm đủ'); }} type="button">{assessment.completion.fullyGraded} đã chấm đủ</button>
+              <button className="font-semibold text-indigo-700 underline" onClick={() => { const ids = assessment.learners.filter((row) => !skills.every((skill) => row.skillScores.some((score) => score.skill === skill && score.status === 'FINAL'))).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel('Chờ chấm'); }} type="button">{assessment.completion.pendingGrading} chờ chấm</button>
+              <button className="font-semibold text-indigo-700 underline" onClick={() => { setAttemptFilter(new Set()); setFilterLabel('Chưa nộp'); }} type="button">{assessment.completion.notSubmitted} chưa nộp</button>
             </div>
           </section>
           <section>
@@ -161,7 +168,7 @@ export function InstructorClassResultsPage() {
                   <strong className="text-sm">{toeicSkillLabel[item.skill]}</strong>
                   <div className="mt-1 grid grid-cols-4 gap-1 text-center text-xs">
                     {Object.entries(item.distribution).map(([key, count]) => (
-                      <div className="rounded bg-indigo-50 p-2" key={key}>
+                      <button className="rounded bg-indigo-50 p-2 hover:bg-indigo-100" key={key} onClick={() => { const ids = (item.distributionLearners?.[key] ?? []).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel(`${toeicSkillLabel[item.skill]} · ${({ below50: '<50', from50To69: '50–69', from70To84: '70–84', from85To100: '85–100' } as Record<string,string>)[key]}`); }} type="button">
                         <b className="block text-indigo-700">{count}</b>
                         {
                           (
@@ -173,7 +180,7 @@ export function InstructorClassResultsPage() {
                             } as Record<string, string>
                           )[key]
                         }
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -227,7 +234,9 @@ export function InstructorClassResultsPage() {
                 value={query}
               />
             </div>
-            <div className="mt-4 hidden overflow-x-auto md:block">
+            {filterLabel ? <div className="mt-3 flex items-center gap-3 rounded-lg bg-indigo-50 p-3 text-sm"><strong>Đang lọc: {filterLabel}</strong><button className="font-semibold text-indigo-700 underline" onClick={() => { setAttemptFilter(null); setFilterLabel(''); }} type="button">Bỏ lọc</button></div> : null}
+            {filterLabel === 'Chưa nộp' ? <div className="mt-4 grid gap-3 sm:grid-cols-2">{(assessment.notSubmittedLearners ?? []).filter((row) => `${row.learner.fullName} ${row.learner.email}`.toLowerCase().includes(query.toLowerCase())).map((row) => <article className="rounded-xl border p-4" key={row.learnerId}><strong>{row.learner.fullName}</strong><p className="text-sm text-slate-500">{row.learner.email}</p><Link className="mt-2 inline-block font-semibold text-indigo-700" to={`/instructor/classes/${classOfferingId}/learners/${row.enrollmentId}`}>Mở hồ sơ →</Link></article>)}</div> : null}
+            {filterLabel !== 'Chưa nộp' ? <div className="mt-4 hidden overflow-x-auto md:block">
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b text-left">
@@ -256,7 +265,7 @@ export function InstructorClassResultsPage() {
                       <td className="p-3">
                         <Link
                           className="font-semibold text-indigo-700"
-                          to={`/instructor/classes/${classOfferingId}/assessments/${assessment.id}/attempts/${row.id}/grading`}
+                          to={row.enrollmentId ? `/instructor/classes/${classOfferingId}/learners/${row.enrollmentId}` : `/instructor/classes/${classOfferingId}/grading`}
                         >
                           Xem
                         </Link>
@@ -265,8 +274,8 @@ export function InstructorClassResultsPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
-            <div className="mt-4 grid gap-3 md:hidden">
+            </div> : null}
+            {filterLabel !== 'Chưa nộp' ? <div className="mt-4 grid gap-3 md:hidden">
               {learners.map((row) => (
                 <article className="rounded-xl border p-4" key={row.id}>
                   <strong>{row.learner.fullName}</strong>
@@ -278,9 +287,10 @@ export function InstructorClassResultsPage() {
                       </span>
                     ))}
                   </div>
+                  {row.enrollmentId ? <Link className="mt-3 inline-block font-semibold text-indigo-700" to={`/instructor/classes/${classOfferingId}/learners/${row.enrollmentId}`}>Mở hồ sơ →</Link> : null}
                 </article>
               ))}
-            </div>
+            </div> : null}
           </section>
         </>
       ) : (

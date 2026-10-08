@@ -79,7 +79,7 @@ All three resources are attached to `Welcome & Course Overview`:
 | Title | Type | Expected behavior |
 |---|---|---|
 | Cẩm nang học tập của lớp | DOCUMENT | protected stored `text/plain` object; downloadable as `cam-nang-hoc-tap.txt` |
-| M07 Demo — Video YouTube trong bài học | VIDEO | trusted YouTube watch URL supported by the safe `youtube-nocookie.com` embed path |
+| Trải nghiệm bài thi TOEIC Listening & Reading | VIDEO | relevant ETS Global experience video, using the safe `youtube-nocookie.com` embed path |
 | Tài nguyên TOEIC tham khảo | LINK | opens as an external HTTPS resource |
 
 ## Question Bank

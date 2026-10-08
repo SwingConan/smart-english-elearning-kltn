@@ -193,6 +193,7 @@ function ResourceRow({
   resource: LessonResource;
   download: (resource: LessonResource) => Promise<void>;
 }) {
+  const [videoExpanded, setVideoExpanded] = useState(false);
   const youtubeId = resource.type === 'VIDEO' ? parseYouTubeVideoId(resource.url) : null;
   const Icon = resource.type === 'VIDEO' ? Video : resource.type === 'LINK' ? Link2 : FileText;
   if (youtubeId && resource.url)
@@ -201,31 +202,19 @@ function ResourceRow({
         className="overflow-hidden rounded-xl border bg-slate-50"
         data-testid="youtube-resource"
       >
-        <div className="aspect-video w-full bg-black">
-          <iframe
-            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="h-full w-full"
-            referrerPolicy="strict-origin-when-cross-origin"
-            src={`https://www.youtube-nocookie.com/embed/${youtubeId}`}
-            title={resource.title}
-          />
-        </div>
         <div className="flex flex-wrap items-center justify-between gap-3 p-4">
           <div>
             <p className="font-semibold">{resource.title}</p>
-            <p className="text-xs text-slate-500">Video bài học · không tự động phát</p>
+            <p className="text-xs text-slate-500">Video bài học · chỉ tải trình phát khi bạn mở · không tự động phát</p>
           </div>
-          <a
-            className="btn-secondary px-3 py-2 text-sm"
-            href={resource.url}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Mở trên YouTube
-            <ExternalLink size={16} />
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <button aria-expanded={videoExpanded} className="btn-secondary px-3 py-2 text-sm" onClick={() => setVideoExpanded((value) => !value)} type="button">{videoExpanded ? 'Thu gọn video' : 'Xem video trong bài học'}</button>
+            <a className="btn-secondary px-3 py-2 text-sm" href={resource.url} rel="noreferrer" target="_blank">Mở trên YouTube<ExternalLink size={16} /></a>
+          </div>
         </div>
+        {videoExpanded ? <div className="aspect-video w-full bg-black">
+          <iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowFullScreen className="h-full w-full" loading="lazy" referrerPolicy="strict-origin-when-cross-origin" src={`https://www.youtube-nocookie.com/embed/${youtubeId}`} title={resource.title} />
+        </div> : null}
       </section>
     );
   return (

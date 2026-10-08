@@ -225,9 +225,9 @@ async function seedResources(prisma: PrismaClient, lesson: { id: string; title: 
     },
     {
       key: 'youtube-resource',
-      title: 'M07 Demo — Video YouTube trong bài học',
+      title: 'Trải nghiệm bài thi TOEIC Listening & Reading',
       type: ResourceType.VIDEO,
-      url: 'https://www.youtube.com/watch?v=M7lc1UVf-VE',
+      url: 'https://www.youtube.com/watch?v=322j91OdHH0',
       storageKey: null,
       originalFileName: null,
       mimeType: null,
@@ -344,12 +344,12 @@ async function seedQuestionBank(prisma: PrismaClient, courseId: string) {
 
 function productivePrompt(skill: ToeicSkill, code: string, index: number) {
   if (skill === ToeicSkill.LISTENING)
-    return `${code} — What detail is confirmed in workplace announcement ${index}?`;
+    return `${code} — Situation ${index}: You hear an office announcement confirming that the customer-service desk closes at 5:30 p.m. for a staff meeting. What closing time is confirmed?`;
   if (skill === ToeicSkill.READING)
-    return `${code} — Which response best completes workplace email ${index}?`;
+    return `${code} — Situation ${index}: A colleague asks you to confirm attendance at Friday's 2:00 p.m. project meeting. Which response best completes the email?`;
   if (skill === ToeicSkill.SPEAKING)
-    return `${code} — Give a concise spoken response to workplace situation ${index}.`;
-  return `${code} — Write a concise professional email for workplace situation ${index}.`;
+    return `${code} — Situation ${index}: Record a 30–45 second response. Your team meeting was moved from Room 201 to Room 305. Inform a colleague of the new room and ask them to acknowledge the change.`;
+  return `${code} — Situation ${index}: Write a 60–90 word professional email. A client requested delivery on Friday, but the earliest available date is Monday. Explain the delay, propose Monday delivery, and ask the client to confirm.`;
 }
 
 function objectiveOption(skill: ToeicSkill, questionIndex: number, optionIndex: number) {
@@ -401,7 +401,7 @@ async function seedSafeDraft(
         testId: M07_DRAFT_TEST_ID,
         skill,
         orderIndex: index,
-        title: `${skill[0]}${skill.slice(1).toLowerCase()} Part`,
+        title: `${index + 1}. Phần ${skill === ToeicSkill.LISTENING ? 'Nghe' : skill === ToeicSkill.READING ? 'Đọc' : skill === ToeicSkill.SPEAKING ? 'Nói' : 'Viết'}`,
         instructions: 'Nội dung hướng dẫn demo do dự án tự biên soạn.',
       },
     });

@@ -196,3 +196,36 @@ The redesign uses existing timestamps and assessment records only. It does not a
 ## Review handoff
 
 Reviewers should focus on instructor ownership boundaries, shared-content concurrency, protected file delivery, productive-question validation, historical assessment locks, grading concurrency, and result aggregation semantics. No milestone merge is performed by this implementation task.
+
+## Visual Gate Round 3 corrections
+
+Candidate before this correction: `331a30d34187b68210fc33bee8539b23c0f8b796`.
+
+| Finding | Disposition |
+| --- | --- |
+| R3-01 | Preserved the teaching catalog regression. Persistence has `CANCELLED`, not a distinct `CLOSED` enum; the Instructor catalog continues to project `CANCELLED` as the visible `CLOSED` state and keeps `COMPLETED` distinct. No schema state was invented. |
+| R3-02 | Added learner-backed drill-downs for every progress bucket, grading state, assessment submission state, and the 7-day inactive cohort. The progress numerator now explicitly explains `learners × lessons`; timeline labels separate opening and closing events. |
+| R3-03 | Preserved roster ownership, search, responsive cards, and read-only membership behavior. |
+| R3-04 | Collapsed multiple final rubric evaluations from one attempt into one user activity event. Clarified that the skill trend uses final internal 0–100 results and is not a TOEIC score or causal ability claim. |
+| R3-05/R3-06 | Preserved content-management and Assessment Hub regressions. |
+| R3-07 | Rewrote only the M07-VG demo questions with self-contained workplace context. Question Bank and picker now show response type, skill, rubric/required-stimulus guidance, usage, search, filters and server pagination. |
+| R3-08/R3-09 | Added a pre-commit confirmation dialog after an enabled `Xác nhận nhập` click. Cancel performs no mutation; invalid previews remain disabled; backend revalidation and transactional persistence remain authoritative. |
+| R3-10 | Root cause confirmed in code: reorder returned thin groups without `stimuli`/`testQuestions`, while the next render dereferenced both relations. The API now returns complete ordered groups. The five steps now separate metadata, structure, contextual question/stimulus authoring, settings/readiness, and student preview/publish safeguards. Seeded titles use numbered Vietnamese skill labels. |
+| R3-11/R3-12 | Distribution values remain FINAL-only learner counts. Buckets and completion states filter to named learners; missing/pending values remain `Chưa có`/`Đang chờ`, never zero. Learner profile deep links are ownership-scoped. |
+| R3-13/R3-14 | Preserved assessment → learner → attempt grading hierarchy and same-attempt draft navigation. |
+| R3-15 | YouTube resources are compact by default and mount the privacy-enhanced iframe only after explicit expansion; no autoplay. The seed now uses the relevant ETS Global TOEIC experience video instead of the unrelated developer demo. Protected document delivery and external-link behavior are unchanged. |
+| R3-16 | Responsive retest is required at 1440×900, 820×1180 and 390×844. Engineering checks do not constitute Product Owner approval. |
+
+No Prisma schema change or migration was required. This implementation report does not claim that the Product Owner Manual Visual Gate passed.
+
+### Round 3 correction verification
+
+- Focused API regression: **45/45 PASS** across Assessment Instructor and Instructor Workspace services.
+- Focused Web regression: **32/32 PASS** across Test Builder, Question Bank, Instructor Workspace, and Student Learning.
+- Full API unit: **385/385 PASS**; full Web: **235/235 PASS**; API E2E: **97/97 PASS**.
+- Prisma validate/generate/status/drift, deterministic seed, M07 data manifest, M05 manifest, lint, typecheck, build, and `git diff --check`: **PASS**.
+- Dedicated headless-Chrome correction smoke: **40/40 PASS**, including the 1,000-question picker, five-step builder, class drill-down surfaces, Results story, protected document delivery, lazy/collapsible YouTube playback, and safe arbitrary-video fallback.
+- Responsive evidence: desktop `1440×900`, tablet `820×1180`, and mobile `390×844` completed with **0 horizontal-overflow failures**.
+- Smoke-owned fixtures were cleaned: 1,000 scale questions, one XLSX duplicate, and two temporary VIDEO resources. A final deterministic reseed/data-manifest check was run after smoke.
+
+These are engineering verification results only. Product Owner Round 3 correction retest remains the release gate.

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useOutletContext } from 'react-router';
 import type { InstructorClassWorkspaceContext } from '@/layouts/InstructorClassWorkspaceLayout';
 
@@ -8,6 +9,11 @@ const stageLabel: Record<string, string> = {
 };
 export function InstructorClassOverviewPage() {
   const { overview } = useOutletContext<InstructorClassWorkspaceContext>();
+  const [drilldown, setDrilldown] = useState<null | {
+    title: string;
+    caption: string;
+    rows: Array<{ key: string; primary: string; secondary: string; href?: string }>;
+  }>(null);
   const base = `/instructor/classes/${overview.classOffering.id}`;
   const activeAssessments = overview.assessments.filter(
     (item) => item.availability !== 'CLOSED',
@@ -28,7 +34,7 @@ export function InstructorClassOverviewPage() {
         <Metric
           label="Tiến độ lớp"
           value={`${overview.lessonProgress.percentage}%`}
-          detail={`${overview.lessonProgress.completed}/${overview.lessonProgress.total} lượt bài học`}
+          detail={`${overview.lessonProgress.completed}/${overview.lessonProgress.total} lượt hoàn thành (${overview.activeLearnerCount} học viên × ${overview.activeLearnerCount ? overview.lessonProgress.total / overview.activeLearnerCount : 0} bài)`}
         />
         <Metric label="Bài đang/sắp mở" value={activeAssessments} />
         <Link to={`${base}/grading`}>
@@ -43,9 +49,20 @@ export function InstructorClassOverviewPage() {
       <section className="grid gap-6 lg:grid-cols-2">
         <Panel title="Phân bố tiến độ" caption={`${overview.activeLearnerCount} học viên đang học`}>
           {overview.progressBuckets.map((bucket) => (
-            <div
+            <button
               className="mt-3 grid grid-cols-[64px_1fr_30px] items-center gap-3 text-sm"
               key={bucket.label}
+              onClick={() => setDrilldown({
+                title: `Tiến độ ${bucket.label}`,
+                caption: `${bucket.count} học viên trong khoảng tiến độ này`,
+                rows: (bucket.learners ?? []).map((item) => ({
+                  key: item.enrollmentId,
+                  primary: item.learner.fullName,
+                  secondary: `${item.completedLessons}/${item.totalLessons} bài · Hoạt động gần nhất ${formatDate(item.lastActivityAt)}`,
+                  href: `${base}/learners/${item.enrollmentId}`,
+                })),
+              })}
+              type="button"
             >
               <span>{bucket.label}</span>
               <div className="h-3 overflow-hidden rounded-full bg-slate-100">
@@ -57,7 +74,7 @@ export function InstructorClassOverviewPage() {
                 />
               </div>
               <strong>{bucket.count}</strong>
-            </div>
+            </button>
           ))}
         </Panel>
         <Panel
@@ -85,22 +102,34 @@ export function InstructorClassOverviewPage() {
             ))}
           </div>
           <div className="mt-3 flex flex-wrap gap-4 text-sm">
-            <span>{overview.grading.final} đã chấm đủ</span>
-            <span>{overview.grading.partial} đang chấm</span>
-            <span>{overview.grading.waiting} chờ chấm</span>
+            {([
+              ['FINAL', overview.grading.final, 'đã chấm đủ'],
+              ['PARTIAL', overview.grading.partial, 'đang chấm'],
+              ['WAITING', overview.grading.waiting, 'chờ chấm'],
+            ] as const).map(([state, count, label]) => (
+              <button className="font-semibold text-indigo-700 underline" key={state} onClick={() => setDrilldown({
+                title: `Bài nộp ${label}`,
+                caption: `${count} lượt làm`,
+                rows: (overview.grading.attempts ?? []).filter((item) => item.state === state).map((item) => ({
+                  key: item.attemptId,
+                  primary: `${item.learner.fullName} · ${item.assessmentTitle}`,
+                  secondary: `Lượt ${item.attemptNumber} · ${formatDate(item.submittedAt)}`,
+                  href: item.assessmentId ? `${base}/assessments/${item.assessmentId}/attempts/${item.attemptId}/grading` : undefined,
+                })),
+              })} type="button">{count} {label}</button>
+            ))}
           </div>
         </Panel>
       </section>
       <Panel title="Bài kiểm tra cần chú ý" caption="Số liệu theo học viên đang học trong lớp">
         <div className="mt-4 grid gap-3">
           {overview.assessments.map((a) => (
-            <Link
+            <article
               className="rounded-xl border p-4 hover:border-indigo-300"
               key={a.id}
-              to={`${base}/assessments`}
             >
               <div className="flex flex-wrap justify-between gap-2">
-                <strong>{a.test.title}</strong>
+                <Link className="font-bold text-indigo-800" to={`${base}/assessments`}>{a.test.title}</Link>
                 <span
                   className={`rounded-full px-2 py-1 text-xs font-semibold ${a.availability === 'OPEN' ? 'bg-indigo-50 text-indigo-700' : a.availability === 'UPCOMING' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-600'}`}
                 >
@@ -116,17 +145,17 @@ export function InstructorClassOverviewPage() {
                 {formatDate(a.openAt)} → {formatDate(a.closeAt)}
               </p>
               <div className="mt-3 flex flex-wrap gap-4 text-sm">
-                <span>
+                <button className="font-semibold text-indigo-700 underline" onClick={() => setDrilldown(assessmentDrilldown(a, 'SUBMITTED', base))} type="button">
                   <strong>{a.submittedLearnerCount}</strong> đã nộp
-                </span>
-                <span>
+                </button>
+                <button className="font-semibold text-indigo-700 underline" onClick={() => setDrilldown(assessmentDrilldown(a, 'IN_PROGRESS', base))} type="button">
                   <strong>{a.inProgressLearnerCount}</strong> đang làm
-                </span>
-                <span>
+                </button>
+                <button className="font-semibold text-indigo-700 underline" onClick={() => setDrilldown(assessmentDrilldown(a, 'NOT_SUBMITTED', base))} type="button">
                   <strong>{a.notSubmittedLearnerCount}</strong> chưa nộp
-                </span>
+                </button>
               </div>
-            </Link>
+            </article>
           ))}
           {!overview.assessments.length && <p className="text-slate-500">Chưa có lịch kiểm tra.</p>}
         </div>
@@ -142,6 +171,18 @@ export function InstructorClassOverviewPage() {
                     <Link className="ml-2 font-semibold text-indigo-700" to={`${base}/grading`}>
                       Xử lý →
                     </Link>
+                  )}
+                  {item.kind === 'INACTIVE' && (
+                    <button className="ml-2 font-semibold text-indigo-700 underline" onClick={() => setDrilldown({
+                      title: 'Học viên cần theo dõi',
+                      caption: 'Không có hoạt động học tập trong ít nhất 7 ngày',
+                      rows: (item.learners ?? []).map((learner) => ({
+                        key: learner.enrollmentId,
+                        primary: learner.learner.fullName,
+                        secondary: `Hoạt động gần nhất ${formatDate(learner.lastActivityAt)} · ${learner.completedLessons}/${learner.totalLessons} bài`,
+                        href: `${base}/learners/${learner.enrollmentId}`,
+                      })),
+                    })} type="button">Xem học viên →</button>
                   )}
                 </li>
               ))}
@@ -166,8 +207,37 @@ export function InstructorClassOverviewPage() {
           </ol>
         </Panel>
       </section>
+      {drilldown ? <DrilldownDialog detail={drilldown} onClose={() => setDrilldown(null)} /> : null}
     </div>
   );
+}
+
+function assessmentDrilldown(
+  assessment: InstructorClassWorkspaceContext['overview']['assessments'][number],
+  state: 'SUBMITTED' | 'IN_PROGRESS' | 'NOT_SUBMITTED',
+  base: string,
+) {
+  const labels = { SUBMITTED: 'đã nộp', IN_PROGRESS: 'đang làm', NOT_SUBMITTED: 'chưa nộp' };
+  const rows = (assessment.learners ?? []).filter((item) => item.state === state);
+  return {
+    title: `${assessment.test.title} · ${labels[state]}`,
+    caption: `${rows.length}/${assessment.activeLearnerCount} học viên`,
+    rows: rows.map((item) => ({
+      key: item.enrollmentId,
+      primary: item.learner.fullName,
+      secondary: `${item.completedLessons}/${item.totalLessons} bài · ${item.learner.email}`,
+      href: `${base}/learners/${item.enrollmentId}`,
+    })),
+  };
+}
+
+function DrilldownDialog({ detail, onClose }: { detail: { title: string; caption: string; rows: Array<{ key: string; primary: string; secondary: string; href?: string }> }; onClose: () => void }) {
+  return <div aria-label={detail.title} aria-modal="true" className="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="dialog">
+    <section className="h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-2xl">
+      <div className="flex items-start justify-between gap-4"><div><h2 className="text-xl font-bold">{detail.title}</h2><p className="text-sm text-slate-500">{detail.caption}</p></div><button className="rounded border px-3 py-2" onClick={onClose} type="button">Đóng</button></div>
+      <div className="mt-5 space-y-3">{detail.rows.map((row) => <article className="rounded-xl border p-4" key={row.key}><strong>{row.primary}</strong><p className="mt-1 text-sm text-slate-500">{row.secondary}</p>{row.href ? <Link className="mt-2 inline-block font-semibold text-indigo-700" to={row.href}>Mở chi tiết →</Link> : null}</article>)}{detail.rows.length === 0 ? <p className="rounded bg-slate-50 p-4 text-sm text-slate-500">Không có học viên trong nhóm này.</p> : null}</div>
+    </section>
+  </div>;
 }
 function Metric({
   label,

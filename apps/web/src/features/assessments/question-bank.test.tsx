@@ -178,6 +178,13 @@ describe('QuestionBankPage', () => {
     expect(screen.getByText(/trùng với câu hỏi hiện có/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Xác nhận nhập/i })).toBeEnabled();
 
+    const confirmImport = vi.spyOn(assessmentApi.questions, 'confirmImport');
+    fireEvent.click(screen.getByRole('button', { name: /Xác nhận nhập/i }));
+    const confirmation = await screen.findByRole('dialog', { name: /Xác nhận nhập câu hỏi/i });
+    expect(within(confirmation).getByText(/1 câu/)).toBeInTheDocument();
+    fireEvent.click(within(confirmation).getByRole('button', { name: /Quay lại xem trước/i }));
+    expect(confirmImport).not.toHaveBeenCalled();
+
     fireEvent.click(screen.getByRole('button', { name: /^Hủy$/i }));
     fireEvent.change(fileInput, { target: { files: [file] } });
     expect(await screen.findByText(/Rubric không tồn tại/i)).toBeInTheDocument();
