@@ -324,3 +324,21 @@ These are engineering results for GPT verification only. Product Owner correctio
 - Dedicated headless-Chrome smoke: **45/45 PASS**, including learner two-point formatting, Step 3 create/select/rename with immediate Step 5 consistency, consolidated Results hierarchy, full-width Distribution/Trend, learner drill-down reachability, and **0 horizontal-overflow failures** at `1440×900`, `820×1180`, and `390×844`.
 - Prisma validate/generate/status/drift, deterministic seed, M07 data validator, M05 manifest, lint, typecheck, build, and `git diff --check`: **PASS**. Smoke-owned data was cleaned and followed by a final deterministic reseed/validator run.
 - The Product Owner's filled correction-retest guide and external evidence were not modified by this round. These results are engineering evidence only and do not claim Manual Visual Gate PASS.
+
+## Product Owner Correction Round 3 — Meaningful Reporting
+
+- **R3-04 learner reporting:** Product Owner feedback found that a two-point slope suggested a time-series interpretation that two observations could not meaningfully support. Exactly two assessments now render a direct before/after comparison with one shared assessment/date header, four aligned skill rows on a common 0–100 scale, previous/current values, safe deltas, missing-value dashes, and a deterministic summary of the observed changes. No connecting slope line is rendered. Three or more assessments continue to use the existing accessible line chart and data table.
+- **R3-11 natural coverage:** completion and four-skill coverage are expressed in plain Vietnamese learner counts rather than `n=` shorthand. The four-skill block reports highest and lowest visible averages deterministically and warns when skill sample coverage differs, while retaining the existing click-to-filter behavior.
+- **Distribution truth and empty states:** zero-count buckets are omitted, so layout padding cannot create misleading colored slivers. A skill with no finalized samples renders `Chưa có điểm cuối cho kỹ năng này.`; an assessment with no finalized samples renders a block-level empty state instead of a chart. Populated rows remain 100% stacked bars and add a deterministic largest-bucket sentence with tie-safe wording and natural learner counts. Existing learner drill-down behavior is preserved.
+- **Class comparison grammar:** exactly two class trend points now use before/after comparison rows with averages, plain learner sample counts, deltas, and an explicit note that these are class-average differences whose sample counts may differ. Three or more points retain the line chart. When the selected assessment has no finalized samples, historical trend copy explicitly distinguishes valid class history from data for that selected assessment.
+- Accepted Test Builder Step 2/3 behavior, learner-visible IMAGE/AUDIO delivery, protected-stimulus exclusion, Question Bank, XLSX, grading, pending/missing truth, learner matrix, Student Resource, and class-status semantics were intentionally preserved. No Prisma schema or migration change was required. Product Owner source artifacts were not modified, and this engineering work does not claim Manual Visual Gate PASS.
+
+### Product Owner Correction Round 3 verification
+
+- Focused Web regression: **10/10 PASS** across the shared trend/comparison component and Instructor Workspace reporting surfaces.
+- Full unit regression: API **394/394 PASS**; Web **245/245 PASS**. API E2E: **98/98 PASS**.
+- Dedicated headless-Chrome smoke: **46/46 PASS**, covering learner before/after comparison without a slope, deterministic summaries, natural Results coverage, populated distribution and drill-down, all-zero selected-assessment states without fake segments, and class before/after comparison.
+- Responsive evidence completed with **0 horizontal-overflow failures** at desktop `1440×900`, tablet `820×1180`, and mobile `390×844`.
+- Prisma validate/generate/status/drift, deterministic seed, M07 visual-gate data validator, M05 manifest, lint, typecheck, build, API E2E, and `git diff --check`: **PASS**. Smoke-owned fixtures and the isolated Chrome profile were removed before the final deterministic reseed and validators.
+
+These are engineering results for GPT verification only. Product Owner narrow reporting retest remains blocked until GPT accepts this correction.

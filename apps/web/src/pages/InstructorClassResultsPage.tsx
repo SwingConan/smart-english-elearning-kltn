@@ -54,6 +54,31 @@ function scoreLabel(scores: Score[], skill: ToeicSkill) {
   const score = scores.find((item) => item.skill === skill);
   return score?.status === 'FINAL' ? `${formatTrendNumber(score.normalizedScore)}%` : score ? 'Đang chờ' : 'Chưa có';
 }
+function skillPictureSummary(items: Average[]) {
+  const visible = items.filter((item): item is Average & { average: number } => item.average !== null && item.sampleCount > 0);
+  if (!visible.length) return [];
+  const high = Math.max(...visible.map((item) => item.average));
+  const low = Math.min(...visible.map((item) => item.average));
+  const highSkills = visible.filter((item) => item.average === high).map((item) => toeicSkillLabel[item.skill]);
+  const lowSkills = visible.filter((item) => item.average === low).map((item) => toeicSkillLabel[item.skill]);
+  const lines = [
+    `Trong các điểm đã chấm cuối, ${naturalList(highSkills)} có điểm trung bình cao nhất (${formatTrendNumber(high)}%).`,
+  ];
+  if (high !== low) lines.push(`${naturalList(lowSkills)} thấp nhất (${formatTrendNumber(low)}%).`);
+  if (new Set(visible.map((item) => item.sampleCount)).size > 1) lines.push('Số học viên có điểm khác nhau giữa các kỹ năng, vì vậy cần đọc cùng phần dữ liệu.');
+  return lines;
+}
+function distributionSummary(item: Average) {
+  const entries = Object.entries(item.distribution) as Array<[keyof Average['distribution'], number]>;
+  const max = Math.max(...entries.map(([, count]) => count));
+  const leaders = entries.filter(([, count]) => count === max).map(([key]) => distributionMeta[key].label);
+  if (leaders.length === 1) return `${toeicSkillLabel[item.skill]}: nhiều học viên nhất nằm ở nhóm ${leaders[0]} (${max}/${item.sampleCount} học viên có điểm).`;
+  return `${toeicSkillLabel[item.skill]}: ${naturalList(leaders.map((label) => `nhóm ${label}`))} cùng có nhiều học viên nhất (${max} học viên mỗi nhóm).`;
+}
+function naturalList(labels: string[]) {
+  if (labels.length <= 1) return labels[0] ?? '';
+  return `${labels.slice(0, -1).join(', ')} và ${labels.at(-1)}`;
+}
 export function InstructorClassResultsPage() {
   const { classOfferingId = '' } = useParams();
   const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -86,6 +111,8 @@ export function InstructorClassResultsPage() {
       (!attemptFilter || attemptFilter.has(row.id)) &&
       `${row.learner.fullName} ${row.learner.email}`.toLowerCase().includes(query.toLowerCase()),
     ) ?? [];
+  const hasFinalSamples = assessment?.skillAverages.some((item) => item.sampleCount > 0 && item.average !== null) ?? false;
+  const pictureSummary = assessment ? skillPictureSummary(assessment.skillAverages) : [];
   if (state === 'error') return <div className="state-error">Không thể tải kết quả lớp.</div>;
   if (state === 'loading') return <div className="h-64 animate-pulse rounded-2xl bg-slate-200" />;
   return (
@@ -144,17 +171,18 @@ export function InstructorClassResultsPage() {
               ))}
             </div>
             <div className="mt-3 flex flex-wrap gap-5 text-sm">
-              <button className="font-semibold text-indigo-700 underline" onClick={() => { const ids = assessment.learners.filter((row) => skills.every((skill) => row.skillScores.some((score) => score.skill === skill && score.status === 'FINAL'))).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel('Đã chấm đủ'); }} type="button">{assessment.completion.fullyGraded} đã chấm đủ</button>
-              <button className="font-semibold text-indigo-700 underline" onClick={() => { const ids = assessment.learners.filter((row) => !skills.every((skill) => row.skillScores.some((score) => score.skill === skill && score.status === 'FINAL'))).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel('Chờ chấm'); }} type="button">{assessment.completion.pendingGrading} chờ chấm</button>
-              <button className="font-semibold text-indigo-700 underline" onClick={() => { setAttemptFilter(new Set()); setFilterLabel('Chưa nộp'); }} type="button">{assessment.completion.notSubmitted} chưa nộp</button>
+              <button className="font-semibold text-indigo-700 underline" onClick={() => { const ids = assessment.learners.filter((row) => skills.every((skill) => row.skillScores.some((score) => score.skill === skill && score.status === 'FINAL'))).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel('Đã chấm đủ'); }} type="button">{assessment.completion.fullyGraded}/{assessment.completion.total} học viên đã chấm đủ</button>
+              <button className="font-semibold text-indigo-700 underline" onClick={() => { const ids = assessment.learners.filter((row) => !skills.every((skill) => row.skillScores.some((score) => score.skill === skill && score.status === 'FINAL'))).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel('Chờ chấm'); }} type="button">{assessment.completion.pendingGrading} học viên đang chờ chấm</button>
+              <button className="font-semibold text-indigo-700 underline" onClick={() => { setAttemptFilter(new Set()); setFilterLabel('Chưa nộp'); }} type="button">{assessment.completion.notSubmitted} học viên chưa nộp</button>
             </div>
           </section>
           <section className="rounded-2xl border bg-white p-5" data-testid="consolidated-skill-comparison">
-            <h3 className="text-lg font-bold">So sánh kỹ năng</h3>
-            <p className="text-sm text-slate-500">Điểm trung bình từ các mẫu đã chấm cuối; chọn một hàng để lọc học viên.</p>
-            <div className="mt-4 divide-y">
+            <h3 className="text-lg font-bold">Bức tranh 4 kỹ năng</h3>
+            <p className="text-sm text-slate-500">Điểm trung bình chỉ dùng kết quả đã chấm cuối; chọn một hàng để lọc học viên.</p>
+            {hasFinalSamples ? <div className="mt-3 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-900" data-testid="skill-picture-summary">{pictureSummary.map((line) => <p key={line}>{line}</p>)}</div> : <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Chưa có điểm cuối để tính điểm trung bình.</p>}
+            {hasFinalSamples ? <div className="mt-4 divide-y">
               {assessment.skillAverages.map((item) => (
-                <button className="grid w-full grid-cols-[6rem_minmax(4rem,1fr)] items-center gap-3 py-3 text-left hover:bg-indigo-50 sm:grid-cols-[8rem_minmax(6rem,1fr)_5rem_5rem] sm:px-2" key={item.skill} onClick={() => { const ids = assessment.learners.filter((row) => row.skillScores.some((score) => score.skill === item.skill && score.status === 'FINAL')).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel(`${toeicSkillLabel[item.skill]} · có điểm cuối`); }} type="button">
+                <button className="grid w-full grid-cols-[6rem_minmax(4rem,1fr)] items-center gap-x-3 gap-y-1 py-3 text-left hover:bg-indigo-50 sm:grid-cols-[8rem_minmax(6rem,1fr)_7rem] sm:px-2" key={item.skill} onClick={() => { const ids = assessment.learners.filter((row) => row.skillScores.some((score) => score.skill === item.skill && score.status === 'FINAL')).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel(`${toeicSkillLabel[item.skill]} — ${item.sampleCount} học viên có điểm cuối`); }} type="button">
                   <strong>{toeicSkillLabel[item.skill]}</strong>
                   <div className="h-3 overflow-hidden rounded-full bg-slate-200">
                     {item.average !== null ? <div
@@ -163,36 +191,36 @@ export function InstructorClassResultsPage() {
                     /> : null}
                   </div>
                   <span className="text-right font-bold text-indigo-700">{item.average === null ? '—' : `${formatTrendNumber(item.average)}%`}</span>
-                  <span className="text-right text-xs text-slate-500">n={item.sampleCount}/{assessment.completion.total}</span>
-                  <span className="sr-only">{item.sampleCount}/{assessment.completion.total} học viên đã có điểm cuối</span>
-                  <span className="sr-only">{assessment.completion.total - item.sampleCount} chưa đủ dữ liệu</span>
+                  <span className="col-start-2 text-xs text-slate-500 sm:col-start-2">{item.sampleCount}/{assessment.completion.total} học viên có điểm cuối · {assessment.completion.total - item.sampleCount} học viên chưa đủ dữ liệu</span>
                 </button>
               ))}
-            </div>
+            </div> : null}
           </section>
           <section className="min-w-0 overflow-hidden rounded-2xl border bg-white p-5" data-testid="results-distribution">
               <h3 className="font-bold">Phân bố điểm</h3>
               <p className="text-sm text-slate-500">
                 Số học viên theo khoảng điểm cuối của từng kỹ năng.
               </p>
-              {assessment.skillAverages.map((item) => (
+              {!hasFinalSamples ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Bài kiểm tra này chưa có điểm cuối để hiển thị phân bố.</p> : assessment.skillAverages.map((item) => (
                 <div className="mt-4" key={item.skill}>
                   <strong className="text-sm">{toeicSkillLabel[item.skill]}</strong>
-                  <div className="mt-2 flex h-9 overflow-hidden rounded-lg bg-slate-100" aria-label={`Phân bố ${toeicSkillLabel[item.skill]} 100 phần trăm`}>
-                    {Object.entries(item.distribution).map(([key, count]) => (
-                      <button aria-label={`${toeicSkillLabel[item.skill]} ${distributionMeta[key as keyof typeof distributionMeta].label}: ${count}/${item.sampleCount}`} className={`${distributionMeta[key as keyof typeof distributionMeta].color} overflow-hidden text-ellipsis whitespace-nowrap px-1 text-xs font-bold text-white focus:outline focus:outline-2 focus:outline-indigo-800`} key={key} onClick={() => { const ids = (item.distributionLearners?.[key] ?? []).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel(`${toeicSkillLabel[item.skill]} · ${distributionMeta[key as keyof typeof distributionMeta].label}`); }} style={{ width: `${item.sampleCount ? count / item.sampleCount * 100 : 0}%` }} title={`${distributionMeta[key as keyof typeof distributionMeta].label}: ${count}`} type="button">
-                        {count > 0 ? count : ''}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">{Object.entries(distributionMeta).map(([key, meta]) => <span className="flex items-center gap-1" key={key}><i className={`h-2.5 w-2.5 rounded-sm ${meta.color}`} />{meta.label}: {item.distribution[key as keyof typeof item.distribution]}</span>)}</div>
-                  <p className="mt-1 text-xs text-slate-500">n={item.sampleCount} điểm cuối; dữ liệu thiếu không tính là 0.</p>
+                  {item.sampleCount === 0 ? <p className="mt-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">Chưa có điểm cuối cho kỹ năng này.</p> : <>
+                    <div className="mt-2 flex h-9 overflow-hidden rounded-lg bg-slate-100" aria-label={`Phân bố ${toeicSkillLabel[item.skill]} 100 phần trăm`}>
+                      {Object.entries(item.distribution).filter(([, count]) => count > 0).map(([key, count]) => (
+                        <button aria-label={`${toeicSkillLabel[item.skill]} ${distributionMeta[key as keyof typeof distributionMeta].label}: ${count}/${item.sampleCount}`} className={`${distributionMeta[key as keyof typeof distributionMeta].color} min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-bold text-white focus:outline focus:outline-2 focus:outline-indigo-800`} key={key} onClick={() => { const ids = (item.distributionLearners?.[key] ?? []).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel(`${toeicSkillLabel[item.skill]} · ${distributionMeta[key as keyof typeof distributionMeta].label}`); }} style={{ width: `${count / item.sampleCount * 100}%` }} title={`${distributionMeta[key as keyof typeof distributionMeta].label}: ${count}`} type="button">
+                          {count}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">{Object.entries(distributionMeta).map(([key, meta]) => <span className="flex items-center gap-1" key={key}><i className={`h-2.5 w-2.5 rounded-sm ${meta.color}`} />{meta.label}: {item.distribution[key as keyof typeof item.distribution]}</span>)}</div>
+                    <p className="mt-1 text-sm text-slate-600">{distributionSummary(item)}</p>
+                  </>}
                 </div>
               ))}
           </section>
           <section className="min-w-0 overflow-hidden rounded-2xl border bg-white p-5" data-testid="results-trend">
-              <h3 className="font-bold">Xu hướng qua các đợt kiểm tra</h3>
-              <p className="text-sm text-slate-500">Chỉ dùng bài trong lớp và điểm đã chấm cuối.</p>
+              <h3 className="font-bold">{trend.length === 2 ? 'So sánh 2 đợt kiểm tra gần nhất' : 'Xu hướng qua các đợt kiểm tra'}</h3>
+              <p className="text-sm text-slate-500">{hasFinalSamples ? 'Chỉ dùng bài trong lớp và điểm đã chấm cuối.' : 'Phần này là lịch sử điểm đã chấm cuối của lớp, không phải dữ liệu của bài kiểm tra đang chọn.'}</p>
               {trend.length >= 2 ? (
                 <SkillTrendChart showSampleCount points={trend.map((point) => ({ id: point.assessmentId, title: point.title, date: point.date, values: Object.fromEntries(point.skills.map((score) => [score.skill, { score: score.average, sampleCount: score.sampleCount }])) }))} />
               ) : (

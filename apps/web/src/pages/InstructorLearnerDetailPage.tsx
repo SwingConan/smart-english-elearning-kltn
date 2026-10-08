@@ -124,8 +124,8 @@ export function InstructorLearnerDetailPage() {
         </Panel>
       </section>
       <Panel
-        title="Xu hướng kỹ năng"
-        caption="Điểm nội bộ 0–100 theo từng đợt kiểm tra đã chấm hoàn tất. Đây là diễn biến kết quả bài làm, không phải điểm TOEIC hoặc khẳng định năng lực thực tế; dữ liệu thiếu được để trống."
+        title={data.skillTrend.length === 2 ? 'So sánh 2 đợt kiểm tra gần nhất' : 'Xu hướng kỹ năng'}
+        caption={data.skillTrend.length === 2 ? 'So sánh điểm nội bộ 0–100 giữa hai đợt đã chấm hoàn tất. Đây là kết quả bài làm, không phải điểm TOEIC hoặc khẳng định năng lực thực tế; dữ liệu thiếu được để trống.' : 'Điểm nội bộ 0–100 theo từng đợt kiểm tra đã chấm hoàn tất. Đây là diễn biến kết quả bài làm, không phải điểm TOEIC hoặc khẳng định năng lực thực tế; dữ liệu thiếu được để trống.'}
       >
         {data.skillTrend.length ? <SkillTrendChart points={data.skillTrend.map((point) => ({ id: point.attemptId, title: point.assessmentTitle, date: point.date, values: Object.fromEntries(point.scores.map((score) => [score.skill, { score: score.normalizedScore }])) }))} /> : <p className="mt-3 text-sm text-slate-500">Chưa có điểm cuối để hiển thị xu hướng.</p>}
       </Panel>

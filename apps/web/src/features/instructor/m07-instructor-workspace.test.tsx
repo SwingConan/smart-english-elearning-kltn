@@ -6,8 +6,9 @@ import { InstructorClassWorkspaceLayout } from '@/layouts/InstructorClassWorkspa
 import { InstructorClassOverviewPage } from '@/pages/InstructorClassOverviewPage';
 import { InstructorRosterPage } from '@/pages/InstructorRosterPage';
 import { InstructorClassResultsPage } from '@/pages/InstructorClassResultsPage';
+import { InstructorLearnerDetailPage } from '@/pages/InstructorLearnerDetailPage';
 import { instructorApi } from './api';
-import type { InstructorClass, InstructorClassOverview } from './types';
+import type { InstructorClass, InstructorClassOverview, InstructorLearnerDetail } from './types';
 
 const classroom: InstructorClass = {
   id: 'class-a',
@@ -141,6 +142,29 @@ describe('M07 Instructor class workspace', () => {
     expect(screen.queryByRole('button', { name: /xóa|thêm học viên/i })).not.toBeInTheDocument();
   });
 
+  it('labels and summarizes an exactly-two learner comparison without slope mechanics', async () => {
+    const scoreSet = (offset: number) => (['LISTENING', 'READING', 'SPEAKING', 'WRITING'] as const).map((skill, index) => ({ skill, normalizedScore: 60 + index * 5 + offset }));
+    const detail: InstructorLearnerDetail = {
+      classOffering: classroom,
+      enrollment: { id: 'enrollment-a', status: 'ACTIVE', enrolledAt: '2026-08-01', learner: { id: 'learner-a', fullName: 'Nguyễn Minh Anh', email: 'a@test.local' } },
+      lessonProgress: [], attempts: [], latestFourSkillSnapshot: { assessmentTitle: 'Đợt 2', scores: scoreSet(5) },
+      summary: { completedLessons: 0, totalLessons: 0, submittedAssessmentCount: 2, pendingGradingCount: 0, lastActivityAt: null },
+      moduleProgress: [], recentActivity: [],
+      skillTrend: [
+        { attemptId: 'a-1', assessmentTitle: 'Đợt 1', stage: 'PERIODIC', date: '2026-09-01', scores: scoreSet(0) },
+        { attemptId: 'a-2', assessmentTitle: 'Đợt 2', stage: 'MIDTERM', date: '2026-10-01', scores: scoreSet(5) },
+      ],
+    };
+    vi.spyOn(instructorApi.classes, 'learner').mockResolvedValue(detail);
+    render(<MemoryRouter initialEntries={['/instructor/classes/class-a/learners/enrollment-a']}><Routes><Route path="/instructor/classes/:classOfferingId/learners/:enrollmentId" element={<InstructorLearnerDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByText('So sánh 2 đợt kiểm tra gần nhất')).toBeInTheDocument();
+    expect(screen.getByTestId('two-point-skill-comparison')).toBeInTheDocument();
+    expect(screen.queryByTestId('two-point-skill-slope')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId(/comparison-row-/)).toHaveLength(4);
+    expect(screen.getByTestId('learner-comparison-summary')).toHaveTextContent('Điểm tăng ở cả 4 kỹ năng.');
+    expect(screen.getByTestId('learner-comparison-summary')).toHaveTextContent('Mức tăng lớn nhất: Nghe, Đọc, Nói và Viết +5 điểm.');
+  });
+
   it('shows truthful submitted, fully graded, pending and FINAL-only sample evidence', async () => {
     vi.spyOn(instructorApi.classes, 'results').mockResolvedValue({
       classOffering: classroom,
@@ -200,22 +224,64 @@ describe('M07 Instructor class workspace', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(await screen.findByText('1 đã chấm đủ')).toBeInTheDocument();
-    expect(screen.getByText('1 chờ chấm')).toBeInTheDocument();
-    expect(screen.getByText('2/9 học viên đã có điểm cuối')).toBeInTheDocument();
-    expect(screen.getAllByText('9 chưa đủ dữ liệu').length).toBeGreaterThan(0);
+    expect(await screen.findByText('1/9 học viên đã chấm đủ')).toBeInTheDocument();
+    expect(screen.getByText('1 học viên đang chờ chấm')).toBeInTheDocument();
+    expect(screen.getByText(/2\/9 học viên có điểm cuối/)).toBeInTheDocument();
+    expect(screen.getByText(/7 học viên chưa đủ dữ liệu/)).toBeInTheDocument();
     expect(screen.getAllByText('Đang chờ').length).toBeGreaterThan(0);
     expect(screen.getByText('Phân bố điểm')).toBeInTheDocument();
     expect(screen.getByTestId('consolidated-skill-comparison')).toBeInTheDocument();
+    expect(screen.getByText('Bức tranh 4 kỹ năng')).toBeInTheDocument();
+    expect(screen.getByTestId('skill-picture-summary')).toHaveTextContent('Nghe có điểm trung bình cao nhất (75%).');
     const distribution = screen.getByTestId('results-distribution');
     const trend = screen.getByTestId('results-trend');
     expect(distribution.compareDocumentPosition(trend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByTestId('two-point-skill-slope')).toBeInTheDocument();
+    expect(screen.getByTestId('two-point-skill-comparison')).toBeInTheDocument();
+    expect(screen.queryByTestId('two-point-skill-slope')).not.toBeInTheDocument();
     expect(screen.getByText('+5.2 điểm')).toBeInTheDocument();
+    expect(screen.getByText('Đây là chênh lệch điểm trung bình của lớp.')).toBeInTheDocument();
+    expect(screen.getByText('Số học viên có điểm có thể khác giữa hai đợt.')).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/000000000000/);
-    expect(screen.getByText('n=9')).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('n=');
+    expect(screen.getByText('Chưa có điểm cuối cho kỹ năng này.')).toBeInTheDocument();
+    expect(screen.getByText('Nghe: nhiều học viên nhất nằm ở nhóm 70–84 (2/2 học viên có điểm).')).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: /70–84/ })[0]);
     expect(screen.getByText(/Nghe · 70–84/)).toBeInTheDocument();
     expect(screen.getAllByText('Nguyễn Minh Anh').length).toBeGreaterThan(0);
+  });
+
+  it('shows honest analytics empty states without fake distribution segments', async () => {
+    const zeroAverage = (skill: string) => ({ skill, average: null, sampleCount: 0, excludedCount: 9, distribution: { below50: 0, from50To69: 0, from70To84: 0, from85To100: 0 } });
+    vi.spyOn(instructorApi.classes, 'results').mockResolvedValue({
+      classOffering: classroom,
+      assessments: [{
+        id: 'empty-assessment', stage: 'FINAL', test: { title: 'Kiểm tra cuối kỳ' },
+        submittedCount: 0, latestAttemptCount: 0, fullyGradedCount: 0, pendingGradingCount: 0, notSubmittedCount: 9,
+        completion: { fullyGraded: 0, pendingGrading: 0, notSubmitted: 9, total: 9 },
+        skillAverages: ['LISTENING', 'READING', 'SPEAKING', 'WRITING'].map(zeroAverage), learners: [],
+      }],
+      trend: [
+        { assessmentId: 'old-a', title: 'Đợt 1', stage: 'PERIODIC', date: '2026-08-01', skills: [{ skill: 'LISTENING', average: 60, sampleCount: 4 }] },
+        { assessmentId: 'old-b', title: 'Đợt 2', stage: 'MIDTERM', date: '2026-09-01', skills: [{ skill: 'LISTENING', average: 65, sampleCount: 5 }] },
+      ],
+    });
+    render(<MemoryRouter initialEntries={['/instructor/classes/class-a/results']}><Routes><Route path="/instructor/classes/:classOfferingId/results" element={<InstructorClassResultsPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByText('Chưa có điểm cuối để tính điểm trung bình.')).toBeInTheDocument();
+    expect(screen.getByText('Bài kiểm tra này chưa có điểm cuối để hiển thị phân bố.')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Phân bố .*100 phần trăm/)).not.toBeInTheDocument();
+    expect(screen.getByText(/lịch sử điểm đã chấm cuối của lớp, không phải dữ liệu của bài kiểm tra đang chọn/i)).toBeInTheDocument();
+    expect(screen.getByTestId('two-point-skill-comparison')).toBeInTheDocument();
+  });
+
+  it('keeps the line chart grammar for three or more class assessments', async () => {
+    vi.spyOn(instructorApi.classes, 'results').mockResolvedValue({
+      classOffering: classroom,
+      assessments: [{ id: 'assessment-a', stage: 'MIDTERM', test: { title: 'Đợt 3' }, submittedCount: 1, latestAttemptCount: 1, fullyGradedCount: 1, pendingGradingCount: 0, notSubmittedCount: 8, completion: { fullyGraded: 1, pendingGrading: 0, notSubmitted: 8, total: 9 }, skillAverages: [{ skill: 'LISTENING', average: 70, sampleCount: 1, excludedCount: 8, distribution: { below50: 0, from50To69: 0, from70To84: 1, from85To100: 0 } }], learners: [] }],
+      trend: ['2026-08-01', '2026-09-01', '2026-10-01'].map((date, index) => ({ assessmentId: `a-${index}`, title: `Đợt ${index + 1}`, stage: 'PERIODIC', date, skills: [{ skill: 'LISTENING' as const, average: 60 + index * 5, sampleCount: 4 + index }] })),
+    });
+    render(<MemoryRouter initialEntries={['/instructor/classes/class-a/results']}><Routes><Route path="/instructor/classes/:classOfferingId/results" element={<InstructorClassResultsPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('img', { name: /Biểu đồ xu hướng kỹ năng/i })).toBeInTheDocument();
+    expect(screen.queryByTestId('two-point-skill-comparison')).not.toBeInTheDocument();
+    expect(screen.getByRole('table', { name: /Dữ liệu xu hướng kỹ năng/i })).toHaveTextContent('Đợt 3');
   });
 });

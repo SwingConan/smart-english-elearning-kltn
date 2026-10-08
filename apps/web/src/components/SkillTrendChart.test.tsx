@@ -14,7 +14,7 @@ const point = (id: string, title: string, date: string, score?: number): SkillTr
 afterEach(cleanup);
 
 describe('SkillTrendChart', () => {
-  it('uses non-overlapping slope rows for exactly two assessments and exposes deltas', () => {
+  it('uses meaningful before/after rows for exactly two assessments and exposes deterministic summaries', () => {
     const points: SkillTrendPoint[] = [
       { id: 'periodic', title: 'Kiểm tra thường kỳ', date: '2026-09-01T00:00:00Z', values: {
         LISTENING: { score: 4, sampleCount: 3 }, READING: { score: 6.2, sampleCount: 2 },
@@ -26,16 +26,29 @@ describe('SkillTrendChart', () => {
       } },
     ];
     render(<SkillTrendChart showSampleCount points={points} />);
-    expect(screen.getByTestId('two-point-skill-slope')).toBeInTheDocument();
-    expect(screen.getAllByTestId(/trend-row-/)).toHaveLength(4);
+    expect(screen.getByTestId('two-point-skill-comparison')).toBeInTheDocument();
+    expect(screen.queryByTestId('two-point-skill-slope')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId(/comparison-row-/)).toHaveLength(4);
     expect(screen.getByText('+4.2 điểm')).toBeInTheDocument();
     expect(screen.getByText('-2 điểm')).toBeInTheDocument();
     expect(screen.getByText('0 điểm')).toBeInTheDocument();
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText('n=3').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('3 học viên có điểm').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/n=/)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/000000000000/);
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(screen.getByRole('table')).toHaveTextContent('Kiểm tra thường kỳ');
+  });
+
+  it('summarizes learner changes without turning missing values into zero', () => {
+    render(<SkillTrendChart points={[
+      { id: 'before', title: 'Đợt trước', date: '2026-09-01', values: { LISTENING: { score: 60 }, READING: { score: 70 }, SPEAKING: { score: 80 } } },
+      { id: 'after', title: 'Đợt sau', date: '2026-10-01', values: { LISTENING: { score: 65 }, READING: { score: 70 }, SPEAKING: { score: 75 } } },
+    ]} />);
+    expect(screen.getByTestId('learner-comparison-summary')).toHaveTextContent('Nghe tăng; Đọc giữ nguyên; Nói giảm.');
+    expect(screen.getByTestId('learner-comparison-summary')).toHaveTextContent('Một số kỹ năng chưa đủ dữ liệu để so sánh.');
+    expect(screen.getByTestId('learner-comparison-summary')).toHaveTextContent('Mức tăng lớn nhất: Nghe +5 điểm.');
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
   });
 
   it('formats integer and floating-tail values deterministically', () => {
