@@ -135,23 +135,56 @@ describe('TestManagementPage', () => {
 });
 
 describe('TestEditorPage', () => {
-  it('reorders complete groups without losing relations or selected context', async () => {
-    const listening = testGroup('group-listening', 'LISTENING', 0);
-    const reading = testGroup('group-reading', 'READING', 1);
-    const current = { ...detail(testId, 'QUIZ', 'DRAFT', []), questionGroups: [listening, reading] };
-    mockEditor(current, []);
-    const reorder = vi.spyOn(assessmentApi.groups, 'reorder').mockResolvedValue([
-      { ...reading, orderIndex: 0 },
-      { ...listening, orderIndex: 1 },
-    ]);
+  it('owns create, select, rename, same-skill reorder and delete in Step 3 while Step 5 stays current', async () => {
+    const first = { ...testGroup('group-listening-1', 'LISTENING', 0), title: 'Nghe 1' };
+    const second = { ...testGroup('group-listening-2', 'LISTENING', 1), title: 'Nghe 2' };
+    let server: AssessmentTestDetail = { ...detail(testId, 'QUIZ', 'DRAFT', []), questionGroups: [first, second] };
+    vi.spyOn(curriculum, 'loadCourseLessons').mockResolvedValue(lessons);
+    vi.spyOn(assessmentApi.questions, 'page').mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });
+    vi.spyOn(assessmentApi.tests, 'get').mockImplementation(async () => server);
+    const create = vi.spyOn(assessmentApi.groups, 'create').mockImplementation(async (_id, input) => {
+      const created = { ...testGroup('group-listening-3', input.skill, 2), title: input.title ?? null };
+      server = { ...server, questionGroups: [...(server.questionGroups ?? []), created] };
+      return created;
+    });
+    const update = vi.spyOn(assessmentApi.groups, 'update').mockImplementation(async (_id, groupId, input) => {
+      const updated = { ...(server.questionGroups ?? []).find((group) => group.id === groupId)!, ...input };
+      server = { ...server, questionGroups: (server.questionGroups ?? []).map((group) => group.id === groupId ? updated : group) };
+      return updated;
+    });
+    const reorder = vi.spyOn(assessmentApi.groups, 'reorder').mockImplementation(async (_id, ids) => {
+      server = { ...server, questionGroups: ids.map((id, orderIndex) => ({ ...(server.questionGroups ?? []).find((group) => group.id === id)!, orderIndex })) };
+      return server.questionGroups ?? [];
+    });
+    const remove = vi.spyOn(assessmentApi.groups, 'delete').mockImplementation(async (_id, groupId) => {
+      server = { ...server, questionGroups: (server.questionGroups ?? []).filter((group) => group.id !== groupId) };
+      return { message: 'ok' };
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderEditor();
-    await screen.findByText(current.title);
+    await screen.findByText(server.title);
     fireEvent.click(screen.getByRole('button', { name: /2\. Cấu trúc đề/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Chọn để thêm câu hỏi vào phần thi 1/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Đưa phần thi 1 xuống/i }));
-    await waitFor(() => expect(reorder).toHaveBeenCalledWith(testId, ['group-reading', 'group-listening']));
-    expect(screen.getByText('Đang chọn phần thi này')).toBeInTheDocument();
-    expect(screen.getAllByText(/0 ngữ liệu/i).length).toBeGreaterThanOrEqual(2);
+    const structure = screen.getByTestId('skill-structure-summary').closest('section')!;
+    expect(structure).toBeInTheDocument();
+    expect(within(structure).queryByRole('button', { name: /Lưu tên cụm|Xóa cụm|Đưa cụm/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /3\. Nội dung phần thi/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /^\+ Cụm$/i })[0]);
+    await waitFor(() => expect(create).toHaveBeenCalledOnce());
+    const title = screen.getByRole('textbox', { name: /Tên cụm đang soạn/i });
+    expect(title).toHaveValue('Cụm câu hỏi 3');
+    fireEvent.change(title, { target: { value: 'Cụm smoke đã đổi tên' } });
+    fireEvent.click(screen.getByRole('button', { name: /Lưu tên cụm/i }));
+    await waitFor(() => expect(update).toHaveBeenCalledOnce());
+    expect(screen.getByRole('textbox', { name: /Tên cụm đang soạn/i })).toHaveValue('Cụm smoke đã đổi tên');
+    fireEvent.click(screen.getByRole('button', { name: /Đưa cụm đang chọn lên/i }));
+    await waitFor(() => expect(reorder).toHaveBeenCalledWith(testId, ['group-listening-1', 'group-listening-3', 'group-listening-2']));
+    expect(screen.getByRole('textbox', { name: /Tên cụm đang soạn/i })).toHaveValue('Cụm smoke đã đổi tên');
+    fireEvent.click(screen.getByRole('button', { name: /5\. Xem trước/i }));
+    expect(within(screen.getByLabelText(/Bản xem trước dành cho học viên/i)).getByText(/Cụm smoke đã đổi tên/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /3\. Nội dung phần thi/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Xóa cụm/i }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(testId, 'group-listening-3'));
+    expect(screen.getByRole('textbox', { name: /Tên cụm đang soạn/i })).toHaveValue('Nghe 1');
   });
 
   it('edits allowed metadata and keeps title/description/result policy usable after structural 409', async () => {
@@ -221,7 +254,7 @@ describe('TestEditorPage', () => {
     expect(within(identity).queryByLabelText(/Số lượt làm/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /2\. Cấu trúc đề/i }));
-    const structure = screen.getByRole('heading', { name: /Phần thi theo bốn kỹ năng/i }).closest('section')!;
+    const structure = screen.getByRole('heading', { name: /Tóm tắt cấu trúc bốn kỹ năng/i }).closest('section')!;
     expect(within(structure).queryByText(/Thêm từ ngân hàng câu hỏi/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /3\. Nội dung phần thi/i }));
@@ -326,7 +359,6 @@ describe('TestEditorPage', () => {
     });
     renderEditor();
     expect((await screen.findAllByText('Reading')).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('button', { name: /Chọn để thêm câu hỏi/i }));
     fireEvent.click(screen.getByRole('button', { name: /Mở bộ chọn câu hỏi/i }));
     const dialog = await screen.findByRole('dialog', { name: /Bộ chọn câu hỏi/i });
     expect(within(dialog).getByText(/1000 câu phù hợp/i)).toBeInTheDocument();

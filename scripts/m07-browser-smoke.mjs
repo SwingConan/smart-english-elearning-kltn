@@ -262,6 +262,10 @@ checks.push(['roster', await navigate(`/instructor/classes/${classId}/learners`,
 const learnerState = await navigate(`/instructor/classes/${classId}/learners/${learner.id}`, ['Kết quả 4 kỹ năng gần nhất', 'Tiến độ theo mô-đun', 'Hoạt động gần đây', 'Xu hướng kỹ năng', 'Lịch sử bài kiểm tra']);
 const learnerChart = await evaluate(`Boolean(document.querySelector('svg[aria-label="Biểu đồ xu hướng kỹ năng theo đợt kiểm tra"], [data-testid="two-point-skill-slope"]'))`);
 if (learnerDetail.skillTrend.length && !learnerChart) throw new Error('Learner trend chart did not render');
+if (learnerDetail.skillTrend.length === 2) {
+  const learnerSlope = await evaluate(`(() => { const root=document.querySelector('[data-testid="two-point-skill-slope"]'); const text=root?.innerText ?? ''; return { rows:root?.querySelectorAll('[data-testid^="trend-row-"]').length ?? 0, titles:${JSON.stringify(learnerDetail.skillTrend.map((point) => point.assessmentTitle))}.every((title)=>text.includes(title)), dates:${JSON.stringify(learnerDetail.skillTrend.map((point) => new Date(point.date).toLocaleDateString('vi-VN')))}.every((date)=>text.includes(date)), rawTail:/\d+\.\d{2,}/.test(text) }; })()`);
+  if (learnerSlope.rows !== 4 || !learnerSlope.titles || !learnerSlope.dates || learnerSlope.rawTail) throw new Error(`Learner compact two-point trend failed: ${JSON.stringify(learnerSlope)}`);
+}
 checks.push(['learner detail and trend chart', learnerState]);
 checks.push(['shared content warning', await navigate(`/instructor/classes/${classId}/content`, ['Nội dung này dùng chung cho các lớp thuộc khóa học này.', 'Quản lý nội dung khóa học', 'BÀI HỌC ĐANG CHỌN'])]);
 await evaluate(`(() => {
@@ -367,7 +371,7 @@ for (const step of [2,3,4,5]) {
   await delay(100);
   const marker = await evaluate('document.body.innerText');
   if (!marker.includes(`Bước ${step} / 5`)) throw new Error('Wizard did not move to step ${step}');
-  if (step === 2 && !marker.includes('Cụm câu hỏi theo bốn kỹ năng')) throw new Error('Builder Step 2 structure is missing');
+  if (step === 2 && (!marker.includes('Tóm tắt cấu trúc bốn kỹ năng') || !marker.includes('Tiếp tục soạn cụm ở Bước 3'))) throw new Error('Builder Step 2 summary is missing');
   if (step === 3 && (!marker.includes('Soạn cụm câu hỏi') || !marker.includes('Tài liệu đi kèm câu hỏi') || !marker.includes('Thêm từ ngân hàng câu hỏi'))) throw new Error('Builder Step 3 grouped content authoring is missing');
   if (step === 4 && (!marker.includes('Số lượt làm') || !marker.includes('Kiểm tra khả năng xuất bản'))) throw new Error('Builder Step 4 settings/readiness is missing');
   if (step === 5) {
@@ -376,6 +380,27 @@ for (const step of [2,3,4,5]) {
   }
 }
 checks.push(['guided five-step test builder', builder]);
+const smokeGroupTitle = `M07 smoke group ${Date.now()}`;
+await evaluate(`(() => { const target=[...document.querySelectorAll('button')].find((button)=>button.textContent?.trim().startsWith('3.')); target?.click(); return Boolean(target); })()`);
+await delay(150);
+await evaluate(`(() => { const outline=document.querySelector('[aria-label="Dàn ý kỹ năng và cụm câu hỏi"]'); const add=outline?.querySelector('section button'); if(!add) throw new Error('Step 3 group create action missing'); add.click(); return true; })()`);
+await delay(350);
+await evaluate(`(() => { const input=document.querySelector('input[aria-label="Tên cụm đang soạn"]'); const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')?.set; if(!input||!setter) throw new Error('New group was not selected with editable title'); setter.call(input,${JSON.stringify(smokeGroupTitle)}); input.dispatchEvent(new Event('input',{bubbles:true})); input.dispatchEvent(new Event('change',{bubbles:true})); return true; })()`);
+await evaluate(`(() => { const save=[...document.querySelectorAll('button')].find((button)=>button.textContent?.trim()==='Lưu tên cụm'); if(!save||save.disabled) throw new Error('Step 3 group rename action unavailable'); save.click(); return true; })()`);
+for (let attempt = 0; attempt < 20; attempt += 1) {
+  await delay(200);
+  if (await evaluate(`document.querySelector('input[aria-label="Tên cụm đang soạn"]')?.value === ${JSON.stringify(smokeGroupTitle)}`)) break;
+}
+await evaluate(`(() => { const target=[...document.querySelectorAll('button')].find((button)=>button.textContent?.trim().startsWith('5.')); target?.click(); return Boolean(target); })()`);
+await delay(200);
+const smokeGroupPreview = await evaluate(`(() => { const root=document.querySelector('[aria-label="Bản xem trước dành cho học viên"]'); return { renamed:root?.innerText.includes(${JSON.stringify(smokeGroupTitle)}) ?? false }; })()`);
+if (!smokeGroupPreview.renamed) throw new Error('Step 5 did not reflect the Step 3 group rename');
+const smokeGroupDetail = requireOk(await browserFetch(`/instructor/tests/${groupedTest.id}`), 'Step 3 smoke group detail');
+const smokeGroup = smokeGroupDetail.questionGroups.find((group) => group.title === smokeGroupTitle);
+if (!smokeGroup) throw new Error('Renamed Step 3 smoke group was not persisted');
+requireOk(await browserFetch(`/instructor/tests/${groupedTest.id}/groups/${smokeGroup.id}`, { method: 'DELETE' }), 'Step 3 smoke group cleanup');
+await navigate(`/instructor/tests/${groupedTest.id}/edit`, ['Bước 1 / 5']);
+checks.push(['Step 3 group lifecycle and Step 5 consistency', { overflow: false }]);
 const originalQuestionIds = new Set(groupedTest.testQuestions.map((item) => item.id));
 await evaluate(`(() => { const target=[...document.querySelectorAll('button')].find((button)=>button.textContent?.trim().startsWith('3.')); target?.click(); return Boolean(target); })()`);
 await delay(150);
@@ -442,6 +467,8 @@ const resultsChart = await evaluate(`(() => {
 if (!resultsChart.visual || !resultsChart.sample || !resultsChart.table || !resultsChart.slope || JSON.stringify(resultsChart.rowTitles) !== JSON.stringify(['Kiểm tra thường kỳ 01', 'Kiểm tra giữa kỳ'])) throw new Error(`Class results chronological trend evidence failed: ${JSON.stringify(resultsChart)}`);
 const resultGrammar = await evaluate(`(() => { const skillHeading=[...document.querySelectorAll('h3')].find((node)=>node.textContent?.includes('So sánh kỹ năng')); return { completion: Boolean(document.querySelector('[aria-label="Thanh tiến độ kết quả 100 phần trăm"]')), distributions: document.querySelectorAll('[aria-label^="Phân bố "][aria-label$="100 phần trăm"]').length, skillBars: skillHeading?.parentElement?.querySelectorAll('button').length ?? 0 }; })()`);
 if (!resultGrammar.completion || resultGrammar.distributions < 4 || resultGrammar.skillBars < 4) throw new Error(`Class results chart grammar failed: ${JSON.stringify(resultGrammar)}`);
+const resultHierarchy = await evaluate(`(() => { const skills=document.querySelector('[data-testid="consolidated-skill-comparison"]'); const distribution=document.querySelector('[data-testid="results-distribution"]'); const trend=document.querySelector('[data-testid="results-trend"]'); const d=distribution?.getBoundingClientRect(); const t=trend?.getBoundingClientRect(); const slope=trend?.querySelector('[data-testid="two-point-skill-slope"]'); const learnerLink=document.querySelector('a[href*="/learners/"], a[href*="/grading"]'); const text=slope?.innerText ?? ''; return { consolidatedRows:skills?.querySelectorAll('button').length ?? 0, fullWidth:Boolean(d&&t&&Math.abs(d.width-t.width)<3&&t.top>d.bottom), fourRows:slope?.querySelectorAll('[data-testid^="trend-row-"]').length ?? 0, safeDelta:!(/\d+\.\d{2,}/.test(text)), learnerDrilldown:Boolean(learnerLink) }; })()`);
+if (resultHierarchy.consolidatedRows < 4 || !resultHierarchy.fullWidth || resultHierarchy.fourRows !== 4 || !resultHierarchy.safeDelta || !resultHierarchy.learnerDrilldown) throw new Error(`Class results corrected hierarchy failed: ${JSON.stringify(resultHierarchy)}`);
 checks.push(['class results Round 3 story', resultState]);
 
 const modules = requireOk(await browserFetch(`/instructor/courses/${courseId}/modules`), 'Course modules');

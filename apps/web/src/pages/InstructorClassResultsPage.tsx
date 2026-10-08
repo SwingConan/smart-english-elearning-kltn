@@ -4,6 +4,7 @@ import { toeicSkillLabel } from '@/features/assessments/display';
 import type { ToeicSkill } from '@/features/assessments/types';
 import { instructorApi } from '@/features/instructor/api';
 import { SkillTrendChart } from '@/components/SkillTrendChart';
+import { formatTrendNumber } from '@/components/trend-format';
 const skills: ToeicSkill[] = ['LISTENING', 'READING', 'SPEAKING', 'WRITING'];
 const distributionMeta = {
   below50: { label: '<50', color: 'bg-rose-500' },
@@ -51,7 +52,7 @@ type Trend = {
 };
 function scoreLabel(scores: Score[], skill: ToeicSkill) {
   const score = scores.find((item) => item.skill === skill);
-  return score?.status === 'FINAL' ? `${score.normalizedScore}%` : score ? 'Đang chờ' : 'Chưa có';
+  return score?.status === 'FINAL' ? `${formatTrendNumber(score.normalizedScore)}%` : score ? 'Đang chờ' : 'Chưa có';
 }
 export function InstructorClassResultsPage() {
   const { classOfferingId = '' } = useParams();
@@ -148,29 +149,28 @@ export function InstructorClassResultsPage() {
               <button className="font-semibold text-indigo-700 underline" onClick={() => { setAttemptFilter(new Set()); setFilterLabel('Chưa nộp'); }} type="button">{assessment.completion.notSubmitted} chưa nộp</button>
             </div>
           </section>
-          <section>
-            <h3 className="mb-3 text-lg font-bold">So sánh kỹ năng</h3>
-            <div className="space-y-3">
+          <section className="rounded-2xl border bg-white p-5" data-testid="consolidated-skill-comparison">
+            <h3 className="text-lg font-bold">So sánh kỹ năng</h3>
+            <p className="text-sm text-slate-500">Điểm trung bình từ các mẫu đã chấm cuối; chọn một hàng để lọc học viên.</p>
+            <div className="mt-4 divide-y">
               {assessment.skillAverages.map((item) => (
-                <button className="block w-full rounded-xl border bg-white p-4 text-left hover:border-indigo-300" key={item.skill} onClick={() => { const ids = assessment.learners.filter((row) => row.skillScores.some((score) => score.skill === item.skill && score.status === 'FINAL')).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel(`${toeicSkillLabel[item.skill]} · có điểm cuối`); }} type="button">
-                  <div className="flex items-center justify-between gap-3"><strong>{toeicSkillLabel[item.skill]}</strong><span className="text-lg font-bold text-indigo-700">{item.average === null ? 'Chưa có dữ liệu' : `${item.average}%`}</span></div>
-                  <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-200">
+                <button className="grid w-full grid-cols-[6rem_minmax(4rem,1fr)] items-center gap-3 py-3 text-left hover:bg-indigo-50 sm:grid-cols-[8rem_minmax(6rem,1fr)_5rem_5rem] sm:px-2" key={item.skill} onClick={() => { const ids = assessment.learners.filter((row) => row.skillScores.some((score) => score.skill === item.skill && score.status === 'FINAL')).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel(`${toeicSkillLabel[item.skill]} · có điểm cuối`); }} type="button">
+                  <strong>{toeicSkillLabel[item.skill]}</strong>
+                  <div className="h-3 overflow-hidden rounded-full bg-slate-200">
                     {item.average !== null ? <div
                       className="h-full bg-indigo-600"
                       style={{ width: `${item.average}%` }}
                     /> : null}
                   </div>
-                  <p className="mt-2 text-xs text-slate-500">
-                    n={item.sampleCount}/{assessment.completion.total} học viên đang học · {assessment.completion.total - item.sampleCount} chưa đủ dữ liệu
-                    <span className="sr-only">{item.sampleCount}/{assessment.completion.total} học viên đã có điểm cuối</span>
-                  </p>
+                  <span className="text-right font-bold text-indigo-700">{item.average === null ? '—' : `${formatTrendNumber(item.average)}%`}</span>
+                  <span className="text-right text-xs text-slate-500">n={item.sampleCount}/{assessment.completion.total}</span>
+                  <span className="sr-only">{item.sampleCount}/{assessment.completion.total} học viên đã có điểm cuối</span>
                   <span className="sr-only">{assessment.completion.total - item.sampleCount} chưa đủ dữ liệu</span>
                 </button>
               ))}
             </div>
           </section>
-          <section className="grid min-w-0 gap-4 md:grid-cols-2">
-            <div className="min-w-0 overflow-hidden rounded-2xl border bg-white p-5">
+          <section className="min-w-0 overflow-hidden rounded-2xl border bg-white p-5" data-testid="results-distribution">
               <h3 className="font-bold">Phân bố điểm</h3>
               <p className="text-sm text-slate-500">
                 Số học viên theo khoảng điểm cuối của từng kỹ năng.
@@ -189,8 +189,8 @@ export function InstructorClassResultsPage() {
                   <p className="mt-1 text-xs text-slate-500">n={item.sampleCount} điểm cuối; dữ liệu thiếu không tính là 0.</p>
                 </div>
               ))}
-            </div>
-            <div className="min-w-0 overflow-hidden rounded-2xl border bg-white p-5">
+          </section>
+          <section className="min-w-0 overflow-hidden rounded-2xl border bg-white p-5" data-testid="results-trend">
               <h3 className="font-bold">Xu hướng qua các đợt kiểm tra</h3>
               <p className="text-sm text-slate-500">Chỉ dùng bài trong lớp và điểm đã chấm cuối.</p>
               {trend.length >= 2 ? (
@@ -200,7 +200,6 @@ export function InstructorClassResultsPage() {
                   Cần ít nhất 2 đợt kiểm tra có điểm cuối để hiển thị xu hướng.
                 </p>
               )}
-            </div>
           </section>
           <section className="rounded-2xl border bg-white p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">

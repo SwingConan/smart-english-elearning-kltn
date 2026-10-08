@@ -308,3 +308,19 @@ These are engineering results for GPT review. Product Owner correction retest re
 - Prisma validate/generate/status/drift, deterministic seed, M07 data validator, M05 manifest, lint, typecheck, build, and `git diff --check`: **PASS**. No migration was created.
 
 These are engineering results for GPT verification only. Product Owner correction retest remains blocked, and this section does not claim Manual Visual Gate PASS.
+
+## Product Owner Correction Round 2 — Trend / Builder Responsibility / Results Hierarchy
+
+- **R3-04 learner trend:** the previous two-point chart allowed its slope area to stretch with the page and displayed raw JavaScript subtraction results. The two-assessment view now has one shared assessment/date header and four compact skill rows with a bounded 0–100 slope, explicit endpoints, before/after scores, and deterministic one-decimal deltas. Missing values render `—`. The three-or-more-point SVG and screen-reader table remain available.
+- **Numeric truth:** one shared display formatter removes floating tails (`4.200000000000003` → `4.2`) without changing stored or computed scores. It is used on the corrected Learner Detail and Class Results surfaces; positive, negative, and zero deltas render consistently.
+- **R3-10 builder responsibility:** Step 2 is now a read-only four-skill structure summary showing group, question, and media counts plus a route into Step 3. Step 3 owns group creation, immediate selection, rename/save, same-skill reorder, deletion, media, and question authoring. Selection remains valid across mutations, and the existing complete-detail refresh keeps Step 5 title/order/content current while preserving the mutation lock and conflict handling.
+- **R3-11 Results hierarchy:** the page now renders assessment header → completion → one consolidated four-row skill comparison → full-width distribution → full-width trend → learner matrix. Click filters, FINAL-only samples, pending/missing semantics, distribution evidence, responsive matrix cards, and learner drill-downs are unchanged.
+- Accepted media upload/delivery authorization, protected-stimulus exclusion, Question Bank/XLSX/Student Resource workflows, L-13 immediate preview, grading, scoring, and four-skill truth were intentionally preserved. No Prisma schema or migration change was made.
+
+### Product Owner Correction Round 2 verification
+
+- Focused Web regression: **24/24 PASS** across SkillTrendChart, Test Builder, and Instructor Workspace.
+- Full unit regression: API **394/394 PASS**; Web **241/241 PASS**. API E2E: **98/98 PASS**.
+- Dedicated headless-Chrome smoke: **45/45 PASS**, including learner two-point formatting, Step 3 create/select/rename with immediate Step 5 consistency, consolidated Results hierarchy, full-width Distribution/Trend, learner drill-down reachability, and **0 horizontal-overflow failures** at `1440×900`, `820×1180`, and `390×844`.
+- Prisma validate/generate/status/drift, deterministic seed, M07 data validator, M05 manifest, lint, typecheck, build, and `git diff --check`: **PASS**. Smoke-owned data was cleaned and followed by a final deterministic reseed/validator run.
+- The Product Owner's filled correction-retest guide and external evidence were not modified by this round. These results are engineering evidence only and do not claim Manual Visual Gate PASS.

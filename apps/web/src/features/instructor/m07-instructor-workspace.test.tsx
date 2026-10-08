@@ -187,7 +187,7 @@ describe('M07 Instructor class workspace', () => {
       ],
       trend: [
         { assessmentId: 'periodic-a', title: 'Kiểm tra thường kỳ', stage: 'PERIODIC', date: '2026-09-10T00:00:00Z', skills: [{ skill: 'LISTENING', average: 70, sampleCount: 8 }] },
-        { assessmentId: 'assessment-a', title: 'Kiểm tra giữa kỳ', stage: 'MIDTERM', date: '2026-10-01T00:00:00Z', skills: [{ skill: 'LISTENING', average: 75, sampleCount: 9 }] },
+        { assessmentId: 'assessment-a', title: 'Kiểm tra giữa kỳ', stage: 'MIDTERM', date: '2026-10-01T00:00:00Z', skills: [{ skill: 'LISTENING', average: 75.200000000000003, sampleCount: 9 }] },
       ],
     });
     render(
@@ -206,7 +206,13 @@ describe('M07 Instructor class workspace', () => {
     expect(screen.getAllByText('9 chưa đủ dữ liệu').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Đang chờ').length).toBeGreaterThan(0);
     expect(screen.getByText('Phân bố điểm')).toBeInTheDocument();
+    expect(screen.getByTestId('consolidated-skill-comparison')).toBeInTheDocument();
+    const distribution = screen.getByTestId('results-distribution');
+    const trend = screen.getByTestId('results-trend');
+    expect(distribution.compareDocumentPosition(trend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId('two-point-skill-slope')).toBeInTheDocument();
+    expect(screen.getByText('+5.2 điểm')).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/000000000000/);
     expect(screen.getByText('n=9')).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: /70–84/ })[0]);
     expect(screen.getByText(/Nghe · 70–84/)).toBeInTheDocument();

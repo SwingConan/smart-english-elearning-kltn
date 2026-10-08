@@ -1,5 +1,6 @@
 import { toeicSkillLabel } from '@/features/assessments/display';
 import type { ToeicSkill } from '@/features/assessments/types';
+import { formatTrendNumber, roundedTrendNumber } from './trend-format';
 
 const skills: ToeicSkill[] = ['LISTENING', 'READING', 'SPEAKING', 'WRITING'];
 const colors: Record<ToeicSkill, string> = {
@@ -15,6 +16,10 @@ export type SkillTrendPoint = {
   date: string;
   values: Partial<Record<ToeicSkill, { score: number; sampleCount?: number }>>;
 };
+
+function scoreText(value: number) {
+  return `${formatTrendNumber(value)}%`;
+}
 
 export function SkillTrendChart({ points, showSampleCount = false }: { points: SkillTrendPoint[]; showSampleCount?: boolean }) {
   if (points.length === 2) {
@@ -54,14 +59,14 @@ export function SkillTrendChart({ points, showSampleCount = false }: { points: S
         {skills.map((skill) => {
           const latest = [...points].reverse().find((point) => point.values[skill]);
           const value = latest?.values[skill];
-          return <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm" key={skill}><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[skill] }} />{toeicSkillLabel[skill]}</span><strong>{value ? `${value.score}%${showSampleCount ? ` · n=${value.sampleCount ?? 0}` : ''}` : 'Chưa có dữ liệu'}</strong></div>;
+          return <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm" key={skill}><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[skill] }} />{toeicSkillLabel[skill]}</span><strong>{value ? `${scoreText(value.score)}${showSampleCount ? ` · n=${value.sampleCount ?? 0}` : ''}` : 'Chưa có dữ liệu'}</strong></div>;
         })}
       </div>
       <div className="sr-only">
         <table>
           <caption>Dữ liệu xu hướng kỹ năng theo đợt kiểm tra</caption>
           <thead><tr><th>Đợt kiểm tra</th><th>Ngày</th>{skills.map((skill) => <th key={skill}>{toeicSkillLabel[skill]}</th>)}</tr></thead>
-          <tbody>{points.map((point) => <tr key={point.id}><th>{point.title}</th><td>{new Date(point.date).toLocaleDateString('vi-VN')}</td>{skills.map((skill) => { const value = point.values[skill]; return <td key={skill}>{value ? `${value.score}%${showSampleCount ? `, ${value.sampleCount ?? 0} học viên` : ''}` : 'Chưa có dữ liệu'}</td>; })}</tr>)}</tbody>
+          <tbody>{points.map((point) => <tr key={point.id}><th>{point.title}</th><td>{new Date(point.date).toLocaleDateString('vi-VN')}</td>{skills.map((skill) => { const value = point.values[skill]; return <td key={skill}>{value ? `${scoreText(value.score)}${showSampleCount ? `, ${value.sampleCount ?? 0} học viên` : ''}` : 'Chưa có dữ liệu'}</td>; })}</tr>)}</tbody>
         </table>
       </div>
     </div>
@@ -77,18 +82,22 @@ function TwoPointSkillSlope({ points, showSampleCount }: { points: [SkillTrendPo
       <span aria-hidden="true">→</span>
       <div className="text-right"><strong className="block break-words text-slate-800">{last.title}</strong>{new Date(last.date).toLocaleDateString('vi-VN')}</div>
     </div>
-    <div className="mt-3 space-y-3">
+    <div className="mt-3 overflow-hidden rounded-xl border bg-white" aria-label="Bốn hàng xu hướng kỹ năng">
       {skills.map((skill) => {
         const before = first.values[skill];
         const after = last.values[skill];
         const delta = before && after ? after.score - before.score : null;
-        return <div className="rounded-xl border bg-white p-3" key={skill}>
-          <div className="flex items-center justify-between gap-3 text-sm"><strong>{toeicSkillLabel[skill]}</strong><span className="font-bold" style={{ color: colors[skill] }}>{delta === null ? 'Chưa đủ dữ liệu' : `${delta > 0 ? '+' : ''}${delta} điểm`}</span></div>
-          <div className="mt-2 grid grid-cols-[auto_minmax(3rem,1fr)_auto] items-center gap-3">
-            <span className="font-bold">{before ? `${before.score}%` : '—'}{showSampleCount && before ? <small className="block font-normal text-slate-500">n={before.sampleCount ?? 0}</small> : null}</span>
-            <svg aria-hidden="true" className="h-8 w-full" preserveAspectRatio="none" viewBox="0 0 100 32"><line stroke="#e2e8f0" x1="0" x2="100" y1="16" y2="16" /><line stroke={colors[skill]} strokeWidth="3" x1="2" x2="98" y1={before ? 30 - before.score * 0.28 : 16} y2={after ? 30 - after.score * 0.28 : 16} /><circle cx="2" cy={before ? 30 - before.score * 0.28 : 16} fill={colors[skill]} r="3" /><circle cx="98" cy={after ? 30 - after.score * 0.28 : 16} fill={colors[skill]} r="3" /></svg>
-            <span className="text-right font-bold">{after ? `${after.score}%` : '—'}{showSampleCount && after ? <small className="block font-normal text-slate-500">n={after.sampleCount ?? 0}</small> : null}</span>
-          </div>
+        const y = (score: number) => Number((26 - Math.max(0, Math.min(100, score)) * 0.2).toFixed(2));
+        const roundedDelta = delta === null ? null : roundedTrendNumber(delta);
+        return <div className="grid min-w-0 grid-cols-[5.5rem_3.5rem_minmax(5rem,14rem)_3.5rem] items-center gap-2 border-b p-3 last:border-b-0 sm:grid-cols-[7rem_4.5rem_minmax(7rem,14rem)_4.5rem_6rem]" data-testid={`trend-row-${skill}`} key={skill}>
+          <strong className="text-sm">{toeicSkillLabel[skill]}</strong>
+          <span className="text-center font-bold">{before ? scoreText(before.score) : '—'}{showSampleCount && before ? <small className="block font-normal text-slate-500">n={before.sampleCount ?? 0}</small> : null}</span>
+          <svg aria-hidden="true" className="h-8 w-full max-w-56 justify-self-center" preserveAspectRatio="none" viewBox="0 0 100 32">
+            <line stroke="#e2e8f0" x1="3" x2="97" y1="16" y2="16" />
+            {before && after ? <><line stroke={colors[skill]} strokeWidth="3" x1="4" x2="96" y1={y(before.score)} y2={y(after.score)} /><circle cx="4" cy={y(before.score)} fill="white" r="4" stroke={colors[skill]} strokeWidth="3" /><circle cx="96" cy={y(after.score)} fill={colors[skill]} r="4" /></> : <line stroke="#94a3b8" strokeDasharray="5 4" x1="4" x2="96" y1="16" y2="16" />}
+          </svg>
+          <span className="text-center font-bold">{after ? scoreText(after.score) : '—'}{showSampleCount && after ? <small className="block font-normal text-slate-500">n={after.sampleCount ?? 0}</small> : null}</span>
+          <span className="col-span-4 text-right text-sm font-bold sm:col-span-1" style={{ color: roundedDelta === null ? '#64748b' : colors[skill] }}>{roundedDelta === null ? '—' : `${roundedDelta > 0 ? '+' : ''}${formatTrendNumber(roundedDelta)} điểm`}</span>
         </div>;
       })}
     </div>
@@ -97,5 +106,5 @@ function TwoPointSkillSlope({ points, showSampleCount }: { points: [SkillTrendPo
 }
 
 function TrendDataTable({ points, showSampleCount }: { points: SkillTrendPoint[]; showSampleCount: boolean }) {
-  return <div className="sr-only"><table><caption>Dữ liệu xu hướng kỹ năng theo đợt kiểm tra</caption><thead><tr><th>Đợt kiểm tra</th><th>Ngày</th>{skills.map((skill) => <th key={skill}>{toeicSkillLabel[skill]}</th>)}</tr></thead><tbody>{points.map((point) => <tr key={point.id}><th>{point.title}</th><td>{new Date(point.date).toLocaleDateString('vi-VN')}</td>{skills.map((skill) => { const value = point.values[skill]; return <td key={skill}>{value ? `${value.score}%${showSampleCount ? `, ${value.sampleCount ?? 0} học viên` : ''}` : 'Chưa có dữ liệu'}</td>; })}</tr>)}</tbody></table></div>;
+  return <div className="sr-only"><table><caption>Dữ liệu xu hướng kỹ năng theo đợt kiểm tra</caption><thead><tr><th>Đợt kiểm tra</th><th>Ngày</th>{skills.map((skill) => <th key={skill}>{toeicSkillLabel[skill]}</th>)}</tr></thead><tbody>{points.map((point) => <tr key={point.id}><th>{point.title}</th><td>{new Date(point.date).toLocaleDateString('vi-VN')}</td>{skills.map((skill) => { const value = point.values[skill]; return <td key={skill}>{value ? `${scoreText(value.score)}${showSampleCount ? `, ${value.sampleCount ?? 0} học viên` : ''}` : 'Chưa có dữ liệu'}</td>; })}</tr>)}</tbody></table></div>;
 }

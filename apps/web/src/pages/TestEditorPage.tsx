@@ -261,9 +261,13 @@ export function TestEditorPage() {
       return;
     if (!beginMutation('remove-group')) return;
     try {
+      const removed = (test.questionGroups ?? []).find((group) => group.id === groupId);
+      const fallbackId = (test.questionGroups ?? []).find(
+        (group) => group.id !== groupId && group.skill === removed?.skill,
+      )?.id ?? (test.questionGroups ?? []).find((group) => group.id !== groupId)?.id ?? '';
       await assessmentApi.groups.delete(test.id, groupId);
       await refreshTestDetail(test.id);
-      if (selectedGroupId === groupId) setSelectedGroupId('');
+      if (selectedGroupId === groupId) setSelectedGroupId(fallbackId);
     } catch (error) {
       await handleMutationError(error, 'Không thể xóa phần thi.');
     } finally {
@@ -297,11 +301,17 @@ export function TestEditorPage() {
     }
   };
 
-  const moveGroup = async (index: number, direction: -1 | 1) => {
+  const moveGroup = async (groupId: string, direction: -1 | 1) => {
     if (!test) return;
     const groups = test.questionGroups ?? [];
-    const swapIndex = index + direction;
-    if (swapIndex < 0 || swapIndex >= groups.length || !beginMutation('reorder-groups')) return;
+    const group = groups.find((item) => item.id === groupId);
+    if (!group) return;
+    const skillGroups = groups.filter((item) => item.skill === group.skill);
+    const skillIndex = skillGroups.findIndex((item) => item.id === groupId);
+    const sibling = skillGroups[skillIndex + direction];
+    if (!sibling || !beginMutation('reorder-groups')) return;
+    const index = groups.findIndex((item) => item.id === groupId);
+    const swapIndex = groups.findIndex((item) => item.id === sibling.id);
     const previous = groups;
     const reordered = [...groups];
     [reordered[index], reordered[swapIndex]] = [reordered[swapIndex], reordered[index]];
@@ -313,6 +323,7 @@ export function TestEditorPage() {
         optimistic.map((item) => item.id),
       );
       await refreshTestDetail(test.id);
+      setSelectedGroupId(groupId);
     } catch (error) {
       setTest((current) => (current ? { ...current, questionGroups: previous } : current));
       await handleMutationError(error, 'Không thể đổi thứ tự phần thi.');
@@ -622,117 +633,28 @@ export function TestEditorPage() {
       {step === 5 ? <section className="rounded-2xl border bg-white p-6 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-bold uppercase text-indigo-600">Bước cuối</p><h2 className="mt-1 text-2xl font-bold">Xem trước & xuất bản</h2><p className="mt-2 text-sm text-slate-600">Bản xem trước chỉ đọc mô phỏng hình thức trả lời của học viên và không hiển thị đáp án đúng.</p></div><button className="rounded border border-indigo-300 px-4 py-2 font-semibold text-indigo-700" onClick={() => setPreviewOpen(true)} type="button">Mở bản xem trước</button></div><div className="mt-5"><StudentLikePreview test={test} /></div><div className={`mt-5 rounded-xl p-4 text-sm ${publishReady ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`}>{publishReady ? 'Đề đã sẵn sàng để xuất bản.' : 'Đề chưa sẵn sàng. Quay lại các bước trước để hoàn thiện những mục còn thiếu.'}</div>{test.status === 'DRAFT' ? <button className="mt-4 rounded bg-green-600 px-5 py-2 font-semibold text-white disabled:opacity-50" disabled={!publishReady || pendingAction !== null} onClick={() => void publish()} type="button">Xuất bản đề</button> : null}</section> : null}
 
       <section className={`${step === 2 ? 'space-y-4' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 aria-label="Phần thi theo bốn kỹ năng — Cụm câu hỏi" className="text-lg font-semibold">Cụm câu hỏi theo bốn kỹ năng</h2>
-            <p className="text-sm text-slate-500">
-              Mỗi kỹ năng có thể có nhiều cụm; mỗi cụm có tài liệu đi kèm riêng.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {(['LISTENING', 'READING', 'SPEAKING', 'WRITING'] as const).map((skill) => (
-              <button
-                className="rounded border px-3 py-1.5 text-sm"
-                disabled={pendingAction !== null}
-                key={skill}
-                onClick={() => void addGroup(skill)}
-                type="button"
-              >
-                + Cụm {toeicSkillLabel[skill]}
-              </button>
-            ))}
-          </div>
-        </div>
-        {(test.questionGroups ?? []).length === 0 ? (
-          <p className="rounded bg-slate-50 p-4 text-sm text-slate-500">
-            Chưa có cụm câu hỏi. Hãy tạo ít nhất một cụm trước khi xuất bản
-            đề bốn kỹ năng.
+        <div>
+          <h2 className="text-lg font-semibold">Tóm tắt cấu trúc bốn kỹ năng</h2>
+          <p className="text-sm text-slate-500">
+            Kiểm tra nhanh số cụm, câu hỏi và tài liệu. Việc tạo và quản lý cụm được thực hiện ở Bước 3.
           </p>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {(test.questionGroups ?? []).map((group, groupIndex, groups) => (
-              <article className="rounded-xl border p-4" key={group.id}>
-                <div className="flex justify-between gap-3">
-                  <div>
-                    <span className="rounded bg-indigo-50 px-2 py-1 text-xs font-bold text-indigo-700">
-                      {toeicSkillLabel[group.skill]}
-                    </span>
-                    <h3 className="mt-2 font-bold">
-                      {group.title || `Cụm câu hỏi ${group.orderIndex + 1}`}
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      {group.testQuestions.length} câu · {group.stimuli.length} tài liệu
-                      <span className="sr-only"> · {group.stimuli.length} ngữ liệu</span>
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-1">
-                    <button
-                      aria-label={`Đưa phần thi ${groupIndex + 1} lên`}
-                      className="rounded border px-2"
-                      disabled={groupIndex === 0 || pendingAction !== null}
-                      onClick={() => void moveGroup(groupIndex, -1)}
-                      type="button"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      aria-label={`Đưa phần thi ${groupIndex + 1} xuống`}
-                      className="rounded border px-2"
-                      disabled={groupIndex === groups.length - 1 || pendingAction !== null}
-                      onClick={() => void moveGroup(groupIndex, 1)}
-                      type="button"
-                    >
-                      ↓
-                    </button>
-                    <button
-                      className="px-2 text-sm text-red-700"
-                      onClick={() => void removeGroup(group.id)}
-                      type="button"
-                    >
-                      Xóa
-                    </button>
-                  </div>
-                </div>
-                <div className="mt-3 space-y-3">
-                  <div className="flex gap-2">
-                    <input
-                      aria-label={`Tiêu đề phần thi ${groupIndex + 1}`}
-                      className="min-w-0 flex-1 rounded border p-2 text-sm"
-                      onChange={(event) =>
-                        setGroupTitleDrafts((current) => ({
-                          ...current,
-                          [group.id]: event.target.value,
-                        }))
-                      }
-                      value={groupTitleDrafts[group.id] ?? ''}
-                    />
-                    <button
-                      className="rounded border px-3 text-sm"
-                      disabled={
-                        pendingAction !== null ||
-                        (groupTitleDrafts[group.id] ?? '') === (group.title ?? '')
-                      }
-                      onClick={() => void saveGroup(group.id)}
-                      type="button"
-                    >
-                      Lưu cụm
-                    </button>
-                  </div>
-                  <button
-                    aria-label={`Chọn để thêm câu hỏi vào phần thi ${groupIndex + 1}`}
-                    className={`w-full rounded border px-3 py-2 text-sm ${selectedGroupId === group.id ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : ''}`}
-                    onClick={() => setSelectedGroupId(group.id)}
-                    type="button"
-                  >
-                    {selectedGroupId === group.id
-                      ? <><span>Đang chọn cụm này</span><span className="sr-only">Đang chọn phần thi này</span></>
-                      : 'Chọn để soạn ở bước 3'}
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="skill-structure-summary">
+          {(['LISTENING', 'READING', 'SPEAKING', 'WRITING'] as const).map((skill) => {
+            const groups = (test.questionGroups ?? []).filter((group) => group.skill === skill);
+            const questionCount = groups.reduce((total, group) => total + group.testQuestions.length, 0);
+            const mediaCount = groups.reduce((total, group) => total + group.stimuli.length, 0);
+            return <article className="rounded-xl border bg-slate-50 p-4" key={skill}>
+              <h3 className="font-bold">{toeicSkillLabel[skill]}</h3>
+              <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
+                <div><dt className="text-xs text-slate-500">Cụm</dt><dd className="font-bold">{groups.length}</dd></div>
+                <div><dt className="text-xs text-slate-500">Câu hỏi</dt><dd className="font-bold">{questionCount}</dd></div>
+                <div><dt className="text-xs text-slate-500">Tài liệu</dt><dd className="font-bold">{mediaCount}</dd></div>
+              </dl>
+            </article>;
+          })}
+        </div>
+        <button className="rounded bg-indigo-600 px-4 py-2 font-semibold text-white" onClick={() => setStep(3)} type="button">Tiếp tục soạn cụm ở Bước 3</button>
       </section>
 
       <section className={`${step === 3 ? 'space-y-4' : 'hidden'} rounded-lg border bg-white p-5 shadow-sm`}>
@@ -760,7 +682,24 @@ export function TestEditorPage() {
             </section>;
           })}
         </div>
-        {!selectedGroup ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Hãy chọn một cụm câu hỏi để bắt đầu soạn.</p> : <div className="rounded-lg bg-indigo-50 p-3 text-sm text-indigo-800"><strong>Đang soạn:</strong> Phần {toeicSkillLabel[selectedGroup.skill]} · {selectedGroup.title || 'Cụm câu hỏi'}</div>}
+        {!selectedGroup ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Hãy chọn một cụm câu hỏi để bắt đầu soạn.</p> : <section className="rounded-xl border border-indigo-200 bg-indigo-50 p-4" data-testid="selected-group-lifecycle">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="min-w-56 flex-1 text-sm font-medium">Tên cụm đang soạn
+              <input aria-label="Tên cụm đang soạn" className="mt-1 w-full rounded border bg-white p-2" onChange={(event) => setGroupTitleDrafts((current) => ({ ...current, [selectedGroup.id]: event.target.value }))} value={groupTitleDrafts[selectedGroup.id] ?? ''} />
+            </label>
+            <button className="rounded border border-indigo-300 bg-white px-3 py-2 text-sm font-semibold text-indigo-700" disabled={pendingAction !== null || (groupTitleDrafts[selectedGroup.id] ?? '') === (selectedGroup.title ?? '')} onClick={() => void saveGroup(selectedGroup.id)} type="button">Lưu tên cụm</button>
+            {(() => {
+              const siblings = (test.questionGroups ?? []).filter((group) => group.skill === selectedGroup.skill);
+              const index = siblings.findIndex((group) => group.id === selectedGroup.id);
+              return <>
+                <button aria-label="Đưa cụm đang chọn lên" className="rounded border bg-white px-3 py-2" disabled={pendingAction !== null || index === 0} onClick={() => void moveGroup(selectedGroup.id, -1)} type="button">↑</button>
+                <button aria-label="Đưa cụm đang chọn xuống" className="rounded border bg-white px-3 py-2" disabled={pendingAction !== null || index === siblings.length - 1} onClick={() => void moveGroup(selectedGroup.id, 1)} type="button">↓</button>
+              </>;
+            })()}
+            <button className="rounded border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700" disabled={pendingAction !== null} onClick={() => void removeGroup(selectedGroup.id)} type="button">Xóa cụm</button>
+          </div>
+          <p className="mt-2 text-sm text-indigo-800"><strong>Đang soạn:</strong> Phần {toeicSkillLabel[selectedGroup.skill]} · {selectedGroup.title || 'Cụm câu hỏi'}</p>
+        </section>}
         {selectedGroup ? <section className="rounded-xl border bg-slate-50 p-4">
           <h3 className="font-bold">Tài liệu đi kèm câu hỏi</h3>
           <p className="text-sm text-slate-500">Đoạn văn, hình ảnh hoặc âm thanh có thể dùng cho một câu hoặc dùng chung cho cả cụm câu hỏi này.</p>

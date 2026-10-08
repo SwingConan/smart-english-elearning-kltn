@@ -5,6 +5,7 @@ import type { ToeicSkill } from '@/features/assessments/types';
 import { instructorApi } from '@/features/instructor/api';
 import type { InstructorLearnerDetail } from '@/features/instructor/types';
 import { SkillTrendChart } from '@/components/SkillTrendChart';
+import { formatTrendNumber } from '@/components/trend-format';
 export function InstructorLearnerDetailPage() {
   const { classOfferingId = '', enrollmentId = '' } = useParams();
   const [data, setData] = useState<InstructorLearnerDetail | null>(null);
@@ -72,7 +73,7 @@ export function InstructorLearnerDetailPage() {
             {data.latestFourSkillSnapshot.scores.map((score) => (
               <div className="rounded-xl bg-indigo-50 p-3" key={score.skill}>
                 <strong>{toeicSkillLabel[score.skill as ToeicSkill]}</strong>
-                <p className="text-xl font-bold text-indigo-700">{score.normalizedScore}%</p>
+                <p className="text-xl font-bold text-indigo-700">{formatTrendNumber(score.normalizedScore)}%</p>
                 <div className="mt-2 h-2 rounded bg-indigo-100">
                   <div
                     className="h-full bg-indigo-600"
@@ -151,7 +152,7 @@ export function InstructorLearnerDetailPage() {
                     {attempt.skillScores.map((score) => (
                       <span className="rounded-full border px-2 py-1 text-xs" key={score.skill}>
                         {toeicSkillLabel[score.skill as ToeicSkill]}:{' '}
-                        {score.status === 'FINAL' ? `${score.normalizedScore}%` : 'Đang chờ'}
+                        {score.status === 'FINAL' ? `${formatTrendNumber(score.normalizedScore)}%` : 'Đang chờ'}
                       </span>
                     ))}
                   </div>
