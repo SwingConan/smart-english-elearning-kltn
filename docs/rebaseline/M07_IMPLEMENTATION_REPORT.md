@@ -289,3 +289,22 @@ These results are engineering evidence for GPT verification only. Product Owner 
 - Smoke-owned questions/resources and the isolated Chrome profile were removed; a final deterministic reseed and M07 validator were run afterward.
 
 These are engineering results for GPT review. Product Owner correction retest remains blocked until that review accepts the correction.
+
+## Learner-visible assessment media correction
+
+- Root cause: Test Builder IMAGE/AUDIO uploads were persisted with `isProtected=true`, while instructor delivery rejected protected stimuli and the student attempt projection selected only `isProtected=false`. Newly uploaded media therefore could neither render in Step 5 nor reach a learner attempt.
+- Locked semantics: `isProtected=true` means hidden from learner-facing projection and delivery. New teacher-authored IMAGE/AUDIO intended for assessment questions is now stored as `isProtected=false`; the underlying file remains private and is served only through ownership-scoped API routes. Historical M05 protected stimuli remain protected.
+- Instructor delivery verifies exact test membership and current course assignment/ownership, returns only learner-visible media, uses `private, no-store`, and never projects a storage key. Invalid keys map to 404; unavailable storage maps to a sanitized 503 response.
+- Student projection includes only learner-visible IMAGE/AUDIO and emits an authorized attempt-scoped `mediaUrl`. Delivery reuses the active-enrollment and owned-attempt/course boundary before resolving exact test/group stimulus membership. Protected, foreign, and missing media is safely rejected.
+- Upload MIME/signature and size checks, storage abstraction, serializable DB mutation, and compensating blob deletion on failed persistence remain intact. No Prisma schema or migration was required.
+- Builder coverage now proves one IMAGE/one question, one AUDIO/three shared questions, and a no-media group, including scope copy and no answer-key leakage. API E2E uses deterministic project-owned PNG and MP3 fixtures, verifies both instructor and student HTTP 200 delivery, rejects foreign access, and confirms a protected stimulus disappears from learner projection.
+- Dedicated Chrome smoke uploads both fixtures, verifies authorized Step 5 image/audio URLs and HTTP 200 responses without storage-key exposure, and deletes the temporary media afterward.
+
+### Learner-visible media verification
+
+- Focused Assessment Instructor/Student service regression: **48/48 PASS**; focused Test Builder regression: **18/18 PASS**.
+- Full unit regression: API **394/394 PASS**; Web **240/240 PASS**. Full API E2E: **98/98 PASS**, including real PNG/MP3 upload, instructor/student owner delivery, foreign-attempt rejection, and protected-stimulus exclusion.
+- Dedicated headless-Chrome smoke: **44/44 PASS**, including real IMAGE/AUDIO multipart upload, authorized Step 5 rendering, HTTP 200 media requests, no storage-key URL, cleanup, and **0 horizontal-overflow failures** across desktop, tablet, and mobile.
+- Prisma validate/generate/status/drift, deterministic seed, M07 data validator, M05 manifest, lint, typecheck, build, and `git diff --check`: **PASS**. No migration was created.
+
+These are engineering results for GPT verification only. Product Owner correction retest remains blocked, and this section does not claim Manual Visual Gate PASS.

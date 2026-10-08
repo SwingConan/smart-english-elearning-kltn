@@ -3,7 +3,9 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { readSheet, type CellValue, type SheetData as ReadSheetData } from 'read-excel-file/node';
 import writeXlsxFile, { type SheetData as WriteSheetData } from 'write-excel-file/node';
@@ -26,7 +28,11 @@ import { ReorderTestQuestionsDto } from './dto/reorder-test-questions.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
 import { UpdateTestQuestionDto } from './dto/update-test-question.dto';
 import { UpdateTestDto } from './dto/update-test.dto';
-import { AssessmentStimulusMediaStorage } from '../placement/assessment-stimulus-media.storage';
+import {
+  AssessmentStimulusMediaStorage,
+  AssessmentStimulusMediaUnavailableError,
+  InvalidAssessmentStimulusMediaKeyError,
+} from '../placement/assessment-stimulus-media.storage';
 import {
   CreateTestGroupDto,
   CreateTextStimulusDto,
@@ -171,6 +177,8 @@ interface NormalizedTestInput {
 
 @Injectable()
 export class AssessmentInstructorService {
+  private readonly logger = new Logger(AssessmentInstructorService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly stimulusStorage: AssessmentStimulusMediaStorage,
@@ -565,9 +573,11 @@ export class AssessmentInstructorService {
         stimuli: group.stimuli.map(({ storageKey: _storageKey, ...stimulus }) => ({
           ...stimulus,
           mediaUrl:
-            stimulus.type === AssessmentStimulusType.TEXT
-              ? null
-              : `/api/instructor/tests/${testId}/stimuli/${stimulus.id}/media`,
+            !stimulus.isProtected &&
+            (stimulus.type === AssessmentStimulusType.IMAGE ||
+              stimulus.type === AssessmentStimulusType.AUDIO)
+              ? `/api/instructor/tests/${testId}/stimuli/${stimulus.id}/media`
+              : null,
         })),
       })),
     };
@@ -592,10 +602,24 @@ export class AssessmentInstructorService {
     if (!stimulus.storageKey || !stimulus.mimeType || stimulus.isProtected) {
       throw new NotFoundException('Assessment stimulus not found');
     }
-    return {
-      body: await this.stimulusStorage.read(stimulus.storageKey),
-      mimeType: stimulus.mimeType,
-    };
+    try {
+      return {
+        body: await this.stimulusStorage.read(stimulus.storageKey),
+        mimeType: stimulus.mimeType,
+      };
+    } catch (error: unknown) {
+      if (error instanceof InvalidAssessmentStimulusMediaKeyError) {
+        throw new NotFoundException('Assessment stimulus not found');
+      }
+      if (error instanceof AssessmentStimulusMediaUnavailableError) {
+        this.logger.error(error.message);
+        throw new ServiceUnavailableException({
+          code: 'STIMULUS_MEDIA_UNAVAILABLE',
+          message: 'Nội dung đa phương tiện hiện không khả dụng.',
+        });
+      }
+      throw error;
+    }
   }
 
   async addTestQuestions(instructorId: string, testId: string, dto: AddTestQuestionsDto) {
@@ -1305,7 +1329,7 @@ export class AssessmentInstructorService {
             storageKey: key,
             mimeType: media.mimeType,
             altText: altText?.trim() || null,
-            isProtected: true,
+            isProtected: false,
           },
         });
         await this.revalidatePublishedTest(transaction, testId, test.status);

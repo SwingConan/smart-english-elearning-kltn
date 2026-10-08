@@ -242,6 +242,44 @@ describe('TestEditorPage', () => {
     expect(within(preview).queryByText(/đáp án đúng/i)).not.toBeInTheDocument();
   });
 
+  it('renders authorized IMAGE/AUDIO URLs with one-question, shared-group, and no-media scope', async () => {
+    const imageQuestion = testQuestion('tq-image', 'q-image', 'Image question', 0);
+    const audioQuestions = [
+      testQuestion('tq-audio-1', 'q-audio-1', 'Audio question 1', 1),
+      testQuestion('tq-audio-2', 'q-audio-2', 'Audio question 2', 2),
+      testQuestion('tq-audio-3', 'q-audio-3', 'Audio question 3', 3),
+    ];
+    const plainQuestion = testQuestion('tq-plain', 'q-plain', 'Question without media', 4);
+    const groups: AssessmentTestGroup[] = [
+      {
+        ...testGroup('image-group', 'LISTENING', 0), title: 'Image group', testQuestions: [imageQuestion],
+        stimuli: [{ id: 'image-id', type: 'IMAGE', orderIndex: 0, textContent: null, mimeType: 'image/png', altText: 'Visible prompt image', mediaUrl: '/api/instructor/tests/test-a/stimuli/image-id/media' }],
+      },
+      {
+        ...testGroup('audio-group', 'LISTENING', 1), title: 'Audio group', testQuestions: audioQuestions,
+        stimuli: [{ id: 'audio-id', type: 'AUDIO', orderIndex: 0, textContent: null, mimeType: 'audio/mpeg', altText: 'Visible prompt audio', mediaUrl: '/api/instructor/tests/test-a/stimuli/audio-id/media' }],
+      },
+      { ...testGroup('plain-group', 'LISTENING', 2), title: 'No media group', testQuestions: [plainQuestion] },
+    ];
+    const allQuestions = [imageQuestion, ...audioQuestions, plainQuestion];
+    mockEditor({ ...detail(testId, 'QUIZ', 'DRAFT', allQuestions), questionGroups: groups }, []);
+    renderEditor();
+    await screen.findByText(/QUIZ test-a/i);
+    fireEvent.click(screen.getByRole('button', { name: /5\./i }));
+
+    const preview = screen.getByLabelText(/Bản xem trước dành cho học viên/i);
+    expect(within(preview).getByRole('img', { name: 'Visible prompt image' })).toHaveAttribute(
+      'src', '/api/instructor/tests/test-a/stimuli/image-id/media',
+    );
+    expect(within(preview).getByLabelText('Visible prompt audio')).toHaveAttribute(
+      'src', '/api/instructor/tests/test-a/stimuli/audio-id/media',
+    );
+    expect(within(preview).getByText('Dùng cho: Câu 1')).toBeInTheDocument();
+    expect(within(preview).getByText('Dùng chung cho: Câu 1–3')).toBeInTheDocument();
+    expect(within(preview).getByText('Question without media')).toBeInTheDocument();
+    expect(within(preview).queryByText(/đáp án đúng/i)).not.toBeInTheDocument();
+  });
+
   it('adds only available same-course Questions and validates/saves positive integer points', async () => {
     const existing = testQuestion('tq-a', 'q-a', 'Question A', 0);
     const current = detail(testId, 'PLACEMENT', 'DRAFT', [existing]);

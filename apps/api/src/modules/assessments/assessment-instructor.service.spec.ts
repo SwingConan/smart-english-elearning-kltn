@@ -3,17 +3,22 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   QuestionDifficulty,
   QuestionResponseType,
+  AssessmentStimulusType,
   TestStatus,
   TestPurpose,
   ToeicSkill,
 } from '../../generated/prisma/client';
 import { AssessmentInstructorService } from './assessment-instructor.service';
-import { AssessmentStimulusMediaStorage } from '../placement/assessment-stimulus-media.storage';
+import {
+  AssessmentStimulusMediaStorage,
+  AssessmentStimulusMediaUnavailableError,
+} from '../placement/assessment-stimulus-media.storage';
 import { readSheet } from 'read-excel-file/node';
 import writeXlsxFile, { type SheetData } from 'write-excel-file/node';
 
@@ -50,12 +55,14 @@ describe('AssessmentInstructorService', () => {
       deleteMany: jest.fn(),
     },
     testQuestionGroup: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+    assessmentStimulus: { findFirst: jest.fn(), create: jest.fn() },
   };
   const prisma = {
     classOffering: { findFirst: jest.fn() },
     question: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
     rubric: { findMany: jest.fn() },
     test: { findMany: jest.fn(), findUnique: jest.fn() },
+    assessmentStimulus: { findFirst: jest.fn() },
     $transaction: jest.fn(),
   };
   const stimulusStorage = { read: jest.fn(), put: jest.fn(), delete: jest.fn(), exists: jest.fn() };
@@ -83,6 +90,7 @@ describe('AssessmentInstructorService', () => {
     transaction.testQuestionGroup.findFirst.mockResolvedValue({ skill: ToeicSkill.READING });
     transaction.testQuestionGroup.findMany.mockResolvedValue([]);
     transaction.testQuestionGroup.update.mockResolvedValue({});
+    stimulusStorage.delete.mockResolvedValue(undefined);
     transaction.question.create.mockImplementation(({ data }) =>
       Promise.resolve({ id: questionId, ...data }),
     );
@@ -208,6 +216,66 @@ describe('AssessmentInstructorService', () => {
     await expect(service.listQuestions('unassigned', courseId)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  it('persists uploaded builder media as learner-visible and removes the blob if the transaction fails', async () => {
+    const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    stimulusStorage.put.mockResolvedValue('authored/media.png');
+    transaction.test.findUnique.mockResolvedValue({ id: testId, courseId, status: TestStatus.DRAFT });
+    transaction.testQuestionGroup.findFirst.mockResolvedValue({ id: 'group-id' });
+    transaction.assessmentStimulus.findFirst.mockResolvedValue(null);
+    transaction.assessmentStimulus.create.mockImplementation(({ data }) => Promise.resolve({ id: 'stimulus-id', ...data }));
+
+    await service.uploadStimulus(instructorId, testId, 'group-id', {
+      buffer: png, mimetype: 'image/png', originalname: 'fixture.png', size: png.length,
+    });
+    expect(transaction.assessmentStimulus.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        type: AssessmentStimulusType.IMAGE,
+        storageKey: 'authored/media.png',
+        isProtected: false,
+      }),
+    });
+
+    prisma.$transaction.mockRejectedValueOnce(new Error('database unavailable'));
+    await expect(service.uploadStimulus(instructorId, testId, 'group-id', {
+      buffer: png, mimetype: 'image/png', originalname: 'fixture.png', size: png.length,
+    })).rejects.toThrow('database unavailable');
+    expect(stimulusStorage.delete).toHaveBeenCalledWith('authored/media.png');
+  });
+
+  it('serves only exact-test, owned, learner-visible media and maps storage failures safely', async () => {
+    const bytes = Buffer.from('media');
+    prisma.assessmentStimulus.findFirst.mockResolvedValue({
+      storageKey: 'authored/media.png', mimeType: 'image/png', isProtected: false,
+      group: { test: { courseId } },
+    });
+    stimulusStorage.read.mockResolvedValue(bytes);
+    await expect(service.openStimulusMedia(instructorId, testId, 'stimulus-id')).resolves.toEqual({ body: bytes, mimeType: 'image/png' });
+    expect(prisma.assessmentStimulus.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'stimulus-id', group: { testId } },
+    }));
+
+    prisma.assessmentStimulus.findFirst.mockResolvedValueOnce(null);
+    await expect(service.openStimulusMedia(instructorId, 'wrong-test', 'stimulus-id')).rejects.toBeInstanceOf(NotFoundException);
+
+    prisma.classOffering.findFirst.mockResolvedValueOnce(null);
+    await expect(service.openStimulusMedia('unassigned', testId, 'stimulus-id')).rejects.toBeInstanceOf(ForbiddenException);
+
+    prisma.assessmentStimulus.findFirst.mockResolvedValueOnce({
+      storageKey: 'legacy/protected.png', mimeType: 'image/png', isProtected: true,
+      group: { test: { courseId } },
+    });
+    await expect(service.openStimulusMedia(instructorId, testId, 'protected')).rejects.toBeInstanceOf(NotFoundException);
+
+    stimulusStorage.read.mockRejectedValueOnce(new AssessmentStimulusMediaUnavailableError('raw authored/media.png path'));
+    try {
+      await service.openStimulusMedia(instructorId, testId, 'stimulus-id');
+      throw new Error('Expected storage failure');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ServiceUnavailableException);
+      expect(JSON.stringify((error as ServiceUnavailableException).getResponse())).not.toContain('authored/media.png');
+    }
   });
 
   it('returns complete ordered groups after reordering so the editor can render safely', async () => {

@@ -568,9 +568,9 @@ export class AssessmentStudentService {
           orderIndex: stimulus.orderIndex,
           textContent: stimulus.type === 'TEXT' ? stimulus.textContent : null,
           mediaUrl:
-            stimulus.type === 'TEXT'
-              ? null
-              : `/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/stimuli/${stimulus.id}/media`,
+            stimulus.type === 'IMAGE' || stimulus.type === 'AUDIO'
+              ? `/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/stimuli/${stimulus.id}/media`
+              : null,
           mimeType: stimulus.mimeType,
           altText: stimulus.altText,
         })),

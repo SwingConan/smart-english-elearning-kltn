@@ -84,6 +84,15 @@ async function browserFetch(path, init = {}) {
     return { status: response.status, ok: response.ok, body, disposition: response.headers.get('content-disposition') };
   })()`);
 }
+async function browserUpload(path, bytes, filename, contentType, altText) {
+  return evaluate(`(async () => {
+    const body = new FormData();
+    body.append('file', new File([new Uint8Array(${JSON.stringify([...bytes])})], ${JSON.stringify(filename)}, { type: ${JSON.stringify(contentType)} }));
+    body.append('altText', ${JSON.stringify(altText)});
+    const response = await fetch(${JSON.stringify(`/api${path}`)}, { method: 'POST', body });
+    return { status: response.status, ok: response.ok, body: await response.json() };
+  })()`);
+}
 async function login(email) {
   const response = await browserFetch('/auth/login', {
     method: 'POST',
@@ -391,6 +400,27 @@ const mutatedTest = requireOk(await browserFetch(`/instructor/tests/${groupedTes
 const addedQuestion = mutatedTest.testQuestions.find((item) => !originalQuestionIds.has(item.id));
 if (!addedQuestion) throw new Error('Could not identify L-13 for smoke cleanup');
 requireOk(await browserFetch(`/instructor/tests/${groupedTest.id}/questions/${addedQuestion.id}`, { method: 'DELETE' }), 'L-13 smoke cleanup');
+const mediaGroup = mutatedTest.questionGroups.find((group) => group.skill === 'LISTENING') ?? mutatedTest.questionGroups[0];
+if (!mediaGroup) throw new Error('No safe group was available for isolated media smoke');
+const tinyPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+const tinyMp3 = Buffer.alloc(417);
+tinyMp3.set([0xff, 0xfb, 0x90, 0x64]);
+const uploadedMedia = [];
+try {
+  uploadedMedia.push(requireOk(await browserUpload(`/instructor/tests/${groupedTest.id}/groups/${mediaGroup.id}/stimuli/upload`, tinyPng, 'm07-smoke.png', 'image/png', 'M07 smoke image'), 'PNG media upload'));
+  uploadedMedia.push(requireOk(await browserUpload(`/instructor/tests/${groupedTest.id}/groups/${mediaGroup.id}/stimuli/upload`, tinyMp3, 'm07-smoke.mp3', 'audio/mpeg', 'M07 smoke audio'), 'MP3 media upload'));
+  await navigate(`/instructor/tests/${groupedTest.id}/edit`, ['1.']);
+  await evaluate(`(() => { const target=[...document.querySelectorAll('button')].find((button)=>button.textContent?.trim().startsWith('5.')); if(!target) throw new Error('Step 5 missing'); target.click(); return true; })()`);
+  await delay(300);
+  const mediaPreview = await evaluate(`(() => { const image=document.querySelector('img[alt="M07 smoke image"]'); const audio=document.querySelector('audio[aria-label="M07 smoke audio"]'); return { imageSrc:image?.getAttribute('src') ?? null, audioSrc:audio?.getAttribute('src') ?? null, imageCount:document.querySelectorAll('img[alt="M07 smoke image"]').length, audioCount:document.querySelectorAll('audio[aria-label="M07 smoke audio"]').length }; })()`);
+  if (mediaPreview.imageCount !== 1 || mediaPreview.audioCount !== 1 || mediaPreview.imageSrc?.includes('authored/') || mediaPreview.audioSrc?.includes('authored/')) throw new Error(`Authorized media preview failed: ${JSON.stringify(mediaPreview)}`);
+  const imageResponse = await browserFetch(mediaPreview.imageSrc.replace(/^\/api/, ''));
+  const audioResponse = await browserFetch(mediaPreview.audioSrc.replace(/^\/api/, ''));
+  if (imageResponse.status !== 200 || audioResponse.status !== 200) throw new Error(`Media delivery failed: ${JSON.stringify({ image: imageResponse.status, audio: audioResponse.status })}`);
+  checks.push(['real IMAGE/AUDIO upload + authorized Step 5 delivery', { overflow: false }]);
+} finally {
+  for (const stimulus of uploadedMedia.reverse()) requireOk(await browserFetch(`/instructor/tests/${groupedTest.id}/groups/${mediaGroup.id}/stimuli/${stimulus.id}`, { method: 'DELETE' }), 'Media smoke cleanup');
+}
 checks.push(['class scheduling', await navigate(`/instructor/classes/${classId}/assessments`, ['Ngân hàng câu hỏi', 'Đề kiểm tra', 'Lịch kiểm tra của lớp', 'Chuẩn bị câu hỏi', 'Tạo đề kiểm tra', 'Giao đề cho lớp'])]);
 checks.push(['grading inbox', await navigate(`/instructor/classes/${classId}/grading`, ['Ưu tiên bài nộp sớm nhất', 'Chấm bài'])]);
 if (grading.submissions.length) {

@@ -143,6 +143,9 @@ Chỉ thực hiện phần này sau khi GPT chấp nhận correction. Không ghi
 4. Với cụm một câu, media card phải ghi `Dùng cho: Câu 1`. Với cụm nhiều câu, phải ghi `Dùng chung cho: Câu 1–N`. Cụm không media phải được mô tả là câu độc lập.
 5. Chọn cụm Listening, mở ngân hàng, tìm và thêm `M07-VG-L-13`. Câu phải xuất hiện đúng một lần trong cụm. Chuyển ngay sang Bước 5 mà không refresh: câu phải xuất hiện đúng một lần dưới hierarchy Phần Nghe → Cụm → tài liệu → câu → hình thức trả lời.
 6. Ảnh phải hiển thị, audio phải play qua route có authorization; không được lộ storage key hoặc đáp án đúng.
+   - Xác nhận một ảnh gắn với một câu hiển thị đúng một ảnh rồi đúng một câu.
+   - Xác nhận một audio dùng chung cho ba câu hiển thị đúng một player rồi đủ ba câu theo thứ tự.
+   - Mở cùng đề bằng learner được giao: learner attempt phải nhận đúng các media learner-visible đó; protected stimulus không được xuất hiện hoặc tải được.
 7. Refresh phải giữ L-13; thử move/remove phải cập nhật nhất quán ở Bước 3 và Bước 5. Reseed ngay sau retest để trả draft về trạng thái xác định.
 
 ### 12.2 Learner trend
