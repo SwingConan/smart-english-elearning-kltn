@@ -11,18 +11,23 @@ import {
   QuestionResponseType,
   TestStatus,
   TestPurpose,
+  ToeicSkill,
   UserRole,
   UserStatus,
 } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import { AssessmentStimulusMediaStorage } from '../src/modules/placement/assessment-stimulus-media.storage';
 import { expectSafeError, loginAgent } from './assessment-e2e-helpers';
+import { TINY_MP3, TINY_PNG } from './fixtures/assessment-media';
 
 describe('Instructor assessment APIs (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let stimulusStorage: AssessmentStimulusMediaStorage;
   let instructorAgent: ReturnType<typeof request.agent>;
   let unassignedAgent: ReturnType<typeof request.agent>;
   let studentAgent: ReturnType<typeof request.agent>;
+  let foreignStudentAgent: ReturnType<typeof request.agent>;
   const sessionIds = new Set<string>();
   const userIds: string[] = [];
   const courseIds: string[] = [];
@@ -35,12 +40,14 @@ describe('Instructor assessment APIs (e2e)', () => {
     instructor: `vs03-f1-instructor-${unique}@example.test`,
     other: `vs03-f1-other-${unique}@example.test`,
     student: `vs03-f1-student-${unique}@example.test`,
+    foreignStudent: `vs03-f1-foreign-student-${unique}@example.test`,
   };
   let courseA: string;
   let courseB: string;
   let lessonA: string;
   let lessonB: string;
   let activeEnrollment: string;
+  let foreignEnrollment: string;
 
   beforeAll(async () => {
     const moduleRef = await NestTest.createTestingModule({ imports: [AppModule] }).compile();
@@ -51,6 +58,7 @@ describe('Instructor assessment APIs (e2e)', () => {
     );
     await app.init();
     prisma = app.get(PrismaService);
+    stimulusStorage = app.get(AssessmentStimulusMediaStorage);
 
     const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
     const users = await Promise.all([
@@ -58,9 +66,10 @@ describe('Instructor assessment APIs (e2e)', () => {
       createUser(emails.instructor, UserRole.INSTRUCTOR, passwordHash),
       createUser(emails.other, UserRole.INSTRUCTOR, passwordHash),
       createUser(emails.student, UserRole.STUDENT, passwordHash),
+      createUser(emails.foreignStudent, UserRole.STUDENT, passwordHash),
     ]);
     userIds.push(...users.map(({ id }) => id));
-    const [admin, instructor, , student] = users;
+    const [admin, instructor, , student, foreignStudent] = users;
 
     const courses = await Promise.all([createCourse('A', admin.id), createCourse('B', admin.id)]);
     [courseA, courseB] = courses.map(({ id }) => id);
@@ -96,6 +105,15 @@ describe('Instructor assessment APIs (e2e)', () => {
     });
     activeEnrollment = enrollment.id;
     enrollmentIds.push(enrollment.id);
+    const foreign = await prisma.enrollment.create({
+      data: {
+        learnerId: foreignStudent.id,
+        classOfferingId: offeringA.id,
+        status: EnrollmentStatus.ACTIVE,
+      },
+    });
+    foreignEnrollment = foreign.id;
+    enrollmentIds.push(foreign.id);
 
     const [moduleA, moduleB] = await Promise.all([
       prisma.module.create({ data: { courseId: courseA, title: 'Module A', orderIndex: 0 } }),
@@ -110,9 +128,11 @@ describe('Instructor assessment APIs (e2e)', () => {
     instructorAgent = request.agent(app.getHttpServer());
     unassignedAgent = request.agent(app.getHttpServer());
     studentAgent = request.agent(app.getHttpServer());
+    foreignStudentAgent = request.agent(app.getHttpServer());
     await loginAgent(instructorAgent, emails.instructor, password, sessionIds);
     await loginAgent(unassignedAgent, emails.other, password, sessionIds);
     await loginAgent(studentAgent, emails.student, password, sessionIds);
+    await loginAgent(foreignStudentAgent, emails.foreignStudent, password, sessionIds);
   });
 
   afterAll(async () => {
@@ -122,6 +142,11 @@ describe('Instructor assessment APIs (e2e)', () => {
         select: { id: true },
       });
       const testIds = tests.map(({ id }) => id);
+      const mediaKeys = await prisma.assessmentStimulus.findMany({
+        where: { group: { testId: { in: testIds } }, storageKey: { not: null } },
+        select: { storageKey: true },
+      });
+      await Promise.all(mediaKeys.flatMap(({ storageKey }) => storageKey ? [stimulusStorage.delete(storageKey)] : []));
       const attempts = await prisma.testAttempt.findMany({
         where: { testId: { in: testIds } },
         select: { id: true },
@@ -448,6 +473,100 @@ describe('Instructor assessment APIs (e2e)', () => {
     });
   });
 
+  it('uploads and safely delivers learner-visible IMAGE/AUDIO media to instructor and student owners', async () => {
+    const assessment = await createTest(courseA, {
+      type: TestPurpose.PRACTICE_MOCK,
+      title: 'Authorized media delivery',
+      lessonId: lessonA,
+    });
+    const group = (
+      await instructorAgent
+        .post(`/api/instructor/tests/${assessment.id}/groups`)
+        .send({ skill: ToeicSkill.READING, title: 'Media group' })
+        .expect(201)
+    ).body;
+    const question = await createQuestion(courseA, 'Media question');
+    await instructorAgent
+      .post(`/api/instructor/tests/${assessment.id}/questions`)
+      .send({ questionId: question.id, groupId: group.id, points: 1 })
+      .expect(201);
+
+    const image = (
+      await instructorAgent
+        .post(`/api/instructor/tests/${assessment.id}/groups/${group.id}/stimuli/upload`)
+        .field('altText', 'Tiny image')
+        .attach('file', TINY_PNG, { filename: 'tiny.png', contentType: 'image/png' })
+        .expect(201)
+    ).body;
+    const audio = (
+      await instructorAgent
+        .post(`/api/instructor/tests/${assessment.id}/groups/${group.id}/stimuli/upload`)
+        .field('altText', 'Tiny audio')
+        .attach('file', TINY_MP3, { filename: 'tiny.mp3', contentType: 'audio/mpeg' })
+        .expect(201)
+    ).body;
+    expect(image.isProtected).toBe(false);
+    expect(audio.isProtected).toBe(false);
+
+    const detail = await instructorAgent.get(`/api/instructor/tests/${assessment.id}`).expect(200);
+    const projected = detail.body.questionGroups[0].stimuli;
+    expect(projected.map(({ mediaUrl }: { mediaUrl: string }) => mediaUrl)).toEqual([
+      `/api/instructor/tests/${assessment.id}/stimuli/${image.id}/media`,
+      `/api/instructor/tests/${assessment.id}/stimuli/${audio.id}/media`,
+    ]);
+    expect(JSON.stringify(detail.body)).not.toContain('storageKey');
+
+    for (const [stimulus, contentType] of [[image, 'image/png'], [audio, 'audio/mpeg']] as const) {
+      const media = await instructorAgent
+        .get(`/api/instructor/tests/${assessment.id}/stimuli/${stimulus.id}/media`)
+        .expect(200)
+        .expect('Content-Type', contentType);
+      expect(media.headers['cache-control']).toBe('private, no-store');
+      expect(media.body.length).toBeGreaterThan(0);
+      await instructorAgent
+        .get(`/api/instructor/tests/${crypto.randomUUID()}/stimuli/${stimulus.id}/media`)
+        .expect(404);
+      await unassignedAgent
+        .get(`/api/instructor/tests/${assessment.id}/stimuli/${stimulus.id}/media`)
+        .expect(403);
+    }
+
+    await instructorAgent.patch(`/api/instructor/tests/${assessment.id}/publish`).expect(200);
+    const attempt = await studentAgent
+      .post(`/api/learning/enrollments/${activeEnrollment}/tests/${assessment.id}/attempts`)
+      .expect(201);
+    const studentView = await studentAgent
+      .get(`/api/learning/enrollments/${activeEnrollment}/attempts/${attempt.body.id}`)
+      .expect(200);
+    expect(studentView.body.groups[0].stimuli.map(({ id }: { id: string }) => id)).toEqual([
+      image.id,
+      audio.id,
+    ]);
+    expect(JSON.stringify(studentView.body)).not.toContain('storageKey');
+
+    for (const stimulus of [image, audio]) {
+      const media = await studentAgent
+        .get(`/api/learning/enrollments/${activeEnrollment}/attempts/${attempt.body.id}/stimuli/${stimulus.id}/media`)
+        .expect(200);
+      expect(media.headers['cache-control']).toBe('private, no-store');
+      await foreignStudentAgent
+        .get(`/api/learning/enrollments/${foreignEnrollment}/attempts/${attempt.body.id}/stimuli/${stimulus.id}/media`)
+        .expect(404);
+    }
+
+    await prisma.assessmentStimulus.update({ where: { id: image.id }, data: { isProtected: true } });
+    await instructorAgent
+      .get(`/api/instructor/tests/${assessment.id}/stimuli/${image.id}/media`)
+      .expect(404);
+    await studentAgent
+      .get(`/api/learning/enrollments/${activeEnrollment}/attempts/${attempt.body.id}/stimuli/${image.id}/media`)
+      .expect(404);
+    const protectedView = await studentAgent
+      .get(`/api/learning/enrollments/${activeEnrollment}/attempts/${attempt.body.id}`)
+      .expect(200);
+    expect(protectedView.body.groups[0].stimuli.map(({ id }: { id: string }) => id)).toEqual([audio.id]);
+  });
+
   async function createUser(email: string, role: UserRole, passwordHash: string) {
     return prisma.user.create({
       data: { email, fullName: `VS03 ${role}`, role, status: UserStatus.ACTIVE, passwordHash },
@@ -501,6 +620,7 @@ function questionInput(
 ) {
   return {
     type,
+    toeicSkill: 'READING',
     difficulty: QuestionDifficulty.HARD,
     content,
     explanation: 'Safe explanation',

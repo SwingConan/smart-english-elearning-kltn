@@ -13,6 +13,7 @@ import { deferred, renderAssessmentRoute } from './assessment-test-utils';
 import { classAssessmentApi, studentAssessmentApi } from './api';
 import { studentAssessmentErrorMessage } from './errors';
 import { learningApi } from '@/features/learning/api';
+import { instructorApi } from '@/features/instructor/api';
 import type { CourseProgress } from '@/features/learning/types';
 import { ApiError } from '@/lib/api-client';
 import type {
@@ -385,6 +386,29 @@ describe('M06 four-skill assessment UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Xác nhận điểm cuối' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/tất cả tiêu chí/);
     expect(grade).not.toHaveBeenCalled();
+  });
+
+  it('moves to the next unfinished productive response in the same attempt before another learner', async () => {
+    const detail = gradingDetail();
+    detail.answers.push({
+      ...detail.answers[0], id: 'ans2', textResponse: null, audioUrl: '/api/audio/ans2',
+      testQuestion: { ...detail.answers[0].testQuestion, id: 'tq2', orderIndex: 1, question: { ...detail.answers[0].testQuestion.question, content: 'Speak', responseType: 'AUDIO_RESPONSE', toeicSkill: 'SPEAKING' } },
+    });
+    vi.spyOn(classAssessmentApi, 'gradingDetail').mockResolvedValue(detail);
+    vi.spyOn(classAssessmentApi, 'gradeAnswer').mockResolvedValue({});
+    const queue = vi.spyOn(instructorApi.classes, 'grading');
+    const scroll = vi.fn();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scroll });
+    renderAssessmentRoute(
+      <AssessmentGradingDetailPage />,
+      '/instructor/classes/c1/assessments/ca1/attempts/a1/grading',
+      '/instructor/classes/:classOfferingId/assessments/:classAssessmentId/attempts/:attemptId/grading',
+      { role: 'INSTRUCTOR' },
+    );
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Lưu nháp & sang câu tiếp theo' }))[0]);
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
+    expect(queue).not.toHaveBeenCalled();
+    expect(screen.getByRole('navigation', { name: 'Điều hướng câu chấm' })).toHaveTextContent('Câu 2 · Chờ chấm');
   });
 
   it('blocks out-of-range rubric scores inline and displays teacher-friendly weights', async () => {

@@ -250,7 +250,7 @@ describe('AdaptivePolicyPage', () => {
 });
 
 describe('Instructor adaptive policy navigation', () => {
-  it('links to Adaptive Policy from the existing teaching flow', async () => {
+  it('keeps legacy Adaptive Policy out of the primary teaching flow', async () => {
     vi.spyOn(instructorApi.teaching, 'list').mockResolvedValue([teachingEntry()]);
 
     render(
@@ -261,10 +261,8 @@ describe('Instructor adaptive policy navigation', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('link', { name: /Chính sách thích ứng/i })).toHaveAttribute(
-      'href',
-      `/instructor/courses/${courseId}/adaptive-policy`,
-    );
+    expect(await screen.findByText('Không gian giảng dạy')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Chính sách thích ứng/i })).not.toBeInTheDocument();
   });
 });
 

@@ -6,6 +6,10 @@ export class AddTestQuestionDto {
   questionId: string;
 
   @IsOptional()
+  @IsUUID()
+  groupId?: string | null;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

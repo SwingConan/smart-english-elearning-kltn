@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
-import { AnswerEvaluationStatus, Prisma, QuestionResponseType, ToeicSkill } from '../../generated/prisma/client';
+import { AnswerEvaluationStatus, AssessmentStage, Prisma, QuestionResponseType, ToeicSkill } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AssessmentResponseStorage } from '../placement/assessment-response.storage';
 import { ClassAssessmentService } from './class-assessment.service';
@@ -11,7 +11,9 @@ describe('ClassAssessmentService', () => {
     { id: 'criterion-b', maxScore: new Prisma.Decimal('6'), weight: new Prisma.Decimal('2'), orderIndex: 1 },
   ] };
   const tx = {
-    classAssessment: { findFirst: jest.fn() },
+    classOffering: { findFirst: jest.fn() },
+    test: { findFirst: jest.fn() },
+    classAssessment: { findFirst: jest.fn(), create: jest.fn() },
     testAnswer: { findFirst: jest.fn(), update: jest.fn() },
     answerEvaluation: { create: jest.fn(), update: jest.fn() },
     rubricCriterionScore: { upsert: jest.fn() },
@@ -20,11 +22,15 @@ describe('ClassAssessmentService', () => {
   };
   const prisma = { classAssessment: { findFirst: jest.fn() }, $transaction: jest.fn() };
   const storage = { open: jest.fn() };
-  const service = new ClassAssessmentService(prisma as unknown as PrismaService, storage as unknown as AssessmentResponseStorage);
+  const assessmentInstructorService = { validatePublishableTest: jest.fn() };
+  const service = new ClassAssessmentService(prisma as unknown as PrismaService, storage as unknown as AssessmentResponseStorage, assessmentInstructorService as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
     tx.classAssessment.findFirst.mockResolvedValue(assessment);
+    tx.classOffering.findFirst.mockResolvedValue({ id: 'class-id', code: 'C1', name: 'Class', courseId: 'course-id', course: { id: 'course-id', title: 'Course' } });
+    tx.test.findFirst.mockResolvedValue({ id: 'test-id' });
+    assessmentInstructorService.validatePublishableTest.mockResolvedValue(undefined);
     prisma.$transaction.mockImplementation((operation: (client: typeof tx) => Promise<unknown>) => operation(tx));
     tx.answerEvaluation.create.mockResolvedValue({ id: 'evaluation-id' });
     tx.testQuestion.findMany.mockResolvedValue([]);
@@ -78,6 +84,26 @@ describe('ClassAssessmentService', () => {
     tx.testAnswer.findFirst.mockResolvedValue({ id: 'answer-id', textResponse: null, audioStorageKey: 'responses/a.webm', testQuestion: { points: 10, question: { responseType: QuestionResponseType.AUDIO_RESPONSE, toeicSkill: ToeicSkill.SPEAKING, rubric } }, evaluations: [{ id: 'evaluation-id', status: AnswerEvaluationStatus.REVIEWED_FINAL }] });
     await expect(service.gradeAnswer('instructor-id', 'class-id', 'assessment-id', 'attempt-id', 'test-question-id', { criteria: [], finalize: false }))
       .rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('defensively validates the published invariant before scheduling', async () => {
+    assessmentInstructorService.validatePublishableTest.mockRejectedValueOnce(new BadRequestException('invalid published test'));
+    await expect(service.create('instructor-id', 'class-id', { testId: 'test-id', stage: AssessmentStage.MIDTERM }))
+      .rejects.toThrow('invalid published test');
+    expect(tx.classAssessment.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a stale grading tab before changing rubric or final state', async () => {
+    tx.testAnswer.findFirst.mockResolvedValue({
+      id: 'answer-id', textResponse: 'A real learner response', audioStorageKey: null,
+      testQuestion: { points: 10, question: { responseType: QuestionResponseType.TEXT_RESPONSE, toeicSkill: ToeicSkill.WRITING, rubric } },
+      evaluations: [{ id: 'evaluation-id', status: AnswerEvaluationStatus.PENDING_REVIEW, updatedAt: new Date('2026-10-06T00:00:00.000Z') }],
+    });
+    await expect(service.gradeAnswer('instructor-id', 'class-id', 'assessment-id', 'attempt-id', 'test-question-id', {
+      criteria: [], finalize: false, expectedUpdatedAt: '2026-10-05T00:00:00.000Z',
+    })).rejects.toMatchObject({ response: expect.objectContaining({ code: 'STALE_GRADING_EVALUATION' }) });
+    expect(tx.answerEvaluation.update).not.toHaveBeenCalled();
+    expect(tx.rubricCriterionScore.upsert).not.toHaveBeenCalled();
   });
 
   it('rejects out-of-range rubric scores before persistence', async () => {

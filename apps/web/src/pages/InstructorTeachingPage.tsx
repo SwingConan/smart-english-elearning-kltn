@@ -1,177 +1,256 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { instructorApi } from '@/features/instructor/api';
-import type { TeachingEntry } from '@/features/instructor/types';
+import { classStatus } from '@/features/instructor/class-status';
+import type { InstructorClass } from '@/features/instructor/types';
 
-const offeringStatusLabel: Record<string, string> = {
-  OPEN: 'Đang mở đăng ký',
-  IN_PROGRESS: 'Đang học',
-  CLOSED: 'Đã đóng',
-  COMPLETED: 'Đã kết thúc',
-  DRAFT: 'Bản nháp',
-};
+const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
 export function InstructorTeachingPage() {
-  const [teachingEntries, setTeachingEntries] = useState<TeachingEntry[]>([]);
+  const [classes, setClasses] = useState<InstructorClass[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const redirectExpiredSession = useSessionExpiry();
-
+  const [error, setError] = useState(false);
+  const [search, setSearch] = useState('');
+  const [courseId, setCourseId] = useState('ALL');
+  const [status, setStatus] = useState('ALL');
+  const [day, setDay] = useState('ALL');
   useEffect(() => {
-    const abortController = new AbortController();
-
-    async function fetchTeaching() {
+    const controller = new AbortController();
+    const load = async () => {
       try {
-        const data = await instructorApi.teaching.list(abortController.signal);
-        setTeachingEntries(data);
-        setError(null);
-      } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return;
-        if (await redirectExpiredSession(err)) return;
-        setError('Không thể tải danh sách lớp giảng dạy. Vui lòng thử lại.');
+        let loaded: InstructorClass[];
+        try {
+          loaded = await instructorApi.classes.list(controller.signal);
+        } catch (cause) {
+          if (cause instanceof Error && cause.name === 'AbortError') return;
+          const entries = await instructorApi.teaching.list(controller.signal);
+          loaded = entries.flatMap(({ course, classOfferings }) => classOfferings.map((offering) => ({ ...offering, code: offering.code ?? '—', activeLearnerCount: offering.activeLearnerCount ?? 0, course: { id: course.id, title: course.title, level: course.level } })));
+        }
+        setClasses(loaded);
+        setError(false);
+      } catch (cause) {
+        if (!(cause instanceof Error && cause.name === 'AbortError')) setError(true);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
-    }
-
-    void fetchTeaching();
-
-    return () => {
-      abortController.abort();
     };
-  }, [redirectExpiredSession]);
-
-  if (loading) {
-    return <div className="p-8 text-center text-gray-500">Đang tải danh sách...</div>;
-  }
-
-  if (error) {
-    return <div className="p-8 text-center text-red-600">Đã xảy ra lỗi: {error}</div>;
-  }
-
+    void load();
+    return () => controller.abort();
+  }, []);
+  const courses = useMemo(
+    () => [...new Map(classes.map((item) => [item.course.id, item.course])).values()],
+    [classes],
+  );
+  const groups = useMemo(() => {
+    const needle = search.trim().toLocaleLowerCase('vi');
+    const filtered = classes.filter(
+      (item) =>
+        (courseId === 'ALL' || item.course.id === courseId) &&
+        (status === 'ALL' || item.status === status) &&
+        (day === 'ALL' || item.scheduleSlots?.some((slot) => String(slot.dayOfWeek) === day)) &&
+        `${item.code} ${item.name} ${item.course.title}`.toLocaleLowerCase('vi').includes(needle),
+    );
+    return [...new Map(filtered.map((item) => [item.course.id, item.course])).values()].map(
+      (course) => ({ course, classes: filtered.filter((item) => item.course.id === course.id) }),
+    );
+  }, [classes, courseId, day, search, status]);
+  if (loading)
+    return (
+      <div className="p-8 text-center text-gray-500" role="status">
+        Đang tải danh sách...
+      </div>
+    );
+  if (error) return <div className="state-error text-red-600">Không thể tải danh sách lớp giảng dạy.</div>;
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-8">Lớp giảng dạy của tôi</h1>
-
-      {teachingEntries.length === 0 ? (
-        <div className="text-center text-gray-500 bg-white shadow rounded-lg p-8">
-          Bạn chưa được phân công giảng dạy khóa học nào.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {teachingEntries.map(({ course, classOfferings }) => (
-            <div
-              key={course.id}
-              className="bg-white shadow rounded-lg p-6 border border-gray-200 flex flex-col h-full"
-            >
-              <div className="flex flex-1 flex-col">
-                <div className="mb-4 flex min-h-16 items-start justify-between gap-3">
-                  <h2 className="text-xl font-bold leading-7 text-gray-900">{course.title}</h2>
-                  {course.isPublished ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      Đã xuất bản
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      Nháp
-                    </span>
-                  )}
-                </div>
-
-                <div className="mb-4 min-h-14 space-y-2">
-                  <div className="text-sm text-gray-500">
-                    <span className="font-semibold text-gray-700">Trình độ:</span> {course.level}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    <span className="font-semibold text-gray-700">Số module:</span>{' '}
-                    {course._count.modules}
-                  </div>
-                </div>
-
-                {classOfferings.length > 0 && (
-                  <div className="mb-4 flex-1">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Lớp đang dạy:</h3>
-                    <ul className="space-y-3">
-                      {classOfferings.map((offering) => (
-                        <li
-                          key={offering.id}
-                          className="flex min-h-28 flex-col justify-between rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"
-                        >
-                          <div className="flex min-h-10 items-start justify-between gap-2">
-                            <span className="font-semibold leading-5 text-gray-800">
-                              {offering.name}
-                            </span>
-                            <span className="inline-flex shrink-0 items-center rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
-                              {offeringStatusLabel[offering.status] ?? 'Đang cập nhật'}
-                            </span>
-                          </div>
-                          <Link
-                            className="mt-3 inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-3 py-2 font-semibold text-white hover:bg-indigo-700"
-                            to={`/instructor/classes/${offering.id}/assessments`}
-                          >
-                            Bài kiểm tra của lớp
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 grid gap-2 border-t border-gray-100 pt-4">
-                <Link
-                  to={`/instructor/courses/${course.id}/content`}
-                  className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Quản lý nội dung
-                </Link>
-                <Link
-                  to={`/instructor/courses/${course.id}/question-bank`}
-                  className="inline-flex w-full items-center justify-center rounded-md border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                  Ngân hàng câu hỏi
-                </Link>
-                <Link
-                  to={`/instructor/courses/${course.id}/tests`}
-                  className="inline-flex w-full items-center justify-center rounded-md border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
-                  Mẫu bài kiểm tra
-                </Link>
-                <p className="text-xs leading-5 text-slate-500">
-                  Mẫu bài kiểm tra = nội dung dùng lại. Bài kiểm tra của lớp = lịch giao và bài nộp
-                  của một lớp cụ thể.
-                </p>
-                <details className="rounded-md border border-slate-200 p-3 text-sm">
-                  <summary className="cursor-pointer font-medium text-slate-700">
-                    Công cụ nâng cao
-                  </summary>
-                  <div className="mt-3 grid gap-2">
-                    <Link
-                      className="text-emerald-700 hover:underline"
-                      to={`/instructor/courses/${course.id}/skills`}
-                    >
-                      Mô hình kiến thức — Kỹ năng (KC)
-                    </Link>
-                    <Link
-                      className="text-amber-700 hover:underline"
-                      to={`/instructor/courses/${course.id}/adaptive-policy`}
-                    >
-                      Chính sách thích ứng
-                    </Link>
-                    <Link
-                      className="text-cyan-700 hover:underline"
-                      to={`/instructor/courses/${course.id}/learner-mastery`}
-                    >
-                      Mức độ thành thạo của học viên
-                    </Link>
-                  </div>
-                </details>
-              </div>
-            </div>
+    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <header>
+        <p className="text-sm font-bold uppercase tracking-wider text-indigo-600">
+          Không gian giảng dạy
+        </p>
+        <h1 className="mt-1 text-3xl font-bold">Lớp giảng dạy của tôi</h1>
+        <p className="mt-2 text-slate-500">
+          Các lớp được nhóm theo khóa học để thầy cô theo dõi nhanh và không lặp thông tin.
+        </p>
+      </header>
+      <section aria-label="Bộ lọc lớp" className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <input
+          aria-label="Tìm lớp"
+          className="rounded-xl border px-3 py-2"
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Tìm mã, tên lớp, khóa học"
+          value={search}
+        />
+        <select
+          aria-label="Lọc khóa học"
+          className="rounded-xl border px-3 py-2"
+          onChange={(e) => setCourseId(e.target.value)}
+          value={courseId}
+        >
+          <option value="ALL">Tất cả khóa học</option>
+          {courses.map((course) => (
+            <option key={course.id} value={course.id}>
+              {course.title}
+            </option>
           ))}
+        </select>
+        <select
+          aria-label="Lọc trạng thái lớp"
+          className="rounded-xl border px-3 py-2"
+          onChange={(e) => setStatus(e.target.value)}
+          value={status}
+        >
+          <option value="ALL">Tất cả trạng thái</option>
+          {['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'DRAFT'].map((value) => (
+            <option key={value} value={value}>
+              {classStatus(value).label}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Lọc ngày học"
+          className="rounded-xl border px-3 py-2"
+          onChange={(e) => setDay(e.target.value)}
+          value={day}
+        >
+          <option value="ALL">Tất cả ngày học</option>
+          {dayLabels.map((label, index) => (
+            <option key={label} value={index}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </section>
+      <div className="mt-7 space-y-5">
+        {groups.map(({ course, classes: rows }) => (
+          <details
+            className="overflow-hidden rounded-2xl border bg-white shadow-sm"
+            key={course.id}
+            open
+          >
+            <summary className="cursor-pointer list-none bg-slate-50 px-5 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold">{course.title}</h2>
+                  <p className="text-sm text-slate-500">
+                    {course.level} · {rows.length} lớp
+                  </p>
+                </div>
+                <strong className="text-sm text-indigo-700">
+                  {rows.reduce((sum, row) => sum + row.activeLearnerCount, 0)} học viên đang học
+                </strong>
+              </div>
+            </summary>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="min-w-[760px] w-full text-left text-sm">
+                <thead className="border-y bg-white text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-5 py-3">Lớp học</th>
+                    <th className="px-5 py-3">Lịch học</th>
+                    <th className="px-5 py-3">Học viên</th>
+                    <th className="px-5 py-3">Trạng thái</th>
+                    <th className="px-5 py-3 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {rows.map((item) => (
+                    <ClassRow item={item} key={item.id} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="grid gap-3 p-4 md:hidden">
+              {rows.map((item) => (
+                <ClassCard item={item} key={item.id} />
+              ))}
+            </div>
+          </details>
+        ))}
+        {groups.length === 0 && <div className="state-empty">Không có lớp phù hợp.</div>}
+      </div>
+    </main>
+  );
+}
+function StatusPill({ value }: { value: string }) {
+  const item = classStatus(value);
+  return (
+    <span
+      className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold ${item.className}`}
+    >
+      {item.label}
+    </span>
+  );
+}
+function ClassRow({ item }: { item: InstructorClass }) {
+  return (
+    <tr className="hover:bg-indigo-50/40">
+      <td className="px-5 py-4">
+        <p className="font-bold">{item.name}</p>
+        <p className="text-xs text-slate-500">{item.code}</p>
+      </td>
+      <td className="px-5 py-4">
+        <Schedule item={item} />
+      </td>
+      <td className="px-5 py-4 font-semibold">{item.activeLearnerCount}</td>
+      <td className="px-5 py-4">
+        <StatusPill value={item.status} />
+      </td>
+      <td className="px-5 py-4 text-right">
+        <Link
+          className="inline-block whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-2 font-semibold text-white"
+          to={`/instructor/classes/${item.id}`}
+        >
+          Vào lớp
+        </Link>
+      </td>
+    </tr>
+  );
+}
+function ClassCard({ item }: { item: InstructorClass }) {
+  return (
+    <article className="rounded-xl border p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h3 className="font-bold">{item.name}</h3>
+          <p className="text-xs text-slate-500">{item.code}</p>
         </div>
-      )}
-    </div>
+        <StatusPill value={item.status} />
+      </div>
+      <div className="mt-3 text-sm">
+        <Schedule item={item} />
+      </div>
+      <p className="mt-3 text-sm">
+        <strong>{item.activeLearnerCount}</strong> học viên
+      </p>
+      <Link
+        className="mt-3 block whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-2 text-center font-semibold text-white"
+        to={`/instructor/classes/${item.id}`}
+      >
+        Vào lớp
+      </Link>
+    </article>
+  );
+}
+function Schedule({ item }: { item: InstructorClass }) {
+  const slots = [
+    ...new Map(
+      (item.scheduleSlots ?? []).map((slot) => [
+        `${slot.dayOfWeek}|${slot.startTime}|${slot.endTime}|${slot.locationText ?? ''}`,
+        slot,
+      ]),
+    ).values(),
+  ];
+  if (!slots.length) return <span className="text-slate-500">Chưa xếp lịch</span>;
+  return (
+    <span className="flex flex-wrap gap-1.5">
+      {slots.map((slot) => (
+        <span
+          className="whitespace-nowrap rounded-full bg-slate-100 px-2 py-1 text-xs font-medium"
+          key={`${slot.dayOfWeek}-${slot.startTime}-${slot.endTime}-${slot.locationText}`}
+        >
+          {dayLabels[slot.dayOfWeek]} · {slot.startTime}–{slot.endTime}
+          {slot.locationText ? ` · ${slot.locationText}` : ''}
+        </span>
+      ))}
+    </span>
   );
 }

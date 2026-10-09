@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '../../generated/prisma/client';
+import { Prisma, ResourceType } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { UpdateModuleDto } from './dto/update-module.dto';
@@ -14,12 +14,16 @@ import { UpdateLessonDto } from './dto/update-lesson.dto';
 import { CreateResourceDto } from './dto/create-resource.dto';
 import { UpdateResourceDto } from './dto/update-resource.dto';
 import { ReorderDto } from './dto/reorder.dto';
+import { LearningResourceStorage } from './learning-resource.storage';
 
 const MAX_CONTENT_TRANSACTION_ATTEMPTS = 3;
 
 @Injectable()
 export class InstructorContentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly resourceStorage: LearningResourceStorage,
+  ) {}
 
   private async assertInstructorOwnsCourse(instructorId: string, courseId: string): Promise<void> {
     const assignment = await this.prisma.classOffering.findFirst({
@@ -128,17 +132,16 @@ export class InstructorContentService {
   }
 
   async updateModule(instructorId: string, moduleId: string, dto: UpdateModuleDto) {
-    const module = await this.prisma.module.findUnique({
-      where: { id: moduleId },
-      select: { courseId: true },
-    });
-    if (!module) throw new NotFoundException('Module not found');
-
-    await this.assertInstructorOwnsCourse(instructorId, module.courseId);
-
-    return this.prisma.module.update({
-      where: { id: moduleId },
-      data: dto,
+    const { expectedUpdatedAt, ...data } = dto;
+    return this.prisma.$transaction(async (transaction) => {
+      const module = await transaction.module.findUnique({
+        where: { id: moduleId },
+        select: { courseId: true, updatedAt: true },
+      });
+      if (!module) throw new NotFoundException('Module not found');
+      await this.assertInstructorOwnsCourseIn(transaction, instructorId, module.courseId);
+      this.assertFresh(module.updatedAt, expectedUpdatedAt);
+      return transaction.module.update({ where: { id: moduleId }, data });
     });
   }
 
@@ -147,34 +150,28 @@ export class InstructorContentService {
       where: { id: moduleId },
       select: { id: true, courseId: true, orderIndex: true },
     });
-    if (!module) {
-      throw new NotFoundException('Module not found');
-    }
-
+    if (!module) throw new NotFoundException('Module not found');
     await this.assertInstructorOwnsCourse(instructorId, module.courseId);
 
-    await this.runDeleteTransaction(async (transaction) => {
+    const storageKeys = await this.runDeleteTransaction(async (transaction) => {
       const currentModule = await transaction.module.findUnique({
         where: { id: moduleId },
         select: { courseId: true },
       });
       if (!currentModule) throw new NotFoundException('Module not found');
-
-      const progressCount = await transaction.lessonProgress.count({
-        where: { lesson: { moduleId } },
+      const progressCount = await transaction.lessonProgress.count({ where: { lesson: { moduleId } } });
+      if (progressCount > 0) throw new ConflictException('Cannot delete module because learner progress exists.');
+      const storedResources = await transaction.learningResource.findMany({
+        where: { lesson: { moduleId }, storageKey: { not: null } },
+        select: { storageKey: true },
       });
-      if (progressCount > 0) {
-        throw new ConflictException('Cannot delete module because learner progress exists.');
-      }
-
-      await transaction.learningResource.deleteMany({
-        where: { lesson: { moduleId } },
-      });
+      await transaction.learningResource.deleteMany({ where: { lesson: { moduleId } } });
       await transaction.lesson.deleteMany({ where: { moduleId } });
       await transaction.module.delete({ where: { id: moduleId } });
       await this.reindexModules(transaction, currentModule.courseId);
+      return storedResources.flatMap((item) => item.storageKey ? [item.storageKey] : []);
     });
-
+    await Promise.all(storageKeys.map((key) => this.resourceStorage.delete(key).catch(() => undefined)));
     return { message: 'Module deleted successfully' };
   }
 
@@ -273,16 +270,16 @@ export class InstructorContentService {
   }
 
   async updateLesson(instructorId: string, lessonId: string, dto: UpdateLessonDto) {
-    const lesson = await this.prisma.lesson.findUnique({
-      where: { id: lessonId },
-      select: { module: { select: { courseId: true } } },
-    });
-    if (!lesson) throw new NotFoundException('Lesson not found');
-    await this.assertInstructorOwnsCourse(instructorId, lesson.module.courseId);
-
-    return this.prisma.lesson.update({
-      where: { id: lessonId },
-      data: dto,
+    const { expectedUpdatedAt, ...data } = dto;
+    return this.prisma.$transaction(async (transaction) => {
+      const lesson = await transaction.lesson.findUnique({
+        where: { id: lessonId },
+        select: { updatedAt: true, module: { select: { courseId: true } } },
+      });
+      if (!lesson) throw new NotFoundException('Lesson not found');
+      await this.assertInstructorOwnsCourseIn(transaction, instructorId, lesson.module.courseId);
+      this.assertFresh(lesson.updatedAt, expectedUpdatedAt);
+      return transaction.lesson.update({ where: { id: lessonId }, data });
     });
   }
 
@@ -294,25 +291,24 @@ export class InstructorContentService {
     if (!lesson) throw new NotFoundException('Lesson not found');
     await this.assertInstructorOwnsCourse(instructorId, lesson.module.courseId);
 
-    await this.runDeleteTransaction(async (transaction) => {
+    const storageKeys = await this.runDeleteTransaction(async (transaction) => {
       const currentLesson = await transaction.lesson.findUnique({
         where: { id: lessonId },
         select: { moduleId: true },
       });
       if (!currentLesson) throw new NotFoundException('Lesson not found');
-
-      const progressCount = await transaction.lessonProgress.count({
-        where: { lessonId },
+      const progressCount = await transaction.lessonProgress.count({ where: { lessonId } });
+      if (progressCount > 0) throw new ConflictException('Cannot delete lesson because learner progress exists.');
+      const storedResources = await transaction.learningResource.findMany({
+        where: { lessonId, storageKey: { not: null } },
+        select: { storageKey: true },
       });
-      if (progressCount > 0) {
-        throw new ConflictException('Cannot delete lesson because learner progress exists.');
-      }
-
       await transaction.learningResource.deleteMany({ where: { lessonId } });
       await transaction.lesson.delete({ where: { id: lessonId } });
       await this.reindexLessons(transaction, currentLesson.moduleId);
+      return storedResources.flatMap((item) => item.storageKey ? [item.storageKey] : []);
     });
-
+    await Promise.all(storageKeys.map((key) => this.resourceStorage.delete(key).catch(() => undefined)));
     return { message: 'Lesson deleted successfully' };
   }
 
@@ -359,10 +355,16 @@ export class InstructorContentService {
     if (!lesson) throw new NotFoundException('Lesson not found');
     await this.assertInstructorOwnsCourse(instructorId, lesson.module.courseId);
 
-    return this.prisma.learningResource.findMany({
+    const resources = await this.prisma.learningResource.findMany({
       where: { lessonId },
       orderBy: { orderIndex: 'asc' },
     });
+    return Promise.all(resources.map(async (resource) => ({
+      ...resource,
+      sizeBytes: resource.storageKey
+        ? await this.resourceStorage.stat(resource.storageKey).then((item) => item.sizeBytes).catch(() => null)
+        : null,
+    })));
   }
 
   async createResource(instructorId: string, lessonId: string, dto: CreateResourceDto) {
@@ -410,17 +412,126 @@ export class InstructorContentService {
   }
 
   async updateResource(instructorId: string, resourceId: string, dto: UpdateResourceDto) {
+    const { expectedUpdatedAt, ...data } = dto;
+    return this.prisma.$transaction(async (transaction) => {
+      const resource = await transaction.learningResource.findUnique({
+        where: { id: resourceId },
+        select: { updatedAt: true, storageKey: true, type: true, url: true, originalFileName: true, mimeType: true, lesson: { select: { module: { select: { courseId: true } } } } },
+      });
+      if (!resource) throw new NotFoundException('Resource not found');
+      await this.assertInstructorOwnsCourseIn(transaction, instructorId, resource.lesson.module.courseId);
+      this.assertFresh(resource.updatedAt, expectedUpdatedAt);
+      if (resource.storageKey) {
+        if (data.type !== undefined || data.url !== undefined) {
+          throw new BadRequestException('Tài liệu đã tải lên không thể đổi thành liên kết. Hãy xóa và tạo lại tài nguyên.');
+        }
+        if (!resource.originalFileName || !resource.mimeType || resource.type !== ResourceType.DOCUMENT || resource.url !== null) {
+          throw new BadRequestException('Trạng thái tài liệu lưu trữ không hợp lệ.');
+        }
+        const storedMetadataUpdate: Prisma.LearningResourceUpdateInput = {};
+        if (data.title !== undefined) storedMetadataUpdate.title = data.title;
+        if (data.isDownloadable !== undefined) storedMetadataUpdate.isDownloadable = data.isDownloadable;
+        return transaction.learningResource.update({
+          where: { id: resourceId },
+          data: storedMetadataUpdate,
+        });
+      }
+
+      if (resource.originalFileName !== null || resource.mimeType !== null) {
+        throw new BadRequestException('Trạng thái liên kết ngoài không hợp lệ.');
+      }
+      const nextType = data.type ?? resource.type;
+      const nextUrl = data.url ?? resource.url;
+      if (!nextType || typeof nextUrl !== 'string' || nextUrl.trim().length === 0) {
+        throw new BadRequestException('Liên kết ngoài cần loại và URL hợp lệ.');
+      }
+      return transaction.learningResource.update({ where: { id: resourceId }, data });
+    });
+  }
+
+  async uploadResource(
+    instructorId: string,
+    lessonId: string,
+    input: { title: string; isDownloadable: boolean; replaceResourceId?: string; expectedUpdatedAt?: string },
+    file: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+  ) {
+    const lesson = await this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { module: { select: { courseId: true } } },
+    });
+    if (!lesson) throw new NotFoundException('Lesson not found');
+    await this.assertInstructorOwnsCourse(instructorId, lesson.module.courseId);
+    const stored = await this.resourceStorage.put(file);
+    let oldKey: string | null = null;
+    try {
+      const resource = await this.prisma.$transaction(async (transaction) => {
+        if (input.replaceResourceId) {
+          if (!input.expectedUpdatedAt) throw new BadRequestException('expectedUpdatedAt is required when replacing a resource');
+          const current = await transaction.learningResource.findFirst({
+            where: { id: input.replaceResourceId, lessonId },
+            select: { id: true, storageKey: true, updatedAt: true, lesson: { select: { module: { select: { courseId: true } } } } },
+          });
+          if (!current) throw new NotFoundException('Resource not found');
+          await this.assertInstructorOwnsCourseIn(transaction, instructorId, current.lesson.module.courseId);
+          this.assertFresh(current.updatedAt, input.expectedUpdatedAt);
+          oldKey = current.storageKey;
+          return transaction.learningResource.update({
+            where: { id: current.id },
+            data: {
+              title: input.title,
+              type: 'DOCUMENT',
+              url: null,
+              storageKey: stored.key,
+              originalFileName: stored.originalFileName,
+              mimeType: stored.mimeType,
+              isDownloadable: input.isDownloadable,
+            },
+          });
+        }
+        const last = await transaction.learningResource.findFirst({
+          where: { lessonId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true },
+        });
+        return transaction.learningResource.create({
+          data: {
+            lessonId,
+            title: input.title,
+            type: 'DOCUMENT',
+            url: null,
+            storageKey: stored.key,
+            originalFileName: stored.originalFileName,
+            mimeType: stored.mimeType,
+            isDownloadable: input.isDownloadable,
+            orderIndex: last ? last.orderIndex + 1 : 0,
+          },
+        });
+      });
+      if (oldKey) await this.resourceStorage.delete(oldKey).catch(() => undefined);
+      return { ...resource, sizeBytes: stored.bytes };
+    } catch (error) {
+      await this.resourceStorage.delete(stored.key).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async openResource(instructorId: string, resourceId: string) {
     const resource = await this.prisma.learningResource.findUnique({
       where: { id: resourceId },
-      select: { lesson: { select: { module: { select: { courseId: true } } } } },
+      select: {
+        storageKey: true,
+        mimeType: true,
+        originalFileName: true,
+        lesson: { select: { module: { select: { courseId: true } } } },
+      },
     });
-    if (!resource) throw new NotFoundException('Resource not found');
+    if (!resource?.storageKey || !resource.mimeType || !resource.originalFileName) {
+      throw new NotFoundException('Stored resource not found');
+    }
     await this.assertInstructorOwnsCourse(instructorId, resource.lesson.module.courseId);
-
-    return this.prisma.learningResource.update({
-      where: { id: resourceId },
-      data: dto,
-    });
+    return {
+      stream: this.resourceStorage.open(resource.storageKey),
+      mimeType: resource.mimeType,
+      fileName: this.safeFileName(resource.originalFileName),
+    };
   }
 
   async deleteResource(instructorId: string, resourceId: string): Promise<{ message: string }> {
@@ -429,6 +540,7 @@ export class InstructorContentService {
       select: {
         id: true,
         lessonId: true,
+        storageKey: true,
         lesson: { select: { module: { select: { courseId: true } } } },
       },
     });
@@ -447,6 +559,8 @@ export class InstructorContentService {
       await transaction.learningResource.delete({ where: { id: resourceId } });
       await this.reindexResources(transaction, currentResource.lessonId);
     });
+
+    if (resource.storageKey) await this.resourceStorage.delete(resource.storageKey).catch(() => undefined);
 
     return { message: 'Resource deleted successfully' };
   }
@@ -526,15 +640,14 @@ export class InstructorContentService {
     }
   }
 
-  private async runDeleteTransaction(
-    operation: (transaction: Prisma.TransactionClient) => Promise<void>,
-  ): Promise<void> {
+  private async runDeleteTransaction<T>(
+    operation: (transaction: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
     for (let attempt = 1; attempt <= MAX_CONTENT_TRANSACTION_ATTEMPTS; attempt += 1) {
       try {
-        await this.prisma.$transaction(operation, {
+        return await this.prisma.$transaction(operation, {
           isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         });
-        return;
       } catch (error: unknown) {
         if (this.isPrismaError(error, 'P2003')) {
           throw new ConflictException(
@@ -552,6 +665,7 @@ export class InstructorContentService {
         }
       }
     }
+    throw new ConflictException('Content changed concurrently; please try again');
   }
 
   private async reindexModules(
@@ -640,5 +754,27 @@ export class InstructorContentService {
     } catch {
       return false;
     }
+  }
+
+  private assertFresh(current: Date, expected: string): void {
+    if (current.getTime() !== new Date(expected).getTime()) {
+      throw new ConflictException({
+        code: 'STALE_SHARED_CONTENT',
+        message: 'Nội dung đã được cập nhật ở nơi khác. Vui lòng tải lại trước khi tiếp tục chỉnh sửa.',
+      });
+    }
+  }
+
+  private async assertInstructorOwnsCourseIn(
+    database: Prisma.TransactionClient,
+    instructorId: string,
+    courseId: string,
+  ): Promise<void> {
+    const assignment = await database.classOffering.findFirst({ where: { courseId, instructorId }, select: { id: true } });
+    if (!assignment) throw new ForbiddenException('You are not assigned to any class offering of this course');
+  }
+
+  private safeFileName(value: string): string {
+    return value.replace(/[\\/\r\n"]/g, '_').slice(0, 240) || 'document';
   }
 }

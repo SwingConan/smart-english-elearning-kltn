@@ -31,12 +31,11 @@ describe('InstructorTeachingPage', () => {
     const loading = renderInstructor(<InstructorTeachingPage />);
     expect(document.querySelector('.p-8.text-center.text-gray-500')).toBeInTheDocument();
     resolveList([teachingEntry()]);
-    expect(await screen.findByText('Assigned English')).toBeInTheDocument();
-    expect(screen.getByText('Evening class')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Mô hình kiến thức/i })).toHaveAttribute(
-      'href',
-      `/instructor/courses/${courseId}/skills`,
-    );
+    expect((await screen.findAllByText('Assigned English')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Evening class').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Đã hủy').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Đã đóng')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Mô hình kiến thức/i })).not.toBeInTheDocument();
     loading.unmount();
 
     vi.spyOn(instructorApi.teaching, 'list').mockResolvedValueOnce([]);
@@ -111,6 +110,85 @@ describe('CourseContentManagementPage', () => {
     fireEvent.click(enabledDownButton());
     expect(await screen.findByRole('alert')).toHaveTextContent(/khôi phục/i);
     expect(moduleHeadings()).toEqual(['Module 1: Beta module', 'Module 2: Alpha module']);
+  });
+
+  it('sends only editable metadata when updating a stored document', async () => {
+    const stored: LearningResource = {
+      ...resource,
+      title: 'Stored guide',
+      type: 'DOCUMENT',
+      url: null,
+      storageKey: 'm07/stored-guide.pdf',
+      originalFileName: 'stored-guide.pdf',
+      mimeType: 'application/pdf',
+      updatedAt: '2026-10-06T10:00:00.000Z',
+    };
+    mockContent([moduleA], [lesson], [stored]);
+    const update = vi.spyOn(instructorApi.resources, 'update').mockResolvedValue({
+      ...stored,
+      title: 'Stored guide updated',
+      isDownloadable: false,
+      updatedAt: '2026-10-06T10:01:00.000Z',
+    });
+    renderContent();
+    fireEvent.click(await screen.findByRole('heading', { name: /Alpha module/ }));
+    fireEvent.click(await screen.findByText(/Alpha lesson/));
+    const resourceRow = (await screen.findByRole('link', { name: 'Stored guide' })).closest('li') as HTMLElement;
+    fireEvent.click(within(resourceRow).getByRole('button', { name: 'Sửa' }));
+    const form = screen.getByRole('heading', { name: 'Sửa Tài liệu' }).parentElement!.querySelector('form')!;
+    expect(within(form).getByText(/stored-guide\.pdf/)).toBeInTheDocument();
+    expect(form.querySelector('input[name="url"]')).not.toBeInTheDocument();
+    fireEvent.change(form.querySelector<HTMLInputElement>('input[name="title"]')!, { target: { value: 'Stored guide updated' } });
+    fireEvent.click(form.querySelector<HTMLInputElement>('input[name="isDownloadable"]')!);
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(update).toHaveBeenCalledWith(stored.id, {
+      title: 'Stored guide updated',
+      isDownloadable: false,
+      expectedUpdatedAt: stored.updatedAt,
+    }));
+    expect(update.mock.calls[0][1]).not.toHaveProperty('type');
+    expect(update.mock.calls[0][1]).not.toHaveProperty('url');
+  });
+
+  it('offers three explicit resource creation modes with mode-specific inputs', async () => {
+    mockContent([moduleA], [lesson], []);
+    renderContent();
+    fireEvent.click(await screen.findByRole('heading', { name: /Alpha module/ }));
+    fireEvent.click(await screen.findByText(/Alpha lesson/));
+    fireEvent.click(screen.getByRole('button', { name: /Thêm tài liệu/i }));
+    const form = screen.getByRole('heading', { name: 'Thêm Tài liệu' }).parentElement!.querySelector('form')!;
+
+    expect(within(form).getByRole('button', { name: 'Tải tài liệu lên' })).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: 'Video từ liên kết' })).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: 'Liên kết ngoài' })).toBeInTheDocument();
+    expect(form.querySelector('input[type="file"]')).toBeInTheDocument();
+    expect(form.querySelector('input[name="url"]')).not.toBeInTheDocument();
+
+    fireEvent.click(within(form).getByRole('button', { name: 'Video từ liên kết' }));
+    expect(within(form).getByText('URL video')).toBeInTheDocument();
+    expect(form.querySelector('input[name="url"]')).toBeInTheDocument();
+    expect(form.querySelector('input[type="file"]')).not.toBeInTheDocument();
+  });
+
+  it('keeps type and URL in the generic external-resource edit payload', async () => {
+    const external = { ...resource, title: 'External guide', type: 'LINK' as const };
+    mockContent([moduleA], [lesson], [external]);
+    const update = vi.spyOn(instructorApi.resources, 'update').mockResolvedValue(external);
+    renderContent();
+    fireEvent.click(await screen.findByRole('heading', { name: /Alpha module/ }));
+    fireEvent.click(await screen.findByText(/Alpha lesson/));
+    const resourceRow = (await screen.findByRole('link', { name: 'External guide' })).closest('li') as HTMLElement;
+    fireEvent.click(within(resourceRow).getByRole('button', { name: 'Sửa' }));
+    const form = screen.getByRole('heading', { name: 'Sửa Tài liệu' }).parentElement!.querySelector('form')!;
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(update).toHaveBeenCalledWith(external.id, expect.objectContaining({
+      title: external.title,
+      type: external.type,
+      url: external.url,
+      expectedUpdatedAt: external.updatedAt,
+    })));
   });
 
   it('refreshes auth and redirects safely on 401 without retrying the mutation', async () => {
@@ -205,5 +283,5 @@ function enabledDownButton() { return screen.getAllByRole('button').find((button
 function moduleView(id: string, title: string, orderIndex: number): Module { return { id, courseId, title, description: null, orderIndex, createdAt: '', updatedAt: '' }; }
 function lessonView(id: string, moduleId: string, title: string, orderIndex: number): Lesson { return { id, moduleId, title, description: null, orderIndex, createdAt: '', updatedAt: '' }; }
 function resourceView(id: string, lessonId: string, title: string, orderIndex: number): LearningResource { return { id, lessonId, title, type: 'DOCUMENT', url: 'https://example.test/document', orderIndex, isDownloadable: true, createdAt: '', updatedAt: '' }; }
-function teachingEntry(): TeachingEntry { return { course: { id: courseId, title: 'Assigned English', slug: 'assigned-english', level: 'A1', isPublished: true, _count: { modules: 1 } }, classOfferings: [{ id: 'offering-id', name: 'Evening class', status: 'OPEN' }] }; }
+function teachingEntry(): TeachingEntry { return { course: { id: courseId, title: 'Assigned English', slug: 'assigned-english', level: 'A1', isPublished: true, _count: { modules: 1 } }, classOfferings: [{ id: 'offering-id', name: 'Evening class', status: 'CANCELLED' }] }; }
 function mappedSkill(id: string, code: string): Skill { return { id, courseId, code, name: code, description: null, pInit: 0.5, pLearn: 0.1, pGuess: 0.2, pSlip: 0.1, createdAt: '', updatedAt: '' }; }

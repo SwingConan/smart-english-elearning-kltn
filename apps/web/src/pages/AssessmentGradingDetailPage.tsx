@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { classAssessmentApi } from '@/features/assessments/api';
 import type { GradingDetail, ToeicSkill } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
+import { ApiError } from '@/lib/api-client';
+import { instructorApi } from '@/features/instructor/api';
 
 type Scores = Record<string, Record<string, string>>;
 type Feedback = Record<string, string>;
@@ -19,6 +21,7 @@ export function AssessmentGradingDetailPage() {
     attemptId: string;
   }>();
   const redirectExpiredSession = useSessionExpiry();
+  const navigate = useNavigate();
   const [detail, setDetail] = useState<GradingDetail | null>(null);
   const [scores, setScores] = useState<Scores>({});
   const [feedback, setFeedback] = useState<Feedback>({});
@@ -43,7 +46,7 @@ export function AssessmentGradingDetailPage() {
     return () => controller.abort();
   }, [attemptId, classAssessmentId, classOfferingId, redirectExpiredSession, reload]);
 
-  const save = async (answer: GradingDetail['answers'][number], finalize: boolean) => {
+  const save = async (answer: GradingDetail['answers'][number], finalize: boolean, goNext = false) => {
     if (!classOfferingId || !classAssessmentId || !attemptId) return;
     const rubric = answer.testQuestion.question.rubric;
     const values = scores[answer.testQuestion.id] ?? {};
@@ -85,6 +88,7 @@ export function AssessmentGradingDetailPage() {
         answer.testQuestion.id,
         {
           criteria,
+          expectedUpdatedAt: answer.evaluation?.updatedAt ?? null,
           feedback: feedback[answer.testQuestion.id] ?? '',
           finalize,
           editFinal: answer.evaluation?.status === 'REVIEWED_FINAL',
@@ -96,8 +100,25 @@ export function AssessmentGradingDetailPage() {
         attemptId,
       );
       hydrate(data, setDetail, setScores, setFeedback, setCriterionFeedback);
-    } catch {
-      setError('Không thể lưu kết quả chấm. Kiểm tra điểm theo giới hạn từng tiêu chí.');
+      if (goNext) {
+        const currentAnswerIndex = data.answers.findIndex((item) => item.testQuestion.id === answer.testQuestion.id);
+        const nextAnswer = data.answers.slice(currentAnswerIndex + 1).find((item) => item.evaluation?.status !== 'REVIEWED_FINAL')
+          ?? data.answers.slice(0, currentAnswerIndex).find((item) => item.evaluation?.status !== 'REVIEWED_FINAL');
+        if (nextAnswer) {
+          window.setTimeout(() => document.getElementById(`grading-answer-${nextAnswer.testQuestion.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+          return;
+        }
+        const inbox = await instructorApi.classes.grading(classOfferingId);
+        const currentIndex = inbox.submissions.findIndex((item) => item.id === attemptId);
+        const next = inbox.submissions[currentIndex + 1];
+        navigate(next ? `/instructor/classes/${classOfferingId}/assessments/${next.classAssessment.id}/attempts/${next.id}/grading` : `/instructor/classes/${classOfferingId}/grading`);
+      }
+    } catch (requestError) {
+      if (requestError instanceof ApiError && requestError.status === 409) {
+        setError('Bài chấm đã được cập nhật ở phiên khác. Không có thay đổi nào được ghi. Hãy tải lại trước khi tiếp tục.');
+      } else {
+        setError('Không thể lưu kết quả chấm. Kiểm tra điểm theo giới hạn từng tiêu chí.');
+      }
     } finally {
       setSaving(null);
     }
@@ -147,15 +168,17 @@ export function AssessmentGradingDetailPage() {
           {error}
         </div>
       )}
-      {detail.answers.map((answer) => {
+      <nav className="flex flex-wrap gap-2 rounded-2xl border bg-white p-4" aria-label="Điều hướng câu chấm">{detail.answers.map((answer, index) => <a className={`rounded-full px-3 py-1.5 text-sm font-semibold ${answer.evaluation?.status === 'REVIEWED_FINAL' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`} href={`#grading-answer-${answer.testQuestion.id}`} key={answer.id}>Câu {index + 1} · {answer.evaluation?.status === 'REVIEWED_FINAL' ? 'Đã chấm' : 'Chờ chấm'}</a>)}</nav>
+      {detail.answers.map((answer, answerIndex) => {
         const rubric = answer.testQuestion.question.rubric;
         const isFinal = answer.evaluation?.status === 'REVIEWED_FINAL';
+        const hasAnotherUnfinished = detail.answers.some((candidate, index) => index !== answerIndex && candidate.evaluation?.status !== 'REVIEWED_FINAL');
         const values = scores[answer.testQuestion.id] ?? {};
         const hasInvalidScores = rubric.criteria.some((criterion) =>
           isInvalidScore(values[criterion.id], criterion.maxScore),
         );
         return (
-          <article className="rounded-2xl border bg-white p-6 shadow-sm" key={answer.id}>
+          <article className="scroll-mt-6 rounded-2xl border bg-white p-6 shadow-sm" id={`grading-answer-${answer.testQuestion.id}`} key={answer.id}>
             <div className="flex flex-wrap justify-between gap-3">
               <div>
                 <p className="text-xs font-bold uppercase text-indigo-700">
@@ -279,6 +302,12 @@ export function AssessmentGradingDetailPage() {
                   : isFinal
                     ? 'Cập nhật điểm cuối'
                     : 'Xác nhận điểm cuối'}
+              </button>
+              {hasAnotherUnfinished ? <button className="rounded border border-indigo-300 px-4 py-2 text-sm font-semibold text-indigo-700 disabled:opacity-50" disabled={saving !== null || hasInvalidScores} onClick={() => void save(answer, false, true)} type="button">
+                Lưu nháp & sang câu tiếp theo
+              </button> : null}
+              <button className="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={saving !== null || hasInvalidScores} onClick={() => void save(answer, true, true)} type="button">
+                {hasAnotherUnfinished ? 'Xác nhận & sang câu tiếp theo' : 'Xác nhận & sang học viên tiếp theo'}
               </button>
             </div>
           </article>

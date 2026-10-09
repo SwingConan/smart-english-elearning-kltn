@@ -12,6 +12,7 @@ import {
 import { Link, useParams } from 'react-router';
 import { learningApi } from '@/features/learning/api';
 import type { CourseContent, LessonDetail, LessonResource } from '@/features/learning/types';
+import { parseYouTubeVideoId } from '@/features/learning/youtube';
 
 export function LessonPage() {
   const { enrollmentId = '', lessonId = '' } = useParams();
@@ -78,8 +79,20 @@ export function LessonPage() {
   const download = async (resource: LessonResource) => {
     setDownloadError(null);
     try {
-      const response = await learningApi.getResourceDownload(enrollmentId, resource.id);
-      window.open(response.url, '_blank', 'noopener,noreferrer');
+      if (resource.url) {
+        window.open(resource.url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      const response = await learningApi.downloadStoredResource(enrollmentId, resource.id);
+      const objectUrl = URL.createObjectURL(response.blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = response.fileName;
+      anchor.style.display = 'none';
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
     } catch {
       setDownloadError(`Không thể tải ${resource.originalFileName ?? resource.title}.`);
     }
@@ -180,7 +193,30 @@ function ResourceRow({
   resource: LessonResource;
   download: (resource: LessonResource) => Promise<void>;
 }) {
+  const [videoExpanded, setVideoExpanded] = useState(false);
+  const youtubeId = resource.type === 'VIDEO' ? parseYouTubeVideoId(resource.url) : null;
   const Icon = resource.type === 'VIDEO' ? Video : resource.type === 'LINK' ? Link2 : FileText;
+  if (youtubeId && resource.url)
+    return (
+      <section
+        className="overflow-hidden rounded-xl border bg-slate-50"
+        data-testid="youtube-resource"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <div>
+            <p className="font-semibold">{resource.title}</p>
+            <p className="text-xs text-slate-500">Video bài học · chỉ tải trình phát khi bạn mở · không tự động phát</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button aria-expanded={videoExpanded} className="btn-secondary px-3 py-2 text-sm" onClick={() => setVideoExpanded((value) => !value)} type="button">{videoExpanded ? 'Thu gọn video' : 'Xem video trong bài học'}</button>
+            <a className="btn-secondary px-3 py-2 text-sm" href={resource.url} rel="noreferrer" target="_blank">Mở trên YouTube<ExternalLink size={16} /></a>
+          </div>
+        </div>
+        {videoExpanded ? <div className="aspect-video w-full bg-black">
+          <iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowFullScreen className="h-full w-full" loading="lazy" referrerPolicy="strict-origin-when-cross-origin" src={`https://www.youtube-nocookie.com/embed/${youtubeId}`} title={resource.title} />
+        </div> : null}
+      </section>
+    );
   return (
     <div className="flex flex-wrap items-center gap-4 rounded-xl border bg-slate-50 p-4">
       <Icon className="text-indigo-600" />

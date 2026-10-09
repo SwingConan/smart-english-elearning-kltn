@@ -123,34 +123,61 @@ describe('class learning', () => {
     expect(await screen.findByText(/Đã hoàn thành bài học/i)).toBeInTheDocument();
   });
 
-  it('uses the authorized download contract and reports failure safely', async () => {
+  it('starts a real browser download for the visible stored-file action and reports failure safely', async () => {
     vi.spyOn(learningApi, 'getContent').mockResolvedValue(content);
     vi.spyOn(learningApi, 'openLesson').mockResolvedValue(detail());
-    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
-    vi.spyOn(learningApi, 'getResourceDownload').mockResolvedValueOnce({
-      url: 'https://example.test/authorized',
+    const objectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:stored-resource');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    vi.spyOn(learningApi, 'downloadStoredResource').mockResolvedValueOnce({
+      blob: new Blob(['document']),
       fileName: 'worksheet.pdf',
-      mimeType: 'application/pdf',
     });
     const page = renderLesson();
     fireEvent.click(await screen.findByRole('button', { name: /Tải xuống/i }));
-    await waitFor(() =>
-      expect(open).toHaveBeenCalledWith(
-        'https://example.test/authorized',
-        '_blank',
-        'noopener,noreferrer',
-      ),
-    );
+    await waitFor(() => expect(click).toHaveBeenCalledOnce());
+    expect(objectUrl).toHaveBeenCalledWith(expect.any(Blob));
+    expect(revoke).toHaveBeenCalledWith('blob:stored-resource');
     page.unmount();
     vi.spyOn(learningApi, 'getContent').mockResolvedValue(content);
     vi.spyOn(learningApi, 'openLesson').mockResolvedValue(detail());
-    vi.spyOn(learningApi, 'getResourceDownload').mockRejectedValueOnce(
+    vi.spyOn(learningApi, 'downloadStoredResource').mockRejectedValueOnce(
       new Error('private details'),
     );
     renderLesson();
     fireEvent.click(await screen.findByRole('button', { name: /Tải xuống/i }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/Không thể tải worksheet.pdf/i);
     expect(screen.queryByText('private details')).not.toBeInTheDocument();
+  });
+
+  it('keeps YouTube resources compact and mounts the privacy-enhanced player only on demand', async () => {
+    vi.spyOn(learningApi, 'getContent').mockResolvedValue(content);
+    vi.spyOn(learningApi, 'openLesson').mockResolvedValue({
+      ...detail(),
+      resources: [
+        ...detail().resources,
+        {
+          id: 'video-1', title: 'Video bài học', type: 'VIDEO',
+          url: 'https://www.youtube.com/watch?v=abcDEF_1234', originalFileName: null,
+          mimeType: null, updatedAt: '2026-09-20T00:00:00Z', orderIndex: 2,
+          isDownloadable: false,
+        },
+      ],
+    });
+    renderLesson();
+    await screen.findByText('Video bài học');
+    expect(screen.queryByTitle('Video bài học')).not.toBeInTheDocument();
+    const expand = screen.getByRole('button', { name: /Xem video trong bài học/i });
+    expect(expand).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(expand);
+    expect(screen.getByTitle('Video bài học')).toHaveAttribute(
+      'src',
+      'https://www.youtube-nocookie.com/embed/abcDEF_1234',
+    );
+    expect(screen.getByRole('button', { name: /Thu gọn video/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
   });
 });
 

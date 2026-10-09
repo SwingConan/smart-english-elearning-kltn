@@ -217,7 +217,7 @@ describe('InstructorLearnerMasteryPage', () => {
 });
 
 describe('Instructor Learner Mastery navigation', () => {
-  it('adds exactly one course navigation link', async () => {
+  it('keeps legacy mastery out of the primary teaching flow', async () => {
     vi.spyOn(instructorApi.teaching, 'list').mockResolvedValue([teachingEntry()]);
     render(
       <MemoryRouter>
@@ -227,9 +227,8 @@ describe('Instructor Learner Mastery navigation', () => {
       </MemoryRouter>,
     );
 
-    const links = await screen.findAllByRole('link', { name: 'Mức độ thành thạo của học viên' });
-    expect(links).toHaveLength(1);
-    expect(links[0]).toHaveAttribute('href', `/instructor/courses/${courseId}/learner-mastery`);
+    expect(await screen.findByText('Không gian giảng dạy')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Mức độ thành thạo của học viên' })).not.toBeInTheDocument();
   });
 });
 

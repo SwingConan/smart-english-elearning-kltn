@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Route, Routes } from 'react-router';
 import { RoleRoute } from '@/features/auth/RoleRoute';
 import { ClassShellLayout } from '@/layouts/ClassShellLayout';
+import { InstructorClassWorkspaceLayout } from '@/layouts/InstructorClassWorkspaceLayout';
 import { PublicLayout } from '@/layouts/PublicLayout';
 import { PlacementExamLayout } from '@/layouts/PlacementExamLayout';
 import { StudentLayout } from '@/layouts/StudentLayout';
@@ -23,6 +24,12 @@ import { GuidePage } from '@/pages/GuidePage';
 import { HomePage } from '@/pages/HomePage';
 import { InstructorLearnerMasteryPage } from '@/pages/InstructorLearnerMasteryPage';
 import { InstructorTeachingPage } from '@/pages/InstructorTeachingPage';
+import { InstructorClassOverviewPage } from '@/pages/InstructorClassOverviewPage';
+import { InstructorRosterPage } from '@/pages/InstructorRosterPage';
+import { InstructorLearnerDetailPage } from '@/pages/InstructorLearnerDetailPage';
+import { InstructorClassContentPage } from '@/pages/InstructorClassContentPage';
+import { InstructorClassGradingPage } from '@/pages/InstructorClassGradingPage';
+import { InstructorClassResultsPage } from '@/pages/InstructorClassResultsPage';
 import { KnowledgeModelPage } from '@/pages/KnowledgeModelPage';
 import { LearningPage } from '@/pages/LearningPage';
 import { LessonPage } from '@/pages/LessonPage';
@@ -98,18 +105,17 @@ export function App() {
           element={instructor(<TestManagementPage />)}
         />
         <Route path="instructor/tests/:testId/edit" element={instructor(<TestEditorPage />)} />
-        <Route
-          path="instructor/classes/:classOfferingId/assessments"
-          element={instructor(<ClassAssessmentManagementPage />)}
-        />
-        <Route
-          path="instructor/classes/:classOfferingId/assessments/:classAssessmentId/grading"
-          element={instructor(<AssessmentGradingQueuePage />)}
-        />
-        <Route
-          path="instructor/classes/:classOfferingId/assessments/:classAssessmentId/attempts/:attemptId/grading"
-          element={instructor(<AssessmentGradingDetailPage />)}
-        />
+        <Route path="instructor/classes/:classOfferingId" element={instructor(<InstructorClassWorkspaceLayout />)}>
+          <Route index element={<InstructorClassOverviewPage />} />
+          <Route path="learners" element={<InstructorRosterPage />} />
+          <Route path="learners/:enrollmentId" element={<InstructorLearnerDetailPage />} />
+          <Route path="content" element={<InstructorClassContentPage />} />
+          <Route path="assessments" element={<ClassAssessmentManagementPage />} />
+          <Route path="grading" element={<InstructorClassGradingPage />} />
+          <Route path="results" element={<InstructorClassResultsPage />} />
+          <Route path="assessments/:classAssessmentId/grading" element={<AssessmentGradingQueuePage />} />
+          <Route path="assessments/:classAssessmentId/attempts/:attemptId/grading" element={<AssessmentGradingDetailPage />} />
+        </Route>
         <Route path="admin/courses" element={admin(<AdminCoursesPage />)} />
         <Route path="admin/class-offerings" element={admin(<AdminClassOfferingsPage />)} />
         <Route path="*" element={<NotFoundPage />} />

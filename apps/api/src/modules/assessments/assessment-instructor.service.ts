@@ -3,10 +3,15 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
+import { readSheet, type CellValue, type SheetData as ReadSheetData } from 'read-excel-file/node';
+import writeXlsxFile, { type SheetData as WriteSheetData } from 'write-excel-file/node';
 import {
   Prisma,
+  AssessmentStimulusType,
   QuestionDifficulty,
   QuestionResponseType,
   PlacementMode,
@@ -16,12 +21,27 @@ import {
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AddTestQuestionDto } from './dto/add-test-question.dto';
+import { AddTestQuestionsDto } from './dto/add-test-questions.dto';
 import { CreateQuestionDto, QuestionOptionInputDto } from './dto/create-question.dto';
 import { CreateTestDto } from './dto/create-test.dto';
 import { ReorderTestQuestionsDto } from './dto/reorder-test-questions.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
 import { UpdateTestQuestionDto } from './dto/update-test-question.dto';
 import { UpdateTestDto } from './dto/update-test.dto';
+import {
+  AssessmentStimulusMediaStorage,
+  AssessmentStimulusMediaUnavailableError,
+  InvalidAssessmentStimulusMediaKeyError,
+} from '../placement/assessment-stimulus-media.storage';
+import {
+  CreateTestGroupDto,
+  CreateTextStimulusDto,
+  ReorderStimuliDto,
+  ReorderTestGroupsDto,
+  UpdateTestGroupDto,
+} from './dto/test-group.dto';
+import { QuestionQueryDto } from './dto/question-query.dto';
+import { ConfirmQuestionImportDto } from './dto/confirm-question-import.dto';
 
 const MAX_ASSESSMENT_TRANSACTION_ATTEMPTS = 3;
 
@@ -33,6 +53,8 @@ const instructorQuestionSelect = {
   difficulty: true,
   content: true,
   explanation: true,
+  rubricId: true,
+  rubric: { select: { id: true, name: true, description: true, isActive: true, criteria: { orderBy: { orderIndex: 'asc' as const } } } },
   createdAt: true,
   updatedAt: true,
   options: {
@@ -44,6 +66,7 @@ const instructorQuestionSelect = {
       orderIndex: true,
     },
   },
+  _count: { select: { testQuestions: true } },
 } satisfies Prisma.QuestionSelect;
 
 const instructorQuestionPreviewSelect = {
@@ -53,6 +76,7 @@ const instructorQuestionPreviewSelect = {
   difficulty: true,
   content: true,
   explanation: true,
+  rubricId: true,
   options: {
     orderBy: { orderIndex: 'asc' as const },
     select: {
@@ -68,6 +92,7 @@ const instructorTestQuestionSelect = {
   id: true,
   testId: true,
   questionId: true,
+  groupId: true,
   orderIndex: true,
   points: true,
   question: { select: instructorQuestionPreviewSelect },
@@ -94,6 +119,26 @@ const instructorTestDetailSelect = {
     orderBy: { orderIndex: 'asc' as const },
     select: instructorTestQuestionSelect,
   },
+  questionGroups: {
+    orderBy: { orderIndex: 'asc' as const },
+    select: {
+      id: true,
+      skill: true,
+      orderIndex: true,
+      title: true,
+      instructions: true,
+      preparationSeconds: true,
+      responseSeconds: true,
+      recommendedSeconds: true,
+      maxRecordingSeconds: true,
+      updatedAt: true,
+      stimuli: { orderBy: { orderIndex: 'asc' as const } },
+      testQuestions: {
+        orderBy: { orderIndex: 'asc' as const },
+        select: instructorTestQuestionSelect,
+      },
+    },
+  },
 } satisfies Prisma.TestSelect;
 
 interface NormalizedQuestionInput {
@@ -102,10 +147,22 @@ interface NormalizedQuestionInput {
   difficulty: QuestionDifficulty;
   content: string;
   explanation: string | null;
+  rubricId: string | null;
   options: Array<{
     content: string;
     isCorrect: boolean;
   }>;
+}
+
+function safeSpreadsheetText(value: CellValue | null): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value instanceof Date) return value.toISOString();
+  return '';
+}
+
+function questionImportKey(input: Pick<CreateQuestionDto, 'toeicSkill' | 'type' | 'content'>): string {
+  return `${input.toeicSkill}\u0000${input.type}\u0000${input.content.trim().normalize('NFKC').toLocaleLowerCase('en-US')}`;
 }
 
 interface NormalizedTestInput {
@@ -120,15 +177,233 @@ interface NormalizedTestInput {
 
 @Injectable()
 export class AssessmentInstructorService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(AssessmentInstructorService.name);
 
-  async listQuestions(instructorId: string, courseId: string) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stimulusStorage: AssessmentStimulusMediaStorage,
+  ) {}
+
+  listActiveRubrics() {
+    return this.prisma.rubric.findMany({
+      where: { isActive: true },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        updatedAt: true,
+        criteria: {
+          orderBy: { orderIndex: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            weight: true,
+            maxScore: true,
+            orderIndex: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getActiveRubric(rubricId: string) {
+    const rubric = await this.prisma.rubric.findFirst({
+      where: { id: rubricId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        updatedAt: true,
+        criteria: {
+          orderBy: { orderIndex: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            weight: true,
+            maxScore: true,
+            orderIndex: true,
+          },
+        },
+      },
+    });
+    if (!rubric) throw new NotFoundException('Active rubric not found');
+    return rubric;
+  }
+
+  async listQuestions(instructorId: string, courseId: string, query: QuestionQueryDto = new QuestionQueryDto()) {
     await this.assertInstructorOwnsCourse(this.prisma, instructorId, courseId);
+    const where: Prisma.QuestionWhereInput = {
+      courseId,
+      ...(query.search ? { content: { contains: query.search, mode: 'insensitive' } } : {}),
+      ...(query.skill ? { toeicSkill: query.skill } : {}),
+      ...(query.responseType ? { responseType: query.responseType } : {}),
+      ...(query.difficulty ? { difficulty: query.difficulty } : {}),
+      ...(query.usage === 'USED' ? { testQuestions: { some: {} } } : {}),
+      ...(query.usage === 'UNUSED' ? { testQuestions: { none: {} } } : {}),
+    };
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const [items, total] = await Promise.all([
+      this.prisma.question.findMany({
+        where,
+        select: instructorQuestionSelect,
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.question.count({ where }),
+    ]);
+    return {
+      items: items.map((item) => ({ ...item, usageCount: item._count.testQuestions, _count: undefined })),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
 
-    return this.prisma.question.findMany({
-      where: { courseId },
-      select: instructorQuestionSelect,
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  async questionImportTemplate(instructorId: string, courseId: string): Promise<Buffer> {
+    await this.assertInstructorOwnsCourse(this.prisma, instructorId, courseId);
+    const headers = ['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id'];
+    const data: WriteSheetData = [
+      headers.map((value) => ({ value, fontWeight: 'bold' })),
+      ['READING', 'SINGLE_CHOICE', 'EASY', 'Choose the correct answer.', 'Project-authored explanation.', 'Option A', 'Option B', 'Option C', 'Option D', 'A', ''],
+    ];
+    return writeXlsxFile(data, { sheet: 'Questions', stickyRowsCount: 1 }).toBuffer();
+  }
+
+  async previewQuestionImport(instructorId: string, courseId: string, file?: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
+    await this.assertInstructorOwnsCourse(this.prisma, instructorId, courseId);
+    if (!file) throw new BadRequestException('Vui lòng chọn tệp XLSX để kiểm tra.');
+    if (file.size > 5 * 1024 * 1024) throw new BadRequestException('Tệp XLSX không được vượt quá 5 MB.');
+    if (!file.originalname.toLowerCase().endsWith('.xlsx')) throw new BadRequestException('Chỉ hỗ trợ định dạng XLSX.');
+    let sheet: ReadSheetData;
+    try {
+      sheet = await readSheet(file.buffer);
+    } catch {
+      throw new BadRequestException('Không thể đọc tệp XLSX.');
+    }
+    if (sheet.length === 0) throw new BadRequestException('Tệp XLSX không có trang dữ liệu.');
+    const headers = sheet[0] ?? [];
+    const expected = ['skill', 'type', 'difficulty', 'content', 'explanation', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_options', 'rubric_id'];
+    if (expected.some((header, index) => String(headers[index] ?? '').trim().toLowerCase() !== header)) {
+      throw new BadRequestException('Tiêu đề cột không đúng mẫu nhập câu hỏi.');
+    }
+    const logicalRows = sheet.slice(1)
+      .map((values, index) => ({ rowNumber: index + 2, values }))
+      .filter((row) => !row.values.every((value) => value === null || value === undefined || String(value).trim() === ''));
+    if (logicalRows.length > 2000) throw new BadRequestException('Mỗi lần chỉ được nhập tối đa 2.000 câu hỏi.');
+    const rows: Array<{ rowNumber: number; input: CreateQuestionDto | null; errors: string[]; warnings: string[] }> = [];
+    for (const { rowNumber, values: sourceRow } of logicalRows) {
+      const errors: string[] = [];
+      const values = Array.from({ length: expected.length }, (_, columnIndex) => safeSpreadsheetText(sourceRow[columnIndex] ?? null));
+      const [skill, type, difficulty, content, explanation, optionA, optionB, optionC, optionD, correctText, rubricId] = values;
+      const correct = new Set(correctText.toUpperCase().split(/[;,\s]+/).filter(Boolean));
+      const options = [optionA, optionB, optionC, optionD]
+        .map((option, index) => ({ content: option.trim(), isCorrect: correct.has(String.fromCharCode(65 + index)) }))
+        .filter((option) => option.content.length > 0);
+      const input = {
+        type: type.toUpperCase() as QuestionResponseType,
+        toeicSkill: skill.toUpperCase() as ToeicSkill,
+        difficulty: difficulty.toUpperCase() as QuestionDifficulty,
+        content: content.trim(),
+        explanation: explanation.trim() || null,
+        rubricId: rubricId.trim() || null,
+        options,
+      } as CreateQuestionDto;
+      try {
+        this.normalizeAndValidateQuestion(input);
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : 'Dữ liệu câu hỏi không hợp lệ.');
+      }
+      rows.push({ rowNumber, input: errors.length === 0 ? input : null, errors, warnings: [] });
+    }
+    if (rows.length === 0) throw new BadRequestException('Tệp XLSX không có câu hỏi để nhập.');
+
+    const rubricIds = [...new Set(rows.flatMap((row) => row.input?.rubricId ? [row.input.rubricId] : []))];
+    const activeRubrics = rubricIds.length === 0 ? [] : await this.prisma.rubric.findMany({
+      where: { id: { in: rubricIds }, isActive: true },
+      select: { id: true },
+    });
+    const activeRubricIds = new Set(activeRubrics.map((rubric) => rubric.id));
+    for (const row of rows) {
+      if (row.input?.rubricId && !activeRubricIds.has(row.input.rubricId)) {
+        row.errors.push('Rubric không tồn tại hoặc không còn hoạt động.');
+        row.input = null;
+      }
+    }
+
+    const importRowsByKey = new Map<string, typeof rows>();
+    for (const row of rows) {
+      if (!row.input) continue;
+      const key = questionImportKey(row.input);
+      const matchingRows = importRowsByKey.get(key) ?? [];
+      matchingRows.push(row);
+      importRowsByKey.set(key, matchingRows);
+    }
+    for (const matchingRows of importRowsByKey.values()) {
+      if (matchingRows.length < 2) continue;
+      const rowNumbers = matchingRows.map((row) => row.rowNumber).join(', ');
+      for (const row of matchingRows) row.warnings.push(`Nội dung trùng trong tệp tại các dòng ${rowNumbers}.`);
+    }
+
+    const validInputs = rows.flatMap((row) => row.input ? [row.input] : []);
+    const existingQuestions = validInputs.length === 0 ? [] : await this.prisma.question.findMany({
+      where: {
+        courseId,
+        toeicSkill: { in: [...new Set(validInputs.map((input) => input.toeicSkill))] },
+        responseType: { in: [...new Set(validInputs.map((input) => input.type))] },
+        content: { in: [...new Set(validInputs.map((input) => input.content))], mode: 'insensitive' },
+      },
+      select: { toeicSkill: true, responseType: true, content: true },
+      distinct: ['toeicSkill', 'responseType', 'content'],
+      take: 2000,
+    });
+    const existingKeys = new Set(existingQuestions.map((question) => questionImportKey({
+      toeicSkill: question.toeicSkill,
+      type: question.responseType,
+      content: question.content,
+    })));
+    for (const row of rows) {
+      if (row.input && existingKeys.has(questionImportKey(row.input))) {
+        row.warnings.push('Nội dung trùng với câu hỏi hiện có trong ngân hàng.');
+      }
+    }
+
+    const warningCount = rows.reduce((count, row) => count + row.warnings.length, 0);
+    return {
+      rows,
+      summary: { total: rows.length, valid: rows.filter((row) => row.errors.length === 0).length, invalid: rows.filter((row) => row.errors.length > 0).length, warnings: warningCount },
+      canConfirm: rows.every((row) => row.errors.length === 0),
+    };
+  }
+
+  async confirmQuestionImport(instructorId: string, courseId: string, dto: ConfirmQuestionImportDto) {
+    const normalized = dto.rows.map((row) => this.normalizeAndValidateQuestion(row));
+    return this.prisma.$transaction(async (transaction) => {
+      await this.assertInstructorOwnsCourse(transaction, instructorId, courseId);
+      for (const row of normalized) await this.assertRubricRule(transaction, row.toeicSkill, row.rubricId);
+      const questionIds: string[] = [];
+      for (const row of normalized) {
+        const created = await transaction.question.create({
+          data: {
+            courseId,
+            responseType: row.responseType,
+            toeicSkill: row.toeicSkill,
+            difficulty: row.difficulty,
+            content: row.content,
+            explanation: row.explanation,
+            rubricId: row.rubricId,
+            options: { create: row.options.map((option, orderIndex) => ({ ...option, orderIndex })) },
+          },
+          select: { id: true },
+        });
+        questionIds.push(created.id);
+      }
+      return { importedCount: questionIds.length, questionIds };
     });
   }
 
@@ -151,6 +426,7 @@ export class AssessmentInstructorService {
     try {
       return await this.prisma.$transaction(async (transaction) => {
         await this.assertInstructorOwnsCourse(transaction, instructorId, courseId);
+        await this.assertRubricRule(transaction, input.toeicSkill, input.rubricId);
 
         return transaction.question.create({
           data: {
@@ -160,6 +436,7 @@ export class AssessmentInstructorService {
             difficulty: input.difficulty,
             content: input.content,
             explanation: input.explanation,
+            rubricId: input.rubricId,
             options: {
               create: input.options.map((option, orderIndex) => ({
                 ...option,
@@ -187,6 +464,13 @@ export class AssessmentInstructorService {
 
       await this.assertInstructorOwnsCourse(transaction, instructorId, question.courseId);
       await this.assertQuestionHasNoHistoricalAttempts(transaction, questionId);
+      const publishedTestReferences = await transaction.testQuestion.findMany({
+        where: {
+          questionId,
+          test: { status: TestStatus.PUBLISHED },
+        },
+        select: { testId: true },
+      });
 
       const input = this.normalizeAndValidateQuestion({
         type: dto.type ?? question.responseType,
@@ -194,21 +478,16 @@ export class AssessmentInstructorService {
         difficulty: dto.difficulty ?? question.difficulty,
         content: dto.content ?? question.content,
         explanation: dto.explanation !== undefined ? dto.explanation : question.explanation,
-        options:
-          dto.options ??
-          question.options.map((option) => ({
+        rubricId: dto.rubricId !== undefined ? dto.rubricId : question.rubricId,
+        options: dto.options ?? question.options.map((option) => ({
             content: option.content,
             isCorrect: option.isCorrect,
           })),
       });
+      await this.assertRubricRule(transaction, input.toeicSkill, input.rubricId);
+      await transaction.questionOption.deleteMany({ where: { questionId } });
 
-      if (dto.options !== undefined) {
-        await transaction.questionOption.deleteMany({
-          where: { questionId },
-        });
-      }
-
-      return transaction.question.update({
+      const updatedQuestion = await transaction.question.update({
         where: { id: questionId },
         data: {
           responseType: input.responseType,
@@ -216,19 +495,19 @@ export class AssessmentInstructorService {
           difficulty: input.difficulty,
           content: input.content,
           explanation: input.explanation,
-          ...(dto.options !== undefined
-            ? {
-                options: {
-                  create: input.options.map((option, orderIndex) => ({
-                    ...option,
-                    orderIndex,
-                  })),
-                },
-              }
-            : {}),
+          rubricId: input.rubricId,
+          options: { create: input.options.map((option, orderIndex) => ({ ...option, orderIndex })) },
         },
         select: instructorQuestionSelect,
       });
+
+      for (const referencedTestId of new Set(
+        publishedTestReferences.map((reference) => reference.testId),
+      )) {
+        await this.validatePublishableTest(transaction, referencedTestId);
+      }
+
+      return updatedQuestion;
     });
   }
 
@@ -287,7 +566,117 @@ export class AssessmentInstructorService {
     }
 
     await this.assertInstructorOwnsCourse(this.prisma, instructorId, test.courseId);
-    return test;
+    return {
+      ...test,
+      questionGroups: test.questionGroups.map((group) => ({
+        ...group,
+        stimuli: group.stimuli.map(({ storageKey: _storageKey, ...stimulus }) => ({
+          ...stimulus,
+          mediaUrl:
+            !stimulus.isProtected &&
+            (stimulus.type === AssessmentStimulusType.IMAGE ||
+              stimulus.type === AssessmentStimulusType.AUDIO)
+              ? `/api/instructor/tests/${testId}/stimuli/${stimulus.id}/media`
+              : null,
+        })),
+      })),
+    };
+  }
+
+  async openStimulusMedia(instructorId: string, testId: string, stimulusId: string) {
+    const stimulus = await this.prisma.assessmentStimulus.findFirst({
+      where: { id: stimulusId, group: { testId } },
+      select: {
+        storageKey: true,
+        mimeType: true,
+        isProtected: true,
+        group: { select: { test: { select: { courseId: true } } } },
+      },
+    });
+    if (!stimulus) throw new NotFoundException('Assessment stimulus not found');
+    await this.assertInstructorOwnsCourse(
+      this.prisma,
+      instructorId,
+      stimulus.group.test.courseId,
+    );
+    if (!stimulus.storageKey || !stimulus.mimeType || stimulus.isProtected) {
+      throw new NotFoundException('Assessment stimulus not found');
+    }
+    try {
+      return {
+        body: await this.stimulusStorage.read(stimulus.storageKey),
+        mimeType: stimulus.mimeType,
+      };
+    } catch (error: unknown) {
+      if (error instanceof InvalidAssessmentStimulusMediaKeyError) {
+        throw new NotFoundException('Assessment stimulus not found');
+      }
+      if (error instanceof AssessmentStimulusMediaUnavailableError) {
+        this.logger.error(error.message);
+        throw new ServiceUnavailableException({
+          code: 'STIMULUS_MEDIA_UNAVAILABLE',
+          message: 'Nội dung đa phương tiện hiện không khả dụng.',
+        });
+      }
+      throw error;
+    }
+  }
+
+  async addTestQuestions(instructorId: string, testId: string, dto: AddTestQuestionsDto) {
+    return this.runSerializableMutation(async (transaction) => {
+      const test = await transaction.test.findUnique({
+        where: { id: testId },
+        select: { courseId: true, status: true },
+      });
+      if (!test) throw new NotFoundException('Test not found');
+      await this.assertInstructorOwnsCourse(transaction, instructorId, test.courseId);
+      await this.assertTestHasNoHistoricalAttempts(transaction, testId);
+
+      const questionIds = [...new Set(dto.questionIds)];
+      if (questionIds.length !== dto.questionIds.length) {
+        throw new BadRequestException('Question batch contains duplicates');
+      }
+      const questions = await transaction.question.findMany({
+        where: { id: { in: questionIds }, courseId: test.courseId },
+        select: { id: true, toeicSkill: true },
+      });
+      if (questions.length !== questionIds.length) throw new NotFoundException('Question not found');
+      if (dto.groupId) {
+        const group = await transaction.testQuestionGroup.findFirst({
+          where: { id: dto.groupId, testId },
+          select: { skill: true },
+        });
+        if (!group) throw new NotFoundException('Test question group not found');
+        if (questions.some((question) => question.toeicSkill !== group.skill)) {
+          throw new BadRequestException('Question skill must match its group skill');
+        }
+      }
+      const duplicateCount = await transaction.testQuestion.count({
+        where: { testId, questionId: { in: questionIds } },
+      });
+      if (duplicateCount) throw new ConflictException('Question already exists in this Test');
+      const last = await transaction.testQuestion.findFirst({
+        where: { testId },
+        orderBy: { orderIndex: 'desc' },
+        select: { orderIndex: true },
+      });
+      const firstOrderIndex = (last?.orderIndex ?? -1) + 1;
+      await transaction.testQuestion.createMany({
+        data: questionIds.map((questionId, index) => ({
+          testId,
+          questionId,
+          groupId: dto.groupId ?? null,
+          points: dto.points ?? 1,
+          orderIndex: firstOrderIndex + index,
+        })),
+      });
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return transaction.testQuestion.findMany({
+        where: { testId, questionId: { in: questionIds } },
+        orderBy: { orderIndex: 'asc' },
+        select: instructorTestQuestionSelect,
+      });
+    }, 'Test question order changed concurrently; please try again');
   }
 
   async createTest(instructorId: string, courseId: string, dto: CreateTestDto) {
@@ -363,11 +752,13 @@ export class AssessmentInstructorService {
           test.status === TestStatus.PUBLISHED,
         );
 
-        return transaction.test.update({
+        const updated = await transaction.test.update({
           where: { id: testId },
           data: input,
           select: instructorTestDetailSelect,
         });
+        await this.revalidatePublishedTest(transaction, testId, test.status);
+        return updated;
       },
       'Test changed concurrently; please try again',
       'Test references changed concurrently; please try again',
@@ -375,11 +766,14 @@ export class AssessmentInstructorService {
   }
 
   async deleteTest(instructorId: string, testId: string): Promise<{ message: string }> {
-    await this.runSerializableMutation(
+    const storageKeys = await this.runSerializableMutation(
       async (transaction) => {
         const test = await transaction.test.findUnique({
           where: { id: testId },
-          select: { courseId: true },
+          select: {
+            courseId: true,
+            questionGroups: { select: { stimuli: { select: { storageKey: true } } } },
+          },
         });
         if (!test) {
           throw new NotFoundException('Test not found');
@@ -389,16 +783,65 @@ export class AssessmentInstructorService {
         await this.assertTestHasNoHistoricalAttempts(transaction, testId);
         await transaction.testQuestion.deleteMany({ where: { testId } });
         await transaction.test.delete({ where: { id: testId } });
+        return test.questionGroups.flatMap((group) =>
+          group.stimuli.flatMap((stimulus) => stimulus.storageKey ? [stimulus.storageKey] : []),
+        );
       },
       'Test changed concurrently; please try again',
       'Test cannot be deleted because attempt history exists',
     );
 
+    await Promise.all(storageKeys.map((key) => this.stimulusStorage.delete(key).catch(() => undefined)));
+
     return { message: 'Test deleted successfully' };
+  }
+
+  /** Validates the complete published-test invariant without changing state. */
+  async validatePublishableTest(database: PrismaService | Prisma.TransactionClient, testId: string) {
+    const test = await database.test.findUnique({
+      where: { id: testId },
+      select: {
+        ...instructorTestSelect,
+        testQuestions: { orderBy: { orderIndex: 'asc' }, select: { id: true, groupId: true, orderIndex: true, points: true, question: { select: { courseId: true, responseType: true, toeicSkill: true, difficulty: true, content: true, explanation: true, rubricId: true, rubric: { select: { isActive: true } }, options: { orderBy: { orderIndex: 'asc' }, select: { content: true, isCorrect: true } } } } } },
+        questionGroups: { orderBy: { orderIndex: 'asc' }, select: { id: true, skill: true, orderIndex: true, preparationSeconds: true, responseSeconds: true, recommendedSeconds: true, maxRecordingSeconds: true, stimuli: { orderBy: { orderIndex: 'asc' } }, testQuestions: { select: { id: true } } } },
+      },
+    });
+    if (!test) throw new NotFoundException('Test not found');
+    await this.validateTestLessonRule(database, test.courseId, test.purpose, test.lessonId, true);
+    if (test.maxAttempts < 1) throw new BadRequestException('maxAttempts must be at least 1');
+    if (test.testQuestions.length === 0) throw new BadRequestException('Test must contain at least one question before publishing');
+    for (const [index, item] of test.testQuestions.entries()) {
+      if (item.orderIndex !== index) throw new BadRequestException('TestQuestion order must be contiguous before publishing');
+      if (item.points < 1) throw new BadRequestException('Every TestQuestion must have positive points');
+      if (item.question.courseId !== test.courseId) throw new BadRequestException('Every Question must belong to the Test course');
+      this.normalizeAndValidateQuestion({ type: item.question.responseType, toeicSkill: item.question.toeicSkill, difficulty: item.question.difficulty, content: item.question.content, explanation: item.question.explanation, rubricId: item.question.rubricId, options: item.question.options });
+      if (([ToeicSkill.SPEAKING, ToeicSkill.WRITING] as ToeicSkill[]).includes(item.question.toeicSkill) && !item.question.rubric?.isActive) {
+        throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `questions.${item.id}.rubricId`, message: 'Câu Speaking/Writing cần rubric đang hoạt động.' });
+      }
+    }
+    if (new Set(test.testQuestions.map((item) => item.question.toeicSkill)).size > 1 && test.questionGroups.length === 0) {
+      throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: 'groups', message: 'Đề kiểm tra nhiều kỹ năng cần ít nhất một phần thi.' });
+    }
+    if (test.questionGroups.length > 0) {
+      for (const [index, group] of test.questionGroups.entries()) {
+        if (group.orderIndex !== index) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.orderIndex`, message: 'Thứ tự phần thi phải liên tục.' });
+        if (group.testQuestions.length === 0) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Mỗi phần thi phải có ít nhất một câu hỏi.' });
+        if (test.testQuestions.some((item) => item.groupId === group.id && item.question.toeicSkill !== group.skill)) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Kỹ năng câu hỏi không khớp kỹ năng phần thi.' });
+        for (const stimulus of group.stimuli) if (stimulus.storageKey && !(await this.stimulusStorage.exists(stimulus.storageKey))) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.stimuli.${stimulus.id}`, message: 'Tệp ngữ liệu không khả dụng.' });
+      }
+      const ungrouped = test.testQuestions.find((item) => !item.groupId);
+      if (ungrouped) throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `questions.${ungrouped.id}.groupId`, message: 'Câu hỏi cần thuộc một phần thi trước khi xuất bản.' });
+    }
+    return test;
+  }
+
+  private async revalidatePublishedTest(database: Prisma.TransactionClient, testId: string, status: TestStatus) {
+    if (status === TestStatus.PUBLISHED) await this.validatePublishableTest(database, testId);
   }
 
   async publishTest(instructorId: string, testId: string) {
     return this.runSerializableMutation(async (transaction) => {
+      await this.validatePublishableTest(transaction, testId);
       const test = await transaction.test.findUnique({
         where: { id: testId },
         select: {
@@ -407,6 +850,7 @@ export class AssessmentInstructorService {
             orderBy: { orderIndex: 'asc' },
             select: {
               id: true,
+              groupId: true,
               orderIndex: true,
               points: true,
               question: {
@@ -417,12 +861,28 @@ export class AssessmentInstructorService {
                   difficulty: true,
                   content: true,
                   explanation: true,
+                  rubricId: true,
+                  rubric: { select: { isActive: true } },
                   options: {
                     orderBy: { orderIndex: 'asc' },
                     select: { content: true, isCorrect: true },
                   },
                 },
               },
+            },
+          },
+          questionGroups: {
+            orderBy: { orderIndex: 'asc' },
+            select: {
+              id: true,
+              skill: true,
+              orderIndex: true,
+              preparationSeconds: true,
+              responseSeconds: true,
+              recommendedSeconds: true,
+              maxRecordingSeconds: true,
+              stimuli: { orderBy: { orderIndex: 'asc' } },
+              testQuestions: { select: { id: true } },
             },
           },
         },
@@ -462,8 +922,50 @@ export class AssessmentInstructorService {
           difficulty: testQuestion.question.difficulty,
           content: testQuestion.question.content,
           explanation: testQuestion.question.explanation,
+          rubricId: testQuestion.question.rubricId,
           options: testQuestion.question.options,
         });
+        if (
+          ([ToeicSkill.SPEAKING, ToeicSkill.WRITING] as ToeicSkill[]).includes(testQuestion.question.toeicSkill) &&
+          !testQuestion.question.rubric?.isActive
+        ) {
+          throw new BadRequestException({
+            code: 'PUBLISH_VALIDATION_FAILED',
+            field: `questions.${testQuestion.id}.rubricId`,
+            message: 'Câu Speaking/Writing cần rubric đang hoạt động.',
+          });
+        }
+      }
+
+      if (new Set(test.testQuestions.map((item) => item.question.toeicSkill)).size > 1 && test.questionGroups.length === 0) {
+        throw new BadRequestException({
+          code: 'PUBLISH_VALIDATION_FAILED', field: 'groups',
+          message: 'Đề kiểm tra nhiều kỹ năng cần ít nhất một phần thi.',
+        });
+      }
+
+      if (test.questionGroups.length > 0) {
+        for (const [groupIndex, group] of test.questionGroups.entries()) {
+          if (group.orderIndex !== groupIndex) {
+            throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.orderIndex`, message: 'Thứ tự phần thi phải liên tục.' });
+          }
+          if (group.testQuestions.length === 0) {
+            throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Mỗi phần thi phải có ít nhất một câu hỏi.' });
+          }
+          const incompatible = test.testQuestions.find((item) => item.groupId === group.id && item.question.toeicSkill !== group.skill);
+          if (incompatible) {
+            throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.questions`, message: 'Kỹ năng câu hỏi không khớp kỹ năng phần thi.' });
+          }
+          for (const stimulus of group.stimuli) {
+            if (stimulus.storageKey && !(await this.stimulusStorage.exists(stimulus.storageKey))) {
+              throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `groups.${group.id}.stimuli.${stimulus.id}`, message: 'Tệp ngữ liệu không khả dụng.' });
+            }
+          }
+        }
+        const ungrouped = test.testQuestions.find((item) => !item.groupId);
+        if (ungrouped) {
+          throw new BadRequestException({ code: 'PUBLISH_VALIDATION_FAILED', field: `questions.${ungrouped.id}.groupId`, message: 'Câu hỏi cần thuộc một phần thi trước khi xuất bản.' });
+        }
       }
 
       if (test.status === TestStatus.PUBLISHED) {
@@ -514,7 +1016,7 @@ export class AssessmentInstructorService {
       async (transaction) => {
         const test = await transaction.test.findUnique({
           where: { id: testId },
-          select: { courseId: true },
+          select: { courseId: true, status: true },
         });
         if (!test) {
           throw new NotFoundException('Test not found');
@@ -525,10 +1027,20 @@ export class AssessmentInstructorService {
 
         const question = await transaction.question.findFirst({
           where: { id: dto.questionId, courseId: test.courseId },
-          select: { id: true },
+          select: { id: true, toeicSkill: true },
         });
         if (!question) {
           throw new NotFoundException('Question not found');
+        }
+        if (dto.groupId) {
+          const group = await transaction.testQuestionGroup.findFirst({
+            where: { id: dto.groupId, testId },
+            select: { skill: true },
+          });
+          if (!group) throw new NotFoundException('Test question group not found');
+          if (group.skill !== question.toeicSkill) {
+            throw new BadRequestException('Question skill must match its group skill');
+          }
         }
 
         const duplicate = await transaction.testQuestion.findUnique({
@@ -547,15 +1059,18 @@ export class AssessmentInstructorService {
           select: { orderIndex: true },
         });
 
-        return transaction.testQuestion.create({
+        const created = await transaction.testQuestion.create({
           data: {
             testId,
             questionId: dto.questionId,
+            ...(dto.groupId ? { groupId: dto.groupId } : {}),
             points: dto.points ?? 1,
             orderIndex: lastQuestion ? lastQuestion.orderIndex + 1 : 0,
           },
           select: instructorTestQuestionSelect,
         });
+        await this.revalidatePublishedTest(transaction, testId, test.status);
+        return created;
       },
       'Test question order changed concurrently; please try again',
       'Question already exists in this Test',
@@ -571,7 +1086,7 @@ export class AssessmentInstructorService {
     return this.runSerializableMutation(async (transaction) => {
       const test = await transaction.test.findUnique({
         where: { id: testId },
-        select: { courseId: true },
+        select: { courseId: true, status: true },
       });
       if (!test) {
         throw new NotFoundException('Test not found');
@@ -581,11 +1096,13 @@ export class AssessmentInstructorService {
       await this.assertTestHasNoHistoricalAttempts(transaction, testId);
       await this.requireNestedTestQuestion(transaction, testId, testQuestionId);
 
-      return transaction.testQuestion.update({
+      const updated = await transaction.testQuestion.update({
         where: { id: testQuestionId },
         data: { points: dto.points },
         select: instructorTestQuestionSelect,
       });
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return updated;
     }, 'Test question changed concurrently; please try again');
   }
 
@@ -598,7 +1115,7 @@ export class AssessmentInstructorService {
       async (transaction) => {
         const test = await transaction.test.findUnique({
           where: { id: testId },
-          select: { courseId: true },
+          select: { courseId: true, status: true },
         });
         if (!test) {
           throw new NotFoundException('Test not found');
@@ -609,6 +1126,7 @@ export class AssessmentInstructorService {
         await this.requireNestedTestQuestion(transaction, testId, testQuestionId);
         await transaction.testQuestion.delete({ where: { id: testQuestionId } });
         await this.reindexTestQuestions(transaction, testId);
+        await this.revalidatePublishedTest(transaction, testId, test.status);
       },
       'Test question order changed concurrently; please try again',
       'Test question cannot be deleted because attempt history exists',
@@ -621,7 +1139,7 @@ export class AssessmentInstructorService {
     return this.runSerializableMutation(async (transaction) => {
       const test = await transaction.test.findUnique({
         where: { id: testId },
-        select: { courseId: true },
+        select: { courseId: true, status: true },
       });
       if (!test) {
         throw new NotFoundException('Test not found');
@@ -639,6 +1157,7 @@ export class AssessmentInstructorService {
         dto.orderedIds,
       );
       await this.writeTestQuestionOrder(transaction, dto.orderedIds);
+      await this.revalidatePublishedTest(transaction, testId, test.status);
 
       return transaction.testQuestion.findMany({
         where: { testId },
@@ -646,6 +1165,272 @@ export class AssessmentInstructorService {
         select: instructorTestQuestionSelect,
       });
     }, 'Test question order changed concurrently; please try again');
+  }
+
+  async moveTestQuestionGroup(instructorId: string, testId: string, testQuestionId: string, groupId: string | null) {
+    return this.runSerializableMutation(async (transaction) => {
+      const test = await transaction.test.findUnique({ where: { id: testId }, select: { courseId: true, status: true } });
+      if (!test) throw new NotFoundException('Test not found');
+      await this.assertInstructorOwnsCourse(transaction, instructorId, test.courseId);
+      await this.assertTestHasNoHistoricalAttempts(transaction, testId);
+      const testQuestion = await transaction.testQuestion.findFirst({
+        where: { id: testQuestionId, testId }, select: { id: true, question: { select: { toeicSkill: true } } },
+      });
+      if (!testQuestion) throw new NotFoundException('Test question not found');
+      if (groupId) {
+        const group = await transaction.testQuestionGroup.findFirst({ where: { id: groupId, testId }, select: { skill: true } });
+        if (!group) throw new NotFoundException('Test question group not found');
+        if (group.skill !== testQuestion.question.toeicSkill) throw new BadRequestException('Question skill must match its group skill');
+      }
+      const updated = await transaction.testQuestion.update({
+        where: { id: testQuestionId }, data: { groupId }, select: instructorTestQuestionSelect,
+      });
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return updated;
+    }, 'Test question group changed concurrently; please try again');
+  }
+
+  async createTestGroup(instructorId: string, testId: string, dto: CreateTestGroupDto) {
+    return this.runSerializableMutation(async (transaction) => {
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      const last = await transaction.testQuestionGroup.findFirst({
+        where: { testId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true },
+      });
+      const created = await transaction.testQuestionGroup.create({
+        data: {
+          testId,
+          orderIndex: (last?.orderIndex ?? -1) + 1,
+          ...this.normalizeGroup(dto),
+        },
+        include: { stimuli: true, testQuestions: true },
+      });
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return created;
+    }, 'Nhóm câu hỏi đang được cập nhật ở phiên khác. Vui lòng thử lại.');
+  }
+
+  async updateTestGroup(
+    instructorId: string,
+    testId: string,
+    groupId: string,
+    dto: UpdateTestGroupDto,
+  ) {
+    return this.runSerializableMutation(async (transaction) => {
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      const group = await transaction.testQuestionGroup.findFirst({
+        where: { id: groupId, testId },
+        select: { id: true, skill: true, testQuestions: { select: { question: { select: { toeicSkill: true } } } } },
+      });
+      if (!group) throw new NotFoundException('Test question group not found');
+      if (group.testQuestions.some((item) => item.question.toeicSkill !== dto.skill)) {
+        throw new BadRequestException('Hãy di chuyển câu hỏi không tương thích trước khi đổi kỹ năng nhóm.');
+      }
+      const updated = await transaction.testQuestionGroup.update({
+        where: { id: groupId },
+        data: this.normalizeGroup(dto),
+        include: { stimuli: { orderBy: { orderIndex: 'asc' } }, testQuestions: { orderBy: { orderIndex: 'asc' } } },
+      });
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return updated;
+    }, 'Nhóm câu hỏi đang được cập nhật ở phiên khác. Vui lòng thử lại.');
+  }
+
+  async deleteTestGroup(instructorId: string, testId: string, groupId: string) {
+    const mediaKeys: string[] = [];
+    await this.runSerializableMutation(async (transaction) => {
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      const group = await transaction.testQuestionGroup.findFirst({
+        where: { id: groupId, testId },
+        select: { stimuli: { select: { storageKey: true } } },
+      });
+      if (!group) throw new NotFoundException('Test question group not found');
+      mediaKeys.push(...group.stimuli.flatMap((item) => item.storageKey ? [item.storageKey] : []));
+      await transaction.testQuestionGroup.delete({ where: { id: groupId } });
+      await this.reindexTestGroups(transaction, testId);
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+    }, 'Nhóm câu hỏi đang được cập nhật ở phiên khác. Vui lòng thử lại.');
+    await Promise.all(mediaKeys.map((key) => this.stimulusStorage.delete(key).catch(() => undefined)));
+    return { message: 'Test question group deleted successfully' };
+  }
+
+  async reorderTestGroups(instructorId: string, testId: string, dto: ReorderTestGroupsDto) {
+    return this.runSerializableMutation(async (transaction) => {
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      const existing = await transaction.testQuestionGroup.findMany({ where: { testId }, select: { id: true } });
+      this.validateCompleteTestQuestionOrder(existing.map(({ id }) => id), dto.orderedGroupIds);
+      for (const [index, id] of dto.orderedGroupIds.entries()) {
+        await transaction.testQuestionGroup.update({ where: { id }, data: { orderIndex: -(index + 1) } });
+      }
+      for (const [index, id] of dto.orderedGroupIds.entries()) {
+        await transaction.testQuestionGroup.update({ where: { id }, data: { orderIndex: index } });
+      }
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return transaction.testQuestionGroup.findMany({
+        where: { testId },
+        orderBy: { orderIndex: 'asc' },
+        include: {
+          stimuli: { orderBy: { orderIndex: 'asc' } },
+          testQuestions: { orderBy: { orderIndex: 'asc' } },
+        },
+      });
+    }, 'Thứ tự nhóm đang được cập nhật ở phiên khác. Vui lòng thử lại.');
+  }
+
+  async createTextStimulus(
+    instructorId: string,
+    testId: string,
+    groupId: string,
+    dto: CreateTextStimulusDto,
+  ) {
+    return this.runSerializableMutation(async (transaction) => {
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      await this.requireNestedGroup(transaction, testId, groupId);
+      const last = await transaction.assessmentStimulus.findFirst({
+        where: { groupId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true },
+      });
+      const textContent = dto.textContent.trim();
+      if (!textContent) throw new BadRequestException('Nội dung ngữ liệu không được để trống.');
+      const created = await transaction.assessmentStimulus.create({
+        data: {
+          groupId,
+          type: AssessmentStimulusType.TEXT,
+          orderIndex: (last?.orderIndex ?? -1) + 1,
+          textContent,
+          altText: dto.altText?.trim() || null,
+          isProtected: false,
+        },
+      });
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return created;
+    }, 'Stimulus đang được cập nhật ở phiên khác. Vui lòng thử lại.');
+  }
+
+  async uploadStimulus(
+    instructorId: string,
+    testId: string,
+    groupId: string,
+    file: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+    altText?: string,
+  ) {
+    const media = this.validateStimulusFile(file);
+    const key = await this.stimulusStorage.put(file.buffer, media.extension);
+    try {
+      return await this.runSerializableMutation(async (transaction) => {
+        const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
+        await this.requireNestedGroup(transaction, testId, groupId);
+        const last = await transaction.assessmentStimulus.findFirst({
+          where: { groupId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true },
+        });
+        const created = await transaction.assessmentStimulus.create({
+          data: {
+            groupId,
+            type: media.type,
+            orderIndex: (last?.orderIndex ?? -1) + 1,
+            storageKey: key,
+            mimeType: media.mimeType,
+            altText: altText?.trim() || null,
+            isProtected: false,
+          },
+        });
+        await this.revalidatePublishedTest(transaction, testId, test.status);
+        return created;
+      }, 'Stimulus đang được cập nhật ở phiên khác. Vui lòng thử lại.');
+    } catch (error) {
+      await this.stimulusStorage.delete(key).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async deleteStimulus(instructorId: string, testId: string, groupId: string, stimulusId: string) {
+    let storageKey: string | null = null;
+    await this.runSerializableMutation(async (transaction) => {
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      await this.requireNestedGroup(transaction, testId, groupId);
+      const stimulus = await transaction.assessmentStimulus.findFirst({ where: { id: stimulusId, groupId } });
+      if (!stimulus) throw new NotFoundException('Assessment stimulus not found');
+      storageKey = stimulus.storageKey;
+      await transaction.assessmentStimulus.delete({ where: { id: stimulusId } });
+      await this.reindexStimuli(transaction, groupId);
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+    }, 'Stimulus đang được cập nhật ở phiên khác. Vui lòng thử lại.');
+    if (storageKey) await this.stimulusStorage.delete(storageKey).catch(() => undefined);
+    return { message: 'Assessment stimulus deleted successfully' };
+  }
+
+  async reorderStimuli(instructorId: string, testId: string, groupId: string, dto: ReorderStimuliDto) {
+    return this.runSerializableMutation(async (transaction) => {
+      const test = await this.requireMutableOwnedTest(transaction, instructorId, testId);
+      await this.requireNestedGroup(transaction, testId, groupId);
+      const existing = await transaction.assessmentStimulus.findMany({ where: { groupId }, select: { id: true } });
+      this.validateCompleteTestQuestionOrder(existing.map(({ id }) => id), dto.orderedStimulusIds);
+      for (const [index, id] of dto.orderedStimulusIds.entries()) {
+        await transaction.assessmentStimulus.update({ where: { id }, data: { orderIndex: -(index + 1) } });
+      }
+      for (const [index, id] of dto.orderedStimulusIds.entries()) {
+        await transaction.assessmentStimulus.update({ where: { id }, data: { orderIndex: index } });
+      }
+      await this.revalidatePublishedTest(transaction, testId, test.status);
+      return transaction.assessmentStimulus.findMany({ where: { groupId }, orderBy: { orderIndex: 'asc' } });
+    }, 'Thứ tự ngữ liệu đang được cập nhật ở phiên khác. Vui lòng thử lại.');
+  }
+
+  private normalizeGroup(dto: CreateTestGroupDto | UpdateTestGroupDto) {
+    return {
+      skill: dto.skill,
+      title: dto.title?.trim() || null,
+      instructions: dto.instructions?.trim() || null,
+      preparationSeconds: dto.preparationSeconds ?? null,
+      responseSeconds: dto.responseSeconds ?? null,
+      recommendedSeconds: dto.recommendedSeconds ?? null,
+      maxRecordingSeconds: dto.maxRecordingSeconds ?? null,
+    };
+  }
+
+  private validateStimulusFile(file: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
+    const image = new Map([
+      ['image/jpeg', { extension: 'jpg', type: AssessmentStimulusType.IMAGE, valid: file.buffer[0] === 0xff && file.buffer[1] === 0xd8 }],
+      ['image/png', { extension: 'png', type: AssessmentStimulusType.IMAGE, valid: file.buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) }],
+      ['image/webp', { extension: 'webp', type: AssessmentStimulusType.IMAGE, valid: file.buffer.subarray(0, 4).toString() === 'RIFF' && file.buffer.subarray(8, 12).toString() === 'WEBP' }],
+    ]);
+    const audio = new Map([
+      ['audio/mpeg', { extension: 'mp3', type: AssessmentStimulusType.AUDIO, valid: file.buffer.subarray(0, 3).toString() === 'ID3' || (file.buffer[0] === 0xff && (file.buffer[1] & 0xe0) === 0xe0) }],
+      ['audio/mp4', { extension: 'm4a', type: AssessmentStimulusType.AUDIO, valid: file.buffer.subarray(4, 8).toString() === 'ftyp' }],
+      ['audio/ogg', { extension: 'ogg', type: AssessmentStimulusType.AUDIO, valid: file.buffer.subarray(0, 4).toString() === 'OggS' }],
+      ['audio/webm', { extension: 'webm', type: AssessmentStimulusType.AUDIO, valid: file.buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3])) }],
+    ]);
+    const rule = image.get(file.mimetype) ?? audio.get(file.mimetype);
+    if (!rule || !rule.valid) throw new BadRequestException('Định dạng hoặc nội dung tệp ngữ liệu không hợp lệ.');
+    const limit = rule.type === AssessmentStimulusType.IMAGE ? 5 * 1024 * 1024 : 20 * 1024 * 1024;
+    if (file.size > limit) throw new BadRequestException('Tệp ngữ liệu vượt quá dung lượng cho phép.');
+    return { ...rule, mimeType: file.mimetype };
+  }
+
+  private async requireMutableOwnedTest(
+    transaction: Prisma.TransactionClient,
+    instructorId: string,
+    testId: string,
+  ) {
+    const test = await transaction.test.findUnique({ where: { id: testId }, select: { id: true, courseId: true, status: true } });
+    if (!test) throw new NotFoundException('Test not found');
+    await this.assertInstructorOwnsCourse(transaction, instructorId, test.courseId);
+    await this.assertTestHasNoHistoricalAttempts(transaction, testId);
+    return test;
+  }
+
+  private async requireNestedGroup(transaction: Prisma.TransactionClient, testId: string, groupId: string) {
+    const group = await transaction.testQuestionGroup.findFirst({ where: { id: groupId, testId }, select: { id: true } });
+    if (!group) throw new NotFoundException('Test question group not found');
+    return group;
+  }
+
+  private async reindexTestGroups(transaction: Prisma.TransactionClient, testId: string) {
+    const rows = await transaction.testQuestionGroup.findMany({ where: { testId }, orderBy: { orderIndex: 'asc' }, select: { id: true } });
+    for (const [index, row] of rows.entries()) await transaction.testQuestionGroup.update({ where: { id: row.id }, data: { orderIndex: index } });
+  }
+
+  private async reindexStimuli(transaction: Prisma.TransactionClient, groupId: string) {
+    const rows = await transaction.assessmentStimulus.findMany({ where: { groupId }, orderBy: { orderIndex: 'asc' }, select: { id: true } });
+    for (const [index, row] of rows.entries()) await transaction.assessmentStimulus.update({ where: { id: row.id }, data: { orderIndex: index } });
   }
 
   private async assertInstructorOwnsCourse(
@@ -814,15 +1599,16 @@ export class AssessmentInstructorService {
 
   private normalizeAndValidateQuestion(input: {
     type: QuestionResponseType;
-    toeicSkill?: ToeicSkill;
+    toeicSkill: ToeicSkill;
     difficulty: QuestionDifficulty;
     content: string;
     explanation?: string | null;
-    options: QuestionOptionInputDto[];
+    options?: QuestionOptionInputDto[];
+    rubricId?: string | null;
   }): NormalizedQuestionInput {
     const content = input.content.trim();
     const explanation = input.explanation?.trim() || null;
-    const options = input.options.map((option) => ({
+    const options = (input.options ?? []).map((option) => ({
       content: option.content.trim(),
       isCorrect: option.isCorrect,
     }));
@@ -839,6 +1625,27 @@ export class AssessmentInstructorService {
       throw new BadRequestException('Option content must not contain duplicates');
     }
 
+    const objective = input.toeicSkill === ToeicSkill.LISTENING || input.toeicSkill === ToeicSkill.READING;
+    const objectiveTypes: QuestionResponseType[] = [
+      QuestionResponseType.SINGLE_CHOICE,
+      QuestionResponseType.MULTIPLE_CHOICE,
+      QuestionResponseType.TRUE_FALSE,
+    ];
+    const compatible = objective
+      ? objectiveTypes.includes(input.type)
+      : input.toeicSkill === ToeicSkill.SPEAKING
+        ? input.type === QuestionResponseType.AUDIO_RESPONSE
+        : input.toeicSkill === ToeicSkill.WRITING && input.type === QuestionResponseType.TEXT_RESPONSE;
+    if (!compatible) throw new BadRequestException('Kỹ năng và loại câu trả lời không tương thích.');
+    if (!objective) {
+      if (options.length > 0) throw new BadRequestException('Câu Speaking/Writing không được có phương án lựa chọn.');
+      if (!input.rubricId) throw new BadRequestException('Câu Speaking/Writing cần rubric chấm điểm.');
+      return {
+        responseType: input.type, toeicSkill: input.toeicSkill, difficulty: input.difficulty,
+        content, explanation, rubricId: input.rubricId, options: [],
+      };
+    }
+    if (input.rubricId) throw new BadRequestException('Câu Listening/Reading không sử dụng rubric.');
     const correctCount = options.filter((option) => option.isCorrect).length;
     switch (input.type) {
       case QuestionResponseType.SINGLE_CHOICE:
@@ -862,18 +1669,24 @@ export class AssessmentInstructorService {
           );
         }
         break;
-      default:
-        throw new BadRequestException('Unsupported question type');
+      default: throw new BadRequestException('Unsupported question type');
     }
 
     return {
       responseType: input.type,
-      toeicSkill: input.toeicSkill ?? ToeicSkill.READING,
+      toeicSkill: input.toeicSkill,
       difficulty: input.difficulty,
       content,
       explanation,
+      rubricId: null,
       options,
     };
+  }
+
+  private async assertRubricRule(database: Prisma.TransactionClient, skill: ToeicSkill, rubricId: string | null): Promise<void> {
+    if (skill !== ToeicSkill.SPEAKING && skill !== ToeicSkill.WRITING) return;
+    const rubric = rubricId ? await database.rubric.findFirst({ where: { id: rubricId, isActive: true }, select: { id: true } }) : null;
+    if (!rubric) throw new BadRequestException('Rubric không tồn tại hoặc không còn hoạt động.');
   }
 
   private async runSerializableMutation<T>(

@@ -95,8 +95,8 @@ describe('Instructor content APIs (e2e)', () => {
     const foreignModule = await prisma.module.create({ data: { courseId: foreignCourseId, title: 'Foreign module', orderIndex: 0 } });
     const foreignLesson = await prisma.lesson.create({ data: { moduleId: foreignModule.id, title: 'Foreign lesson', orderIndex: 0 } });
     const foreignResource = await prisma.learningResource.create({ data: { lessonId: foreignLesson.id, title: 'Foreign link', type: ResourceType.LINK, url: 'https://example.test/foreign', orderIndex: 0 } });
-    await instructorAgent.patch(`/api/instructor/lessons/${foreignLesson.id}`).send({ title: 'Denied' }).expect(403);
-    await instructorAgent.patch(`/api/instructor/resources/${foreignResource.id}`).send({ title: 'Denied' }).expect(403);
+    await instructorAgent.patch(`/api/instructor/lessons/${foreignLesson.id}`).send({ title: 'Denied', expectedUpdatedAt: foreignLesson.updatedAt.toISOString() }).expect(403);
+    await instructorAgent.patch(`/api/instructor/resources/${foreignResource.id}`).send({ title: 'Denied', expectedUpdatedAt: foreignResource.updatedAt.toISOString() }).expect(403);
   });
 
   it('supports CRUD, contiguous ordering, persistent reorder and delete guards', async () => {
@@ -105,21 +105,24 @@ describe('Instructor content APIs (e2e)', () => {
     expect([moduleA.orderIndex, moduleB.orderIndex]).toEqual([0, 1]);
     await instructorAgent.patch(`/api/instructor/courses/${assignedCourseId}/modules/reorder`).send({ orderedIds: [moduleB.id, moduleA.id] }).expect(200);
     expect(await moduleOrder(assignedCourseId)).toEqual([moduleB.id, moduleA.id]);
-    await instructorAgent.patch(`/api/instructor/modules/${moduleA.id}`).send({ title: 'Module A updated' }).expect(200);
+    const moduleAfterReorder = await prisma.module.findUniqueOrThrow({ where: { id: moduleA.id }, select: { updatedAt: true } });
+    await instructorAgent.patch(`/api/instructor/modules/${moduleA.id}`).send({ title: 'Module A updated', expectedUpdatedAt: moduleAfterReorder.updatedAt.toISOString() }).expect(200);
 
     const lessonA = await createLesson(moduleA.id, 'Lesson A', 201);
     const lessonB = await createLesson(moduleA.id, 'Lesson B', 201);
     expect([lessonA.orderIndex, lessonB.orderIndex]).toEqual([0, 1]);
     await instructorAgent.patch(`/api/instructor/modules/${moduleA.id}/lessons/reorder`).send({ orderedIds: [lessonB.id, lessonA.id] }).expect(200);
     expect(await lessonOrder(moduleA.id)).toEqual([lessonB.id, lessonA.id]);
-    await instructorAgent.patch(`/api/instructor/lessons/${lessonA.id}`).send({ title: 'Lesson A updated' }).expect(200);
+    const lessonAfterReorder = await prisma.lesson.findUniqueOrThrow({ where: { id: lessonA.id }, select: { updatedAt: true } });
+    await instructorAgent.patch(`/api/instructor/lessons/${lessonA.id}`).send({ title: 'Lesson A updated', expectedUpdatedAt: lessonAfterReorder.updatedAt.toISOString() }).expect(200);
 
     const resourceA = await createResource(lessonA.id, 'Resource A', 201);
     const resourceB = await createResource(lessonA.id, 'Resource B', 201);
     expect([resourceA.orderIndex, resourceB.orderIndex]).toEqual([0, 1]);
     await instructorAgent.patch(`/api/instructor/lessons/${lessonA.id}/resources/reorder`).send({ orderedIds: [resourceB.id, resourceA.id] }).expect(200);
     expect(await resourceOrder(lessonA.id)).toEqual([resourceB.id, resourceA.id]);
-    await instructorAgent.patch(`/api/instructor/resources/${resourceA.id}`).send({ title: 'Resource A updated' }).expect(200);
+    const resourceAfterReorder = await prisma.learningResource.findUniqueOrThrow({ where: { id: resourceA.id }, select: { updatedAt: true } });
+    await instructorAgent.patch(`/api/instructor/resources/${resourceA.id}`).send({ title: 'Resource A updated', expectedUpdatedAt: resourceAfterReorder.updatedAt.toISOString() }).expect(200);
 
     await prisma.lessonProgress.create({ data: { enrollmentId, lessonId: lessonA.id, status: LessonProgressStatus.IN_PROGRESS } });
     await instructorAgent.delete(`/api/instructor/lessons/${lessonA.id}`).expect(409);

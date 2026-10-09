@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import {
   Prisma,
   QuestionDifficulty,
@@ -9,6 +9,10 @@ import {
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AssessmentStudentService } from './assessment-student.service';
+import {
+  AssessmentStimulusMediaStorage,
+  AssessmentStimulusMediaUnavailableError,
+} from '../placement/assessment-stimulus-media.storage';
 
 describe('AssessmentStudentService', () => {
   const learnerId = 'learner-id';
@@ -43,7 +47,12 @@ describe('AssessmentStudentService', () => {
     testAttempt: { findFirst: jest.fn() },
     $transaction: jest.fn(),
   };
-  const service = new AssessmentStudentService(prisma as unknown as PrismaService);
+  const stimulusStorage = { read: jest.fn() };
+  const service = new AssessmentStudentService(
+    prisma as unknown as PrismaService,
+    undefined,
+    stimulusStorage as unknown as AssessmentStimulusMediaStorage,
+  );
   const attemptRecord = (answers: Array<{ testQuestionId: string; selectedOptionIds: string[]; textResponse: string | null; audioStorageKey: string | null }>) => ({
     id: attemptId,
     attemptNumber: 1,
@@ -135,6 +144,71 @@ describe('AssessmentStudentService', () => {
         where: expect.objectContaining({ classOfferingId: enrollment.classOffering.id }),
       }),
     );
+  });
+
+  it('projects visible IMAGE/AUDIO stimuli with authorized URLs and excludes protected rows in the query', async () => {
+    transaction.testAttempt.findFirst.mockResolvedValue({
+      ...attemptRecord([]),
+      test: {
+        ...attemptRecord([]).test,
+        questionGroups: [{
+          id: 'group-id', skill: ToeicSkill.LISTENING, orderIndex: 0, title: 'Shared media',
+          instructions: null, stimulusText: null, taskCode: null, preparationSeconds: null,
+          responseSeconds: null, recommendedSeconds: null, maxRecordingSeconds: null,
+          stimuli: [
+            { id: 'image-id', type: 'IMAGE', orderIndex: 0, textContent: null, storageKey: 'authored/image.png', mimeType: 'image/png', altText: 'Prompt image', isProtected: false },
+            { id: 'audio-id', type: 'AUDIO', orderIndex: 1, textContent: null, storageKey: 'authored/audio.mp3', mimeType: 'audio/mpeg', altText: 'Prompt audio', isProtected: false },
+          ],
+          testQuestions: [],
+        }],
+      },
+    });
+
+    const result = await service.getAttempt(learnerId, enrollmentId, attemptId);
+    expect(result.groups?.[0].stimuli).toEqual([
+      expect.objectContaining({ id: 'image-id', mediaUrl: `/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/stimuli/image-id/media` }),
+      expect.objectContaining({ id: 'audio-id', mediaUrl: `/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/stimuli/audio-id/media` }),
+    ]);
+    expect(transaction.testAttempt.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({ test: expect.objectContaining({ select: expect.objectContaining({
+        questionGroups: expect.objectContaining({ select: expect.objectContaining({ stimuli: expect.objectContaining({ where: { isProtected: false } }) }) }),
+      }) }) }),
+    }));
+  });
+
+  it('delivers owned visible media and rejects foreign, protected, or unavailable media safely', async () => {
+    const mediaAttempt = {
+      ...attemptRecord([]),
+      test: {
+        ...attemptRecord([]).test,
+        questionGroups: [{ stimuli: [{ id: 'image-id', storageKey: 'authored/image.png', mimeType: 'image/png', isProtected: false }] }],
+      },
+    };
+    prisma.testAttempt.findFirst.mockResolvedValue(mediaAttempt);
+    stimulusStorage.read.mockResolvedValue(Buffer.from('png'));
+    await expect(service.openStimulusMedia(learnerId, enrollmentId, attemptId, 'image-id')).resolves.toEqual({
+      body: Buffer.from('png'), mimeType: 'image/png',
+    });
+
+    prisma.testAttempt.findFirst.mockResolvedValueOnce(null);
+    await expect(service.openStimulusMedia(learnerId, enrollmentId, 'foreign-attempt', 'image-id')).rejects.toBeInstanceOf(NotFoundException);
+    prisma.enrollment.findFirst.mockResolvedValueOnce(null);
+    await expect(service.openStimulusMedia('foreign-learner', enrollmentId, attemptId, 'image-id')).rejects.toBeInstanceOf(NotFoundException);
+
+    prisma.testAttempt.findFirst.mockResolvedValueOnce({
+      ...mediaAttempt,
+      test: { ...mediaAttempt.test, questionGroups: [{ stimuli: [{ ...mediaAttempt.test.questionGroups[0].stimuli[0], isProtected: true }] }] },
+    });
+    await expect(service.openStimulusMedia(learnerId, enrollmentId, attemptId, 'image-id')).rejects.toBeInstanceOf(NotFoundException);
+
+    stimulusStorage.read.mockRejectedValueOnce(new AssessmentStimulusMediaUnavailableError('raw authored/image.png path'));
+    try {
+      await service.openStimulusMedia(learnerId, enrollmentId, attemptId, 'image-id');
+      throw new Error('Expected storage failure');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ServiceUnavailableException);
+      expect(JSON.stringify((error as ServiceUnavailableException).getResponse())).not.toContain('authored/image.png');
+    }
   });
 
   it('scores the authoritative final payload with exact-set matching', async () => {

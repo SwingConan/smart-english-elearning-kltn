@@ -25,6 +25,7 @@ import {
 } from '../src/generated/prisma/client';
 import { seedM05 } from './m05-seed';
 import { seedM06 } from './m06-seed';
+import { seedM07 } from './m07-seed';
 
 const FREE_OFFERING_ID = '10000000-0000-4000-8000-000000000001';
 const PAID_OFFERING_ID = '10000000-0000-4000-8000-000000000002';
@@ -2272,6 +2273,37 @@ async function main(): Promise<void> {
       });
     }
 
+    const nonSeededDemoAttempts = await prisma.testAttempt.findMany({
+      where: { classAssessmentId: DEMO_CLASS_ASSESSMENT_ID, id: { not: DEMO_SUBMITTED_ATTEMPT_ID } },
+      select: { id: true, answers: { select: { id: true, evaluations: { select: { id: true } } } } },
+    });
+    const nonSeededAttemptIds = nonSeededDemoAttempts.map((attempt) => attempt.id);
+    const nonSeededAnswerIds = nonSeededDemoAttempts.flatMap((attempt) =>
+      attempt.answers.map((answer) => answer.id),
+    );
+    const nonSeededEvaluationIds = nonSeededDemoAttempts.flatMap((attempt) =>
+      attempt.answers.flatMap((answer) => answer.evaluations.map((evaluation) => evaluation.id)),
+    );
+    if (nonSeededEvaluationIds.length) {
+      await prisma.rubricCriterionScore.deleteMany({
+        where: { answerEvaluationId: { in: nonSeededEvaluationIds } },
+      });
+      await prisma.answerEvaluation.deleteMany({ where: { id: { in: nonSeededEvaluationIds } } });
+    }
+    if (nonSeededAttemptIds.length) {
+      await prisma.masteryHistory.deleteMany({ where: { testAttemptId: { in: nonSeededAttemptIds } } });
+      await prisma.studyRecommendation.deleteMany({ where: { sourceAttemptId: { in: nonSeededAttemptIds } } });
+      await prisma.courseRecommendation.deleteMany({ where: { attemptId: { in: nonSeededAttemptIds } } });
+      await prisma.attemptSkillScore.deleteMany({ where: { attemptId: { in: nonSeededAttemptIds } } });
+      await prisma.attemptEvaluation.deleteMany({ where: { attemptId: { in: nonSeededAttemptIds } } });
+    }
+    if (nonSeededAnswerIds.length) {
+      await prisma.testAnswer.deleteMany({ where: { id: { in: nonSeededAnswerIds } } });
+    }
+    if (nonSeededAttemptIds.length) {
+      await prisma.testAttempt.deleteMany({ where: { id: { in: nonSeededAttemptIds } } });
+    }
+
     await prisma.testAttempt.upsert({
       where: { id: DEMO_SUBMITTED_ATTEMPT_ID },
       update: {
@@ -2299,6 +2331,9 @@ async function main(): Promise<void> {
         startedAt: new Date('2026-09-27T08:00:00Z'),
         submittedAt: new Date('2026-09-27T08:12:00Z'),
       },
+    });
+    await prisma.attemptSkillScore.deleteMany({
+      where: { attemptId: DEMO_SUBMITTED_ATTEMPT_ID },
     });
 
     const submittedAnswerSeeds = [
@@ -2414,6 +2449,11 @@ async function main(): Promise<void> {
       enrollmentId: DEMO_ENROLLMENT_ID,
       learnerId: student.id,
       instructorId: instructor.id,
+    });
+    await seedM07(prisma, {
+      courseId: course.id,
+      classOfferingId: FREE_OFFERING_ID,
+      passwordHash,
     });
 
     console.log(

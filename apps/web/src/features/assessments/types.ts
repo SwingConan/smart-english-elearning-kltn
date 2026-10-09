@@ -21,19 +21,52 @@ export interface AssessmentQuestion {
   id: string;
   courseId: string;
   type: QuestionType;
+  toeicSkill?: ToeicSkill;
   difficulty: QuestionDifficulty;
   content: string;
   explanation: string | null;
+  rubricId?: string | null;
+  rubric?: RubricSummary | null;
   createdAt: string;
   updatedAt: string;
   options: QuestionOption[];
+  usageCount?: number;
+}
+export interface QuestionPage {
+  items: AssessmentQuestion[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+export interface QuestionQuery {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  skill?: ToeicSkill;
+  responseType?: QuestionType;
+  difficulty?: QuestionDifficulty;
+  usage?: 'ALL' | 'USED' | 'UNUSED';
+}
+export interface QuestionImportPreview {
+  rows: Array<{ rowNumber: number; input: QuestionInput | null; errors: string[]; warnings: string[] }>;
+  summary: { total: number; valid: number; invalid: number; warnings: number };
+  canConfirm: boolean;
 }
 export interface QuestionInput {
   type: QuestionType;
+  toeicSkill: ToeicSkill;
   difficulty: QuestionDifficulty;
   content: string;
   explanation?: string | null;
+  rubricId?: string | null;
   options: Array<{ content: string; isCorrect: boolean }>;
+}
+export interface RubricSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  criteria: Array<{ id: string; name: string; description: string | null; weight: string | number; maxScore: string | number; orderIndex: number }>;
 }
 export interface AssessmentTestSummary {
   id: string;
@@ -54,12 +87,36 @@ export interface AssessmentTestQuestion {
   id: string;
   testId: string;
   questionId: string;
+  groupId?: string | null;
   orderIndex: number;
   points: number;
   question: Omit<AssessmentQuestion, 'courseId' | 'createdAt' | 'updatedAt'>;
 }
+export interface AssessmentStimulus {
+  id: string;
+  type: 'TEXT' | 'IMAGE' | 'AUDIO';
+  orderIndex: number;
+  textContent: string | null;
+  mimeType: string | null;
+  altText: string | null;
+  mediaUrl?: string | null;
+}
+export interface AssessmentTestGroup {
+  id: string;
+  skill: ToeicSkill;
+  orderIndex: number;
+  title: string | null;
+  instructions: string | null;
+  preparationSeconds: number | null;
+  responseSeconds: number | null;
+  recommendedSeconds: number | null;
+  maxRecordingSeconds: number | null;
+  stimuli: AssessmentStimulus[];
+  testQuestions: AssessmentTestQuestion[];
+}
 export interface AssessmentTestDetail extends AssessmentTestSummary {
   testQuestions: AssessmentTestQuestion[];
+  questionGroups?: AssessmentTestGroup[];
 }
 export interface TestInput {
   type: TestType;
@@ -296,6 +353,7 @@ export interface GradingDetail {
       };
     };
     evaluation: {
+      updatedAt: string;
       status: string;
       totalScore: number | null;
       feedback: string | null;

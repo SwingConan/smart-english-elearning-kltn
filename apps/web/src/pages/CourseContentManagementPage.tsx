@@ -8,8 +8,9 @@ import { knowledgeModelApi } from '@/features/knowledge-model/api';
 import { SkillChecklistDialog } from '@/features/knowledge-model/SkillChecklistDialog';
 import type { Skill } from '@/features/knowledge-model/types';
 
-export function CourseContentManagementPage() {
-  const { courseId } = useParams<{ courseId: string }>();
+export function CourseContentManagementPage({ courseId: explicitCourseId, sharedWarning = false }: { courseId?: string; sharedWarning?: boolean } = {}) {
+  const { courseId: routeCourseId } = useParams<{ courseId: string }>();
+  const courseId = explicitCourseId ?? routeCourseId;
   const redirectExpiredSession = useSessionExpiry();
 
   const [modules, setModules] = useState<Module[]>([]);
@@ -36,6 +37,8 @@ export function CourseContentManagementPage() {
 
   const [editingResource, setEditingResource] = useState<Partial<LearningResource> | null>(null);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
+  const [resourceMode, setResourceMode] = useState<'UPLOAD' | 'VIDEO' | 'LINK'>('UPLOAD');
+  const effectiveResourceMode = editingResource?.storageKey ? 'UPLOAD' : editingResource?.type === 'VIDEO' ? 'VIDEO' : editingResource?.type === 'LINK' ? 'LINK' : resourceMode;
   const [courseSkills, setCourseSkills] = useState<Skill[] | null>(null);
   const [mappingLesson, setMappingLesson] = useState<Lesson | null>(null);
   const [mappedSkillIds, setMappedSkillIds] = useState<string[]>([]);
@@ -79,6 +82,7 @@ export function CourseContentManagementPage() {
         setLoading(true);
         const data = await instructorApi.modules.list(courseId!, abortController.signal);
         setModules(data);
+        if (sharedWarning && data[0]) setExpandedModuleId(data[0].id);
         setError(null);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
@@ -91,7 +95,7 @@ export function CourseContentManagementPage() {
 
     void fetchModules();
     return () => abortController.abort();
-  }, [courseId, redirectExpiredSession]);
+  }, [courseId, redirectExpiredSession, sharedWarning]);
 
   // Load lessons for module
   useEffect(() => {
@@ -101,6 +105,7 @@ export function CourseContentManagementPage() {
       try {
         const data = await instructorApi.lessons.list(expandedModuleId!, abortController.signal);
         setLessonsMap((prev) => ({ ...prev, [expandedModuleId!]: data }));
+        if (sharedWarning && data[0]) setExpandedLessonId(data[0].id);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
         await handleRequestError(
@@ -111,7 +116,7 @@ export function CourseContentManagementPage() {
     }
     void fetchLessons();
     return () => abortController.abort();
-  }, [expandedModuleId, handleRequestError]);
+  }, [expandedModuleId, handleRequestError, sharedWarning]);
 
   // Load resources for lesson
   useEffect(() => {
@@ -144,7 +149,7 @@ export function CourseContentManagementPage() {
 
     try {
       if (editingModule?.id) {
-        const updated = await instructorApi.modules.update(editingModule.id, { title, description });
+        const updated = await instructorApi.modules.update(editingModule.id, { title, description, expectedUpdatedAt: editingModule.updatedAt! });
         setModules((current) => current.map((item) => item.id === updated.id ? updated : item));
       } else {
         const created = await instructorApi.modules.create(courseId, { title, description });
@@ -212,7 +217,7 @@ export function CourseContentManagementPage() {
 
     try {
       if (editingLesson?.id) {
-        const updated = await instructorApi.lessons.update(editingLesson.id, { title, description });
+        const updated = await instructorApi.lessons.update(editingLesson.id, { title, description, expectedUpdatedAt: editingLesson.updatedAt! });
         setLessonsMap(prev => ({
           ...prev,
           [moduleId]: (prev[moduleId] ?? []).map((item) => item.id === updated.id ? updated : item)
@@ -286,18 +291,44 @@ export function CourseContentManagementPage() {
     const lessonId = expandedLessonId;
     const formData = new FormData(e.currentTarget);
     const title = formData.get('title') as string;
-    const type = formData.get('type') as ResourceType;
-    const url = formData.get('url') as string;
     const isDownloadable = formData.get('isDownloadable') === 'on';
+    const file = formData.get('file');
+
+    if (!editingResource?.id && effectiveResourceMode === 'UPLOAD' && (!(file instanceof File) || file.size === 0)) {
+      setActionError('Vui lòng chọn tệp trước khi lưu tài liệu tải lên.');
+      endMutation();
+      return;
+    }
 
     try {
-      if (editingResource?.id) {
-        const updated = await instructorApi.resources.update(editingResource.id, { title, type, url, isDownloadable });
+      if (effectiveResourceMode === 'UPLOAD' && file instanceof File && file.size > 0) {
+        const uploaded = await instructorApi.resources.upload(lessonId, title, file, isDownloadable, editingResource?.id, editingResource?.updatedAt);
+        setResourcesMap(prev => ({
+          ...prev,
+          [lessonId]: editingResource?.id
+            ? (prev[lessonId] ?? []).map((item) => item.id === uploaded.id ? uploaded : item)
+            : [...(prev[lessonId] ?? []), uploaded],
+        }));
+      } else if (editingResource?.id) {
+        const updated = await instructorApi.resources.update(
+          editingResource.id,
+          editingResource.storageKey
+            ? { title, isDownloadable, expectedUpdatedAt: editingResource.updatedAt! }
+            : {
+                title,
+                type: effectiveResourceMode === 'VIDEO' ? 'VIDEO' : 'LINK',
+                url: formData.get('url') as string,
+                isDownloadable,
+                expectedUpdatedAt: editingResource.updatedAt!,
+              },
+        );
         setResourcesMap(prev => ({
           ...prev,
           [lessonId]: (prev[lessonId] ?? []).map((item) => item.id === updated.id ? updated : item)
         }));
       } else {
+        const type: ResourceType = effectiveResourceMode === 'VIDEO' ? 'VIDEO' : 'LINK';
+        const url = formData.get('url') as string;
         const created = await instructorApi.resources.create(lessonId, { title, type, url, isDownloadable });
         setResourcesMap(prev => ({
           ...prev,
@@ -401,9 +432,13 @@ export function CourseContentManagementPage() {
   if (error) return <div className="p-8 text-center text-red-600">{error}</div>;
 
   const isMutating = pendingAction !== null;
+  const selectedModule = modules.find((module) => module.id === expandedModuleId) ?? modules[0] ?? null;
+  const selectedLessons = selectedModule ? (lessonsMap[selectedModule.id] ?? []) : [];
+  const selectedLesson = selectedLessons.find((lesson) => lesson.id === expandedLessonId) ?? selectedLessons[0] ?? null;
 
   return (
     <div className="max-w-5xl mx-auto py-8">
+      {sharedWarning ? <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4 font-medium text-amber-900">Nội dung này dùng chung cho các lớp thuộc khóa học này.</div> : null}
       {actionError ? (
         <p className="mb-4 rounded-md bg-red-50 p-3 text-red-700" role="alert">
           {actionError}
@@ -435,7 +470,17 @@ export function CourseContentManagementPage() {
           Chưa có module nào. Hãy thêm module đầu tiên!
         </div>
       ) : (
-        <div className="space-y-4">
+        <>
+        {sharedWarning ? <div className="mb-6 hidden gap-5 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]" data-testid="class-content-workspace">
+          <aside className="self-start rounded-2xl border bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between"><h2 className="font-bold">Cấu trúc khóa học</h2><button className="text-sm font-semibold text-blue-700" onClick={() => { setEditingModule(null); setIsModuleModalOpen(true); }} type="button">+ Module</button></div>
+            <nav aria-label="Cấu trúc nội dung" className="space-y-2">{modules.map((module, moduleIndex) => <div key={module.id}><button className={`w-full rounded-lg px-3 py-2 text-left font-semibold ${selectedModule?.id === module.id ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-slate-50'}`} onClick={() => setExpandedModuleId(module.id)} type="button">{moduleIndex + 1}. {module.title}</button>{selectedModule?.id === module.id ? <div className="ml-3 mt-1 space-y-1 border-l pl-3">{(lessonsMap[module.id] ?? []).map((lesson, lessonIndex) => <button className={`block w-full rounded px-2 py-1.5 text-left text-sm ${selectedLesson?.id === lesson.id ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`} key={lesson.id} onClick={() => setExpandedLessonId(lesson.id)} type="button">Bài {lessonIndex + 1}: {lesson.title}</button>)}</div> : null}</div>)}</nav>
+          </aside>
+          <section className="min-w-0 rounded-2xl border bg-white p-5 shadow-sm">
+            {selectedModule ? <><div className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Module đang chọn</p><h2 className="text-xl font-bold">{selectedModule.title}</h2><p className="text-sm text-slate-500">{selectedModule.description || 'Chưa có mô tả.'}</p></div><div className="flex gap-2"><button className="rounded border px-3 py-1.5 text-sm" onClick={() => { setEditingModule(selectedModule); setIsModuleModalOpen(true); }} type="button">Sửa module</button><button className="rounded bg-green-600 px-3 py-1.5 text-sm text-white" onClick={() => { setEditingLesson(null); setIsLessonModalOpen(true); }} type="button">+ Bài học</button></div></div>{selectedLesson ? <div className="mt-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bài học đang chọn</p><h3 className="text-lg font-bold">{selectedLesson.title}</h3><p className="text-sm text-slate-500">{selectedLesson.description || 'Chưa có mô tả.'}</p></div><div className="flex gap-2"><button className="rounded border px-3 py-1.5 text-sm" onClick={() => { setEditingLesson(selectedLesson); setIsLessonModalOpen(true); }} type="button">Sửa bài học</button><button className="rounded bg-purple-600 px-3 py-1.5 text-sm text-white" onClick={() => { setEditingResource(null); setIsResourceModalOpen(true); }} type="button">+ Tài liệu</button></div></div><h4 className="mt-6 font-semibold">Tài liệu học tập</h4><div className="mt-2 space-y-2">{(resourcesMap[selectedLesson.id] ?? []).map((resource) => <div className="flex items-center justify-between gap-3 rounded-lg border p-3" key={resource.id}><div className="min-w-0"><p className="truncate font-medium">{resource.title}</p><p className="text-xs text-slate-500">{resource.originalFileName ?? resource.type}{resource.isDownloadable ? ' · Có thể tải' : ''}</p></div><button className="text-sm font-semibold text-blue-700" onClick={() => { setEditingResource(resource); setIsResourceModalOpen(true); }} type="button">Sửa</button></div>)}{(resourcesMap[selectedLesson.id] ?? []).length === 0 ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Bài học chưa có tài liệu.</p> : null}</div></div> : <p className="mt-5 rounded-lg bg-slate-50 p-5 text-slate-500">Chọn hoặc thêm một bài học để biên soạn nội dung.</p>}</> : null}
+          </section>
+        </div> : null}
+        <div className={`space-y-4 ${sharedWarning ? 'lg:hidden' : ''}`}>
           {modules.map((module, mIndex) => (
             <div key={module.id} className="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
               <div className="p-4 bg-gray-50 flex justify-between items-center border-b border-gray-200">
@@ -488,8 +533,8 @@ export function CourseContentManagementPage() {
                                 Bài {lIndex + 1}: {lesson.title}
                               </span>
                             </div>
-                            <div className="flex gap-2">
-                               <button onClick={() => void openLessonSkillMapping(lesson)} className="text-xs text-emerald-700 hover:underline">Edit Skills</button>
+                              <div className="flex gap-2">
+                               {!sharedWarning ? <button aria-label="Edit Skills" onClick={() => void openLessonSkillMapping(lesson)} className="text-xs text-emerald-700 hover:underline" title="Công cụ nghiên cứu / tính năng cũ">Công cụ nghiên cứu / tính năng cũ</button> : null}
                                <button onClick={() => handleReorderLessons(module.id, lIndex, 'up')} disabled={lIndex === 0} className="px-1 text-gray-400 disabled:opacity-30">▲</button>
                                <button onClick={() => handleReorderLessons(module.id, lIndex, 'down')} disabled={lIndex === lessonsMap[module.id].length - 1} className="px-1 text-gray-400 disabled:opacity-30">▼</button>
                                <button onClick={() => { setEditingLesson(lesson); setIsLessonModalOpen(true); }} className="text-xs text-blue-600 hover:underline">Sửa</button>
@@ -516,7 +561,7 @@ export function CourseContentManagementPage() {
                                       <li key={resource.id} className="flex justify-between items-center bg-white p-2 rounded border border-gray-100 text-sm">
                                         <div className="flex items-center gap-2">
                                           <span className="px-1.5 py-0.5 bg-gray-200 text-gray-700 text-xs rounded">{resource.type}</span>
-                                          <a href={resource.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate max-w-xs">{resource.title}</a>
+                                          <a href={resource.url ?? `/api/instructor/resources/${resource.id}/file`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate max-w-xs">{resource.title}</a>
                                           {resource.isDownloadable && <span className="text-xs text-green-600 ml-2">(Có thể tải)</span>}
                                         </div>
                                         <div className="flex gap-2">
@@ -539,7 +584,7 @@ export function CourseContentManagementPage() {
               )}
             </div>
           ))}
-        </div>
+        </div></>
       )}
 
       {/* Module Modal */}
@@ -598,23 +643,22 @@ export function CourseContentManagementPage() {
                 <label className="block text-sm font-medium mb-1">Tiêu đề</label>
                 <input name="title" required defaultValue={editingResource?.title} className="w-full border rounded p-2" />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Loại</label>
-                <select name="type" required defaultValue={editingResource?.type || 'VIDEO'} className="w-full border rounded p-2">
-                  <option value="VIDEO">Video</option>
-                  <option value="DOCUMENT">Tài liệu (PDF, Word...)</option>
-                  <option value="LINK">Liên kết ngoài</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">URL / Link</label>
-                <input name="url" type="url" required defaultValue={editingResource?.url} className="w-full border rounded p-2" />
-              </div>
+              {!editingResource?.id ? <fieldset><legend className="mb-2 block text-sm font-medium">Cách thêm tài liệu</legend><div className="grid grid-cols-3 gap-2">{([['UPLOAD','Tải tài liệu lên'],['VIDEO','Video từ liên kết'],['LINK','Liên kết ngoài']] as const).map(([mode, label]) => <button className={`rounded-lg border px-3 py-2 text-sm ${resourceMode === mode ? 'border-indigo-600 bg-indigo-50 font-semibold text-indigo-700' : ''}`} key={mode} onClick={() => setResourceMode(mode)} type="button">{label}</button>)}</div></fieldset> : null}
+              {editingResource?.storageKey ? <div className="rounded-lg bg-slate-50 p-3 text-sm"><p><strong>Tệp:</strong> {editingResource.originalFileName ?? 'Tài liệu đã tải lên'}</p><p className="text-slate-500">{editingResource.mimeType ?? 'Không rõ định dạng'} · {formatBytes(editingResource.sizeBytes)}</p><p className="mt-1 text-xs text-slate-500">Bạn có thể đổi tên, quyền tải xuống hoặc chọn tệp mới để thay thế.</p></div> : null}
+              {effectiveResourceMode === 'UPLOAD' ? <div>
+                <label className="block text-sm font-medium mb-1">{editingResource?.storageKey ? 'Thay tệp (không bắt buộc)' : 'Chọn tệp'} · PDF, DOCX, PPTX, XLSX, TXT · tối đa 20 MB</label>
+                <input accept=".pdf,.docx,.pptx,.xlsx,.txt" className="w-full rounded border p-2" name="file" type="file" />
+                <p className="mt-1 text-xs text-slate-500">Tệp được lưu riêng tư và phân phối qua máy chủ.</p>
+              </div> : <div>
+                <label className="block text-sm font-medium mb-1">{effectiveResourceMode === 'VIDEO' ? 'URL video' : 'URL liên kết'}</label>
+                <input name="url" type="url" required defaultValue={editingResource?.url ?? ''} className="w-full border rounded p-2" />
+              </div>}
               <div className="flex items-center gap-2">
                 <input name="isDownloadable" type="checkbox" id="isDownloadable" defaultChecked={editingResource?.isDownloadable} />
                 <label htmlFor="isDownloadable" className="text-sm font-medium">Cho phép tải xuống</label>
               </div>
               <div className="flex justify-end gap-2 mt-4">
+                {editingResource?.id && expandedLessonId ? <button type="button" onClick={() => { void handleDeleteResource(editingResource.id!, expandedLessonId); setIsResourceModalOpen(false); }} className="mr-auto px-4 py-2 text-red-700 border border-red-200 rounded">Xóa tài liệu</button> : null}
                 <button type="button" onClick={() => setIsResourceModalOpen(false)} className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200">Hủy</button>
                 <button type="submit" className="px-4 py-2 text-white bg-purple-600 rounded hover:bg-purple-700">Lưu</button>
               </div>
@@ -622,7 +666,7 @@ export function CourseContentManagementPage() {
           </div>
         </div>
       )}
-      {mappingLesson ? <SkillChecklistDialog
+      {!sharedWarning && mappingLesson ? <SkillChecklistDialog
         title={`Skill (KC) của bài học: ${mappingLesson.title}`}
         description="Chọn các Skill được giảng dạy hoặc củng cố trong bài học này."
         skills={courseSkills ?? []}
@@ -658,4 +702,11 @@ function contentErrorMessage(
     }
   }
   return fallback;
+}
+
+function formatBytes(value?: number | null): string {
+  if (value === null || value === undefined) return 'Không rõ dung lượng';
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }

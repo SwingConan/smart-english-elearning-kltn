@@ -37,8 +37,10 @@
     "connect-pg-simple": "^10.0.0",
     "express-session": "^1.19.0",
     "pg": "^8.16.0",
+    "read-excel-file": "9.3.10",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "write-excel-file": "4.1.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

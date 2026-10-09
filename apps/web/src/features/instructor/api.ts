@@ -7,9 +7,26 @@ import type {
   ModuleInput,
   LessonInput,
   ResourceInput,
+  InstructorClass,
+  InstructorClassOverview,
+  InstructorRoster,
+  InstructorLearnerDetail,
+  InstructorClassResults,
+  InstructorGradingInbox,
+  VersionedModuleInput,
+  VersionedLessonInput,
+  VersionedResourceInput,
 } from './types';
 
 export const instructorApi = {
+  classes: {
+    list: (signal?: AbortSignal): Promise<InstructorClass[]> => apiFetch('/instructor/classes', { signal }),
+    overview: (classId: string, signal?: AbortSignal): Promise<InstructorClassOverview> => apiFetch(`/instructor/classes/${classId}/overview`, { signal }),
+    learners: (classId: string, signal?: AbortSignal): Promise<InstructorRoster> => apiFetch(`/instructor/classes/${classId}/learners`, { signal }),
+    learner: (classId: string, enrollmentId: string, signal?: AbortSignal): Promise<InstructorLearnerDetail> => apiFetch(`/instructor/classes/${classId}/learners/${enrollmentId}`, { signal }),
+    results: (classId: string, signal?: AbortSignal): Promise<InstructorClassResults> => apiFetch(`/instructor/classes/${classId}/results`, { signal }),
+    grading: (classId: string, signal?: AbortSignal): Promise<InstructorGradingInbox> => apiFetch(`/instructor/classes/${classId}/grading`, { signal }),
+  },
   teaching: {
     list: (signal?: AbortSignal): Promise<TeachingEntry[]> =>
       apiFetch('/instructor/teaching', { signal }),
@@ -23,7 +40,7 @@ export const instructorApi = {
         method: 'POST',
         body: JSON.stringify(input),
       }),
-    update: (moduleId: string, input: Partial<ModuleInput>): Promise<Module> =>
+    update: (moduleId: string, input: VersionedModuleInput): Promise<Module> =>
       apiFetch(`/instructor/modules/${moduleId}`, {
         method: 'PATCH',
         body: JSON.stringify(input),
@@ -45,7 +62,7 @@ export const instructorApi = {
         method: 'POST',
         body: JSON.stringify(input),
       }),
-    update: (lessonId: string, input: Partial<LessonInput>): Promise<Lesson> =>
+    update: (lessonId: string, input: VersionedLessonInput): Promise<Lesson> =>
       apiFetch(`/instructor/lessons/${lessonId}`, {
         method: 'PATCH',
         body: JSON.stringify(input),
@@ -67,7 +84,7 @@ export const instructorApi = {
         method: 'POST',
         body: JSON.stringify(input),
       }),
-    update: (resourceId: string, input: Partial<ResourceInput>): Promise<LearningResource> =>
+    update: (resourceId: string, input: VersionedResourceInput): Promise<LearningResource> =>
       apiFetch(`/instructor/resources/${resourceId}`, {
         method: 'PATCH',
         body: JSON.stringify(input),
@@ -79,5 +96,14 @@ export const instructorApi = {
         method: 'PATCH',
         body: JSON.stringify({ orderedIds }),
       }),
+    upload: (lessonId: string, title: string, file: File, isDownloadable: boolean, replaceResourceId?: string, expectedUpdatedAt?: string): Promise<LearningResource> => {
+      const body = new FormData();
+      body.append('title', title);
+      body.append('file', file);
+      body.append('isDownloadable', String(isDownloadable));
+      if (replaceResourceId) body.append('replaceResourceId', replaceResourceId);
+      if (expectedUpdatedAt) body.append('expectedUpdatedAt', expectedUpdatedAt);
+      return apiFetch(`/instructor/lessons/${lessonId}/resources/upload`, { method: 'POST', body });
+    },
   },
 };

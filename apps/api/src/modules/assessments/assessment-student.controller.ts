@@ -123,7 +123,7 @@ export class AssessmentStudentController {
       stimulusId,
     );
     response.setHeader('Content-Type', media.mimeType);
-    response.setHeader('Cache-Control', 'private, max-age=300');
+    response.setHeader('Cache-Control', 'private, no-store');
     return new StreamableFile(media.body);
   }
 

@@ -25,6 +25,7 @@ import {
   UpdateClassAssessmentDto,
 } from './dto/class-assessment.dto';
 import { GradeProductiveAnswerDto } from './dto/grade-answer.dto';
+import { AssessmentInstructorService } from './assessment-instructor.service';
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
 const PRODUCTIVE_TYPES = [
@@ -39,6 +40,7 @@ export class ClassAssessmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly responseStorage: AssessmentResponseStorage,
+    private readonly assessmentInstructorService: AssessmentInstructorService,
   ) {}
 
   async list(instructorId: string, classOfferingId: string) {
@@ -129,6 +131,7 @@ export class ClassAssessmentService {
           message: 'Chỉ có thể giao bài kiểm tra trong lớp đã xuất bản cùng khóa học.',
         });
       }
+      await this.assessmentInstructorService.validatePublishableTest(transaction, dto.testId);
       this.validateWindow(dto.openAt, dto.closeAt);
       if (dto.isActive !== false) {
         const duplicate = await transaction.classAssessment.findFirst({
@@ -250,7 +253,7 @@ export class ClassAssessmentService {
     );
     const attempts = await this.prisma.testAttempt.findMany({
       where: { classAssessmentId, status: TestAttemptStatus.SUBMITTED },
-      orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
+      orderBy: [{ submittedAt: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         attemptNumber: true,
@@ -412,7 +415,7 @@ export class ClassAssessmentService {
             where: { source: AnswerEvaluationSource.INSTRUCTOR },
             orderBy: { updatedAt: 'desc' },
             take: 1,
-            select: { id: true, status: true },
+            select: { id: true, status: true, updatedAt: true },
           },
         },
       });
@@ -436,6 +439,19 @@ export class ClassAssessmentService {
       }
 
       const existing = answer.evaluations[0];
+      const expectedUpdatedAt = dto.expectedUpdatedAt ? new Date(dto.expectedUpdatedAt) : null;
+      if (existing && (!expectedUpdatedAt || existing.updatedAt.getTime() !== expectedUpdatedAt.getTime())) {
+        throw new ConflictException({
+          code: 'STALE_GRADING_EVALUATION',
+          message: 'Bài chấm đã được cập nhật ở phiên khác. Vui lòng tải lại trước khi tiếp tục.',
+        });
+      }
+      if (!existing && expectedUpdatedAt) {
+        throw new ConflictException({
+          code: 'STALE_GRADING_EVALUATION',
+          message: 'Bài chấm đã thay đổi. Vui lòng tải lại trước khi tiếp tục.',
+        });
+      }
       if (existing?.status === AnswerEvaluationStatus.REVIEWED_FINAL && !dto.editFinal) {
         throw new ConflictException({
           code: 'FINAL_EVALUATION_EDIT_REQUIRED',

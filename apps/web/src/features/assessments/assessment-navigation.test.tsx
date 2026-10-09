@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe('assessment navigation', () => {
-  it('links an assigned Instructor course to Question Bank and Test management', async () => {
+  it('keeps the dense teaching list focused on one class entry action', async () => {
     vi.spyOn(instructorApi.teaching, 'list').mockResolvedValue([
       {
         course: {
@@ -33,21 +33,10 @@ describe('assessment navigation', () => {
       '/instructor/teaching',
       { role: 'INSTRUCTOR' },
     );
-    await screen.findByText('Assigned Course');
-    expect(screen.getByRole('link', { name: /Ngân hàng câu hỏi/i })).toHaveAttribute(
-      'href',
-      '/instructor/courses/course-a/question-bank',
-    );
-    expect(screen.getByRole('link', { name: /Mẫu bài kiểm tra/i })).toHaveAttribute(
-      'href',
-      '/instructor/courses/course-a/tests',
-    );
-    expect(screen.getByRole('link', { name: /Bài kiểm tra của lớp/i })).toHaveAttribute(
-      'href',
-      '/instructor/classes/offering-a/assessments',
-    );
-    expect(screen.getByText('Đang mở đăng ký')).toBeInTheDocument();
-    expect(screen.getByText('Công cụ nâng cao')).toBeInTheDocument();
+    expect((await screen.findAllByText('Assigned Course')).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: /Vào lớp/i })[0]).toHaveAttribute('href', '/instructor/classes/offering-a');
+    expect(screen.queryByText('Công cụ')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Đang mở đăng ký').length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toMatch(/Adaptive Policy|Learner Mastery|Knowledge Model/);
   });
 

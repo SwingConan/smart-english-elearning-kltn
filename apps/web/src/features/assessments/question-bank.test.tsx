@@ -5,9 +5,10 @@ import { ApiError } from '@/lib/api-client';
 import { QuestionBankPage } from '@/pages/QuestionBankPage';
 import { assessmentApi } from './api';
 import { deferred, renderAssessmentRoute } from './assessment-test-utils';
-import type { AssessmentQuestion, QuestionType } from './types';
+import type { AssessmentQuestion, QuestionPage, QuestionType } from './types';
 import { knowledgeModelApi } from '@/features/knowledge-model/api';
 import type { Skill } from '@/features/knowledge-model/types';
+import { instructorApi } from '@/features/instructor/api';
 
 const courseId = 'course-a';
 
@@ -18,11 +19,11 @@ afterEach(() => {
 
 describe('QuestionBankPage', () => {
   it('renders all objective types, difficulties and CRUD actions without Question reorder', async () => {
-    vi.spyOn(assessmentApi.questions, 'list').mockResolvedValue([
+    vi.spyOn(assessmentApi.questions, 'page').mockResolvedValue(questionPage([
       question('sc', 'SINGLE_CHOICE', 'EASY'),
       question('tf', 'TRUE_FALSE', 'MEDIUM'),
       question('mc', 'MULTIPLE_CHOICE', 'HARD'),
-    ]);
+    ]));
     renderPage();
 
     await screen.findByText('Question sc');
@@ -35,22 +36,22 @@ describe('QuestionBankPage', () => {
   });
 
   it('shows loading, empty and safe failed-load states', async () => {
-    const pending = deferred<AssessmentQuestion[]>();
-    vi.spyOn(assessmentApi.questions, 'list').mockReturnValueOnce(pending.promise);
+    const pending = deferred<QuestionPage>();
+    vi.spyOn(assessmentApi.questions, 'page').mockReturnValueOnce(pending.promise);
     const loading = renderPage();
     expect(screen.getByText(/Đang tải câu hỏi/i)).toBeInTheDocument();
-    pending.resolve([]);
+    pending.resolve(questionPage([]));
     expect(await screen.findByText(/Chưa có câu hỏi/i)).toBeInTheDocument();
     loading.unmount();
 
-    vi.spyOn(assessmentApi.questions, 'list').mockRejectedValueOnce(new Error('raw stack database'));
+    vi.spyOn(assessmentApi.questions, 'page').mockRejectedValueOnce(new Error('raw stack database'));
     renderPage();
     expect(await screen.findByText(/Không thể tải ngân hàng câu hỏi/i)).toBeInTheDocument();
     expect(screen.queryByText(/raw stack database/i)).not.toBeInTheDocument();
   });
 
   it('validates SC, TF and MC forms plus normalized duplicate option text', async () => {
-    vi.spyOn(assessmentApi.questions, 'list').mockResolvedValue([]);
+    vi.spyOn(assessmentApi.questions, 'page').mockResolvedValue(questionPage([]));
     const create = vi.spyOn(assessmentApi.questions, 'create');
     renderPage();
     await openCreateForm();
@@ -82,7 +83,7 @@ describe('QuestionBankPage', () => {
 
   it('sends only approved create/update data in current UI option order', async () => {
     const existing = question('edit', 'SINGLE_CHOICE', 'MEDIUM');
-    vi.spyOn(assessmentApi.questions, 'list').mockResolvedValue([existing]);
+    vi.spyOn(assessmentApi.questions, 'page').mockResolvedValue(questionPage([existing]));
     const create = vi.spyOn(assessmentApi.questions, 'create').mockResolvedValue(question('new', 'SINGLE_CHOICE', 'MEDIUM'));
     const update = vi.spyOn(assessmentApi.questions, 'update').mockResolvedValue({ ...existing, content: 'Updated' });
     const page = renderPage();
@@ -94,13 +95,13 @@ describe('QuestionBankPage', () => {
     fireEvent.submit(form);
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
     expect(create).toHaveBeenCalledWith(courseId, {
-      type: 'SINGLE_CHOICE', difficulty: 'MEDIUM', content: 'Created', explanation: null,
+      type: 'SINGLE_CHOICE', toeicSkill: 'READING', difficulty: 'MEDIUM', content: 'Created', explanation: null, rubricId: null,
       options: [{ content: 'Second', isCorrect: false }, { content: 'First', isCorrect: true }],
     });
-    expect(Object.keys(create.mock.calls[0][1])).toEqual(['type', 'difficulty', 'content', 'explanation', 'options']);
+    expect(Object.keys(create.mock.calls[0][1])).toEqual(['type', 'toeicSkill', 'difficulty', 'content', 'explanation', 'rubricId', 'options']);
     page.unmount();
 
-    vi.spyOn(assessmentApi.questions, 'list').mockResolvedValue([existing]);
+    vi.spyOn(assessmentApi.questions, 'page').mockResolvedValue(questionPage([existing]));
     renderPage();
     await screen.findByText(existing.content);
     fireEvent.click(screen.getByRole('button', { name: /^Sửa$/i }));
@@ -116,7 +117,7 @@ describe('QuestionBankPage', () => {
 
   it('guards duplicate save/delete mutations and shows distinct safe 409 messages', async () => {
     const existing = question('locked', 'SINGLE_CHOICE', 'MEDIUM');
-    vi.spyOn(assessmentApi.questions, 'list').mockResolvedValue([existing]);
+    vi.spyOn(assessmentApi.questions, 'page').mockResolvedValue(questionPage([existing]));
     const savePending = deferred<AssessmentQuestion>();
     const update = vi.spyOn(assessmentApi.questions, 'update').mockReturnValueOnce(savePending.promise);
     const remove = vi.spyOn(assessmentApi.questions, 'delete');
@@ -144,7 +145,7 @@ describe('QuestionBankPage', () => {
   });
 
   it('invokes shared session-expiry handling and redirects safely on 401', async () => {
-    vi.spyOn(assessmentApi.questions, 'list').mockRejectedValueOnce(new ApiError(401, null));
+    vi.spyOn(assessmentApi.questions, 'page').mockRejectedValueOnce(new ApiError(401, null));
     const refresh = vi.fn().mockResolvedValue(undefined);
     renderAssessmentRoute(
       <QuestionBankPage />, `/instructor/courses/${courseId}/question-bank`,
@@ -156,12 +157,50 @@ describe('QuestionBankPage', () => {
     expect(refresh).toHaveBeenCalledOnce();
   });
 
+  it('renders XLSX warnings separately from blocking row errors', async () => {
+    vi.spyOn(instructorApi.teaching, 'list').mockResolvedValue([{ course: { id: courseId, title: 'TOEIC Workplace Foundations', slug: 'toeic-workplace-foundations', level: 'FOUNDATION', isPublished: true, _count: { modules: 1 } }, classOfferings: [] }]);
+    vi.spyOn(assessmentApi.questions, 'page').mockResolvedValue(questionPage([]));
+    vi.spyOn(assessmentApi.questions, 'previewImport')
+      .mockResolvedValueOnce({
+        rows: [{ rowNumber: 2, input: { type: 'SINGLE_CHOICE', toeicSkill: 'READING', difficulty: 'EASY', content: 'Duplicate', options: [{ content: 'A', isCorrect: true }, { content: 'B', isCorrect: false }] }, errors: [], warnings: ['Nội dung trùng với câu hỏi hiện có trong ngân hàng.'] }],
+        summary: { total: 1, valid: 1, invalid: 0, warnings: 1 },
+        canConfirm: true,
+      })
+      .mockResolvedValueOnce({
+        rows: [{ rowNumber: 2, input: null, errors: ['Rubric không tồn tại hoặc không còn hoạt động.'], warnings: [] }],
+        summary: { total: 1, valid: 0, invalid: 1, warnings: 0 },
+        canConfirm: false,
+      });
+    renderPage();
+    await screen.findByText(/Chưa có câu hỏi/i);
+    const fileInput = screen.getByLabelText(/Nhập XLSX/i);
+    const file = new File(['xlsx'], 'questions.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    expect(await screen.findByText(/1 cảnh báo/i)).toBeInTheDocument();
+    expect(screen.getByText(/trùng với câu hỏi hiện có/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Xác nhận nhập/i })).toBeEnabled();
+
+    const confirmImport = vi.spyOn(assessmentApi.questions, 'confirmImport');
+    fireEvent.click(screen.getByRole('button', { name: /Xác nhận nhập/i }));
+    const confirmation = await screen.findByRole('dialog', { name: /Xác nhận nhập câu hỏi/i });
+    expect(within(confirmation).getByText(/1 câu/)).toBeInTheDocument();
+    expect(within(confirmation).getByText('TOEIC Workplace Foundations')).toBeInTheDocument();
+    expect(within(confirmation).queryByText(courseId)).not.toBeInTheDocument();
+    fireEvent.click(within(confirmation).getByRole('button', { name: /Quay lại xem trước/i }));
+    expect(confirmImport).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Hủy$/i }));
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    expect(await screen.findByText(/Rubric không tồn tại/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Xác nhận nhập/i })).toBeDisabled();
+  });
+
   it('loads existing Question Skills and sends exact multi/zero full sets', async () => {
     const existing = question('mapped', 'SINGLE_CHOICE', 'MEDIUM');
     const grammar = mappedSkill('grammar', 'GRAMMAR');
     const vocab = mappedSkill('vocab', 'VOCAB');
     const reading = mappedSkill('reading', 'READING');
-    vi.spyOn(assessmentApi.questions, 'list').mockResolvedValue([existing]);
+    vi.spyOn(assessmentApi.questions, 'page').mockResolvedValue(questionPage([existing]));
     vi.spyOn(knowledgeModelApi.skills, 'list').mockResolvedValue([grammar, vocab, reading]);
     vi.spyOn(knowledgeModelApi.questionSkills, 'list').mockResolvedValueOnce([grammar, vocab]).mockResolvedValueOnce([]);
     const replace = vi.spyOn(knowledgeModelApi.questionSkills, 'replace').mockResolvedValue([]);
@@ -186,7 +225,7 @@ describe('QuestionBankPage', () => {
   it('keeps Question mapping editable and surfaces backend errors', async () => {
     const existing = question('history', 'SINGLE_CHOICE', 'MEDIUM');
     const grammar = mappedSkill('grammar', 'GRAMMAR');
-    vi.spyOn(assessmentApi.questions, 'list').mockResolvedValue([existing]);
+    vi.spyOn(assessmentApi.questions, 'page').mockResolvedValue(questionPage([existing]));
     vi.spyOn(knowledgeModelApi.skills, 'list').mockResolvedValue([grammar]);
     vi.spyOn(knowledgeModelApi.questionSkills, 'list').mockResolvedValue([grammar]);
     vi.spyOn(knowledgeModelApi.questionSkills, 'replace').mockRejectedValue(new ApiError(400, { message: 'raw mapping' }));
@@ -207,7 +246,7 @@ function renderPage() {
 }
 
 async function openCreateForm() {
-  await waitFor(() => expect(assessmentApi.questions.list).toHaveBeenCalled());
+  await waitFor(() => expect(assessmentApi.questions.page).toHaveBeenCalled());
   fireEvent.click(screen.getByRole('button', { name: /Tạo câu hỏi/i }));
 }
 
@@ -232,4 +271,5 @@ function question(id: string, type: QuestionType, difficulty: AssessmentQuestion
     ],
   };
 }
+function questionPage(items: AssessmentQuestion[]): QuestionPage { return { items, page: 1, pageSize: 20, total: items.length, totalPages: 1 }; }
 function mappedSkill(id: string, code: string): Skill { return { id, courseId, code, name: code, description: null, pInit: 0.5, pLearn: 0.1, pGuess: 0.2, pSlip: 0.1, createdAt: '', updatedAt: '' }; }
