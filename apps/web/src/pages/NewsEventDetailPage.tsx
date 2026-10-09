@@ -1,6 +1,7 @@
 import { ArrowLeft, CalendarDays } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { findNewsEvent } from '@/content/news-events';
+import { newsCoverUrl } from '@/content/news-assets';
 
 export function NewsEventDetailPage() {
   const { slug = '' } = useParams();
@@ -32,7 +33,12 @@ export function NewsEventDetailPage() {
       </p>
       <h1 className="mt-3 text-4xl font-bold tracking-tight">{item.title}</h1>
       <p className="mt-5 text-lg leading-8 text-slate-600">{item.excerpt}</p>
-      <div className={`visual-${item.coverKey} mt-8 h-64 rounded-3xl`} />
+      <img
+        alt=""
+        className="mt-8 aspect-[16/10] w-full rounded-3xl object-cover"
+        decoding="async"
+        src={newsCoverUrl(item)}
+      />
       <div className="mt-8 space-y-5 text-base leading-8 text-slate-700">
         {item.body.map((paragraph) => (
           <p key={paragraph}>{paragraph}</p>

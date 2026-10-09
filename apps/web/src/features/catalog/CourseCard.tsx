@@ -1,6 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router';
-import { CourseCover } from './CourseCover';
+import { courseCoverUrl } from './course-assets';
 import { courseLevelLabel, skillScopeLabel } from './display';
 import type { PublicCourse } from './types';
 
@@ -9,15 +9,13 @@ export function CourseCard({ course }: { course: PublicCourse }) {
     course.description.length > 160 ? `${course.description.slice(0, 157)}...` : course.description;
   return (
     <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
-      {course.thumbnailUrl ? (
-        <img
-          alt={`Ảnh khóa học ${course.title}`}
-          className="h-44 w-full object-cover"
-          src={course.thumbnailUrl}
-        />
-      ) : (
-        <CourseCover className="h-44 place-items-center" skillScope={course.skillScope} />
-      )}
+      <img
+        alt={`Không gian học cho khóa ${course.title}`}
+        className="aspect-[16/10] w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+        decoding="async"
+        loading="lazy"
+        src={courseCoverUrl(course)}
+      />
       <div className="p-5">
         <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide">
           <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-700">

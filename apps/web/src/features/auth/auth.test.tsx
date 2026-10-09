@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LoginPage } from '@/pages/LoginPage';
@@ -11,6 +11,8 @@ import { AuthUser, authApi } from './api';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RoleRoute } from './RoleRoute';
 import { safeReturnUrl } from './return-url';
+import { AuthNavigation } from './AuthNavigation';
+import { ToastProvider } from '@/components/ui/Feedback';
 
 const student: AuthUser = {
   id: 'user-1',
@@ -36,7 +38,9 @@ describe('AuthProvider', () => {
       return (
         <div>
           <span>{user?.fullName ?? 'guest'}</span>
-          <button onClick={() => void logout()} type="button">logout</button>
+          <button onClick={() => void logout()} type="button">
+            logout
+          </button>
         </div>
       );
     }
@@ -61,8 +65,45 @@ describe('AuthProvider', () => {
       return <p>{isLoading ? 'loading' : `${user ? 'user' : 'guest'}:${error ?? 'no-error'}`}</p>;
     }
 
-    render(<AuthProvider><GuestProbe /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <GuestProbe />
+      </AuthProvider>,
+    );
     expect(await screen.findByText('guest:no-error')).toBeInTheDocument();
+  });
+});
+
+describe('AuthNavigation', () => {
+  it('confirms logout, exposes a loading state, and announces completion', async () => {
+    vi.spyOn(authApi, 'me').mockResolvedValueOnce(student);
+    let finishLogout!: () => void;
+    const logout = vi.spyOn(authApi, 'logout').mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishLogout = resolve;
+        }),
+    );
+
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <ToastProvider>
+            <AuthNavigation />
+          </ToastProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Đăng xuất' }));
+    const dialog = screen.getByRole('dialog', { name: 'Kết thúc phiên đăng nhập?' });
+    expect(logout).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Đăng xuất' }));
+    expect(within(dialog).getByRole('button', { name: 'Đang đăng xuất…' })).toBeDisabled();
+    finishLogout();
+
+    expect(await screen.findByText('Phiên đăng nhập đã kết thúc an toàn.')).toBeInTheDocument();
+    expect(logout).toHaveBeenCalledOnce();
   });
 });
 
@@ -103,7 +144,9 @@ describe('LoginPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/login']}>
-        <AuthProvider><LoginPage /></AuthProvider>
+        <AuthProvider>
+          <LoginPage />
+        </AuthProvider>
       </MemoryRouter>,
     );
 
@@ -128,7 +171,12 @@ describe('RegisterPage', () => {
 
     function LocationProbe() {
       const location = useLocation();
-      return <p data-testid="location">{location.pathname}{location.search}</p>;
+      return (
+        <p data-testid="location">
+          {location.pathname}
+          {location.search}
+        </p>
+      );
     }
 
     render(
@@ -142,10 +190,14 @@ describe('RegisterPage', () => {
         </AuthProvider>
       </MemoryRouter>,
     );
-    fireEvent.change(await screen.findByLabelText('Họ và tên'), { target: { value: student.fullName } });
+    fireEvent.change(await screen.findByLabelText('Họ và tên'), {
+      target: { value: student.fullName },
+    });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: student.email } });
     fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'valid-password' } });
-    fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu'), { target: { value: 'valid-password' } });
+    fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu'), {
+      target: { value: 'valid-password' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Đăng ký' }));
 
     await waitFor(() =>
@@ -170,13 +222,19 @@ describe('RegisterPage', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.change(await screen.findByLabelText('Họ và tên'), { target: { value: student.fullName } });
+    fireEvent.change(await screen.findByLabelText('Họ và tên'), {
+      target: { value: student.fullName },
+    });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: student.email } });
     fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'valid-password' } });
-    fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu'), { target: { value: 'valid-password' } });
+    fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu'), {
+      target: { value: 'valid-password' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Đăng ký' }));
 
-    expect(await screen.findByText('Đăng ký tài khoản thành công. Vui lòng đăng nhập.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Đăng ký tài khoản thành công. Vui lòng đăng nhập.'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Đăng nhập' })).toBeInTheDocument();
     expect(authApi.register).toHaveBeenCalledOnce();
   });
@@ -185,11 +243,21 @@ describe('RegisterPage', () => {
     vi.spyOn(authApi, 'me').mockRejectedValueOnce(new ApiError(401, null));
     const register = vi.spyOn(authApi, 'register');
 
-    render(<MemoryRouter><AuthProvider><RegisterPage /></AuthProvider></MemoryRouter>);
-    fireEvent.change(await screen.findByLabelText('Họ và tên'), { target: { value: student.fullName } });
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <RegisterPage />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    fireEvent.change(await screen.findByLabelText('Họ và tên'), {
+      target: { value: student.fullName },
+    });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: student.email } });
     fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'valid-password' } });
-    fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu'), { target: { value: 'different-password' } });
+    fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu'), {
+      target: { value: 'different-password' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Đăng ký' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Mật khẩu xác nhận không khớp');
@@ -206,7 +274,14 @@ describe('route guards', () => {
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/student/profile" element={<ProtectedRoute><h1>Private</h1></ProtectedRoute>} />
+            <Route
+              path="/student/profile"
+              element={
+                <ProtectedRoute>
+                  <h1>Private</h1>
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </AuthProvider>
       </MemoryRouter>,
@@ -220,14 +295,22 @@ describe('route guards', () => {
 
     const { rerender } = render(
       <MemoryRouter>
-        <AuthProvider><RoleRoute allowedRoles={['STUDENT']}><h1>Allowed</h1></RoleRoute></AuthProvider>
+        <AuthProvider>
+          <RoleRoute allowedRoles={['STUDENT']}>
+            <h1>Allowed</h1>
+          </RoleRoute>
+        </AuthProvider>
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: 'Allowed' })).toBeInTheDocument();
 
     rerender(
       <MemoryRouter>
-        <AuthProvider><RoleRoute allowedRoles={['ADMIN_COORDINATOR']}><h1>Admin</h1></RoleRoute></AuthProvider>
+        <AuthProvider>
+          <RoleRoute allowedRoles={['ADMIN_COORDINATOR']}>
+            <h1>Admin</h1>
+          </RoleRoute>
+        </AuthProvider>
       </MemoryRouter>,
     );
     await waitFor(() => expect(screen.getByText(/403/)).toBeInTheDocument());

@@ -6,20 +6,25 @@ import {
   CheckCircle2,
   Headphones,
   MessageSquareText,
-  Route,
+  RefreshCw,
   Search,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
 import { Link } from 'react-router';
 import { newsEvents } from '@/content/news-events';
+import { newsCoverUrl } from '@/content/news-assets';
 import { catalogApi } from '@/features/catalog/api';
 import { CourseCard } from '@/features/catalog/CourseCard';
 import type { PublicCourse } from '@/features/catalog/types';
+import { PageSkeleton } from '@/components/ui/Feedback';
+import heroImage from '@/assets/marketing/home-hero.webp';
+import placementImage from '@/assets/marketing/placement-assessment.webp';
 
 export function HomePage() {
   const [courses, setCourses] = useState<PublicCourse[]>([]);
   const [courseState, setCourseState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     void catalogApi
@@ -33,7 +38,7 @@ export function HomePage() {
           setCourseState('error');
       });
     return () => controller.abort();
-  }, []);
+  }, [reloadKey]);
 
   return (
     <>
@@ -59,25 +64,15 @@ export function HomePage() {
               </Link>
             </div>
           </div>
-          <div className="relative min-h-80 rounded-[2rem] border border-white/15 bg-white/10 p-7 backdrop-blur">
-            <div className="absolute inset-7 rounded-3xl bg-gradient-to-br from-sky-400/30 via-indigo-300/10 to-emerald-300/20" />
-            <div className="relative grid h-full content-between gap-8">
-              <Sparkles className="text-amber-300" size={42} />
-              <div className="space-y-3">
-                {[
-                  'Khóa học phù hợp mục tiêu',
-                  'Lớp học có lịch và trạng thái rõ ràng',
-                  'Bài học · Bài kiểm tra · Tiến độ',
-                ].map((text, index) => (
-                  <div className="flex items-center gap-3 rounded-xl bg-white/10 p-4" key={text}>
-                    <span className="grid size-8 place-items-center rounded-full bg-white text-sm font-bold text-indigo-800">
-                      {index + 1}
-                    </span>
-                    <span>{text}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="relative aspect-[16/10] overflow-hidden rounded-[2rem] border border-white/15 bg-indigo-900 shadow-2xl shadow-indigo-950/40">
+            <img
+              alt="Người học tiếng Anh trực tuyến với laptop và tai nghe"
+              className="size-full object-cover object-center"
+              decoding="sync"
+              fetchPriority="high"
+              src={heroImage}
+            />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-indigo-950/45 via-transparent to-white/5" />
           </div>
         </div>
       </section>
@@ -120,17 +115,35 @@ export function HomePage() {
           </Link>
         </div>
         {courseState === 'loading' ? (
-          <div className="mt-8 grid gap-6 md:grid-cols-3" role="status">
-            {[1, 2, 3].map((item) => (
-              <div className="h-80 animate-pulse rounded-2xl bg-slate-200" key={item} />
-            ))}
+          <div className="mt-8">
+            <PageSkeleton />
           </div>
         ) : courseState === 'error' ? (
-          <p className="state-error mt-8">
-            Chưa thể tải khóa học. Bạn có thể mở danh mục khóa học để thử lại.
-          </p>
+          <div
+            className="state-error mt-8 flex flex-wrap items-center justify-between gap-4"
+            role="alert"
+          >
+            <div>
+              <strong>Chưa thể tải khóa học.</strong>
+              <p className="mt-1 text-sm">Kiểm tra kết nối rồi thử tải lại danh sách.</p>
+            </div>
+            <button
+              className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 font-semibold shadow-sm"
+              onClick={() => {
+                setCourseState('loading');
+                setReloadKey((value) => value + 1);
+              }}
+              type="button"
+            >
+              <RefreshCw size={17} /> Thử lại
+            </button>
+          </div>
         ) : courses.length === 0 ? (
-          <p className="state-empty mt-8">Chưa có khóa học được công bố.</p>
+          <div className="state-empty mt-8">
+            <BookOpen aria-hidden="true" className="mx-auto text-indigo-500" size={32} />
+            <h3 className="mt-3 font-bold text-slate-900">Chưa có khóa học được công bố</h3>
+            <p className="mt-1 text-sm">Các chương trình mới sẽ xuất hiện tại đây khi sẵn sàng.</p>
+          </div>
         ) : (
           <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {courses.map((course) => (
@@ -142,8 +155,14 @@ export function HomePage() {
 
       <section className="bg-indigo-50">
         <div className="section-shell grid items-center gap-10 lg:grid-cols-2">
-          <div className="visual-indigo min-h-80 rounded-3xl p-8">
-            <Route className="text-white" size={54} />
+          <div className="aspect-[3/2] overflow-hidden rounded-3xl shadow-lg">
+            <img
+              alt="Người học xem lại bài đánh giá trình độ trên laptop"
+              className="size-full object-cover"
+              decoding="async"
+              loading="lazy"
+              src={placementImage}
+            />
           </div>
           <div>
             <p className="eyebrow">Kiểm tra đầu vào</p>
@@ -243,7 +262,13 @@ export function HomePage() {
         <div className="mt-8 grid gap-6 md:grid-cols-3">
           {newsEvents.slice(0, 3).map((item) => (
             <article className="overflow-hidden rounded-2xl border bg-white" key={item.slug}>
-              <div className={`visual-${item.coverKey} h-36`} />
+              <img
+                alt=""
+                className="aspect-[16/10] w-full object-cover transition duration-500 hover:scale-[1.02]"
+                decoding="async"
+                loading="lazy"
+                src={newsCoverUrl(item)}
+              />
               <div className="p-5">
                 <p className="text-xs font-bold uppercase tracking-wide text-indigo-700">
                   {item.category}

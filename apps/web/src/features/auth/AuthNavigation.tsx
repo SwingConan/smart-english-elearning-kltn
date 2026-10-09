@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { ConfirmDialog } from '@/components/ui/Feedback';
+import { useToast } from '@/components/ui/feedback-context';
 import { useAuth } from './auth-context';
 
 export function AuthNavigation() {
   const { user, isLoading, logout } = useAuth();
   const navigate = useNavigate();
+  const notify = useToast();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [logoutError, setLogoutError] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (isLoading) {
     return <span className="text-sm text-slate-500">Đang tải...</span>;
@@ -23,12 +26,13 @@ export function AuthNavigation() {
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    setLogoutError(false);
     try {
       await logout();
+      setConfirmOpen(false);
       navigate('/');
+      notify('Phiên đăng nhập đã kết thúc an toàn.');
     } catch {
-      setLogoutError(true);
+      notify('Không thể đăng xuất. Vui lòng thử lại.', 'error');
     } finally {
       setIsLoggingOut(false);
     }
@@ -46,18 +50,23 @@ export function AuthNavigation() {
       {user.role === 'STUDENT' ? <Link to="/student/enrollments">Khóa học của tôi</Link> : null}
       <span>{user.fullName}</span>
       <button
-        className="rounded-md border px-3 py-1 disabled:opacity-50"
+        className="rounded-lg border border-slate-300 px-3 py-2 font-semibold transition hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-50"
         disabled={isLoggingOut}
-        onClick={() => void handleLogout()}
+        onClick={() => setConfirmOpen(true)}
         type="button"
       >
-        {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
+        Đăng xuất
       </button>
-      {logoutError ? (
-        <span className="text-xs text-red-700" role="alert">
-          Không thể đăng xuất. Vui lòng thử lại.
-        </span>
-      ) : null}
+      <ConfirmDialog
+        busyLabel="Đang đăng xuất…"
+        confirmLabel="Đăng xuất"
+        description="Bạn sẽ cần đăng nhập lại để tiếp tục học hoặc quản lý lớp."
+        isBusy={isLoggingOut}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => void handleLogout()}
+        open={confirmOpen}
+        title="Kết thúc phiên đăng nhập?"
+      />
     </div>
   );
 }

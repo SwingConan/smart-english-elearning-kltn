@@ -1,6 +1,7 @@
-import { CalendarDays, Newspaper } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import { Link } from 'react-router';
 import { newsEvents } from '@/content/news-events';
+import { newsCoverUrl } from '@/content/news-assets';
 
 export function NewsEventsPage() {
   return (
@@ -17,9 +18,13 @@ export function NewsEventsPage() {
             className="overflow-hidden rounded-2xl border bg-white shadow-sm"
             key={item.slug}
           >
-            <div className={`visual-${item.coverKey} grid h-40 place-items-center`}>
-              <Newspaper className="text-white/90" size={44} />
-            </div>
+            <img
+              alt=""
+              className="aspect-[16/10] w-full object-cover transition duration-500 hover:scale-[1.02]"
+              decoding="async"
+              loading="lazy"
+              src={newsCoverUrl(item)}
+            />
             <div className="p-6">
               <p className="flex items-center gap-2 text-sm font-medium text-indigo-700">
                 <CalendarDays size={16} />

@@ -92,7 +92,8 @@ export function CourseDetailPage() {
               </a>
             </div>
             <CourseCover
-              className="min-h-52 place-items-center rounded-3xl"
+              alt={`Không gian học cho khóa ${course.title}`}
+              className="aspect-[16/10] w-full rounded-3xl"
               skillScope={course.skillScope}
             />
           </div>

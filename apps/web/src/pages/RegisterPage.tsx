@@ -3,6 +3,9 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { registerErrorMessage } from '@/features/auth/auth-errors';
 import { useAuth } from '@/features/auth/auth-context';
 import { safeReturnUrl } from '@/features/auth/return-url';
+import { AuthShell } from '@/features/auth/AuthShell';
+import { LoadingButton } from '@/components/ui/Feedback';
+import { useUnsavedChanges } from '@/components/ui/use-unsaved-changes';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -17,9 +20,16 @@ export function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  useUnsavedChanges(
+    Boolean(fullName || email || password || confirmPassword) && !isSubmitting && !user,
+  );
 
   if (isLoading) {
-    return <p role="status">Đang kiểm tra phiên đăng nhập...</p>;
+    return (
+      <div className="section-shell" role="status">
+        <div className="mx-auto h-96 max-w-5xl animate-pulse rounded-3xl bg-slate-200" />
+      </div>
+    );
   }
 
   if (user) {
@@ -65,14 +75,18 @@ export function RegisterPage() {
   };
 
   return (
-    <section className="mx-auto max-w-md rounded-xl border bg-white p-6 shadow-sm">
-      <h1 className="text-2xl font-semibold">Đăng ký</h1>
+    <AuthShell
+      description="Tạo tài khoản để đăng ký lớp và theo dõi hành trình học tập của riêng bạn."
+      eyebrow="Bắt đầu hành trình"
+      title="Đăng ký"
+    >
       <form className="mt-6 space-y-4" onSubmit={(event) => void handleSubmit(event)}>
         <label className="block">
           <span className="text-sm font-medium">Họ và tên</span>
           <input
+            autoFocus
             autoComplete="name"
-            className="mt-1 w-full rounded-md border px-3 py-2"
+            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
             onChange={(event) => setFullName(event.target.value)}
             value={fullName}
           />
@@ -81,7 +95,7 @@ export function RegisterPage() {
           <span className="text-sm font-medium">Email</span>
           <input
             autoComplete="email"
-            className="mt-1 w-full rounded-md border px-3 py-2"
+            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
             onChange={(event) => setEmail(event.target.value)}
             type="email"
             value={email}
@@ -91,7 +105,7 @@ export function RegisterPage() {
           <span className="text-sm font-medium">Mật khẩu</span>
           <input
             autoComplete="new-password"
-            className="mt-1 w-full rounded-md border px-3 py-2"
+            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
             onChange={(event) => setPassword(event.target.value)}
             type="password"
             value={password}
@@ -101,7 +115,7 @@ export function RegisterPage() {
           <span className="text-sm font-medium">Xác nhận mật khẩu</span>
           <input
             autoComplete="new-password"
-            className="mt-1 w-full rounded-md border px-3 py-2"
+            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
             onChange={(event) => setConfirmPassword(event.target.value)}
             type="password"
             value={confirmPassword}
@@ -112,13 +126,14 @@ export function RegisterPage() {
             {formError}
           </p>
         ) : null}
-        <button
-          className="w-full rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
-          disabled={isSubmitting}
+        <LoadingButton
+          className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60"
+          isLoading={isSubmitting}
+          loadingLabel="Đang tạo tài khoản…"
           type="submit"
         >
-          {isSubmitting ? 'Đang đăng ký...' : 'Đăng ký'}
-        </button>
+          Đăng ký
+        </LoadingButton>
       </form>
       <p className="mt-4 text-sm">
         Đã có tài khoản?{' '}
@@ -129,6 +144,6 @@ export function RegisterPage() {
           Đăng nhập
         </Link>
       </p>
-    </section>
+    </AuthShell>
   );
 }
