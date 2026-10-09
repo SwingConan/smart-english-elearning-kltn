@@ -146,12 +146,12 @@ describe('InstructorWorkspaceService', () => {
       testAttempts: [
         {
           id: 'midterm-final', attemptNumber: 2, submittedAt: new Date('2026-03-03T00:00:00Z'),
-          classAssessment: { id: 'midterm', stage: 'MIDTERM', test: { title: 'Midterm', purpose: 'IN_CLASS' } },
+          classAssessment: { id: 'midterm', stage: 'MIDTERM', test: { id: 'test-midterm', title: 'Midterm', purpose: 'IN_CLASS' } },
           skillScores: allFinal(80), answers: [],
         },
         {
           id: 'midterm-pending', attemptNumber: 1, submittedAt: new Date('2026-03-02T00:00:00Z'),
-          classAssessment: { id: 'midterm', stage: 'MIDTERM', test: { title: 'Midterm', purpose: 'IN_CLASS' } },
+          classAssessment: { id: 'midterm', stage: 'MIDTERM', test: { id: 'test-midterm', title: 'Midterm', purpose: 'IN_CLASS' } },
           skillScores: [
             score(ToeicSkill.LISTENING, SkillScoreStatus.FINAL, 70),
             score(ToeicSkill.READING, SkillScoreStatus.FINAL, 71),
@@ -159,7 +159,7 @@ describe('InstructorWorkspaceService', () => {
         },
         {
           id: 'practice-partial', attemptNumber: 1, submittedAt: new Date('2026-02-15T00:00:00Z'),
-          classAssessment: { id: 'practice', stage: 'PERIODIC', test: { title: 'Practice', purpose: 'IN_CLASS' } },
+          classAssessment: { id: 'practice', stage: 'PERIODIC', test: { id: 'test-practice', title: 'Practice', purpose: 'IN_CLASS' } },
           skillScores: [
             score(ToeicSkill.LISTENING, SkillScoreStatus.FINAL, 65),
             score(ToeicSkill.READING, SkillScoreStatus.FINAL, 66),
@@ -168,7 +168,7 @@ describe('InstructorWorkspaceService', () => {
         },
         {
           id: 'periodic-final', attemptNumber: 1, submittedAt: new Date('2026-02-01T00:00:00Z'),
-          classAssessment: { id: 'periodic', stage: 'PERIODIC', test: { title: 'Periodic', purpose: 'IN_CLASS' } },
+          classAssessment: { id: 'periodic', stage: 'PERIODIC', test: { id: 'test-periodic', title: 'Periodic', purpose: 'IN_CLASS' } },
           skillScores: allFinal(60), answers: [{ evaluations: [
             { id: 'evaluation-a', updatedAt: new Date('2026-02-02T00:00:00Z') },
             { id: 'evaluation-b', updatedAt: new Date('2026-02-02T01:00:00Z') },
@@ -189,6 +189,7 @@ describe('InstructorWorkspaceService', () => {
       ['Periodic', 'periodic-final'],
       ['Midterm', 'midterm-final'],
     ]);
+    expect(result.skillTrend.map((point) => point.testId)).toEqual(['test-periodic', 'test-midterm']);
     expect(result.recentActivity.find((item) => item.type === 'GRADING_FINAL')?.label).toContain('2 câu tự luận đã có kết quả chấm');
     expect(result.recentActivity.map((item) => item.label).join(' ')).not.toContain('tiêu chí');
   });
@@ -205,7 +206,7 @@ describe('InstructorWorkspaceService', () => {
         id: 'practice-mock',
         attemptNumber: 1,
         submittedAt: new Date('2026-02-01T00:00:00Z'),
-        classAssessment: { id: 'mock', stage: 'FINAL', test: { title: 'Mock', purpose: 'PRACTICE_MOCK' } },
+        classAssessment: { id: 'mock', stage: 'FINAL', test: { id: 'test-mock', title: 'Mock', purpose: 'PRACTICE_MOCK' } },
         skillScores: [],
         answers: [],
       }],
@@ -321,7 +322,7 @@ describe('InstructorWorkspaceService', () => {
     });
   });
 
-  it('returns scored class trend points in chronological event-date order without zero samples', async () => {
+  it('returns neutral assessment history in chronological event-date order without zero samples', async () => {
     prisma.enrollment.findMany.mockResolvedValue([
       { id: 'enrollment-a', learnerId: 'learner-a', learner: { fullName: 'A', email: 'a@test' } },
     ]);
@@ -373,12 +374,35 @@ describe('InstructorWorkspaceService', () => {
     const result = await service.results('instructor-a', 'class-a');
 
     expect(result.assessments.map((item) => item.test.title)).toEqual(['Final', 'Midterm', 'Periodic']);
-    expect(result.trend.map((point) => point.title)).toEqual(['Periodic', 'Midterm']);
-    expect(result.trend.map((point) => point.date.getTime())).toEqual([
+    expect(result.assessmentHistory.map((point) => point.title)).toEqual(['Periodic', 'Midterm']);
+    expect(result.assessmentHistory.map((point) => point.testId)).toEqual(['test-periodic', 'test-midterm']);
+    expect(result.assessmentHistory.map((point) => point.date.getTime())).toEqual([
       new Date('2026-02-02T00:00:00Z').getTime(),
       new Date('2026-03-03T00:00:00Z').getTime(),
     ]);
-    expect(result.trend.every((point) => point.skills.every((skill) => skill.sampleCount > 0))).toBe(true);
+    expect(result.assessmentHistory.every((point) => point.skills.every((skill) => skill.sampleCount > 0))).toBe(true);
+    expect(result.sameTestComparisons).toEqual([]);
+  });
+
+  it('computes same-test class change from matched learners only', async () => {
+    prisma.enrollment.findMany.mockResolvedValue([
+      { id: 'enrollment-a', learnerId: 'learner-a', learner: { fullName: 'A', email: 'a@test' } },
+      { id: 'enrollment-b', learnerId: 'learner-b', learner: { fullName: 'B', email: 'b@test' } },
+      { id: 'enrollment-c', learnerId: 'learner-c', learner: { fullName: 'C', email: 'c@test' } },
+    ]);
+    const attempt = (id: string, learnerId: string, score: number) => ({ id, learnerId, attemptNumber: 1, submittedAt: new Date(), learner: { fullName: learnerId, email: `${learnerId}@test` }, skillScores: [{ skill: ToeicSkill.LISTENING, status: SkillScoreStatus.FINAL, normalizedScore: score }] });
+    const assessment = (id: string, date: string, attempts: Array<ReturnType<typeof attempt>>) => ({ id, stage: 'PERIODIC', createdAt: new Date(date), openAt: null, closeAt: null, test: { id: 'same-test', title: 'Repeated form', purpose: 'IN_CLASS' }, attempts });
+    prisma.classAssessment.findMany.mockResolvedValue([
+      assessment('after', '2026-03-01', [attempt('after-a', 'learner-a', 80), attempt('after-c', 'learner-c', 100)]),
+      assessment('before', '2026-02-01', [attempt('before-a', 'learner-a', 60), attempt('before-b', 'learner-b', 20)]),
+    ]);
+
+    const result = await service.results('instructor-a', 'class-a');
+    const listening = result.sameTestComparisons[0].skills.find((item) => item.skill === ToeicSkill.LISTENING);
+
+    expect(listening).toEqual({ skill: ToeicSkill.LISTENING, beforeAverage: 60, afterAverage: 80, matchedLearnerCount: 1 });
+    expect(listening?.beforeAverage).not.toBe(40);
+    expect(listening?.afterAverage).not.toBe(90);
   });
 
   it('requests the class grading queue in deterministic oldest-first order', async () => {

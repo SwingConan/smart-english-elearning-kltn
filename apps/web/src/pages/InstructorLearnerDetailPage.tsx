@@ -31,6 +31,15 @@ export function InstructorLearnerDetailPage() {
     }
     return [...map.values()];
   }, [data]);
+  const repeatedTests = useMemo(() => {
+    const byTest = new Map<string, InstructorLearnerDetail['skillTrend']>();
+    for (const point of data?.skillTrend ?? []) {
+      const points = byTest.get(point.testId) ?? [];
+      points.push(point);
+      byTest.set(point.testId, points);
+    }
+    return [...byTest.values()].filter((points) => points.length >= 2);
+  }, [data]);
   if (error)
     return (
       <div className="state-error">
@@ -123,12 +132,17 @@ export function InstructorLearnerDetailPage() {
           </ol>
         </Panel>
       </section>
-      <Panel
-        title={data.skillTrend.length === 2 ? 'So sánh 2 đợt kiểm tra gần nhất' : 'Xu hướng kỹ năng'}
-        caption={data.skillTrend.length === 2 ? 'So sánh điểm nội bộ 0–100 giữa hai đợt đã chấm hoàn tất. Đây là kết quả bài làm, không phải điểm TOEIC hoặc khẳng định năng lực thực tế; dữ liệu thiếu được để trống.' : 'Điểm nội bộ 0–100 theo từng đợt kiểm tra đã chấm hoàn tất. Đây là diễn biến kết quả bài làm, không phải điểm TOEIC hoặc khẳng định năng lực thực tế; dữ liệu thiếu được để trống.'}
-      >
-        {data.skillTrend.length ? <SkillTrendChart points={data.skillTrend.map((point) => ({ id: point.attemptId, title: point.assessmentTitle, date: point.date, values: Object.fromEntries(point.scores.map((score) => [score.skill, { score: score.normalizedScore }])) }))} /> : <p className="mt-3 text-sm text-slate-500">Chưa có điểm cuối để hiển thị xu hướng.</p>}
+      <Panel title="Lịch sử kết quả theo bài kiểm tra" caption="Các bài kiểm tra có thể khác nội dung và độ khó. Hệ thống hiển thị lịch sử kết quả từng bài và không tự suy diễn chênh lệch giữa các bài khác nhau.">
+        {data.skillTrend.length ? <div className="mt-4 grid gap-4 lg:grid-cols-2" data-testid="learner-assessment-history">
+          {data.skillTrend.map((point) => <article className="rounded-xl border p-4" data-testid="learner-assessment-card" key={point.attemptId}>
+            <div className="flex flex-wrap items-start justify-between gap-2"><div><span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold">{stageLabel(point.stage)}</span><h4 className="mt-2 font-bold">{point.assessmentTitle}</h4></div><time className="text-sm text-slate-500">{formatDate(point.date)}</time></div>
+            <dl className="mt-3 grid grid-cols-2 gap-2">{(['LISTENING', 'READING', 'SPEAKING', 'WRITING'] as ToeicSkill[]).map((skill) => { const score = point.scores.find((item) => item.skill === skill); return <div className="rounded-lg bg-slate-50 p-2" key={skill}><dt className="text-xs text-slate-500">{toeicSkillLabel[skill]}</dt><dd className="font-bold">{score ? `${formatTrendNumber(score.normalizedScore)}%` : 'Chưa có'}</dd></div>; })}</dl>
+          </article>)}
+        </div> : <p className="mt-3 text-sm text-slate-500">Chưa có điểm cuối để hiển thị lịch sử.</p>}
       </Panel>
+      {repeatedTests.map((points) => <Panel key={points[0]!.testId} title="So sánh các lần làm cùng đề" caption={`${points[0]!.assessmentTitle}. Đây là thay đổi kết quả trên cùng đề, không phải bằng chứng về thay đổi năng lực hoặc điểm TOEIC.`}>
+        <SkillTrendChart points={points.map((point) => ({ id: point.attemptId, title: point.assessmentTitle, date: point.date, values: Object.fromEntries(point.scores.map((score) => [score.skill, { score: score.normalizedScore }])) }))} />
+      </Panel>)}
       <Panel title="Lịch sử bài kiểm tra" caption="Lượt gần nhất mở sẵn; các đợt cũ được thu gọn.">
         <div className="mt-3 space-y-3">
           {groups.map((group, index) => (
@@ -215,4 +229,7 @@ function activityLabel(type: string) {
       } as Record<string, string>
     )[type] ?? 'Hoạt động'
   );
+}
+function stageLabel(stage: string) {
+  return ({ PERIODIC: 'Thường kỳ', MIDTERM: 'Giữa kỳ', FINAL: 'Cuối kỳ', PRACTICE: 'Luyện tập' } as Record<string, string>)[stage] ?? stage;
 }

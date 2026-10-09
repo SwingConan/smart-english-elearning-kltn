@@ -342,3 +342,21 @@ These are engineering results for GPT verification only. Product Owner correctio
 - Prisma validate/generate/status/drift, deterministic seed, M07 visual-gate data validator, M05 manifest, lint, typecheck, build, API E2E, and `git diff --check`: **PASS**. Smoke-owned fixtures and the isolated Chrome profile were removed before the final deterministic reseed and validators.
 
 These are engineering results for GPT verification only. Product Owner narrow reporting retest remains blocked until GPT accepts this correction.
+
+## Product Owner Correction Round 4 — Measurement-valid interactive reporting
+
+- **Cross-test validity:** the reporting projection now carries the exact assessment `testId`. Assessments backed by different test templates are rendered as independent chronological snapshots with stage, title, date, FINAL-only skill results, and missing states. The UI does not connect them with a line or arrow and does not compute deltas or narrate increase/decrease, because a shared 0–100 scale, IN_CLASS purpose, or PERIODIC/MIDTERM stage does not establish score comparability.
+- **Same-test rule:** descriptive comparison is exposed only when two or more administrations share the same exact test template. Learner copy states that it describes performance on the same test and is not evidence of proficiency or official TOEIC-score change. Class deltas use only learners with a FINAL score for the skill in both administrations, report the matched-cohort count, and omit comparison rows when the matched cohort is insufficient.
+- **Details on demand:** completion groups, each four-skill result row, and every non-zero distribution segment now open a reusable accessible Results drawer. The drawer provides learner-level evidence, contextual learner/grading links, `role="dialog"`, `aria-modal="true"`, overlay/close/Escape behavior, a desktop right panel, and a mobile full-screen presentation. Opening or closing a drawer does not mutate the learner matrix; only the explicit `Lọc bảng theo nhóm này` action applies a filter.
+- **Assessment-centric Results architecture:** the selected assessment context leads into interactive completion, `Kết quả 4 kỹ năng` with a zero-based common bar scale and compact deterministic insight tiles, one stable distribution legend with preserved truthful empty states, the detailed learner matrix, and neutral `Lịch sử các bài kiểm tra` cards. Skill drawers explain included FINAL scores and excluded learners by pending, missing-skill, or not-submitted reason where available.
+- Test Builder, assessment media, protected-stimulus exclusion, Question Bank, XLSX, grading rules, Student Resource, class status, recommendations, and pending/missing truth were preserved. No Prisma schema or migration change was required. Product Owner evidence files were not modified, and this engineering work does not claim Manual Visual Gate PASS.
+
+### Product Owner Correction Round 4 verification
+
+- Focused Instructor Workspace API regression: **12/12 PASS**; focused Web reporting/trend regression: **11/11 PASS**.
+- Full unit regression: API **395/395 PASS**; Web **246/246 PASS**. API E2E: **98/98 PASS**.
+- Dedicated headless-Chrome smoke: **49/49 PASS**, covering different-test learner/class history without inferred deltas, completion/skill/distribution drawers, unchanged matrix state before explicit filtering, retained empty states and accepted workflows, plus desktop/tablet/mobile drawer behavior.
+- Responsive evidence completed with **0 horizontal-overflow failures** at `1440×900`, `820×1180`, and `390×844`.
+- Prisma validate/generate/status/drift, deterministic seed, M07 visual-gate data validator, M05 manifest, lint, typecheck, build, API E2E, and `git diff --check`: **PASS**. Smoke-owned fixtures and the isolated Chrome profile were removed before the final reseed and validators.
+
+These are engineering results for GPT verification only. Product Owner reporting retest remains blocked until GPT accepts this correction.

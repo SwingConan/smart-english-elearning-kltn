@@ -117,7 +117,7 @@ export interface InstructorLearnerDetail {
     id: string;
     attemptNumber: number;
     submittedAt: string | null;
-    classAssessment?: { id: string; stage: string; test: { title: string } };
+    classAssessment?: { id: string; stage: string; test: { id: string; title: string } };
     skillScores: Array<{ skill: string; status: string; normalizedScore: number }>;
     feedback?: Array<{ feedback: string | null }>;
   }>;
@@ -142,6 +142,7 @@ export interface InstructorLearnerDetail {
   recentActivity: Array<{ type: string; at: string; label: string }>;
   skillTrend: Array<{
     attemptId: string;
+    testId: string;
     assessmentTitle: string;
     stage: string;
     date: string;
@@ -152,12 +153,20 @@ export interface InstructorLearnerDetail {
 export interface InstructorClassResults {
   classOffering: InstructorClass;
   assessments: Array<Record<string, unknown>>;
-  trend: Array<{
+  assessmentHistory: Array<{
     assessmentId: string;
+    testId: string;
     title: string;
     stage: string;
     date: string;
     skills: Array<{ skill: 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING'; average: number; sampleCount: number }>;
+  }>;
+  sameTestComparisons: Array<{
+    testId: string;
+    title: string;
+    before: { assessmentId: string; date: string };
+    after: { assessmentId: string; date: string };
+    skills: Array<{ skill: 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING'; beforeAverage: number | null; afterAverage: number | null; matchedLearnerCount: number }>;
   }>;
 }
 

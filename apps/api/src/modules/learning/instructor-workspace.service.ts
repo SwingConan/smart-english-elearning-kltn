@@ -402,7 +402,7 @@ export class InstructorWorkspaceService {
               attemptNumber: true,
               submittedAt: true,
               classAssessment: {
-                select: { id: true, stage: true, test: { select: { title: true, purpose: true } } },
+                select: { id: true, stage: true, test: { select: { id: true, title: true, purpose: true } } },
               },
               skillScores: { select: { skill: true, status: true, normalizedScore: true } },
               answers: {
@@ -520,6 +520,7 @@ export class InstructorWorkspaceService {
     const skillTrend = [...representativeTrendByAssessment.values()]
       .map((attempt) => ({
         attemptId: attempt.id,
+        testId: attempt.classAssessment?.test.id,
         assessmentTitle: attempt.classAssessment?.test.title,
         stage: attempt.classAssessment?.stage,
         date: attempt.submittedAt,
@@ -617,30 +618,66 @@ export class InstructorWorkspaceService {
     const projected = assessments.map((assessment) =>
       this.projectAssessmentResults(assessment, enrollments),
     );
+    const assessmentHistory = assessments
+      .map((assessment, index) => {
+        const item = projected[index];
+        return {
+          purpose: assessment.test.purpose,
+          assessmentId: item.id,
+          testId: item.test.id,
+          title: item.test.title,
+          stage: item.stage,
+          date: assessment.closeAt ?? assessment.openAt ?? assessment.createdAt,
+          skills: item.skillAverages
+            .filter((score) => score.average !== null)
+            .map(({ skill, average, sampleCount }) => ({ skill, average, sampleCount })),
+        };
+      })
+      .filter((item) => item.purpose === TestPurpose.IN_CLASS && item.skills.length > 0)
+      .map(({ purpose: _purpose, ...item }) => item)
+      .sort(
+        (a, b) =>
+          a.date.getTime() - b.date.getTime() || a.assessmentId.localeCompare(b.assessmentId),
+      );
+    const sameTestComparisons = [...new Set(assessmentHistory.map((item) => item.testId))]
+      .flatMap((testId) => {
+        const history = assessmentHistory.filter((item) => item.testId === testId);
+        if (history.length < 2) return [];
+        const beforeHistory = history.at(-2)!;
+        const afterHistory = history.at(-1)!;
+        const before = projected.find((item) => item.id === beforeHistory.assessmentId)!;
+        const after = projected.find((item) => item.id === afterHistory.assessmentId)!;
+        const beforeByLearner = new Map(before.learners.map((item) => [item.learnerId, item]));
+        const afterByLearner = new Map(after.learners.map((item) => [item.learnerId, item]));
+        return [{
+          testId,
+          title: before.test.title,
+          before: { assessmentId: before.id, date: beforeHistory.date },
+          after: { assessmentId: after.id, date: afterHistory.date },
+          skills: SKILLS.map((skill) => {
+            const matched = [...beforeByLearner.entries()].flatMap(([learnerId, beforeAttempt]) => {
+              const afterAttempt = afterByLearner.get(learnerId);
+              const beforeScore = beforeAttempt.skillScores.find(
+                (score) => score.skill === skill && score.status === SkillScoreStatus.FINAL,
+              );
+              const afterScore = afterAttempt?.skillScores.find(
+                (score) => score.skill === skill && score.status === SkillScoreStatus.FINAL,
+              );
+              return beforeScore && afterScore ? [{ before: beforeScore.normalizedScore, after: afterScore.normalizedScore }] : [];
+            });
+            const average = (key: 'before' | 'after') => matched.length
+              ? Math.round((matched.reduce((sum, item) => sum + item[key], 0) / matched.length) * 10) / 10
+              : null;
+            return { skill, beforeAverage: average('before'), afterAverage: average('after'), matchedLearnerCount: matched.length };
+          }),
+        }];
+      });
     return {
       classOffering: classroom,
       activeLearnerCount: enrollments.length,
       assessments: projected,
-      trend: assessments
-        .map((assessment, index) => {
-          const item = projected[index];
-          return {
-            purpose: assessment.test.purpose,
-            assessmentId: item.id,
-            title: item.test.title,
-            stage: item.stage,
-            date: assessment.closeAt ?? assessment.openAt ?? assessment.createdAt,
-            skills: item.skillAverages
-              .filter((score) => score.average !== null)
-              .map(({ skill, average, sampleCount }) => ({ skill, average, sampleCount })),
-          };
-        })
-        .filter((item) => item.purpose === TestPurpose.IN_CLASS && item.skills.length > 0)
-        .map(({ purpose: _purpose, ...item }) => item)
-        .sort(
-          (a, b) =>
-            a.date.getTime() - b.date.getTime() || a.assessmentId.localeCompare(b.assessmentId),
-        ),
+      assessmentHistory,
+      sameTestComparisons,
     };
   }
 
@@ -808,6 +845,11 @@ export class InstructorWorkspaceService {
             id: attempt.id,
             enrollmentId: enrollmentByLearner.get(attempt.learnerId)?.id ?? null,
             learner: attempt.learner,
+            normalizedScore: Number(
+              attempt.skillScores.find(
+                (score) => score.skill === skill && score.status === SkillScoreStatus.FINAL,
+              )!.normalizedScore,
+            ),
           }));
       return {
         skill,
@@ -836,6 +878,8 @@ export class InstructorWorkspaceService {
     return {
       id: assessment.id,
       stage: assessment.stage,
+      openAt: assessment.openAt,
+      closeAt: assessment.closeAt,
       test: assessment.test,
       submittedCount: assessment.attempts.length,
       latestAttemptCount: latestByLearner.size,

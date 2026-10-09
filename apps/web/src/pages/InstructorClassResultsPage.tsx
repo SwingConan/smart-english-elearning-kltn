@@ -3,310 +3,71 @@ import { Link, useParams } from 'react-router';
 import { toeicSkillLabel } from '@/features/assessments/display';
 import type { ToeicSkill } from '@/features/assessments/types';
 import { instructorApi } from '@/features/instructor/api';
-import { SkillTrendChart } from '@/components/SkillTrendChart';
 import { formatTrendNumber } from '@/components/trend-format';
+import { ResultsDrilldownDrawer, type ResultsDrilldownDetail } from '@/components/ResultsDrilldownDrawer';
+
 const skills: ToeicSkill[] = ['LISTENING', 'READING', 'SPEAKING', 'WRITING'];
 const distributionMeta = {
-  below50: { label: '<50', color: 'bg-rose-500' },
-  from50To69: { label: '50–69', color: 'bg-amber-400' },
-  from70To84: { label: '70–84', color: 'bg-sky-500' },
-  from85To100: { label: '85–100', color: 'bg-emerald-500' },
+  below50: { label: '<50', color: 'bg-rose-500' }, from50To69: { label: '50–69', color: 'bg-amber-400' },
+  from70To84: { label: '70–84', color: 'bg-sky-500' }, from85To100: { label: '85–100', color: 'bg-emerald-500' },
 } as const;
+type Band = keyof typeof distributionMeta;
 type Score = { skill: ToeicSkill; status: string; normalizedScore: number };
-type Average = {
-  skill: ToeicSkill;
-  average: number | null;
-  sampleCount: number;
-  excludedCount: number;
-  distribution: { below50: number; from50To69: number; from70To84: number; from85To100: number };
-  distributionLearners?: Record<string, Array<{ id: string; learner: { fullName: string; email: string } }>>;
-};
-type Assessment = {
-  id: string;
-  stage: string;
-  test: { title: string };
-  submittedCount: number;
-  latestAttemptCount: number;
-  fullyGradedCount: number;
-  pendingGradingCount: number;
-  notSubmittedCount: number;
-  completion: { fullyGraded: number; pendingGrading: number; notSubmitted: number; total: number };
-  skillAverages: Average[];
-  learners: Array<{
-    id: string;
-    learnerId?: string;
-    enrollmentId?: string | null;
-    learner: { fullName: string; email: string };
-    attemptNumber: number;
-    label: string;
-    skillScores: Score[];
-  }>;
-  notSubmittedLearners?: Array<{ enrollmentId: string; learnerId: string; learner: { fullName: string; email: string } }>;
-};
-type Trend = {
-  assessmentId: string;
-  title: string;
-  stage: string;
-  date: string;
-  skills: Array<{ skill: ToeicSkill; average: number; sampleCount: number }>;
-};
-function scoreLabel(scores: Score[], skill: ToeicSkill) {
-  const score = scores.find((item) => item.skill === skill);
-  return score?.status === 'FINAL' ? `${formatTrendNumber(score.normalizedScore)}%` : score ? 'Đang chờ' : 'Chưa có';
-}
-function skillPictureSummary(items: Average[]) {
-  const visible = items.filter((item): item is Average & { average: number } => item.average !== null && item.sampleCount > 0);
-  if (!visible.length) return [];
-  const high = Math.max(...visible.map((item) => item.average));
-  const low = Math.min(...visible.map((item) => item.average));
-  const highSkills = visible.filter((item) => item.average === high).map((item) => toeicSkillLabel[item.skill]);
-  const lowSkills = visible.filter((item) => item.average === low).map((item) => toeicSkillLabel[item.skill]);
-  const lines = [
-    `Trong các điểm đã chấm cuối, ${naturalList(highSkills)} có điểm trung bình cao nhất (${formatTrendNumber(high)}%).`,
-  ];
-  if (high !== low) lines.push(`${naturalList(lowSkills)} thấp nhất (${formatTrendNumber(low)}%).`);
-  if (new Set(visible.map((item) => item.sampleCount)).size > 1) lines.push('Số học viên có điểm khác nhau giữa các kỹ năng, vì vậy cần đọc cùng phần dữ liệu.');
-  return lines;
-}
-function distributionSummary(item: Average) {
-  const entries = Object.entries(item.distribution) as Array<[keyof Average['distribution'], number]>;
-  const max = Math.max(...entries.map(([, count]) => count));
-  const leaders = entries.filter(([, count]) => count === max).map(([key]) => distributionMeta[key].label);
-  if (leaders.length === 1) return `${toeicSkillLabel[item.skill]}: nhiều học viên nhất nằm ở nhóm ${leaders[0]} (${max}/${item.sampleCount} học viên có điểm).`;
-  return `${toeicSkillLabel[item.skill]}: ${naturalList(leaders.map((label) => `nhóm ${label}`))} cùng có nhiều học viên nhất (${max} học viên mỗi nhóm).`;
-}
-function naturalList(labels: string[]) {
-  if (labels.length <= 1) return labels[0] ?? '';
-  return `${labels.slice(0, -1).join(', ')} và ${labels.at(-1)}`;
-}
+type LearnerRow = { id: string; learnerId: string; enrollmentId?: string | null; learner: { fullName: string; email: string }; attemptNumber: number; submittedAt?: string | null; skillScores: Score[] };
+type DrillLearner = { id: string; enrollmentId?: string | null; learner: { fullName: string; email: string }; normalizedScore?: number };
+type Average = { skill: ToeicSkill; average: number | null; sampleCount: number; excludedCount: number; distribution: Record<Band, number>; distributionLearners?: Record<Band, DrillLearner[]> };
+type Assessment = { id: string; stage: string; openAt?: string | null; closeAt?: string | null; test: { id: string; title: string }; completion: { fullyGraded: number; pendingGrading: number; notSubmitted: number; total: number }; skillAverages: Average[]; learners: LearnerRow[]; notSubmittedLearners?: Array<{ enrollmentId: string; learnerId: string; learner: { fullName: string; email: string } }> };
+type History = { assessmentId: string; testId: string; title: string; stage: string; date: string; skills: Array<{ skill: ToeicSkill; average: number; sampleCount: number }> };
+type SameTestComparison = { testId: string; title: string; before: { assessmentId: string; date: string }; after: { assessmentId: string; date: string }; skills: Array<{ skill: ToeicSkill; beforeAverage: number | null; afterAverage: number | null; matchedLearnerCount: number }> };
+
 export function InstructorClassResultsPage() {
   const { classOfferingId = '' } = useParams();
   const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [trend, setTrend] = useState<Trend[]>([]);
+  const [history, setHistory] = useState<History[]>([]);
+  const [sameTestComparisons, setSameTestComparisons] = useState<SameTestComparison[]>([]);
   const [selected, setSelected] = useState('');
   const [query, setQuery] = useState('');
   const [attemptFilter, setAttemptFilter] = useState<Set<string> | null>(null);
   const [filterLabel, setFilterLabel] = useState('');
+  const [notSubmittedFilter, setNotSubmittedFilter] = useState(false);
+  const [drawer, setDrawer] = useState<ResultsDrilldownDetail | null>(null);
   const [state, setState] = useState('loading');
-  useEffect(() => {
-    const controller = new AbortController();
-    void instructorApi.classes
-      .results(classOfferingId, controller.signal)
-      .then((data) => {
-        const rows = data.assessments as Assessment[];
-        setAssessments(rows);
-        setTrend(data.trend ?? []);
-        setSelected(rows[0]?.id ?? '');
-        setState('ready');
-      })
-      .catch(() => setState('error'));
-    return () => controller.abort();
-  }, [classOfferingId]);
-  const assessment = useMemo(
-    () => assessments.find((item) => item.id === selected),
-    [assessments, selected],
-  );
-  const learners =
-    assessment?.learners.filter((row) =>
-      (!attemptFilter || attemptFilter.has(row.id)) &&
-      `${row.learner.fullName} ${row.learner.email}`.toLowerCase().includes(query.toLowerCase()),
-    ) ?? [];
+  useEffect(() => { const controller = new AbortController(); void instructorApi.classes.results(classOfferingId, controller.signal).then((data) => { const rows = data.assessments as Assessment[]; setAssessments(rows); setHistory(data.assessmentHistory ?? []); setSameTestComparisons(data.sameTestComparisons ?? []); setSelected(rows[0]?.id ?? ''); setState('ready'); }).catch(() => setState('error')); return () => controller.abort(); }, [classOfferingId]);
+  const assessment = useMemo(() => assessments.find((item) => item.id === selected), [assessments, selected]);
+  const learners = assessment?.learners.filter((row) => (!attemptFilter || attemptFilter.has(row.id)) && `${row.learner.fullName} ${row.learner.email}`.toLowerCase().includes(query.toLowerCase())) ?? [];
   const hasFinalSamples = assessment?.skillAverages.some((item) => item.sampleCount > 0 && item.average !== null) ?? false;
-  const pictureSummary = assessment ? skillPictureSummary(assessment.skillAverages) : [];
+  const base = `/instructor/classes/${classOfferingId}`;
+  const applyFilter = (filter: NonNullable<ResultsDrilldownDetail['filter']>) => { setAttemptFilter(new Set(filter.attemptIds)); setFilterLabel(filter.label); setNotSubmittedFilter(Boolean(filter.notSubmitted)); };
+  const completionDetail = (kind: 'fullyGraded' | 'pendingGrading' | 'notSubmitted', label: string) => {
+    if (!assessment) return;
+    if (kind === 'notSubmitted') { const rows = assessment.notSubmittedLearners ?? []; setDrawer({ title: `${label} — ${rows.length} học viên`, caption: assessment.test.title, rows: rows.map((row) => ({ key: row.learnerId, primary: row.learner.fullName, secondary: row.learner.email, status: label, href: `${base}/learners/${row.enrollmentId}` })), filter: { label, attemptIds: [], notSubmitted: true } }); return; }
+    const wantsComplete = kind === 'fullyGraded';
+    const rows = assessment.learners.filter((row) => isComplete(row) === wantsComplete);
+    setDrawer({ title: `${label} — ${rows.length} học viên`, caption: assessment.test.title, rows: rows.map((row) => ({ key: row.id, primary: row.learner.fullName, secondary: `${row.learner.email} · Lượt ${row.attemptNumber}${row.submittedAt ? ` · ${formatDate(row.submittedAt)}` : ''}`, status: label, href: wantsComplete && row.enrollmentId ? `${base}/learners/${row.enrollmentId}` : `${base}/grading`, cta: wantsComplete ? 'Mở hồ sơ' : 'Mở chấm bài' })), filter: { label, attemptIds: rows.map((row) => row.id) } });
+  };
+  const skillDetail = (item: Average) => { if (!assessment) return; const included = assessment.learners.flatMap((row) => { const score = row.skillScores.find((value) => value.skill === item.skill && value.status === 'FINAL'); return score ? [{ key: row.id, primary: row.learner.fullName, secondary: `${row.learner.email} · ${formatTrendNumber(score.normalizedScore)}% · Lượt ${row.attemptNumber}`, status: 'Có điểm cuối', href: row.enrollmentId ? `${base}/learners/${row.enrollmentId}` : undefined }] : []; }); const excluded = assessment.learners.filter((row) => !included.some((value) => value.key === row.id)).map((row) => ({ key: `excluded-${row.id}`, primary: row.learner.fullName, secondary: row.learner.email, status: row.skillScores.some((score) => score.skill === item.skill) ? 'Chờ chấm' : 'Chưa có điểm kỹ năng', href: row.enrollmentId ? `${base}/learners/${row.enrollmentId}` : undefined })); const missing = (assessment.notSubmittedLearners ?? []).map((row) => ({ key: `missing-${row.learnerId}`, primary: row.learner.fullName, secondary: row.learner.email, status: 'Chưa nộp', href: `${base}/learners/${row.enrollmentId}` })); setDrawer({ title: `${toeicSkillLabel[item.skill]} — ${item.sampleCount} học viên có điểm cuối`, caption: `${included.length} được tính vào điểm trung bình · ${excluded.length + missing.length} không được tính`, rows: [...included, ...excluded, ...missing], filter: { label: `${toeicSkillLabel[item.skill]} — có điểm cuối`, attemptIds: included.map((row) => row.key) } }); };
+  const distributionDetail = (item: Average, band: Band) => { const rows = item.distributionLearners?.[band] ?? []; setDrawer({ title: `${toeicSkillLabel[item.skill]} · ${distributionMeta[band].label}`, caption: `${rows.length} học viên có điểm cuối trong khoảng này`, rows: rows.map((row) => ({ key: row.id, primary: row.learner.fullName, secondary: `${row.learner.email} · ${formatTrendNumber(row.normalizedScore ?? 0)}%`, href: row.enrollmentId ? `${base}/learners/${row.enrollmentId}` : undefined })), filter: { label: `${toeicSkillLabel[item.skill]} · ${distributionMeta[band].label}`, attemptIds: rows.map((row) => row.id) } }); };
   if (state === 'error') return <div className="state-error">Không thể tải kết quả lớp.</div>;
   if (state === 'loading') return <div className="h-64 animate-pulse rounded-2xl bg-slate-200" />;
-  return (
-    <div className="space-y-5">
-      <section className="rounded-2xl border bg-white p-5">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div>
-            <h2 className="text-2xl font-bold">Kết quả lớp</h2>
-            <p className="text-sm text-slate-500">
-              Điểm trung bình và biểu đồ chỉ dùng điểm đã chấm cuối.
-            </p>
-          </div>
-          <select
-            aria-label="Chọn bài kiểm tra"
-            className="rounded-lg border px-3 py-2"
-            onChange={(e) => { setSelected(e.target.value); setAttemptFilter(null); setFilterLabel(''); }}
-            value={selected}
-          >
-            {assessments.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.test.title}
-              </option>
-            ))}
-          </select>
-        </div>
-      </section>
-      {assessment ? (
-        <>
-          <section className="rounded-2xl border bg-white p-5">
-            <h3 className="font-bold">Mức độ hoàn chỉnh kết quả</h3>
-            <p className="text-sm text-slate-500">
-              {assessment.completion.total} học viên đang học
-            </p>
-            <div className="mt-4 flex h-8 overflow-hidden rounded-full bg-slate-100" aria-label="Thanh tiến độ kết quả 100 phần trăm">
-              {[
-                ['fullyGraded', 'bg-emerald-500', 'Đã chấm đủ'],
-                ['pendingGrading', 'bg-amber-400', 'Chờ chấm'],
-                ['notSubmitted', 'bg-slate-300', 'Chưa nộp'],
-              ].map(([key, color, label]) => (
-                <button
-                  aria-label={`${label}: ${assessment.completion[key as keyof typeof assessment.completion]}/${assessment.completion.total}`}
-                  className={`${color} min-w-0 focus:outline focus:outline-2 focus:outline-indigo-700`}
-                  key={key}
-                  onClick={() => {
-                    if (key === 'notSubmitted') { setAttemptFilter(new Set()); setFilterLabel('Chưa nộp'); return; }
-                    const complete = key === 'fullyGraded';
-                    const ids = assessment.learners.filter((row) => skills.every((skill) => row.skillScores.some((score) => score.skill === skill && score.status === 'FINAL')) === complete).map((row) => row.id);
-                    setAttemptFilter(new Set(ids)); setFilterLabel(label);
-                  }}
-                  style={{
-                    width: `${assessment.completion.total ? ((assessment.completion[key as keyof typeof assessment.completion] as number) / assessment.completion.total) * 100 : 0}%`,
-                  }}
-                  title={`${label}: ${assessment.completion[key as keyof typeof assessment.completion]}/${assessment.completion.total}`}
-                  type="button"
-                />
-              ))}
-            </div>
-            <div className="mt-3 flex flex-wrap gap-5 text-sm">
-              <button className="font-semibold text-indigo-700 underline" onClick={() => { const ids = assessment.learners.filter((row) => skills.every((skill) => row.skillScores.some((score) => score.skill === skill && score.status === 'FINAL'))).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel('Đã chấm đủ'); }} type="button">{assessment.completion.fullyGraded}/{assessment.completion.total} học viên đã chấm đủ</button>
-              <button className="font-semibold text-indigo-700 underline" onClick={() => { const ids = assessment.learners.filter((row) => !skills.every((skill) => row.skillScores.some((score) => score.skill === skill && score.status === 'FINAL'))).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel('Chờ chấm'); }} type="button">{assessment.completion.pendingGrading} học viên đang chờ chấm</button>
-              <button className="font-semibold text-indigo-700 underline" onClick={() => { setAttemptFilter(new Set()); setFilterLabel('Chưa nộp'); }} type="button">{assessment.completion.notSubmitted} học viên chưa nộp</button>
-            </div>
-          </section>
-          <section className="rounded-2xl border bg-white p-5" data-testid="consolidated-skill-comparison">
-            <h3 className="text-lg font-bold">Bức tranh 4 kỹ năng</h3>
-            <p className="text-sm text-slate-500">Điểm trung bình chỉ dùng kết quả đã chấm cuối; chọn một hàng để lọc học viên.</p>
-            {hasFinalSamples ? <div className="mt-3 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-900" data-testid="skill-picture-summary">{pictureSummary.map((line) => <p key={line}>{line}</p>)}</div> : <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Chưa có điểm cuối để tính điểm trung bình.</p>}
-            {hasFinalSamples ? <div className="mt-4 divide-y">
-              {assessment.skillAverages.map((item) => (
-                <button className="grid w-full grid-cols-[6rem_minmax(4rem,1fr)] items-center gap-x-3 gap-y-1 py-3 text-left hover:bg-indigo-50 sm:grid-cols-[8rem_minmax(6rem,1fr)_7rem] sm:px-2" key={item.skill} onClick={() => { const ids = assessment.learners.filter((row) => row.skillScores.some((score) => score.skill === item.skill && score.status === 'FINAL')).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel(`${toeicSkillLabel[item.skill]} — ${item.sampleCount} học viên có điểm cuối`); }} type="button">
-                  <strong>{toeicSkillLabel[item.skill]}</strong>
-                  <div className="h-3 overflow-hidden rounded-full bg-slate-200">
-                    {item.average !== null ? <div
-                      className="h-full bg-indigo-600"
-                      style={{ width: `${item.average}%` }}
-                    /> : null}
-                  </div>
-                  <span className="text-right font-bold text-indigo-700">{item.average === null ? '—' : `${formatTrendNumber(item.average)}%`}</span>
-                  <span className="col-start-2 text-xs text-slate-500 sm:col-start-2">{item.sampleCount}/{assessment.completion.total} học viên có điểm cuối · {assessment.completion.total - item.sampleCount} học viên chưa đủ dữ liệu</span>
-                </button>
-              ))}
-            </div> : null}
-          </section>
-          <section className="min-w-0 overflow-hidden rounded-2xl border bg-white p-5" data-testid="results-distribution">
-              <h3 className="font-bold">Phân bố điểm</h3>
-              <p className="text-sm text-slate-500">
-                Số học viên theo khoảng điểm cuối của từng kỹ năng.
-              </p>
-              {!hasFinalSamples ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Bài kiểm tra này chưa có điểm cuối để hiển thị phân bố.</p> : assessment.skillAverages.map((item) => (
-                <div className="mt-4" key={item.skill}>
-                  <strong className="text-sm">{toeicSkillLabel[item.skill]}</strong>
-                  {item.sampleCount === 0 ? <p className="mt-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">Chưa có điểm cuối cho kỹ năng này.</p> : <>
-                    <div className="mt-2 flex h-9 overflow-hidden rounded-lg bg-slate-100" aria-label={`Phân bố ${toeicSkillLabel[item.skill]} 100 phần trăm`}>
-                      {Object.entries(item.distribution).filter(([, count]) => count > 0).map(([key, count]) => (
-                        <button aria-label={`${toeicSkillLabel[item.skill]} ${distributionMeta[key as keyof typeof distributionMeta].label}: ${count}/${item.sampleCount}`} className={`${distributionMeta[key as keyof typeof distributionMeta].color} min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-bold text-white focus:outline focus:outline-2 focus:outline-indigo-800`} key={key} onClick={() => { const ids = (item.distributionLearners?.[key] ?? []).map((row) => row.id); setAttemptFilter(new Set(ids)); setFilterLabel(`${toeicSkillLabel[item.skill]} · ${distributionMeta[key as keyof typeof distributionMeta].label}`); }} style={{ width: `${count / item.sampleCount * 100}%` }} title={`${distributionMeta[key as keyof typeof distributionMeta].label}: ${count}`} type="button">
-                          {count}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">{Object.entries(distributionMeta).map(([key, meta]) => <span className="flex items-center gap-1" key={key}><i className={`h-2.5 w-2.5 rounded-sm ${meta.color}`} />{meta.label}: {item.distribution[key as keyof typeof item.distribution]}</span>)}</div>
-                    <p className="mt-1 text-sm text-slate-600">{distributionSummary(item)}</p>
-                  </>}
-                </div>
-              ))}
-          </section>
-          <section className="min-w-0 overflow-hidden rounded-2xl border bg-white p-5" data-testid="results-trend">
-              <h3 className="font-bold">{trend.length === 2 ? 'So sánh 2 đợt kiểm tra gần nhất' : 'Xu hướng qua các đợt kiểm tra'}</h3>
-              <p className="text-sm text-slate-500">{hasFinalSamples ? 'Chỉ dùng bài trong lớp và điểm đã chấm cuối.' : 'Phần này là lịch sử điểm đã chấm cuối của lớp, không phải dữ liệu của bài kiểm tra đang chọn.'}</p>
-              {trend.length >= 2 ? (
-                <SkillTrendChart showSampleCount points={trend.map((point) => ({ id: point.assessmentId, title: point.title, date: point.date, values: Object.fromEntries(point.skills.map((score) => [score.skill, { score: score.average, sampleCount: score.sampleCount }])) }))} />
-              ) : (
-                <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
-                  Cần ít nhất 2 đợt kiểm tra có điểm cuối để hiển thị xu hướng.
-                </p>
-              )}
-          </section>
-          <section className="rounded-2xl border bg-white p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="font-bold">Kết quả từng học viên</h3>
-                <p className="text-sm text-slate-500">
-                  Lớp chi tiết để kiểm tra và xử lý dữ liệu thiếu.
-                </p>
-              </div>
-              <input
-                aria-label="Tìm học viên trong kết quả"
-                className="rounded-lg border px-3 py-2"
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Tìm tên hoặc email"
-                value={query}
-              />
-            </div>
-            {filterLabel ? <div className="mt-3 flex items-center gap-3 rounded-lg bg-indigo-50 p-3 text-sm"><strong>Đang lọc: {filterLabel}</strong><button className="font-semibold text-indigo-700 underline" onClick={() => { setAttemptFilter(null); setFilterLabel(''); }} type="button">Bỏ lọc</button></div> : null}
-            {filterLabel === 'Chưa nộp' ? <div className="mt-4 grid gap-3 sm:grid-cols-2">{(assessment.notSubmittedLearners ?? []).filter((row) => `${row.learner.fullName} ${row.learner.email}`.toLowerCase().includes(query.toLowerCase())).map((row) => <article className="rounded-xl border p-4" key={row.learnerId}><strong>{row.learner.fullName}</strong><p className="text-sm text-slate-500">{row.learner.email}</p><Link className="mt-2 inline-block font-semibold text-indigo-700" to={`/instructor/classes/${classOfferingId}/learners/${row.enrollmentId}`}>Mở hồ sơ →</Link></article>)}</div> : null}
-            {filterLabel !== 'Chưa nộp' ? <div className="mt-4 hidden overflow-x-auto md:block">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th className="p-3">Học viên</th>
-                    {skills.map((skill) => (
-                      <th className="p-3" key={skill}>
-                        {toeicSkillLabel[skill]}
-                      </th>
-                    ))}
-                    <th className="p-3">Chi tiết</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {learners.map((row) => (
-                    <tr className="border-b" key={row.id}>
-                      <td className="p-3">
-                        <strong>{row.learner.fullName}</strong>
-                        <br />
-                        <span className="text-slate-500">{row.learner.email}</span>
-                      </td>
-                      {skills.map((skill) => (
-                        <td className="p-3" key={skill}>
-                          {scoreLabel(row.skillScores, skill)}
-                        </td>
-                      ))}
-                      <td className="p-3">
-                        <Link
-                          className="font-semibold text-indigo-700"
-                          to={row.enrollmentId ? `/instructor/classes/${classOfferingId}/learners/${row.enrollmentId}` : `/instructor/classes/${classOfferingId}/grading`}
-                        >
-                          Xem
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div> : null}
-            {filterLabel !== 'Chưa nộp' ? <div className="mt-4 grid gap-3 md:hidden">
-              {learners.map((row) => (
-                <article className="rounded-xl border p-4" key={row.id}>
-                  <strong>{row.learner.fullName}</strong>
-                  <p className="text-sm text-slate-500">{row.learner.email}</p>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    {skills.map((skill) => (
-                      <span className="text-sm" key={skill}>
-                        {toeicSkillLabel[skill]}: {scoreLabel(row.skillScores, skill)}
-                      </span>
-                    ))}
-                  </div>
-                  {row.enrollmentId ? <Link className="mt-3 inline-block font-semibold text-indigo-700" to={`/instructor/classes/${classOfferingId}/learners/${row.enrollmentId}`}>Mở hồ sơ →</Link> : null}
-                </article>
-              ))}
-            </div> : null}
-          </section>
-        </>
-      ) : (
-        <div className="state-empty">Chưa có bài kiểm tra trong lớp.</div>
-      )}
-    </div>
-  );
+  return <div className="space-y-5">
+    <section className="rounded-2xl border bg-white p-5"><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><h2 className="text-2xl font-bold">Kết quả lớp</h2>{assessment ? <><h3 className="mt-2 font-bold">{assessment.test.title}</h3><p className="text-sm text-slate-500">{stageLabel(assessment.stage)}{assessment.closeAt ? ` · ${formatDate(assessment.closeAt)}` : ''}</p></> : null}</div><select aria-label="Chọn bài kiểm tra" className="rounded-lg border px-3 py-2" onChange={(event) => { setSelected(event.target.value); setAttemptFilter(null); setFilterLabel(''); setNotSubmittedFilter(false); }} value={selected}>{assessments.map((item) => <option key={item.id} value={item.id}>{item.test.title}</option>)}</select></div></section>
+    {assessment ? <>
+      <section className="rounded-2xl border bg-white p-5"><h3 className="font-bold">Mức độ hoàn chỉnh kết quả</h3><p className="text-sm text-slate-500">{assessment.completion.total} học viên đang học · chọn một nhóm để xem chi tiết</p><div aria-label="Thanh tiến độ kết quả 100 phần trăm" className="mt-4 flex h-8 overflow-hidden rounded-full bg-slate-100">{([['fullyGraded', 'bg-emerald-500', 'Đã chấm đủ'], ['pendingGrading', 'bg-amber-400', 'Chờ chấm'], ['notSubmitted', 'bg-slate-300', 'Chưa nộp']] as const).map(([key, color, label]) => { const count = assessment.completion[key]; return count ? <button aria-label={`${label}: ${count}/${assessment.completion.total}`} className={`${color} min-w-0 focus:outline focus:outline-2 focus:outline-indigo-700`} key={key} onClick={() => completionDetail(key, label)} style={{ width: `${count / assessment.completion.total * 100}%` }} type="button" /> : null; })}</div><div className="mt-3 flex flex-wrap gap-5 text-sm">{([['fullyGraded', 'Đã chấm đủ'], ['pendingGrading', 'Chờ chấm'], ['notSubmitted', 'Chưa nộp']] as const).map(([key, label]) => <button className="font-semibold text-indigo-700 underline" key={key} onClick={() => completionDetail(key, label)} type="button">{assessment.completion[key]} {label.toLowerCase()}</button>)}</div></section>
+      <section className="rounded-2xl border bg-white p-5" data-testid="consolidated-skill-comparison"><h3 className="text-lg font-bold">Kết quả 4 kỹ năng</h3><p className="text-sm text-slate-500">Điểm trung bình trên thang 0–100, chỉ dùng điểm đã chấm cuối. Chọn một kỹ năng để xem mẫu số.</p>{hasFinalSamples ? <InsightTiles assessment={assessment} /> : <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Chưa có điểm cuối để tính điểm trung bình.</p>}{hasFinalSamples ? <div className="mt-4 divide-y">{skills.map((skill) => { const item = assessment.skillAverages.find((value) => value.skill === skill)!; return <button className="grid w-full grid-cols-[5rem_minmax(4rem,1fr)] items-center gap-x-3 gap-y-1 py-3 text-left hover:bg-indigo-50 sm:grid-cols-[7rem_minmax(6rem,1fr)_6rem] sm:px-2" key={skill} onClick={() => skillDetail(item)} type="button"><strong>{toeicSkillLabel[skill]}</strong><div className="h-3 overflow-hidden rounded-full bg-slate-200">{item.average !== null ? <div className="h-full bg-indigo-600" style={{ width: `${Math.max(0, item.average)}%` }} /> : null}</div><span className="text-right font-bold text-indigo-700">{item.average === null ? '—' : `${formatTrendNumber(item.average)}%`}</span><span className="col-start-2 text-xs text-slate-500">{item.sampleCount}/{assessment.completion.total} đã có điểm cuối · {assessment.completion.total - item.sampleCount} chưa đủ dữ liệu</span></button>; })}</div> : null}</section>
+      <section className="min-w-0 overflow-hidden rounded-2xl border bg-white p-5" data-testid="results-distribution"><h3 className="font-bold">Phân bố điểm</h3><p className="text-sm text-slate-500">Chọn một đoạn có dữ liệu để xem học viên và điểm chính xác.</p><div className="mt-3 flex flex-wrap gap-3 text-xs">{Object.entries(distributionMeta).map(([key, meta]) => <span className="flex items-center gap-1" key={key}><i className={`h-3 w-3 rounded-sm ${meta.color}`} />{meta.label}</span>)}</div>{!hasFinalSamples ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">Bài kiểm tra này chưa có điểm cuối để hiển thị phân bố.</p> : skills.map((skill) => { const item = assessment.skillAverages.find((value) => value.skill === skill)!; return <div className="mt-4" key={skill}><div className="flex justify-between gap-3 text-sm"><strong>{toeicSkillLabel[skill]}</strong><span>{item.sampleCount} học viên có điểm cuối</span></div>{item.sampleCount === 0 ? <p className="mt-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">Chưa có điểm cuối.</p> : <div aria-label={`Phân bố ${toeicSkillLabel[skill]} 100 phần trăm`} className="mt-2 flex h-9 overflow-hidden rounded-lg bg-slate-100">{Object.entries(item.distribution).filter(([, count]) => count > 0).map(([key, count]) => <button aria-label={`${toeicSkillLabel[skill]} ${distributionMeta[key as Band].label}: ${count}/${item.sampleCount}`} className={`${distributionMeta[key as Band].color} min-w-0 text-xs font-bold text-white`} key={key} onClick={() => distributionDetail(item, key as Band)} style={{ width: `${count / item.sampleCount * 100}%` }} type="button">{count}</button>)}</div>}</div>; })}</section>
+      <LearnerMatrix assessment={assessment} learners={learners} query={query} setQuery={setQuery} filterLabel={filterLabel} notSubmittedFilter={notSubmittedFilter} clearFilter={() => { setAttemptFilter(null); setFilterLabel(''); setNotSubmittedFilter(false); }} base={base} />
+      <section className="rounded-2xl border bg-white p-5" data-testid="results-assessment-history"><h3 className="font-bold">Lịch sử các bài kiểm tra</h3><p className="text-sm text-slate-500">Các bài kiểm tra có thể khác nội dung và độ khó; vì vậy hệ thống không tự tính mức tăng/giảm giữa các bài khác nhau.</p><div className="mt-4 grid gap-4 lg:grid-cols-2">{history.map((item) => <article className="rounded-xl border p-4" data-testid="class-assessment-card" key={item.assessmentId}><span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold">{stageLabel(item.stage)}</span><h4 className="mt-2 font-bold">{item.title}</h4><time className="text-sm text-slate-500">{formatDate(item.date)}</time><dl className="mt-3 grid grid-cols-2 gap-2">{skills.map((skill) => { const score = item.skills.find((value) => value.skill === skill); return <div className="rounded-lg bg-slate-50 p-2" key={skill}><dt className="text-xs text-slate-500">{toeicSkillLabel[skill]}</dt><dd className="font-bold">{score ? `${formatTrendNumber(score.average)}% · ${score.sampleCount} có điểm` : 'Chưa có'}</dd></div>; })}</dl></article>)}</div></section>
+      {sameTestComparisons.map((comparison) => <SameTestClassComparison comparison={comparison} key={`${comparison.testId}-${comparison.after.assessmentId}`} />)}
+    </> : <div className="state-empty">Chưa có bài kiểm tra trong lớp.</div>}
+    {drawer ? <ResultsDrilldownDrawer detail={drawer} onClose={() => setDrawer(null)} onFilter={applyFilter} /> : null}
+  </div>;
 }
+
+function InsightTiles({ assessment }: { assessment: Assessment }) { const visible = assessment.skillAverages.filter((item): item is Average & { average: number } => item.average !== null && item.sampleCount > 0); const high = visible.reduce<Average & { average: number } | undefined>((best, item) => !best || item.average > best.average ? item : best, undefined); const lowCoverage = visible.reduce<Average & { average: number } | undefined>((low, item) => !low || item.sampleCount < low.sampleCount ? item : low, undefined); return <div className="mt-4 grid gap-3 sm:grid-cols-3" data-testid="skill-picture-summary"><Insight label="Điểm TB cao nhất" value={high ? `${toeicSkillLabel[high.skill]} — ${formatTrendNumber(high.average)}%` : 'Chưa có'} /><Insight label="Bao phủ thấp nhất" value={lowCoverage ? `${toeicSkillLabel[lowCoverage.skill]} — ${lowCoverage.sampleCount}/${assessment.completion.total} có điểm` : 'Chưa có'} /><Insight label="Cần xử lý" value={`${assessment.completion.pendingGrading} chờ chấm · ${assessment.completion.notSubmitted} chưa nộp`} /></div>; }
+function Insight({ label, value }: { label: string; value: string }) { return <div className="rounded-xl bg-indigo-50 p-3"><p className="text-xs font-semibold uppercase text-indigo-700">{label}</p><p className="mt-1 font-bold">{value}</p></div>; }
+function SameTestClassComparison({ comparison }: { comparison: SameTestComparison }) { const eligible = comparison.skills.filter((item) => item.matchedLearnerCount >= 2 && item.beforeAverage !== null && item.afterAverage !== null); if (!eligible.length) return null; return <section className="rounded-2xl border bg-white p-5" data-testid="same-test-class-comparison"><h3 className="font-bold">So sánh các lần tổ chức cùng đề</h3><p className="text-sm text-slate-500">{comparison.title}. Chỉ mô tả thay đổi kết quả trên cùng đề; không khẳng định thay đổi năng lực.</p><div className="mt-4 divide-y">{eligible.map((item) => <div className="grid gap-2 py-3 sm:grid-cols-[7rem_1fr_1fr_7rem]" key={item.skill}><strong>{toeicSkillLabel[item.skill]}</strong><span>Lần trước: {formatTrendNumber(item.beforeAverage!)}%</span><span>Lần sau: {formatTrendNumber(item.afterAverage!)}%</span><strong className="text-indigo-700">{item.afterAverage! - item.beforeAverage! > 0 ? '+' : ''}{formatTrendNumber(item.afterAverage! - item.beforeAverage!)} điểm</strong><p className="text-xs text-slate-500 sm:col-span-4">So sánh trên {item.matchedLearnerCount} học viên có điểm ở cả hai lần.</p></div>)}</div></section>; }
+function LearnerMatrix({ assessment, learners, query, setQuery, filterLabel, notSubmittedFilter, clearFilter, base }: { assessment: Assessment; learners: LearnerRow[]; query: string; setQuery: (value: string) => void; filterLabel: string; notSubmittedFilter: boolean; clearFilter: () => void; base: string }) { const missing = (assessment.notSubmittedLearners ?? []).filter((row) => `${row.learner.fullName} ${row.learner.email}`.toLowerCase().includes(query.toLowerCase())); const rows = notSubmittedFilter ? missing : learners; return <section className="rounded-2xl border bg-white p-5" data-testid="learner-matrix"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold">Dữ liệu học viên</h3><p className="text-sm text-slate-500">Bảng chi tiết giữ nguyên cho đến khi chọn lọc rõ ràng trong drawer.</p></div><input aria-label="Tìm học viên trong kết quả" className="rounded-lg border px-3 py-2" onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên hoặc email" value={query} /></div>{filterLabel ? <div className="mt-3 flex items-center gap-3 rounded-lg bg-indigo-50 p-3 text-sm"><strong>Đang lọc: {filterLabel}</strong><button className="font-semibold text-indigo-700 underline" onClick={clearFilter} type="button">Bỏ lọc</button></div> : null}<div className="mt-4 grid gap-3">{rows.map((row) => <article className="rounded-xl border p-4" key={'id' in row ? row.id : row.learnerId}><div className="flex flex-wrap justify-between gap-3"><div><strong>{row.learner.fullName}</strong><p className="text-sm text-slate-500">{row.learner.email}</p></div><Link className="font-semibold text-indigo-700" to={`${base}/learners/${row.enrollmentId}`}>Mở hồ sơ →</Link></div>{'skillScores' in row ? <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{skills.map((skill) => <span className="text-sm" key={skill}>{toeicSkillLabel[skill]}: {scoreLabel(row.skillScores, skill)}</span>)}</div> : null}</article>)}</div></section>; }
+function isComplete(row: LearnerRow) { return skills.every((skill) => row.skillScores.some((score) => score.skill === skill && score.status === 'FINAL')); }
+function scoreLabel(scores: Score[], skill: ToeicSkill) { const score = scores.find((item) => item.skill === skill); return score?.status === 'FINAL' ? `${formatTrendNumber(score.normalizedScore)}%` : score ? 'Đang chờ' : 'Chưa có'; }
+function stageLabel(stage: string) { return ({ PERIODIC: 'Thường kỳ', MIDTERM: 'Giữa kỳ', FINAL: 'Cuối kỳ', PRACTICE: 'Luyện tập' } as Record<string, string>)[stage] ?? stage; }
+function formatDate(value: string) { return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short' }).format(new Date(value)); }
