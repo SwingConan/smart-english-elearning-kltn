@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Filter, Search } from 'lucide-react';
+import { Filter, Search, X } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { catalogApi } from '@/features/catalog/api';
 import {
@@ -10,6 +10,7 @@ import {
 import { CourseCard } from '@/features/catalog/CourseCard';
 import { courseLevelLabel } from '@/features/catalog/display';
 import type { CatalogResponse, CourseSkillScope } from '@/features/catalog/types';
+import { PageSkeleton } from '@/components/ui/Feedback';
 
 type LoadState =
   | { key: string; status: 'loading' }
@@ -57,6 +58,25 @@ export function CatalogPage() {
     new Set([state.level, ...(response?.data.map((course) => course.level) ?? [])]),
   ).filter(Boolean);
   const update = (next: typeof state) => setParams(writeCatalogUrlState(next));
+  const reset = () => update({ search: '', level: '', skillScope: '', availability: '', page: 1 });
+  const activeFilters = [
+    state.search
+      ? ['Từ khóa', state.search, () => update({ ...state, search: '', page: 1 })]
+      : null,
+    state.level
+      ? ['Trình độ', courseLevelLabel(state.level), () => update({ ...state, level: '', page: 1 })]
+      : null,
+    state.skillScope
+      ? [
+          'Kỹ năng',
+          skillOptions.find(([value]) => value === state.skillScope)?.[1] ?? state.skillScope,
+          () => update({ ...state, skillScope: '', page: 1 }),
+        ]
+      : null,
+    state.availability
+      ? ['Lớp học', 'Có lớp đang mở', () => update({ ...state, availability: '', page: 1 })]
+      : null,
+  ].filter(Boolean) as Array<[string, string, () => void]>;
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
@@ -72,11 +92,33 @@ export function CatalogPage() {
         levels={levels}
         onChange={update}
       />
-      {!current || load.status === 'loading' ? (
-        <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3" role="status">
-          {[1, 2, 3, 4, 5, 6].map((item) => (
-            <div className="h-80 animate-pulse rounded-2xl bg-slate-200" key={item} />
+      {activeFilters.length ? (
+        <div className="mt-5 flex flex-wrap items-center gap-2" aria-label="Bộ lọc đang áp dụng">
+          <span className="mr-1 text-sm font-semibold text-slate-600">Đang lọc:</span>
+          {activeFilters.map(([label, value, remove]) => (
+            <button
+              className="filter-chip filter-chip-active"
+              key={label}
+              onClick={remove}
+              type="button"
+            >
+              <span className="sr-only">Xóa {label}: </span>
+              {value}
+              <X size={14} />
+            </button>
           ))}
+          <button
+            className="ml-1 text-sm font-semibold text-indigo-700 hover:underline"
+            onClick={reset}
+            type="button"
+          >
+            Xóa tất cả
+          </button>
+        </div>
+      ) : null}
+      {!current || load.status === 'loading' ? (
+        <div className="mt-10">
+          <PageSkeleton cards={6} />
         </div>
       ) : null}
       {current && load.status === 'error' ? (
@@ -94,13 +136,7 @@ export function CatalogPage() {
       {response?.data.length === 0 ? (
         <div className="state-empty mt-10">
           <p>Không tìm thấy khóa học phù hợp với bộ lọc.</p>
-          <button
-            className="mt-3 font-semibold text-indigo-700"
-            onClick={() =>
-              update({ search: '', level: '', skillScope: '', availability: '', page: 1 })
-            }
-            type="button"
-          >
+          <button className="mt-3 font-semibold text-indigo-700" onClick={reset} type="button">
             Xóa bộ lọc
           </button>
         </div>

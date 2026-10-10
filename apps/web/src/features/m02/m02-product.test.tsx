@@ -16,6 +16,7 @@ import { ClassShellLayout } from '@/layouts/ClassShellLayout';
 import { PublicLayout } from '@/layouts/PublicLayout';
 import { ClassOfferingDetailPage } from '@/pages/ClassOfferingDetailPage';
 import { HomePage } from '@/pages/HomePage';
+import { GuidePage } from '@/pages/GuidePage';
 import { NewsEventDetailPage } from '@/pages/NewsEventDetailPage';
 import { NewsEventsPage } from '@/pages/NewsEventsPage';
 import { ProgressPage } from '@/pages/ProgressPage';
@@ -61,7 +62,9 @@ describe('M02 public product surface', () => {
     );
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Bạn muốn bắt đầu từ đâu/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /Học như thế nào/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /Trải nghiệm học tại Smart English/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Tin tức & Sự kiện/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Bắt đầu kiểm tra đầu vào' })).toHaveAttribute(
       'href',
@@ -74,13 +77,13 @@ describe('M02 public product surface', () => {
   });
 
   it('renders typed news list, detail and not-found state', () => {
-    expect(newsEvents).toHaveLength(4);
+    expect(newsEvents).toHaveLength(8);
     const list = render(
       <MemoryRouter>
         <NewsEventsPage />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: newsEvents[0].title })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { name: newsEvents[0].title })).toHaveLength(2);
     list.unmount();
     const detail = render(
       <MemoryRouter initialEntries={[`/news-events/${newsEvents[0].slug}`]}>
@@ -99,6 +102,36 @@ describe('M02 public product surface', () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole('heading', { name: /Không tìm thấy bài viết/i })).toBeInTheDocument();
+  });
+
+  it('filters and searches the editorial library', () => {
+    render(
+      <MemoryRouter>
+        <NewsEventsPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Workshop' }));
+    expect(screen.getByText('1 bài viết phù hợp')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Workshop Listening/i })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Tìm bài viết' }), {
+      target: { value: 'không tồn tại' },
+    });
+    expect(
+      screen.getByRole('heading', { name: /Chưa tìm thấy bài viết phù hợp/i }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Xóa bộ lọc/i }));
+    expect(screen.getByText('8 bài viết phù hợp')).toBeInTheDocument();
+  });
+
+  it('presents the complete ten-step guide and accessible FAQ', () => {
+    render(
+      <MemoryRouter>
+        <GuidePage />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('BƯỚC 10')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Thuật ngữ cần biết' })).toBeInTheDocument();
+    expect(screen.getByText('Tôi nên chọn khóa học hay lớp học trước?')).toBeInTheDocument();
   });
 
   it('shows ClassOffering details and guest auth CTA without private fields', async () => {
@@ -169,10 +202,9 @@ describe('M02 public product surface', () => {
     );
     expect(await screen.findByRole('heading', { name: /Lớp học của tôi/i })).toBeInTheDocument();
     expect(screen.getAllByText('Không gian học tập')).toHaveLength(2);
-    expect(screen.getByRole('link', { name: /Smart English\s*Không gian học tập/i })).toHaveAttribute(
-      'href',
-      '/',
-    );
+    expect(
+      screen.getByRole('link', { name: /Smart English\s*Không gian học tập/i }),
+    ).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: 'Trang chủ' })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: 'Khóa học của tôi' })).toHaveAttribute(
       'href',

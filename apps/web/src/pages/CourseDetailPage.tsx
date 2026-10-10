@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarDays, ChevronRight } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { catalogApi } from '@/features/catalog/api';
 import { CourseCover } from '@/features/catalog/CourseCover';
@@ -99,17 +99,49 @@ export function CourseDetailPage() {
           </div>
         </div>
       </section>
-      <section className="section-shell">
+      <nav
+        aria-label="Điều hướng nội dung khóa học"
+        className="sticky top-[73px] z-30 border-b bg-white/95 backdrop-blur"
+      >
+        <div className="mx-auto flex max-w-7xl gap-6 overflow-x-auto px-4 py-3 text-sm font-semibold sm:px-6 lg:px-8">
+          <a
+            className="whitespace-nowrap text-indigo-700 hover:text-indigo-900"
+            href="#program-content"
+          >
+            Nội dung chương trình
+          </a>
+          <a className="whitespace-nowrap text-slate-600 hover:text-indigo-700" href="#quick-info">
+            Thông tin nhanh
+          </a>
+          <a
+            className="whitespace-nowrap text-slate-600 hover:text-indigo-700"
+            href="#open-classes"
+          >
+            Lớp đang mở
+          </a>
+        </div>
+      </nav>
+      <section className="section-shell scroll-mt-28" id="program-content">
         <div className="grid gap-10 lg:grid-cols-[1fr_340px]">
           <div>
             <p className="eyebrow">Nội dung chương trình</p>
             <h2 className="section-title">Nội dung chương trình</h2>
             <div className="mt-7 space-y-4">
-              {course.modules?.map((module) => (
-                <article className="rounded-2xl border bg-white p-5" key={module.id}>
-                  <h3 className="font-bold">
-                    {module.orderIndex + 1}. {module.title}
-                  </h3>
+              {course.modules?.map((module, index) => (
+                <details
+                  className="group rounded-2xl border bg-white p-5 open:shadow-sm"
+                  key={module.id}
+                  open={index === 0}
+                >
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-bold">
+                    <span>
+                      {module.orderIndex + 1}. {module.title}
+                    </span>
+                    <ChevronDown
+                      className="shrink-0 text-indigo-600 transition group-open:rotate-180"
+                      size={20}
+                    />
+                  </summary>
                   {module.description ? (
                     <p className="mt-2 text-sm text-slate-600">{module.description}</p>
                   ) : null}
@@ -124,11 +156,14 @@ export function CourseDetailPage() {
                       </li>
                     ))}
                   </ul>
-                </article>
+                </details>
               ))}
             </div>
           </div>
-          <aside className="rounded-2xl bg-slate-100 p-6">
+          <aside
+            className="scroll-mt-28 rounded-2xl bg-slate-100 p-6 lg:sticky lg:top-32 lg:self-start"
+            id="quick-info"
+          >
             <h2 className="font-bold">Thông tin nhanh</h2>
             <dl className="mt-4 space-y-3 text-sm">
               <Row label="Trình độ" value={courseLevelLabel(course.level)} />
@@ -139,7 +174,7 @@ export function CourseDetailPage() {
           </aside>
         </div>
       </section>
-      <section className="section-shell pt-0" id="open-classes">
+      <section className="section-shell scroll-mt-28 pt-0" id="open-classes">
         <p className="eyebrow">Lớp đang mở</p>
         <h2 className="section-title">So sánh lớp đang mở</h2>
         {course.classOfferings.length === 0 ? (
@@ -147,7 +182,7 @@ export function CourseDetailPage() {
         ) : (
           <div className="mt-7 overflow-x-auto rounded-2xl border bg-white">
             <table className="min-w-[1080px] w-full text-left text-sm">
-              <thead className="bg-slate-100 text-slate-600">
+              <thead className="sticky top-0 bg-slate-100 text-slate-600">
                 <tr>
                   {[
                     'Mã lớp',

@@ -6,10 +6,12 @@ import {
   CheckCircle2,
   Headphones,
   MessageSquareText,
+  MonitorPlay,
   RefreshCw,
   Search,
   ShieldCheck,
   Sparkles,
+  UsersRound,
 } from 'lucide-react';
 import { Link } from 'react-router';
 import { newsEvents } from '@/content/news-events';
@@ -66,7 +68,7 @@ export function HomePage() {
           </div>
           <div className="relative aspect-[16/10] overflow-hidden rounded-[2rem] border border-white/15 bg-indigo-900 shadow-2xl shadow-indigo-950/40">
             <img
-              alt="Người học tiếng Anh trực tuyến với laptop và tai nghe"
+              alt="Lớp học tiếng Anh hiện đại với giảng viên và học viên đang luyện tập"
               className="size-full object-cover object-center"
               decoding="sync"
               fetchPriority="high"
@@ -181,18 +183,42 @@ export function HomePage() {
       <section className="section-shell">
         <div className="text-center">
           <p className="eyebrow">Hành trình học liền mạch</p>
-          <h2 className="section-title">Học như thế nào trên hệ thống?</h2>
+          <h2 className="section-title">Trải nghiệm học tại Smart English</h2>
+          <p className="mx-auto mt-4 max-w-3xl leading-7 text-slate-600">
+            Kết hợp tương tác tại lớp với một không gian số nhất quán để việc chuẩn bị, luyện tập và
+            xem lại không bị tách rời.
+          </p>
         </div>
         <div className="mt-10 grid gap-5 md:grid-cols-4">
           {[
-            ['01', 'Đặt mục tiêu'],
-            ['02', 'Chọn khóa học và lớp'],
-            ['03', 'Học và làm bài'],
-            ['04', 'Theo dõi tiến độ'],
-          ].map(([number, title]) => (
-            <article className="card" key={number}>
-              <span className="text-sm font-bold text-indigo-600">{number}</span>
-              <h3 className="mt-3 font-bold">{title}</h3>
+            [
+              UsersRound,
+              'Tương tác tại lớp',
+              'Thảo luận, thực hành theo cặp và nhận hướng dẫn trong bối cảnh sử dụng tiếng Anh.',
+            ],
+            [
+              Headphones,
+              'Luyện theo kỹ năng',
+              'Tập trung Listening, Reading, Speaking hoặc Writing theo mục tiêu của chương trình.',
+            ],
+            [
+              MonitorPlay,
+              'Tiếp tục trên LMS',
+              'Mở bài học, tài liệu và bài kiểm tra trong cùng không gian lớp trực tuyến.',
+            ],
+            [
+              BarChart3,
+              'Đọc tiến độ có căn cứ',
+              'Xem kết quả theo kỹ năng và đúng trạng thái dữ liệu hiện có.',
+            ],
+          ].map(([Icon, title, text]) => (
+            <article
+              className="card-interactive rounded-2xl border bg-white p-6"
+              key={String(title)}
+            >
+              <Icon className="text-indigo-600" />
+              <h3 className="mt-4 font-bold">{String(title)}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{String(text)}</p>
             </article>
           ))}
         </div>

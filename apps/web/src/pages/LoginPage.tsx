@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { loginErrorMessage } from '@/features/auth/auth-errors';
 import { useAuth } from '@/features/auth/auth-context';
@@ -7,12 +8,16 @@ import { AuthShell } from '@/features/auth/AuthShell';
 import { LoadingButton } from '@/components/ui/Feedback';
 import { useUnsavedChanges } from '@/components/ui/use-unsaved-changes';
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function LoginPage() {
   const { user, isLoading, login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [touched, setTouched] = useState({ email: false, password: false });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   useUnsavedChanges(Boolean(email || password) && !isSubmitting && !user);
@@ -66,21 +71,44 @@ export function LoginPage() {
             autoFocus
             autoComplete="email"
             className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
+            aria-invalid={touched.email && !EMAIL_PATTERN.test(email)}
+            onBlur={() => setTouched((current) => ({ ...current, email: true }))}
             onChange={(event) => setEmail(event.target.value)}
             type="email"
             value={email}
           />
+          {touched.email && !EMAIL_PATTERN.test(email) ? (
+            <span className="mt-1.5 block text-sm text-red-700">Nhập email đúng định dạng.</span>
+          ) : null}
         </label>
-        <label className="block">
-          <span className="text-sm font-medium">Mật khẩu</span>
-          <input
-            autoComplete="current-password"
-            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-            onChange={(event) => setPassword(event.target.value)}
-            type="password"
-            value={password}
-          />
-        </label>
+        <div className="block">
+          <label className="text-sm font-medium" htmlFor="login-password">
+            Mật khẩu
+          </label>
+          <span className="relative mt-2 block">
+            <input
+              aria-invalid={touched.password && !password}
+              autoComplete="current-password"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-12"
+              id="login-password"
+              onBlur={() => setTouched((current) => ({ ...current, password: true }))}
+              onChange={(event) => setPassword(event.target.value)}
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+            />
+            <button
+              aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+              onClick={() => setShowPassword((value) => !value)}
+              type="button"
+            >
+              {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+            </button>
+          </span>
+          {touched.password && !password ? (
+            <span className="mt-1.5 block text-sm text-red-700">Nhập mật khẩu để tiếp tục.</span>
+          ) : null}
+        </div>
         {formError ? (
           <p className="text-sm text-red-700" role="alert">
             {formError}

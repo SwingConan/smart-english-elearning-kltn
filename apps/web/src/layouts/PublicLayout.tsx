@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BookOpenCheck, Menu, X } from 'lucide-react';
 import { Link, NavLink, Outlet } from 'react-router';
 import { AuthNavigation } from '@/features/auth/AuthNavigation';
@@ -14,6 +14,14 @@ const publicLinks = [
 
 export function PublicLayout() {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [open]);
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur">
@@ -37,8 +45,8 @@ export function PublicLayout() {
               <NavLink
                 className={({ isActive }) =>
                   isActive && !to.includes('#')
-                    ? 'text-indigo-700'
-                    : 'text-slate-600 hover:text-indigo-700'
+                    ? 'relative py-2 text-indigo-700 after:absolute after:inset-x-0 after:-bottom-2 after:h-0.5 after:rounded-full after:bg-indigo-600'
+                    : 'py-2 text-slate-600 transition hover:text-indigo-700'
                 }
                 key={to}
                 to={to}
@@ -64,14 +72,16 @@ export function PublicLayout() {
           <div className="border-t bg-white px-4 py-4 lg:hidden">
             <nav aria-label="Điều hướng di động" className="mx-auto flex max-w-7xl flex-col gap-1">
               {publicLinks.map(([to, label]) => (
-                <Link
-                  className="rounded-lg px-3 py-2 font-medium hover:bg-indigo-50"
+                <NavLink
+                  className={({ isActive }) =>
+                    `rounded-lg px-3 py-2 font-medium transition ${isActive ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50'}`
+                  }
                   key={to}
                   onClick={() => setOpen(false)}
                   to={to}
                 >
                   {label}
-                </Link>
+                </NavLink>
               ))}
               <div className="mt-3 border-t pt-3 text-sm">
                 <AuthNavigation />

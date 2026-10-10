@@ -108,6 +108,23 @@ describe('AuthNavigation', () => {
 });
 
 describe('LoginPage', () => {
+  it('lets the learner reveal and hide the password', async () => {
+    vi.spyOn(authApi, 'me').mockRejectedValueOnce(new ApiError(401, null));
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <LoginPage />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    const password = await screen.findByLabelText('Mật khẩu');
+    expect(password).toHaveAttribute('type', 'password');
+    fireEvent.click(screen.getByRole('button', { name: 'Hiện mật khẩu' }));
+    expect(password).toHaveAttribute('type', 'text');
+    fireEvent.click(screen.getByRole('button', { name: 'Ẩn mật khẩu' }));
+    expect(password).toHaveAttribute('type', 'password');
+  });
+
   it('logs in and honors a safe internal returnUrl', async () => {
     vi.spyOn(authApi, 'me').mockRejectedValueOnce(new ApiError(401, null));
     vi.spyOn(authApi, 'login').mockResolvedValueOnce(student);
