@@ -114,8 +114,9 @@ export function PublicLayout() {
           <div>
             <h2 className="font-semibold text-white">Hỗ trợ</h2>
             <div className="mt-3 flex flex-col gap-2 text-sm">
-              <Link to="/contact">Liên hệ</Link>
-              <span>Kênh liên hệ của nhóm dự án sẽ được cập nhật.</span>
+              <Link to="/guide">Hướng dẫn học</Link>
+              <Link to="/news-events">Tin tức & Sự kiện</Link>
+              <Link to="/status">Trạng thái hệ thống</Link>
             </div>
           </div>
         </div>

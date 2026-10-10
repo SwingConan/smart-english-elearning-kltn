@@ -15,12 +15,14 @@ import { Link } from 'react-router';
 
 const journey = [
   ['Khám phá', 'Tìm chương trình theo kỹ năng và trình độ bạn muốn tập trung.'],
-  ['Chọn lớp', 'So sánh lịch học, hình thức, học phí và tình trạng nhận đăng ký.'],
+  ['Placement', 'Thực hiện đánh giá đầu vào nội bộ trước khi chọn lớp và Enrollment.'],
+  ['Evaluation & gợi ý', 'Đọc kết quả theo kỹ năng và gợi ý khóa học/lớp từ dữ liệu hiện có.'],
+  ['Enrollment', 'Chọn lớp phù hợp rồi theo dõi đúng trạng thái đăng ký và quyền truy cập.'],
+  ['LMS & Assessment', 'Học bài, dùng tài liệu và thực hiện đánh giá trong không gian lớp.'],
   [
-    'Học & luyện tập',
-    'Theo dõi nội dung lớp, bài học, tài liệu và bài kiểm tra trong cùng không gian.',
+    'Kết quả & bước tiếp theo',
+    'Đọc đúng dữ liệu đã có; trạng thái thiếu hoặc đang chờ không phải 0.',
   ],
-  ['Đọc tiến độ', 'Xem kết quả theo đúng trạng thái dữ liệu và xác định bước luyện tiếp theo.'],
 ] as const;
 
 const skills = [
@@ -126,7 +128,7 @@ export function AboutPage() {
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <p className="eyebrow">Hành trình học tập</p>
           <h2 className="mt-3 text-3xl font-bold">Từ khám phá đến hành động tiếp theo</h2>
-          <div className="mt-10 grid gap-5 md:grid-cols-4">
+          <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {journey.map(([title, text], index) => (
               <article className="relative rounded-2xl border bg-white p-6" key={title}>
                 <span className="flex size-10 items-center justify-center rounded-full bg-indigo-100 font-bold text-indigo-700">

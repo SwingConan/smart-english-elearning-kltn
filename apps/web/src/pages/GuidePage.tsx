@@ -1,13 +1,13 @@
 import {
+  BarChart3,
   BookOpen,
   CheckCircle2,
   ChevronDown,
   CircleDollarSign,
   ClipboardCheck,
   FileCheck2,
-  GraduationCap,
-  KeyRound,
   LayoutDashboard,
+  Route,
   Search,
   UserPlus,
 } from 'lucide-react';
@@ -16,53 +16,53 @@ import { Link } from 'react-router';
 const steps = [
   [
     UserPlus,
-    'Tạo tài khoản',
-    'Đăng ký bằng họ tên, email và mật khẩu để lưu hành trình học của riêng bạn.',
-  ],
-  [
-    KeyRound,
-    'Đăng nhập',
-    'Đăng nhập trước khi đăng ký lớp hoặc truy cập những khu vực dành cho học viên.',
+    'Tạo tài khoản và đăng nhập',
+    'Tạo tài khoản để lưu hành trình, sau đó đăng nhập trước khi thực hiện các bước dành cho học viên.',
   ],
   [
     Search,
-    'Khám phá khóa học',
-    'Lọc chương trình theo từ khóa, trình độ, kỹ năng và khả năng có lớp đang mở.',
-  ],
-  [
-    BookOpen,
-    'Xem chi tiết chương trình',
-    'Đọc mục tiêu, nội dung theo module và các lớp đang mở thuộc chương trình đó.',
+    'Khám phá chương trình và xác định mục tiêu',
+    'Xem phạm vi kỹ năng, trình độ và nội dung để xác định mục tiêu học phù hợp.',
   ],
   [
     ClipboardCheck,
+    'Làm Placement trước Enrollment',
+    'Thực hiện bài đánh giá đầu vào nội bộ trước khi chọn lớp và gửi đăng ký; đây không phải bài thi TOEIC chính thức.',
+  ],
+  [
+    BarChart3,
+    'Đọc Evaluation theo kỹ năng',
+    'Đọc kết quả theo từng kỹ năng. Dữ liệu thiếu hoặc đang chờ không được hiểu là 0; Speaking/Writing tại lớp có thể chờ giảng viên review.',
+  ],
+  [
+    Route,
+    'Xem gợi ý khóa học và lớp',
+    'Xem Course/Class Recommendation được xác định từ dữ liệu đánh giá hiện có trước khi quyết định.',
+  ],
+  [
+    BookOpen,
     'Chọn lớp phù hợp',
     'So sánh lịch học, hình thức, giảng viên, học phí và số chỗ còn lại.',
   ],
   [
     CircleDollarSign,
-    'Hoàn tất điều kiện đăng ký',
-    'Lớp miễn phí có thể được ghi nhận ngay; lớp có học phí có thể cần chờ xác nhận thanh toán.',
+    'Enrollment và trạng thái đăng ký',
+    'Gửi đăng ký sau khi chọn lớp. Lớp có học phí có thể ở trạng thái chờ thanh toán trước khi mở quyền học.',
   ],
   [
     LayoutDashboard,
-    'Vào không gian lớp',
-    'Theo dõi tổng quan và dùng thanh điều hướng lớp để chuyển giữa các khu vực.',
-  ],
-  [
-    GraduationCap,
-    'Học bài và dùng tài liệu',
-    'Mở bài học theo cấu trúc, xem nội dung và tải tài liệu khi được cho phép.',
+    'Học trong Student LMS',
+    'Vào không gian lớp, mở bài học theo cấu trúc và sử dụng tài liệu khi quyền truy cập đã được mở.',
   ],
   [
     FileCheck2,
-    'Làm bài kiểm tra',
-    'Đọc hướng dẫn, hoàn thành phần được giao và kiểm tra trạng thái trước khi nộp.',
+    'Thực hiện In-class Assessment',
+    'Hoàn thành bài đánh giá trong lớp; một số phần Speaking/Writing có thể cần chờ giảng viên review.',
   ],
   [
     CheckCircle2,
-    'Đọc kết quả và tiến độ',
-    'Xem dữ liệu theo kỹ năng, chú ý trạng thái đang chờ hoặc còn thiếu trước khi chọn bước tiếp theo.',
+    'Đọc kết quả, tiến độ và bước tiếp theo',
+    'Đọc dữ liệu theo đúng trạng thái để xác định hành động học tiếp theo; kết quả không thay thế tư vấn chuyên môn.',
   ],
 ] as const;
 
@@ -81,7 +81,7 @@ const glossary = [
 const faqs = [
   [
     'Tôi nên chọn khóa học hay lớp học trước?',
-    'Hãy xem khóa học để hiểu chương trình, sau đó chọn một lớp đang mở có lịch và hình thức phù hợp.',
+    'Hãy khám phá chương trình để xác định mục tiêu, hoàn thành Placement và đọc Evaluation/gợi ý phù hợp trước khi chọn lớp.',
   ],
   [
     'Vì sao đã đăng ký nhưng chưa vào được nội dung?',
@@ -155,12 +155,12 @@ export function GuidePage() {
       <section className="border-y bg-slate-50" id="placement">
         <div className="mx-auto grid max-w-5xl gap-7 px-4 py-14 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
-            <p className="eyebrow">Trước khi chọn khóa học</p>
+            <p className="eyebrow">Trước khi chọn lớp</p>
             <h2 className="mt-3 text-3xl font-bold">Kiểm tra đầu vào</h2>
             <p className="mt-4 max-w-3xl leading-7 text-slate-600">
-              Chọn mục tiêu và trình độ tự đánh giá, sau đó thực hiện bài Listening & Reading để có
-              thêm dữ liệu tham khảo. Kết quả nội bộ không phải chứng chỉ hoặc điểm thi TOEIC chính
-              thức.
+              Sau khi khám phá chương trình, hãy thực hiện bài Listening & Reading để có dữ liệu
+              Evaluation theo kỹ năng và xem gợi ý khóa học/lớp trước Enrollment. Kết quả nội bộ
+              không phải chứng chỉ hoặc điểm thi TOEIC chính thức.
             </p>
           </div>
           <Link className="btn-primary" to="/placement">
@@ -212,7 +212,7 @@ export function GuidePage() {
             Khám phá chương trình đang có hoặc làm kiểm tra đầu vào để có thêm thông tin tham khảo.
           </p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
-            <Link className="btn-primary !bg-white !text-indigo-800" to="/courses">
+            <Link className="btn-primary !bg-white !text-indigo-800" to="/catalog">
               Xem khóa học
             </Link>
             <Link

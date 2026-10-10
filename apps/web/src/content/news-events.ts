@@ -57,12 +57,13 @@ export const newsEvents: NewsEventItem[] = [
         ],
       },
       {
-        heading: 'Checklist trước khi chọn lớp',
+        heading: 'Từ khám phá đến đăng ký lớp',
         bullets: [
-          'Đối chiếu ngày bắt đầu và toàn bộ khung giờ học.',
-          'Kiểm tra hình thức online, offline hoặc hybrid trên trang chi tiết lớp.',
-          'Đọc phạm vi kỹ năng và yêu cầu đầu vào của khóa học.',
-          'Đăng nhập trước khi thực hiện bước đăng ký lớp.',
+          'Khám phá chương trình và xác định mục tiêu kỹ năng trước khi làm Placement.',
+          'Hoàn thành Placement nội bộ trước Enrollment; kết quả này không phải điểm thi TOEIC chính thức.',
+          'Đọc Evaluation theo kỹ năng và Course/Class Recommendation từ dữ liệu hiện có; dữ liệu thiếu hoặc đang chờ không được hiểu là 0.',
+          'Dùng gợi ý làm căn cứ để so sánh lịch học, hình thức, học phí và tình trạng lớp.',
+          'Sau khi chọn lớp phù hợp, đăng nhập và thực hiện bước Enrollment theo trạng thái hệ thống.',
         ],
       },
       {

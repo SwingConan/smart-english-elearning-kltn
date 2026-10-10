@@ -15,6 +15,7 @@ import { ApiError } from '@/lib/api-client';
 import { ClassShellLayout } from '@/layouts/ClassShellLayout';
 import { PublicLayout } from '@/layouts/PublicLayout';
 import { ClassOfferingDetailPage } from '@/pages/ClassOfferingDetailPage';
+import { AboutPage } from '@/pages/AboutPage';
 import { HomePage } from '@/pages/HomePage';
 import { GuidePage } from '@/pages/GuidePage';
 import { NewsEventDetailPage } from '@/pages/NewsEventDetailPage';
@@ -48,6 +49,11 @@ describe('M02 public product surface', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mở menu' }));
     expect(screen.getByRole('navigation', { name: 'Điều hướng di động' })).toBeInTheDocument();
     expect(screen.getByText('Page body')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Trạng thái hệ thống' })).toHaveAttribute(
+      'href',
+      '/status',
+    );
+    expect(screen.queryByText(/Kênh liên hệ của nhóm dự án/i)).not.toBeInTheDocument();
   });
 
   it('renders every required homepage section from real/static sources', async () => {
@@ -93,6 +99,7 @@ describe('M02 public product surface', () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole('heading', { name: newsEvents[0].title })).toBeInTheDocument();
+    expect(screen.getByText(/Placement nội bộ trước Enrollment/i)).toBeInTheDocument();
     detail.unmount();
     render(
       <MemoryRouter initialEntries={['/news-events/missing']}>
@@ -130,8 +137,36 @@ describe('M02 public product surface', () => {
       </MemoryRouter>,
     );
     expect(screen.getByText('BƯỚC 10')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent),
+    ).toEqual([
+      'Tạo tài khoản và đăng nhập',
+      'Khám phá chương trình và xác định mục tiêu',
+      'Làm Placement trước Enrollment',
+      'Đọc Evaluation theo kỹ năng',
+      'Xem gợi ý khóa học và lớp',
+      'Chọn lớp phù hợp',
+      'Enrollment và trạng thái đăng ký',
+      'Học trong Student LMS',
+      'Thực hiện In-class Assessment',
+      'Đọc kết quả, tiến độ và bước tiếp theo',
+    ]);
+    expect(screen.getByRole('link', { name: 'Xem khóa học' })).toHaveAttribute('href', '/catalog');
     expect(screen.getByRole('heading', { name: 'Thuật ngữ cần biết' })).toBeInTheDocument();
     expect(screen.getByText('Tôi nên chọn khóa học hay lớp học trước?')).toBeInTheDocument();
+  });
+
+  it('shows Placement and Evaluation before Enrollment in the About journey', () => {
+    render(
+      <MemoryRouter>
+        <AboutPage />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Placement')).toBeInTheDocument();
+    expect(screen.getByText('Evaluation & gợi ý')).toBeInTheDocument();
+    expect(screen.getByText('Enrollment')).toBeInTheDocument();
+    expect(screen.getByText('LMS & Assessment')).toBeInTheDocument();
+    expect(screen.getByText('Kết quả & bước tiếp theo')).toBeInTheDocument();
   });
 
   it('shows ClassOffering details and guest auth CTA without private fields', async () => {
