@@ -82,17 +82,18 @@ describe('CourseContentManagementPage', () => {
 
   it('shows friendly 409 and generic 5xx errors without internal payloads', async () => {
     mockContent([moduleA], [], []);
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.spyOn(instructorApi.modules, 'delete').mockRejectedValueOnce(new ApiError(409, { message: 'P2003 raw' }));
     renderContent();
     const heading = await screen.findByRole('heading', { name: /Alpha module/ });
     const card = heading.closest('.bg-white') as HTMLElement;
     fireEvent.click(card.querySelector('button.text-red-600') as HTMLElement);
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xóa' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/học viên/i);
     expect(screen.queryByText(/P2003 raw/)).not.toBeInTheDocument();
 
     vi.spyOn(instructorApi.modules, 'delete').mockRejectedValueOnce(new ApiError(500, { stack: 'internal' }));
     fireEvent.click(card.querySelector('button.text-red-600') as HTMLElement);
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xóa' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/module/i);
     expect(screen.queryByText(/internal/)).not.toBeInTheDocument();
   });
@@ -281,7 +282,7 @@ function mockContent(modules: Module[], lessons: Lesson[], resources: LearningRe
 function moduleHeadings() { return screen.getAllByRole('heading', { level: 2 }).map((item) => item.textContent); }
 function enabledDownButton() { return screen.getAllByRole('button').find((button) => button.textContent === '▼' && !button.hasAttribute('disabled')) as HTMLElement; }
 function moduleView(id: string, title: string, orderIndex: number): Module { return { id, courseId, title, description: null, orderIndex, createdAt: '', updatedAt: '' }; }
-function lessonView(id: string, moduleId: string, title: string, orderIndex: number): Lesson { return { id, moduleId, title, description: null, orderIndex, createdAt: '', updatedAt: '' }; }
+function lessonView(id: string, moduleId: string, title: string, orderIndex: number): Lesson { return { id, moduleId, title, description: null, learningObjectives: [], contentMarkdown: null, estimatedMinutes: null, focusSkills: [], focusTaskCodes: [], orderIndex, createdAt: '', updatedAt: '' }; }
 function resourceView(id: string, lessonId: string, title: string, orderIndex: number): LearningResource { return { id, lessonId, title, type: 'DOCUMENT', url: 'https://example.test/document', orderIndex, isDownloadable: true, createdAt: '', updatedAt: '' }; }
 function teachingEntry(): TeachingEntry { return { course: { id: courseId, title: 'Assigned English', slug: 'assigned-english', level: 'A1', isPublished: true, _count: { modules: 1 } }, classOfferings: [{ id: 'offering-id', name: 'Evening class', status: 'CANCELLED' }] }; }
 function mappedSkill(id: string, code: string): Skill { return { id, courseId, code, name: code, description: null, pInit: 0.5, pLearn: 0.1, pGuess: 0.2, pSlip: 0.1, createdAt: '', updatedAt: '' }; }

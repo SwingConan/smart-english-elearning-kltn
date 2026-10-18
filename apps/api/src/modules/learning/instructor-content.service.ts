@@ -15,6 +15,7 @@ import { CreateResourceDto } from './dto/create-resource.dto';
 import { UpdateResourceDto } from './dto/update-resource.dto';
 import { ReorderDto } from './dto/reorder.dto';
 import { LearningResourceStorage } from './learning-resource.storage';
+import { normalizeAndValidateLessonCurriculum } from './lesson-curriculum';
 
 const MAX_CONTENT_TRANSACTION_ATTEMPTS = 3;
 
@@ -232,6 +233,13 @@ export class InstructorContentService {
     });
     if (!module) throw new NotFoundException('Module not found');
     await this.assertInstructorOwnsCourse(instructorId, module.courseId);
+    const curriculum = normalizeAndValidateLessonCurriculum({
+      learningObjectives: dto.learningObjectives ?? [],
+      contentMarkdown: dto.contentMarkdown ?? null,
+      estimatedMinutes: dto.estimatedMinutes ?? null,
+      focusSkills: dto.focusSkills ?? [],
+      focusTaskCodes: dto.focusTaskCodes ?? [],
+    });
 
     for (let attempt = 1; attempt <= MAX_CONTENT_TRANSACTION_ATTEMPTS; attempt += 1) {
       try {
@@ -246,6 +254,7 @@ export class InstructorContentService {
             return transaction.lesson.create({
               data: {
                 ...dto,
+                ...curriculum,
                 moduleId,
                 orderIndex: lastLesson ? lastLesson.orderIndex + 1 : 0,
               },
@@ -274,12 +283,32 @@ export class InstructorContentService {
     return this.prisma.$transaction(async (transaction) => {
       const lesson = await transaction.lesson.findUnique({
         where: { id: lessonId },
-        select: { updatedAt: true, module: { select: { courseId: true } } },
+        select: {
+          updatedAt: true,
+          learningObjectives: true,
+          contentMarkdown: true,
+          estimatedMinutes: true,
+          focusSkills: true,
+          focusTaskCodes: true,
+          module: { select: { courseId: true } },
+        },
       });
       if (!lesson) throw new NotFoundException('Lesson not found');
       await this.assertInstructorOwnsCourseIn(transaction, instructorId, lesson.module.courseId);
       this.assertFresh(lesson.updatedAt, expectedUpdatedAt);
-      return transaction.lesson.update({ where: { id: lessonId }, data });
+      const curriculum = normalizeAndValidateLessonCurriculum({
+        learningObjectives: dto.learningObjectives ?? lesson.learningObjectives,
+        contentMarkdown:
+          dto.contentMarkdown === undefined ? lesson.contentMarkdown : dto.contentMarkdown,
+        estimatedMinutes:
+          dto.estimatedMinutes === undefined ? lesson.estimatedMinutes : dto.estimatedMinutes,
+        focusSkills: dto.focusSkills ?? lesson.focusSkills,
+        focusTaskCodes: dto.focusTaskCodes ?? lesson.focusTaskCodes,
+      });
+      return transaction.lesson.update({
+        where: { id: lessonId },
+        data: { ...data, ...curriculum },
+      });
     });
   }
 

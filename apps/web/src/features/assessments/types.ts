@@ -307,7 +307,7 @@ export interface ClassAssessmentSummary {
 }
 export interface ClassAssessmentWorkspace {
   classOffering: { id: string; code: string; name: string; course: { id: string; title: string } };
-  availableTests: Array<{ id: string; title: string; timeLimitMinutes: number | null; maxAttempts: number }>;
+  availableTests: Array<{ id: string; title: string; purpose: Exclude<TestPurpose, 'PLACEMENT'>; lessonId: string | null; timeLimitMinutes: number | null; maxAttempts: number }>;
   assessments: ClassAssessmentSummary[];
 }
 export interface GradingQueue {

@@ -85,11 +85,11 @@ export class ClassAssessmentService {
       this.prisma.test.findMany({
         where: {
           courseId: offering.courseId,
-          purpose: TestPurpose.IN_CLASS,
+          purpose: { in: [TestPurpose.IN_CLASS, TestPurpose.PRACTICE_MOCK] },
           status: TestStatus.PUBLISHED,
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        select: { id: true, title: true, timeLimitMinutes: true, maxAttempts: true },
+        select: { id: true, title: true, purpose: true, lessonId: true, timeLimitMinutes: true, maxAttempts: true },
       }),
     ]);
 
@@ -120,7 +120,7 @@ export class ClassAssessmentService {
         where: {
           id: dto.testId,
           courseId: offering.courseId,
-          purpose: TestPurpose.IN_CLASS,
+          purpose: { in: [TestPurpose.IN_CLASS, TestPurpose.PRACTICE_MOCK] },
           status: TestStatus.PUBLISHED,
         },
         select: { id: true },
@@ -128,7 +128,7 @@ export class ClassAssessmentService {
       if (!test) {
         throw new BadRequestException({
           code: 'CLASS_ASSESSMENT_TEST_INVALID',
-          message: 'Chỉ có thể giao bài kiểm tra trong lớp đã xuất bản cùng khóa học.',
+          message: 'Chỉ có thể giao bài kiểm tra trong lớp hoặc bài luyện tập đã xuất bản cùng khóa học.',
         });
       }
       await this.assessmentInstructorService.validatePublishableTest(transaction, dto.testId);

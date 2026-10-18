@@ -361,6 +361,10 @@ model Lesson {
   tests                Test[]
   skills               LessonSkill[]
   focusSkills          ToeicSkill[]          @default([])
+  learningObjectives   String[]               @default([])
+  contentMarkdown      String?                @db.Text
+  estimatedMinutes     Int?
+  focusTaskCodes       String[]               @default([])
   studyRecommendations StudyRecommendation[]
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt

@@ -223,6 +223,11 @@ export interface Lesson {
   moduleId: string;
   title: string;
   description: string | null;
+  learningObjectives: string[];
+  contentMarkdown: string | null;
+  estimatedMinutes: number | null;
+  focusSkills: import('@/features/learning/curriculum').ToeicSkill[];
+  focusTaskCodes: import('@/features/learning/curriculum').LessonTaskCode[];
   orderIndex: number;
   createdAt: string;
   updatedAt: string;
@@ -258,6 +263,11 @@ export type VersionedResourceInput = Partial<ResourceInput> & { expectedUpdatedA
 export interface LessonInput {
   title: string;
   description?: string;
+  learningObjectives?: string[];
+  contentMarkdown?: string | null;
+  estimatedMinutes?: number | null;
+  focusSkills?: import('@/features/learning/curriculum').ToeicSkill[];
+  focusTaskCodes?: import('@/features/learning/curriculum').LessonTaskCode[];
 }
 
 export interface ResourceInput {

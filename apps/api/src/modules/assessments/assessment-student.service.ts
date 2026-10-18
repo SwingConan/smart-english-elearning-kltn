@@ -229,7 +229,10 @@ export class AssessmentStudentService {
         where: {
           classOfferingId: enrollment.classOffering.id,
           isActive: true,
-          test: { status: TestStatus.PUBLISHED, purpose: TestPurpose.IN_CLASS },
+          test: {
+            status: TestStatus.PUBLISHED,
+            purpose: { in: [TestPurpose.IN_CLASS, TestPurpose.PRACTICE_MOCK] },
+          },
         },
         orderBy: [{ openAt: 'asc' }, { createdAt: 'asc' }],
         select: {
@@ -268,6 +271,7 @@ export class AssessmentStudentService {
           courseId: enrollment.classOffering.courseId,
           status: TestStatus.PUBLISHED,
           purpose: TestPurpose.PRACTICE_MOCK,
+          lessonId: null,
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         select: {
@@ -363,6 +367,7 @@ export class AssessmentStudentService {
         select: {
           id: true,
           purpose: true,
+          lessonId: true,
           maxAttempts: true,
           timeLimitMinutes: true,
           testQuestions: {
@@ -385,8 +390,11 @@ export class AssessmentStudentService {
         throw new NotFoundException('Test not found');
       }
 
+      const requiresAssignment =
+        test.purpose === TestPurpose.IN_CLASS ||
+        (test.purpose === TestPurpose.PRACTICE_MOCK && test.lessonId !== null);
       const classAssessment =
-        test.purpose === TestPurpose.IN_CLASS
+        requiresAssignment
           ? await transaction.classAssessment.findFirst({
               where: {
                 classOfferingId: enrollment.classOffering.id,
@@ -401,7 +409,7 @@ export class AssessmentStudentService {
               },
             })
           : null;
-      if (test.purpose === TestPurpose.IN_CLASS && !classAssessment) {
+      if (requiresAssignment && !classAssessment) {
         throw new NotFoundException('Class assessment not found');
       }
       const now = new Date();

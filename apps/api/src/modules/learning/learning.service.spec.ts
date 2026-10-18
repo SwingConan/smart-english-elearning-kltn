@@ -21,6 +21,11 @@ describe('LearningService', () => {
     title: 'Lesson',
     description: null,
     orderIndex: 0,
+    learningObjectives: ['Recognize the subject'],
+    contentMarkdown: '# Lesson',
+    estimatedMinutes: 20,
+    focusSkills: ['LISTENING'],
+    focusTaskCodes: ['L1_PHOTOGRAPH'],
     module: { id: 'module-id', title: 'Module' },
     resources: [],
   };
@@ -30,7 +35,7 @@ describe('LearningService', () => {
   const prisma = {
     enrollment: { findFirst: jest.fn() },
     course: { findUniqueOrThrow: jest.fn() },
-    classAssessment: { findMany: jest.fn() },
+    classAssessment: { findMany: jest.fn(), findFirst: jest.fn() },
     testAttempt: { findMany: jest.fn() },
     lesson: { findFirst: jest.fn(), count: jest.fn() },
     learningResource: { findFirst: jest.fn() },
@@ -52,6 +57,7 @@ describe('LearningService', () => {
     prisma.lesson.findFirst.mockResolvedValue(lesson);
     prisma.course.findUniqueOrThrow.mockResolvedValue({ title: 'Course', modules: [] });
     prisma.classAssessment.findMany.mockResolvedValue([]);
+    prisma.classAssessment.findFirst.mockResolvedValue(null);
     prisma.testAttempt.findMany.mockResolvedValue([]);
     prisma.lesson.count.mockResolvedValue(0);
     prisma.lessonProgress.count.mockResolvedValue(0);
@@ -118,6 +124,49 @@ describe('LearningService', () => {
       },
     });
     expect(result.progress.status).toBe(LessonProgressStatus.IN_PROGRESS);
+    expect(result).toMatchObject({
+      learningObjectives: ['Recognize the subject'],
+      contentMarkdown: '# Lesson',
+      estimatedMinutes: 20,
+      focusSkills: ['LISTENING'],
+      focusTaskCodes: ['L1_PHOTOGRAPH'],
+      practice: null,
+    });
+    expect(JSON.stringify(result)).not.toMatch(/storageKey|stimulus|transcript/i);
+  });
+
+  it('exposes practice only from an active, available assignment for this enrollment class', async () => {
+    prisma.classAssessment.findFirst.mockResolvedValue({
+      id: 'practice-assessment',
+      test: { id: 'practice-test', title: 'Part 1 practice' },
+    });
+    const result = await service.openLesson(learnerId, enrollmentId, lessonId);
+    expect(prisma.classAssessment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        classOfferingId: enrollment.classOfferingId,
+        isActive: true,
+        test: {
+          lessonId,
+          purpose: 'PRACTICE_MOCK',
+          status: 'PUBLISHED',
+        },
+      }),
+    }));
+    expect(result.practice).toEqual({
+      classAssessmentId: 'practice-assessment',
+      testId: 'practice-test',
+      title: 'Part 1 practice',
+    });
+  });
+
+  it('suppresses inactive, unpublished, unavailable and wrong-class practice', async () => {
+    prisma.classAssessment.findFirst.mockResolvedValue(null);
+    await expect(service.openLesson(learnerId, enrollmentId, lessonId)).resolves.toMatchObject({
+      practice: null,
+    });
+    expect(prisma.classAssessment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ classOfferingId: 'offering-id', isActive: true }),
+    }));
   });
 
   it.each([LessonProgressStatus.IN_PROGRESS, LessonProgressStatus.COMPLETED])(

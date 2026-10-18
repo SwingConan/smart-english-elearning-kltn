@@ -5,6 +5,10 @@ export interface LessonSummary {
   title: string;
   description: string | null;
   orderIndex: number;
+  learningObjectives: string[];
+  estimatedMinutes: number | null;
+  focusSkills: import('./curriculum').ToeicSkill[];
+  focusTaskCodes: import('./curriculum').LessonTaskCode[];
   progressStatus: LessonProgressStatus;
   resourceCount: number;
 }
@@ -44,6 +48,11 @@ export interface LessonDetail {
   id: string;
   title: string;
   description: string | null;
+  learningObjectives: string[];
+  contentMarkdown: string | null;
+  estimatedMinutes: number | null;
+  focusSkills: import('./curriculum').ToeicSkill[];
+  focusTaskCodes: import('./curriculum').LessonTaskCode[];
   orderIndex: number;
   module: { id: string; title: string };
   resources: LessonResource[];
@@ -52,6 +61,11 @@ export interface LessonDetail {
     lastAccessedAt: string | null;
     completedAt: string | null;
   };
+  practice: {
+    classAssessmentId: string;
+    testId: string;
+    title: string;
+  } | null;
 }
 
 export interface CourseProgress {

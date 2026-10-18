@@ -39,6 +39,7 @@ describe('AssessmentStudentService', () => {
     learnerSkillState: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
     masteryHistory: { create: jest.fn() },
     test: { findFirst: jest.fn() },
+    classAssessment: { findFirst: jest.fn() },
   };
   const prisma = {
     enrollment: { findFirst: jest.fn() },
@@ -325,6 +326,34 @@ describe('AssessmentStudentService', () => {
       service.startOrResumeAttempt(learnerId, enrollmentId, 'test-id'),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.$transaction).toHaveBeenCalledTimes(3);
+  });
+
+  it('starts lesson practice only through the active assignment for the enrollment class', async () => {
+    transaction.test.findFirst.mockResolvedValue({
+      id: 'practice-test', purpose: TestPurpose.PRACTICE_MOCK, lessonId: 'lesson-id',
+      maxAttempts: 1, timeLimitMinutes: null, testQuestions: [],
+    });
+    transaction.classAssessment.findFirst.mockResolvedValue({
+      id: 'practice-assignment', openAt: null, closeAt: null, maxAttemptsOverride: null,
+    });
+    transaction.testAttempt.findFirst.mockResolvedValue(null);
+    transaction.testAttempt.count.mockResolvedValue(0);
+    transaction.testAttempt.create.mockResolvedValue({ id: 'practice-attempt' });
+
+    await expect(service.startOrResumeAttempt(learnerId, enrollmentId, 'practice-test'))
+      .resolves.toEqual({ id: 'practice-attempt' });
+    expect(transaction.classAssessment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        classOfferingId: enrollment.classOffering.id,
+        testId: 'practice-test',
+        isActive: true,
+      },
+    }));
+
+    transaction.classAssessment.findFirst.mockResolvedValue(null);
+    await expect(service.startOrResumeAttempt(learnerId, enrollmentId, 'practice-test'))
+      .rejects.toBeInstanceOf(NotFoundException);
+    expect(transaction.testAttempt.create).toHaveBeenCalledTimes(1);
   });
 });
 

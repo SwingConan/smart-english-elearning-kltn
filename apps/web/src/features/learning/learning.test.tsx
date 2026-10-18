@@ -23,6 +23,10 @@ const content: CourseContent = {
           title: 'Photographs',
           description: null,
           orderIndex: 0,
+          learningObjectives: ['Nhận diện chi tiết trong hình ảnh'],
+          estimatedMinutes: 25,
+          focusSkills: ['LISTENING'],
+          focusTaskCodes: ['L1_PHOTOGRAPH'],
           progressStatus: 'IN_PROGRESS',
           resourceCount: 2,
         },
@@ -31,6 +35,10 @@ const content: CourseContent = {
           title: 'Questions',
           description: null,
           orderIndex: 1,
+          learningObjectives: [],
+          estimatedMinutes: null,
+          focusSkills: [],
+          focusTaskCodes: [],
           progressStatus: 'NOT_STARTED',
           resourceCount: 0,
         },
@@ -42,6 +50,11 @@ const detail = (status: 'IN_PROGRESS' | 'COMPLETED' = 'IN_PROGRESS'): LessonDeta
   id: lessonId,
   title: 'Photographs',
   description: 'Lesson content',
+  learningObjectives: ['Nhận diện chi tiết trong hình ảnh'],
+  contentMarkdown: '## Trọng tâm\n\n- Quan sát chủ thể\n\n<script>alert("unsafe")</script>',
+  estimatedMinutes: 25,
+  focusSkills: ['LISTENING'],
+  focusTaskCodes: ['L1_PHOTOGRAPH'],
   orderIndex: 0,
   module: { id: 'module-1', title: 'Listening' },
   progress: {
@@ -73,6 +86,11 @@ const detail = (status: 'IN_PROGRESS' | 'COMPLETED' = 'IN_PROGRESS'): LessonDeta
       isDownloadable: false,
     },
   ],
+  practice: {
+    classAssessmentId: 'assessment-practice',
+    testId: 'practice-test',
+    title: 'Luyện tập Part 1',
+  },
 });
 
 afterEach(() => {
@@ -90,7 +108,7 @@ describe('class learning', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(await screen.findByText('Listening')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Listening' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Photographs/i })).toHaveAttribute(
       'href',
       `/student/enrollments/${enrollmentId}/lessons/${lessonId}`,
@@ -111,6 +129,14 @@ describe('class learning', () => {
     );
     renderLesson();
     expect(await screen.findByRole('heading', { name: 'Photographs' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Mục tiêu bài học' })).toBeInTheDocument();
+    expect(screen.getByText('Nhận diện chi tiết trong hình ảnh')).toBeInTheDocument();
+    expect(screen.getByTestId('safe-markdown')).toHaveTextContent('<script>alert("unsafe")</script>');
+    expect(document.querySelector('script')).toBeNull();
+    expect(screen.getByRole('link', { name: /Đến bài luyện tập/i })).toHaveAttribute(
+      'href',
+      `/student/enrollments/${enrollmentId}/tests?focus=practice-test`,
+    );
     expect(screen.getByRole('link', { name: /Questions/i })).toHaveAttribute(
       'href',
       `/student/enrollments/${enrollmentId}/lessons/lesson-2`,
@@ -121,6 +147,25 @@ describe('class learning', () => {
     expect(complete).toHaveBeenCalledOnce();
     resolveComplete();
     expect(await screen.findByText(/Đã hoàn thành bài học/i)).toBeInTheDocument();
+  });
+
+  it('renders loading, empty and error states without exposing private error details', async () => {
+    let resolveContent!: (value: CourseContent) => void;
+    vi.spyOn(learningApi, 'getContent').mockReturnValueOnce(new Promise((resolve) => { resolveContent = resolve; }));
+    const loadingView = render(
+      <MemoryRouter initialEntries={[`/student/enrollments/${enrollmentId}/learn`]}><Routes><Route path="/student/enrollments/:enrollmentId/learn" element={<LearningPage />} /></Routes></MemoryRouter>,
+    );
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    resolveContent({ ...content, modules: [] });
+    expect(await screen.findByText(/chưa có nội dung/i)).toBeInTheDocument();
+    loadingView.unmount();
+
+    vi.spyOn(learningApi, 'getContent').mockRejectedValueOnce(new Error('database secret'));
+    render(
+      <MemoryRouter initialEntries={[`/student/enrollments/${enrollmentId}/learn`]}><Routes><Route path="/student/enrollments/:enrollmentId/learn" element={<LearningPage />} /></Routes></MemoryRouter>,
+    );
+    expect(await screen.findByText(/Không thể tải nội dung lớp/i)).toBeInTheDocument();
+    expect(screen.queryByText('database secret')).not.toBeInTheDocument();
   });
 
   it('starts a real browser download for the visible stored-file action and reports failure safely', async () => {

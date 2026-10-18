@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { studentAssessmentApi } from '@/features/assessments/api';
 import { assessmentTypeLabel } from '@/features/assessments/display';
 import { studentAssessmentErrorMessage } from '@/features/assessments/errors';
@@ -9,6 +9,8 @@ import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 export function StudentAssessmentListPage() {
   const { enrollmentId } = useParams<{ enrollmentId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const focusedTestId = searchParams.get('focus');
   const redirectExpiredSession = useSessionExpiry();
   const startInFlight = useRef(false);
   const [tests, setTests] = useState<StudentTestListItem[]>([]);
@@ -154,7 +156,8 @@ export function StudentAssessmentListPage() {
                 : 'Bắt đầu làm bài';
             return (
               <article
-                className={`rounded-2xl border p-5 shadow-sm ${urgency === 'ACTIVE' ? 'border-indigo-400 bg-indigo-50/60 ring-1 ring-indigo-200' : urgency === 'OPEN' ? 'border-blue-300 bg-blue-50/40' : urgency === 'UPCOMING' ? 'bg-white' : 'border-slate-200 bg-slate-50 opacity-90'}`}
+                className={`rounded-2xl border p-5 shadow-sm ${focusedTestId === test.id ? 'ring-2 ring-indigo-500' : ''} ${urgency === 'ACTIVE' ? 'border-indigo-400 bg-indigo-50/60 ring-1 ring-indigo-200' : urgency === 'OPEN' ? 'border-blue-300 bg-blue-50/40' : urgency === 'UPCOMING' ? 'bg-white' : 'border-slate-200 bg-slate-50 opacity-90'}`}
+                id={`assessment-${test.id}`}
                 key={test.id}
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">

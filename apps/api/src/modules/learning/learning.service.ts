@@ -67,6 +67,10 @@ export class LearningService {
                 title: true,
                 description: true,
                 orderIndex: true,
+                learningObjectives: true,
+                estimatedMinutes: true,
+                focusSkills: true,
+                focusTaskCodes: true,
                 _count: { select: { resources: true } },
                 progress: {
                   where: { enrollmentId },
@@ -91,6 +95,10 @@ export class LearningService {
           title: lesson.title,
           description: lesson.description,
           orderIndex: lesson.orderIndex,
+          learningObjectives: lesson.learningObjectives,
+          estimatedMinutes: lesson.estimatedMinutes,
+          focusSkills: lesson.focusSkills,
+          focusTaskCodes: lesson.focusTaskCodes,
           progressStatus: lesson.progress[0]?.status ?? 'NOT_STARTED',
           resourceCount: lesson._count.resources,
         })),
@@ -112,6 +120,11 @@ export class LearningService {
         title: true,
         description: true,
         orderIndex: true,
+        learningObjectives: true,
+        contentMarkdown: true,
+        estimatedMinutes: true,
+        focusSkills: true,
+        focusTaskCodes: true,
         module: { select: { id: true, title: true } },
         resources: {
           orderBy: { orderIndex: 'asc' },
@@ -134,8 +147,29 @@ export class LearningService {
       throw new NotFoundException('Lesson not found');
     }
 
+    const now = new Date();
+    const practiceAssessment = await this.prisma.classAssessment.findFirst({
+      where: {
+        classOfferingId: enrollment.classOfferingId,
+        isActive: true,
+        AND: [
+          { OR: [{ openAt: null }, { openAt: { lte: now } }] },
+          { OR: [{ closeAt: null }, { closeAt: { gt: now } }] },
+        ],
+        test: {
+          lessonId,
+          purpose: TestPurpose.PRACTICE_MOCK,
+          status: TestStatus.PUBLISHED,
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        test: { select: { id: true, title: true } },
+      },
+    });
+
     const progress = await this.runProgressTransaction(async (transaction) => {
-      const now = new Date();
       const existing = await transaction.lessonProgress.findUnique({
         where: { enrollmentId_lessonId: { enrollmentId, lessonId } },
       });
@@ -170,6 +204,13 @@ export class LearningService {
         lastAccessedAt: progress.lastAccessedAt,
         completedAt: progress.completedAt,
       },
+      practice: practiceAssessment
+        ? {
+            classAssessmentId: practiceAssessment.id,
+            testId: practiceAssessment.test.id,
+            title: practiceAssessment.test.title,
+          }
+        : null,
     };
   }
 
