@@ -70,6 +70,7 @@ describe('AssessmentStudentService', () => {
       title: 'Scoring',
       description: null,
       purpose: TestPurpose.IN_CLASS,
+      lessonId: null,
       timeLimitMinutes: null,
       showResultAfterSubmit: true,
       testQuestions: questions,
@@ -285,6 +286,39 @@ describe('AssessmentStudentService', () => {
     );
   });
 
+  it('does not write legacy BKT state for lesson-linked practice', async () => {
+    const practice = practiceAttempt('lesson-id');
+    transaction.testAttempt.findFirst
+      .mockResolvedValueOnce(practice)
+      .mockResolvedValueOnce({ ...practice, status: TestAttemptStatus.SUBMITTED });
+
+    await finalizeAttemptForTest();
+
+    expect(transaction.learnerSkillState.findUnique).not.toHaveBeenCalled();
+    expect(transaction.learnerSkillState.create).not.toHaveBeenCalled();
+    expect(transaction.learnerSkillState.update).not.toHaveBeenCalled();
+    expect(transaction.masteryHistory.create).not.toHaveBeenCalled();
+  });
+
+  it('preserves legacy BKT writes for standalone practice', async () => {
+    const practice = practiceAttempt(null);
+    transaction.testAttempt.findFirst
+      .mockResolvedValueOnce(practice)
+      .mockResolvedValueOnce({ ...practice, status: TestAttemptStatus.SUBMITTED });
+    transaction.learnerSkillState.findUnique.mockResolvedValue(null);
+
+    await finalizeAttemptForTest();
+
+    expect(transaction.learnerSkillState.create).toHaveBeenCalledTimes(1);
+    expect(transaction.masteryHistory.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        enrollmentId,
+        testAttemptId: attemptId,
+        skillId: 'legacy-skill',
+      }),
+    }));
+  });
+
   it('returns an already submitted attempt without rescoring', async () => {
     const submittedAt = new Date('2026-09-21T01:00:00Z');
     transaction.testAttempt.findFirst.mockResolvedValue({
@@ -299,6 +333,7 @@ describe('AssessmentStudentService', () => {
         id: 'test-id',
         title: 'Done',
         purpose: TestPurpose.IN_CLASS,
+        lessonId: null,
         timeLimitMinutes: null,
         showResultAfterSubmit: true,
         testQuestions: questions,
@@ -355,6 +390,55 @@ describe('AssessmentStudentService', () => {
       .rejects.toBeInstanceOf(NotFoundException);
     expect(transaction.testAttempt.create).toHaveBeenCalledTimes(1);
   });
+
+  function practiceAttempt(lessonId: string | null) {
+    const baseQuestion = testQuestion(
+      'practice-question',
+      QuestionResponseType.SINGLE_CHOICE,
+      1,
+      [['correct', true], ['wrong', false]],
+    );
+    const question = {
+      ...baseQuestion,
+      question: {
+        ...baseQuestion.question,
+        skills: [{
+          skill: {
+            id: 'legacy-skill',
+            pInit: 0.2,
+            pLearn: 0.1,
+            pGuess: 0.2,
+            pSlip: 0.1,
+          },
+        }],
+      },
+    };
+    return {
+      ...attemptRecord([{
+        testQuestionId: question.id,
+        selectedOptionIds: ['correct'],
+        textResponse: null,
+        audioStorageKey: null,
+      }]),
+      test: {
+        ...attemptRecord([]).test,
+        purpose: TestPurpose.PRACTICE_MOCK,
+        lessonId,
+        testQuestions: [question],
+      },
+    };
+  }
+
+  async function finalizeAttemptForTest() {
+    const internal = service as unknown as {
+      finalizeAttempt: (
+        client: typeof transaction,
+        enrollment: string,
+        attempt: string,
+      ) => Promise<unknown>;
+    };
+    return internal.finalizeAttempt(transaction, enrollmentId, attemptId);
+  }
 });
 
 function testQuestion(

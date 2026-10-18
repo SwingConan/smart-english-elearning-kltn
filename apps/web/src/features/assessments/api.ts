@@ -206,7 +206,7 @@ export const studentAssessmentApi = {
 
 export interface ClassAssessmentInput {
   testId: string;
-  stage: 'PERIODIC' | 'MIDTERM' | 'FINAL';
+  stage?: 'PERIODIC' | 'MIDTERM' | 'FINAL';
   openAt?: string | null;
   closeAt?: string | null;
   maxAttemptsOverride?: number | null;

@@ -474,6 +474,9 @@ describe('M06 four-skill assessment UI', () => {
           test: {
             id: 't1',
             title: 'Kiểm tra giữa kỳ',
+            purpose: 'IN_CLASS',
+            lessonId: null,
+            lesson: null,
             maxAttempts: 1,
             timeLimitMinutes: 30,
             _count: { testQuestions: 11 },
@@ -489,7 +492,7 @@ describe('M06 four-skill assessment UI', () => {
       { role: 'INSTRUCTOR' },
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Chỉnh sửa lịch' }));
-    fireEvent.change(screen.getAllByLabelText('Loại đánh giá')[1], { target: { value: 'FINAL' } });
+    fireEvent.change(screen.getByLabelText('Loại đánh giá'), { target: { value: 'FINAL' } });
     fireEvent.change(screen.getAllByLabelText('Số lượt tối đa')[1], { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Lưu lịch' }));
     await waitFor(() =>
@@ -499,6 +502,68 @@ describe('M06 four-skill assessment UI', () => {
         expect.objectContaining({ stage: 'FINAL', maxAttemptsOverride: 2 }),
       ),
     );
+  });
+
+  it('separates lesson practice from formal stage semantics', async () => {
+    vi.spyOn(classAssessmentApi, 'list').mockResolvedValue({
+      classOffering: {
+        id: 'c1',
+        code: 'C1',
+        name: 'Class',
+        course: { id: 'course', title: 'Course' },
+      },
+      availableTests: [{
+        id: 'practice',
+        title: 'Part 3 drill',
+        purpose: 'PRACTICE_MOCK',
+        lessonId: 'lesson-3',
+        lesson: { id: 'lesson-3', title: 'Lesson 3 · Conversations' },
+        maxAttempts: 2,
+        timeLimitMinutes: 20,
+      }],
+      assessments: [{
+        id: 'practice-assignment',
+        stage: 'FINAL',
+        openAt: null,
+        closeAt: null,
+        maxAttemptsOverride: null,
+        isActive: true,
+        submissionCount: 0,
+        pendingGradingCount: 0,
+        attemptCount: 0,
+        test: {
+          id: 'practice',
+          title: 'Part 3 drill',
+          purpose: 'PRACTICE_MOCK',
+          lessonId: 'lesson-3',
+          lesson: { id: 'lesson-3', title: 'Lesson 3 · Conversations' },
+          maxAttempts: 2,
+          timeLimitMinutes: 20,
+          _count: { testQuestions: 5 },
+        },
+      }],
+    });
+    const create = vi.spyOn(classAssessmentApi, 'create').mockResolvedValue({});
+    renderAssessmentRoute(
+      <ClassAssessmentManagementPage />,
+      '/instructor/classes/c1/assessments',
+      '/instructor/classes/:classOfferingId/assessments',
+      { role: 'INSTRUCTOR' },
+    );
+
+    expect(await screen.findByRole('group', { name: 'Bài luyện sau bài học' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Lesson 3 · Conversations/ })).toBeInTheDocument();
+    expect(screen.getByText(/Liên kết:/)).toHaveTextContent('Lesson 3 · Conversations');
+    expect(screen.getByText(/Bài học:/)).toHaveTextContent('Lesson 3 · Conversations');
+    expect(screen.queryByLabelText('Loại đánh giá')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cuối kỳ')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Giao cho lớp' }));
+    await waitFor(() => expect(create).toHaveBeenCalledWith(
+      'c1',
+      expect.not.objectContaining({ stage: expect.anything() }),
+    ));
+    fireEvent.click(screen.getByRole('button', { name: 'Chỉnh sửa lịch' }));
+    expect(screen.queryByLabelText('Loại đánh giá')).not.toBeInTheDocument();
   });
 
   it('shows truthful four-skill assessment snapshots in progress history', async () => {

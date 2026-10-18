@@ -107,6 +107,7 @@ const studentAttemptSelect = {
       title: true,
       description: true,
       purpose: true,
+      lessonId: true,
       showResultAfterSubmit: true,
       timeLimitMinutes: true,
       testQuestions: {
@@ -522,6 +523,7 @@ export class AssessmentStudentService {
       type: attempt.test.purpose,
       purpose: attempt.test.purpose,
       stage: attempt.classAssessment?.stage ?? null,
+      lessonId: attempt.test.lessonId,
       timeLimitMinutes: attempt.test.timeLimitMinutes,
     };
 
@@ -1242,7 +1244,10 @@ export class AssessmentStudentService {
       });
     }
 
-    if (attempt.test.purpose === TestPurpose.PRACTICE_MOCK) {
+    if (
+      attempt.test.purpose === TestPurpose.PRACTICE_MOCK &&
+      attempt.test.lessonId === null
+    ) {
       await this.applyBktObservations(transaction, enrollmentId, attemptId, bktObservations);
     }
 

@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
-import { AnswerEvaluationStatus, AssessmentStage, Prisma, QuestionResponseType, ToeicSkill } from '../../generated/prisma/client';
+import { AnswerEvaluationStatus, AssessmentStage, Prisma, QuestionResponseType, TestPurpose, ToeicSkill } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AssessmentResponseStorage } from '../placement/assessment-response.storage';
 import { ClassAssessmentService } from './class-assessment.service';
@@ -20,7 +20,12 @@ describe('ClassAssessmentService', () => {
     testQuestion: { findMany: jest.fn() },
     attemptSkillScore: { deleteMany: jest.fn(), upsert: jest.fn() },
   };
-  const prisma = { classAssessment: { findFirst: jest.fn() }, $transaction: jest.fn() };
+  const prisma = {
+    classOffering: { findFirst: jest.fn() },
+    classAssessment: { findFirst: jest.fn(), findMany: jest.fn() },
+    test: { findMany: jest.fn() },
+    $transaction: jest.fn(),
+  };
   const storage = { open: jest.fn() };
   const assessmentInstructorService = { validatePublishableTest: jest.fn() };
   const service = new ClassAssessmentService(prisma as unknown as PrismaService, storage as unknown as AssessmentResponseStorage, assessmentInstructorService as never);
@@ -29,7 +34,8 @@ describe('ClassAssessmentService', () => {
     jest.clearAllMocks();
     tx.classAssessment.findFirst.mockResolvedValue(assessment);
     tx.classOffering.findFirst.mockResolvedValue({ id: 'class-id', code: 'C1', name: 'Class', courseId: 'course-id', course: { id: 'course-id', title: 'Course' } });
-    tx.test.findFirst.mockResolvedValue({ id: 'test-id' });
+    prisma.classOffering.findFirst.mockResolvedValue({ id: 'class-id', code: 'C1', name: 'Class', courseId: 'course-id', course: { id: 'course-id', title: 'Course' } });
+    tx.test.findFirst.mockResolvedValue({ id: 'test-id', purpose: TestPurpose.IN_CLASS });
     assessmentInstructorService.validatePublishableTest.mockResolvedValue(undefined);
     prisma.$transaction.mockImplementation((operation: (client: typeof tx) => Promise<unknown>) => operation(tx));
     tx.answerEvaluation.create.mockResolvedValue({ id: 'evaluation-id' });
@@ -90,6 +96,66 @@ describe('ClassAssessmentService', () => {
     assessmentInstructorService.validatePublishableTest.mockRejectedValueOnce(new BadRequestException('invalid published test'));
     await expect(service.create('instructor-id', 'class-id', { testId: 'test-id', stage: AssessmentStage.MIDTERM }))
       .rejects.toThrow('invalid published test');
+    expect(tx.classAssessment.create).not.toHaveBeenCalled();
+  });
+
+  it('uses an internal deterministic stage for lesson practice without requiring stage input', async () => {
+    tx.test.findFirst.mockResolvedValue({ id: 'practice-test', purpose: TestPurpose.PRACTICE_MOCK });
+    tx.classAssessment.findFirst.mockResolvedValueOnce(null);
+
+    await service.create('instructor-id', 'class-id', { testId: 'practice-test' });
+
+    expect(tx.classAssessment.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        testId: 'practice-test',
+        stage: AssessmentStage.PERIODIC,
+      }),
+    }));
+  });
+
+  it('projects purpose and linked lesson for practice assignment semantics', async () => {
+    const lesson = { id: 'lesson-id', title: 'Part 3 Conversations' };
+    prisma.classAssessment.findMany.mockResolvedValue([{
+      id: 'practice-assignment',
+      stage: AssessmentStage.PERIODIC,
+      openAt: null,
+      closeAt: null,
+      maxAttemptsOverride: null,
+      isActive: true,
+      test: {
+        id: 'practice-test',
+        title: 'Conversation drill',
+        purpose: TestPurpose.PRACTICE_MOCK,
+        lessonId: lesson.id,
+        lesson,
+        maxAttempts: 2,
+        timeLimitMinutes: 20,
+        _count: { testQuestions: 5 },
+      },
+      attempts: [],
+      _count: { attempts: 0 },
+    }]);
+    prisma.test.findMany.mockResolvedValue([{
+      id: 'practice-test',
+      title: 'Conversation drill',
+      purpose: TestPurpose.PRACTICE_MOCK,
+      lessonId: lesson.id,
+      lesson,
+      maxAttempts: 2,
+      timeLimitMinutes: 20,
+    }]);
+
+    await expect(service.list('instructor-id', 'class-id')).resolves.toMatchObject({
+      availableTests: [expect.objectContaining({ purpose: TestPurpose.PRACTICE_MOCK, lesson })],
+      assessments: [expect.objectContaining({
+        test: expect.objectContaining({ purpose: TestPurpose.PRACTICE_MOCK, lesson }),
+      })],
+    });
+  });
+
+  it('still requires an explicit stage for formal in-class assessments', async () => {
+    await expect(service.create('instructor-id', 'class-id', { testId: 'test-id' }))
+      .rejects.toMatchObject({ response: expect.objectContaining({ code: 'CLASS_ASSESSMENT_STAGE_REQUIRED' }) });
     expect(tx.classAssessment.create).not.toHaveBeenCalled();
   });
 

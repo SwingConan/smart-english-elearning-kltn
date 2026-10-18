@@ -101,7 +101,7 @@ export function StudentAssessmentListPage() {
               ['PERIODIC', 'Thường kỳ'],
               ['MIDTERM', 'Giữa kỳ'],
               ['FINAL', 'Cuối kỳ'],
-              ['PRACTICE_MOCK', 'Luyện tập / Thi thử'],
+              ['PRACTICE_MOCK', 'Bài luyện sau bài học'],
             ] as const
           ).map(([value, label]) => (
             <button

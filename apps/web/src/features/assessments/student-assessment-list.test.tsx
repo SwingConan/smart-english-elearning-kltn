@@ -32,7 +32,7 @@ describe('StudentAssessmentListPage', () => {
     expect(screen.getByText('Kiểm tra thường kỳ')).toBeInTheDocument();
     expect(screen.getByText('Kiểm tra giữa kỳ')).toBeInTheDocument();
     expect(screen.getByText('Kiểm tra cuối kỳ')).toBeInTheDocument();
-    expect(screen.getAllByText('Luyện tập / Thi thử')).toHaveLength(2);
+    expect(screen.getAllByText('Bài luyện sau bài học')).toHaveLength(2);
     expect(screen.getAllByText('Kiểm tra giữa kỳ')).toHaveLength(1);
     expect(screen.getByText(/3 câu hỏi/i)).toBeInTheDocument();
     expect(screen.getByText(/Đang làm lượt 1\/2/i)).toBeInTheDocument();
@@ -51,7 +51,7 @@ describe('StudentAssessmentListPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cuối kỳ' }));
     expect(screen.getByText('Test final')).toBeInTheDocument();
     expect(screen.queryByText('Test periodic')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Luyện tập / Thi thử' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bài luyện sau bài học' }));
     expect(screen.getByText('Test practice')).toBeInTheDocument();
     expect(screen.queryByText('Test final')).not.toBeInTheDocument();
   });

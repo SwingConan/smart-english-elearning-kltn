@@ -216,6 +216,7 @@ export interface StudentAttemptContent {
     type: TestType | TestPurpose;
     purpose?: TestPurpose;
     stage?: AssessmentStage | null;
+    lessonId?: string | null;
     timeLimitMinutes?: number | null;
   };
   questions?: StudentAttemptQuestion[];
@@ -303,11 +304,28 @@ export interface ClassAssessmentSummary {
   submissionCount: number;
   pendingGradingCount: number;
   attemptCount: number;
-  test: { id: string; title: string; maxAttempts: number; timeLimitMinutes: number | null; _count: { testQuestions: number } };
+  test: {
+    id: string;
+    title: string;
+    purpose: Exclude<TestPurpose, 'PLACEMENT'>;
+    lessonId: string | null;
+    lesson: { id: string; title: string } | null;
+    maxAttempts: number;
+    timeLimitMinutes: number | null;
+    _count: { testQuestions: number };
+  };
 }
 export interface ClassAssessmentWorkspace {
   classOffering: { id: string; code: string; name: string; course: { id: string; title: string } };
-  availableTests: Array<{ id: string; title: string; purpose: Exclude<TestPurpose, 'PLACEMENT'>; lessonId: string | null; timeLimitMinutes: number | null; maxAttempts: number }>;
+  availableTests: Array<{
+    id: string;
+    title: string;
+    purpose: Exclude<TestPurpose, 'PLACEMENT'>;
+    lessonId: string | null;
+    lesson: { id: string; title: string } | null;
+    timeLimitMinutes: number | null;
+    maxAttempts: number;
+  }>;
   assessments: ClassAssessmentSummary[];
 }
 export interface GradingQueue {

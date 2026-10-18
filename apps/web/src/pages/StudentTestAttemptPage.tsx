@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bookmark, ChevronLeft, ChevronRight, CircleAlert, Mic, Square } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { studentAssessmentApi } from '@/features/assessments/api';
+import { assessmentTypeLabel } from '@/features/assessments/display';
 import { studentAssessmentErrorMessage } from '@/features/assessments/errors';
 import type {
   StudentAnswerSelection,
@@ -31,7 +32,6 @@ const skillLabels: Record<ToeicSkill, string> = {
   SPEAKING: 'Speaking',
   WRITING: 'Writing',
 };
-const stageLabels = { PERIODIC: 'Thường kỳ', MIDTERM: 'Giữa kỳ', FINAL: 'Cuối kỳ' } as const;
 
 export function StudentTestAttemptPage() {
   const { enrollmentId, attemptId } = useParams<{ enrollmentId: string; attemptId: string }>();
@@ -311,7 +311,7 @@ export function StudentTestAttemptPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
-              {content.test.stage ? stageLabels[content.test.stage] : 'Bài kiểm tra trên lớp'}
+              {assessmentTypeLabel(content.test.purpose ?? 'IN_CLASS', content.test.stage)}
             </p>
             <h1 className="text-xl font-bold">{content.test.title}</h1>
           </div>

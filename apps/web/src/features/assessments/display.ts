@@ -43,7 +43,7 @@ export function assessmentTypeLabel(
   purpose: TestPurpose,
   stage: AssessmentStage | null | undefined,
 ): string {
-  if (purpose === 'PRACTICE_MOCK') return 'Luyện tập / Thi thử';
+  if (purpose === 'PRACTICE_MOCK') return 'Bài luyện sau bài học';
   if (purpose === 'PLACEMENT') return 'Kiểm tra đầu vào';
   return stage
     ? {
