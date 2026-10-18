@@ -541,6 +541,26 @@ describe('M06 four-skill assessment UI', () => {
           timeLimitMinutes: 20,
           _count: { testQuestions: 5 },
         },
+      }, {
+        id: 'standalone-assignment',
+        stage: 'MIDTERM',
+        openAt: null,
+        closeAt: null,
+        maxAttemptsOverride: null,
+        isActive: true,
+        submissionCount: 1,
+        pendingGradingCount: 0,
+        attemptCount: 1,
+        test: {
+          id: 'standalone-practice',
+          title: 'General mock',
+          purpose: 'PRACTICE_MOCK',
+          lessonId: null,
+          lesson: null,
+          maxAttempts: 1,
+          timeLimitMinutes: 30,
+          _count: { testQuestions: 10 },
+        },
       }],
     });
     const create = vi.spyOn(classAssessmentApi, 'create').mockResolvedValue({});
@@ -555,6 +575,7 @@ describe('M06 four-skill assessment UI', () => {
     expect(screen.getByRole('option', { name: /Lesson 3 · Conversations/ })).toBeInTheDocument();
     expect(screen.getByText(/Liên kết:/)).toHaveTextContent('Lesson 3 · Conversations');
     expect(screen.getByText(/Bài học:/)).toHaveTextContent('Lesson 3 · Conversations');
+    expect(screen.getByText('Luyện tập / Thi thử')).toBeInTheDocument();
     expect(screen.queryByLabelText('Loại đánh giá')).not.toBeInTheDocument();
     expect(screen.queryByText('Cuối kỳ')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Giao cho lớp' }));
@@ -859,6 +880,7 @@ function progressWithAttemptHistory(): CourseProgress {
         testId: 't1',
         title: 'Kiểm tra giữa kỳ',
         purpose: 'IN_CLASS',
+        lessonId: null,
         stage: 'MIDTERM',
           openAt: null,
           closeAt: null,

@@ -311,7 +311,7 @@ export function StudentTestAttemptPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
-              {assessmentTypeLabel(content.test.purpose ?? 'IN_CLASS', content.test.stage)}
+              {assessmentTypeLabel(content.test.purpose ?? 'IN_CLASS', content.test.stage, content.test.lessonId)}
             </p>
             <h1 className="text-xl font-bold">{content.test.title}</h1>
           </div>

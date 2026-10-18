@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { classAssessmentApi } from '@/features/assessments/api';
+import { assessmentTypeLabel } from '@/features/assessments/display';
 import type {
   AssessmentStage,
   ClassAssessmentSummary,
@@ -185,7 +186,12 @@ export function ClassAssessmentManagementPage() {
 
   const selectedTest = workspace.availableTests.find((test) => test.id === form.testId);
   const formalTests = workspace.availableTests.filter((test) => test.purpose === 'IN_CLASS');
-  const practiceTests = workspace.availableTests.filter((test) => test.purpose === 'PRACTICE_MOCK');
+  const lessonPracticeTests = workspace.availableTests.filter(
+    (test) => test.purpose === 'PRACTICE_MOCK' && test.lessonId !== null,
+  );
+  const standalonePracticeTests = workspace.availableTests.filter(
+    (test) => test.purpose === 'PRACTICE_MOCK' && test.lessonId === null,
+  );
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
@@ -249,12 +255,15 @@ export function ClassAssessmentManagementPage() {
             {formalTests.length ? <optgroup label="Bài kiểm tra lớp">
               {formalTests.map((test) => <option key={test.id} value={test.id}>{test.title} · {test.timeLimitMinutes ?? '—'} phút</option>)}
             </optgroup> : null}
-            {practiceTests.length ? <optgroup label="Bài luyện sau bài học">
-              {practiceTests.map((test) => <option key={test.id} value={test.id}>{test.title}{test.lesson ? ` · ${test.lesson.title}` : ''} · {test.timeLimitMinutes ?? '—'} phút</option>)}
+            {lessonPracticeTests.length ? <optgroup label="Bài luyện sau bài học">
+              {lessonPracticeTests.map((test) => <option key={test.id} value={test.id}>{test.title}{test.lesson ? ` · ${test.lesson.title}` : ''} · {test.timeLimitMinutes ?? '—'} phút</option>)}
+            </optgroup> : null}
+            {standalonePracticeTests.length ? <optgroup label="Luyện tập / Thi thử">
+              {standalonePracticeTests.map((test) => <option key={test.id} value={test.id}>{test.title} · {test.timeLimitMinutes ?? '—'} phút</option>)}
             </optgroup> : null}
           </select>
         </label>
-        {selectedTest?.purpose === 'IN_CLASS' ? <StageField value={form.stage} onChange={(stage) => setForm({ ...form, stage })} /> : selectedTest ? <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"><strong>Bài luyện sau bài học</strong>{selectedTest.lesson ? <span className="mt-1 block">Liên kết: {selectedTest.lesson.title}</span> : null}</div> : null}
+        {selectedTest?.purpose === 'IN_CLASS' ? <StageField value={form.stage} onChange={(stage) => setForm({ ...form, stage })} /> : selectedTest ? <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"><strong>{assessmentTypeLabel(selectedTest.purpose, null, selectedTest.lessonId)}</strong>{selectedTest.lesson ? <span className="mt-1 block">Liên kết: {selectedTest.lesson.title}</span> : null}</div> : null}
         <DateField
           label="Mở từ"
           value={form.openAt}
@@ -294,7 +303,7 @@ export function ClassAssessmentManagementPage() {
                     {assessment.test.purpose === 'IN_CLASS' ? <StageField
                       value={editForm.stage}
                       onChange={(stage) => setEditForm({ ...editForm, stage })}
-                    /> : <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"><strong>Bài luyện sau bài học</strong>{assessment.test.lesson ? <span className="mt-1 block">Liên kết: {assessment.test.lesson.title}</span> : null}</div>}
+                    /> : <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"><strong>{assessmentTypeLabel(assessment.test.purpose, assessment.stage, assessment.test.lessonId)}</strong>{assessment.test.lesson ? <span className="mt-1 block">Liên kết: {assessment.test.lesson.title}</span> : null}</div>}
                     <DateField
                       label="Mở từ"
                       value={editForm.openAt}
@@ -335,7 +344,7 @@ export function ClassAssessmentManagementPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-800">
-                          {assessment.test.purpose === 'PRACTICE_MOCK' ? 'Bài luyện sau bài học' : stageLabels[assessment.stage]}
+                          {assessmentTypeLabel(assessment.test.purpose, assessment.stage, assessment.test.lessonId)}
                         </span>
                         <h3 className="mt-2 font-bold">{assessment.test.title}</h3>
                         {assessment.test.purpose === 'PRACTICE_MOCK' && assessment.test.lesson ? <p className="mt-1 text-sm text-slate-500">Bài học: {assessment.test.lesson.title}</p> : null}

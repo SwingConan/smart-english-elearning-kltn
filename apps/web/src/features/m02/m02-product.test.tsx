@@ -381,6 +381,7 @@ const progress: CourseProgress = {
       testId: 'test-1',
       title: 'Practice Test',
       purpose: 'PRACTICE_MOCK',
+      lessonId: 'lesson-1',
       stage: 'PERIODIC',
       openAt: null,
       closeAt: null,

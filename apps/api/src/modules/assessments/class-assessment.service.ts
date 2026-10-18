@@ -88,7 +88,10 @@ export class ClassAssessmentService {
       this.prisma.test.findMany({
         where: {
           courseId: offering.courseId,
-          purpose: { in: [TestPurpose.IN_CLASS, TestPurpose.PRACTICE_MOCK] },
+          OR: [
+            { purpose: TestPurpose.IN_CLASS },
+            { purpose: TestPurpose.PRACTICE_MOCK, lessonId: { not: null } },
+          ],
           status: TestStatus.PUBLISHED,
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],

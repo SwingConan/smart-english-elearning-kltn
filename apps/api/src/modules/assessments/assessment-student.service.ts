@@ -1039,6 +1039,7 @@ export class AssessmentStudentService {
         type: attempt.test.purpose,
         purpose: attempt.test.purpose,
         stage: attempt.classAssessment?.stage ?? null,
+        lessonId: attempt.test.lessonId,
       },
       gradingState: allSkillsFinal ? 'REVIEWED_FINAL' : 'SUBMITTED_PENDING_REVIEW',
       skills: skillResults,
@@ -1393,6 +1394,7 @@ export class AssessmentStudentService {
       id: string;
       title: string;
       purpose: string;
+      lessonId: string | null;
       showResultAfterSubmit: boolean;
     };
   }) {
@@ -1408,6 +1410,8 @@ export class AssessmentStudentService {
         id: attempt.test.id,
         title: attempt.test.title,
         type: attempt.test.purpose,
+        purpose: attempt.test.purpose,
+        lessonId: attempt.test.lessonId,
       },
       resultAvailable: attempt.test.showResultAfterSubmit,
     };

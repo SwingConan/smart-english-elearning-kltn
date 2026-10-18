@@ -151,6 +151,14 @@ describe('ClassAssessmentService', () => {
         test: expect.objectContaining({ purpose: TestPurpose.PRACTICE_MOCK, lesson }),
       })],
     });
+    expect(prisma.test.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        OR: [
+          { purpose: TestPurpose.IN_CLASS },
+          { purpose: TestPurpose.PRACTICE_MOCK, lessonId: { not: null } },
+        ],
+      }),
+    }));
   });
 
   it('still requires an explicit stage for formal in-class assessments', async () => {

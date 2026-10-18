@@ -101,7 +101,7 @@ export function StudentAssessmentListPage() {
               ['PERIODIC', 'Thường kỳ'],
               ['MIDTERM', 'Giữa kỳ'],
               ['FINAL', 'Cuối kỳ'],
-              ['PRACTICE_MOCK', 'Bài luyện sau bài học'],
+              ['PRACTICE_MOCK', 'Luyện tập / Thi thử'],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -164,7 +164,7 @@ export function StudentAssessmentListPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-800">
-                        {assessmentTypeLabel(test.purpose, test.stage)}
+                        {assessmentTypeLabel(test.purpose, test.stage, test.lessonId)}
                       </span>
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-bold ${urgency === 'ACTIVE' ? 'bg-indigo-600 text-white' : urgency === 'OPEN' ? 'bg-blue-600 text-white' : urgency === 'UPCOMING' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600'}`}

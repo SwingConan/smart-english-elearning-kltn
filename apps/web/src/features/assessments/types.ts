@@ -238,7 +238,7 @@ export interface StudentSubmission {
     maxScore?: number;
     percentage?: number;
   };
-  test: { id: string; title: string; type: TestType | TestPurpose; purpose?: TestPurpose; stage?: AssessmentStage | null };
+  test: { id: string; title: string; type: TestType | TestPurpose; purpose?: TestPurpose; stage?: AssessmentStage | null; lessonId?: string | null };
   resultAvailable: boolean;
 }
 export interface StudentResultOption extends StudentAttemptOption { isCorrect: boolean; wasSelected: boolean }
@@ -279,7 +279,7 @@ export interface StudentAttemptResult {
     startedAt: string;
     submittedAt: string;
   };
-  test: { id: string; title: string; type: TestType | TestPurpose; purpose?: TestPurpose; stage?: AssessmentStage | null };
+  test: { id: string; title: string; type: TestType | TestPurpose; purpose?: TestPurpose; stage?: AssessmentStage | null; lessonId?: string | null };
   gradingState?: 'SUBMITTED_PENDING_REVIEW' | 'REVIEWED_FINAL';
   skills?: Array<{
     skill: ToeicSkill;

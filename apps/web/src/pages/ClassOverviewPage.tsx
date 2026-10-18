@@ -104,7 +104,7 @@ export function ClassOverviewPage() {
               {pendingAssessments.slice(0, 3).map((item) => (
                 <div className="rounded-xl bg-slate-50 p-4" key={item.id}>
                   <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">
-                    {assessmentTypeLabel(item.purpose, item.stage)}
+                    {assessmentTypeLabel(item.purpose, item.stage, item.lessonId)}
                   </span>
                   <p className="mt-2 font-semibold">{item.title}</p>
                   <p className="mt-1 text-sm text-slate-500">

@@ -94,6 +94,7 @@ export interface CourseProgress {
     testId: string;
     title: string;
     purpose: 'IN_CLASS' | 'PRACTICE_MOCK';
+    lessonId: string | null;
     stage: 'PERIODIC' | 'MIDTERM' | 'FINAL';
     openAt: string | null;
     closeAt: string | null;

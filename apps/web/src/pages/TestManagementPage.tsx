@@ -216,7 +216,7 @@ export function TestManagementPage() {
                   <div className="mb-2 flex gap-2 text-xs">
                     <span className="rounded bg-indigo-100 px-2 py-1 text-indigo-800">
                       {test.purpose
-                        ? assessmentTypeLabel(test.purpose, null)
+                        ? assessmentTypeLabel(test.purpose, null, test.lessonId)
                         : testTypeLabel[test.type as TestType]}
                     </span>
                     <span

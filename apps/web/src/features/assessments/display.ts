@@ -42,8 +42,11 @@ export const testStatusLabel: Record<TestStatus, string> = {
 export function assessmentTypeLabel(
   purpose: TestPurpose,
   stage: AssessmentStage | null | undefined,
+  lessonId: string | null | undefined,
 ): string {
-  if (purpose === 'PRACTICE_MOCK') return 'Bài luyện sau bài học';
+  if (purpose === 'PRACTICE_MOCK') {
+    return lessonId ? 'Bài luyện sau bài học' : 'Luyện tập / Thi thử';
+  }
   if (purpose === 'PLACEMENT') return 'Kiểm tra đầu vào';
   return stage
     ? {

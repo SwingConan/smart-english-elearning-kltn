@@ -52,7 +52,7 @@ export function ClassResultsPage() {
             <article className="rounded-2xl border bg-white p-5" key={attempt.attemptId}>
               <div className="flex flex-wrap gap-2">
                 <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">
-                  {assessmentTypeLabel(assessment.purpose, assessment.stage)}
+                  {assessmentTypeLabel(assessment.purpose, assessment.stage, assessment.lessonId)}
                 </span>
                 <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
                   Đã nộp
