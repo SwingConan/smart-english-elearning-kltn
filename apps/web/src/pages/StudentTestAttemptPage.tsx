@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bookmark, ChevronLeft, ChevronRight, CircleAlert, Mic, Square } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
+import { AttemptStimuli } from '@/components/assessments/AttemptStimuli';
 import { studentAssessmentApi } from '@/features/assessments/api';
 import { assessmentTypeLabel } from '@/features/assessments/display';
 import { studentAssessmentErrorMessage } from '@/features/assessments/errors';
+import { isStructuredReadingTask } from '@/features/assessments/reading-stimulus';
 import type {
   StudentAnswerSelection,
   StudentAttemptContent,
   StudentAttemptGroup,
   StudentAttemptQuestion,
-  StudentAttemptStimulus,
   ToeicSkill,
 } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
@@ -112,6 +113,9 @@ export function StudentTestAttemptPage() {
   const groups = useMemo(() => normalizedGroups(content), [content]);
   const questions = useMemo(() => groups.flatMap((group) => group.questions), [groups]);
   const activeGroup = groups[Math.min(activeGroupIndex, Math.max(0, groups.length - 1))];
+  const structuredReading = activeGroup
+    ? isStructuredReadingTask(activeGroup.skill, activeGroup.taskCode)
+    : false;
   const answered = questions.filter((question) =>
     isAnswered(question, drafts[question.testQuestionId]),
   ).length;
@@ -311,7 +315,11 @@ export function StudentTestAttemptPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
-              {assessmentTypeLabel(content.test.purpose ?? 'IN_CLASS', content.test.stage, content.test.lessonId)}
+              {assessmentTypeLabel(
+                content.test.purpose ?? 'IN_CLASS',
+                content.test.stage,
+                content.test.lessonId,
+              )}
             </p>
             <h1 className="text-xl font-bold">{content.test.title}</h1>
           </div>
@@ -392,26 +400,55 @@ export function StudentTestAttemptPage() {
                 Đánh dấu xem lại
               </button>
             </div>
-            <Stimuli stimuli={activeGroup.stimuli} stimulusText={activeGroup.stimulusText} />
-            <div className="mt-5 space-y-4">
-              {activeGroup.questions.map((question, questionIndex) => (
-                <QuestionCard
-                  key={question.testQuestionId}
-                  number={groupStarts[activeGroupIndex] + questionIndex}
-                  question={question}
-                  draft={drafts[question.testQuestionId]}
-                  disabled={submitting || expired}
-                  preparationSeconds={activeGroup.preparationSeconds ?? 0}
-                  maxRecordingSeconds={
-                    activeGroup.maxRecordingSeconds ?? activeGroup.responseSeconds ?? 60
-                  }
-                  onChange={(update) => updateDraft(question.testQuestionId, update)}
-                  onAudio={(blob) => uploadAudio(question.testQuestionId, blob)}
-                  onAudioState={(safety) =>
-                    setAudioSafety((current) => ({ ...current, [question.testQuestionId]: safety }))
-                  }
+            <div
+              data-testid={structuredReading ? 'reading-workspace' : undefined}
+              className={
+                structuredReading
+                  ? 'grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)] xl:items-start'
+                  : ''
+              }
+            >
+              <div
+                data-testid={structuredReading ? 'reading-document-pane' : undefined}
+                className={
+                  structuredReading
+                    ? 'xl:sticky xl:top-24 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1'
+                    : ''
+                }
+              >
+                <AttemptStimuli
+                  stimuli={activeGroup.stimuli}
+                  stimulusText={activeGroup.stimulusText}
+                  skill={activeGroup.skill}
+                  taskCode={activeGroup.taskCode}
                 />
-              ))}
+              </div>
+              <div
+                data-testid={structuredReading ? 'reading-question-pane' : undefined}
+                className={structuredReading ? 'space-y-4' : 'mt-5 space-y-4'}
+              >
+                {activeGroup.questions.map((question, questionIndex) => (
+                  <QuestionCard
+                    key={question.testQuestionId}
+                    number={groupStarts[activeGroupIndex] + questionIndex}
+                    question={question}
+                    draft={drafts[question.testQuestionId]}
+                    disabled={submitting || expired}
+                    preparationSeconds={activeGroup.preparationSeconds ?? 0}
+                    maxRecordingSeconds={
+                      activeGroup.maxRecordingSeconds ?? activeGroup.responseSeconds ?? 60
+                    }
+                    onChange={(update) => updateDraft(question.testQuestionId, update)}
+                    onAudio={(blob) => uploadAudio(question.testQuestionId, blob)}
+                    onAudioState={(safety) =>
+                      setAudioSafety((current) => ({
+                        ...current,
+                        [question.testQuestionId]: safety,
+                      }))
+                    }
+                  />
+                ))}
+              </div>
             </div>
             <div className="mt-6 flex justify-between gap-3">
               <button
@@ -972,40 +1009,6 @@ function NavigatorContent({
           </section>
         );
       })}
-    </div>
-  );
-}
-function Stimuli({
-  stimuli,
-  stimulusText,
-}: {
-  stimuli: StudentAttemptStimulus[];
-  stimulusText?: string | null;
-}) {
-  return (
-    <div className="space-y-3">
-      {stimulusText && (
-        <div className="whitespace-pre-wrap rounded-xl border bg-white p-4 text-sm leading-7">
-          {stimulusText}
-        </div>
-      )}
-      {stimuli.map((stimulus) => (
-        <div className="rounded-xl border bg-white p-3" key={stimulus.id}>
-          {stimulus.type === 'TEXT' ? (
-            <p className="whitespace-pre-wrap">{stimulus.textContent}</p>
-          ) : stimulus.type === 'IMAGE' ? (
-            <img
-              className="mx-auto max-h-96 rounded object-contain"
-              src={stimulus.mediaUrl ?? ''}
-              alt={stimulus.altText ?? 'Nội dung câu hỏi'}
-            />
-          ) : (
-            <audio className="w-full" controls preload="metadata" src={stimulus.mediaUrl ?? ''}>
-              Trình duyệt không hỗ trợ phát âm thanh.
-            </audio>
-          )}
-        </div>
-      ))}
     </div>
   );
 }
