@@ -94,19 +94,17 @@ describe('M08-B study recommendations (e2e)', () => {
     expect(first.body.recommendations[0]).toMatchObject({
       priority: 1,
       targetType: 'LESSON',
+      actionText: 'Ưu tiên bài học này dựa trên kết quả đánh giá nguồn.',
       reasonStatus: 'AVAILABLE',
+      reason: {
+        skillEvidence: { skill: 'READING', normalizedScore: 82 },
+        taskEvidence: null,
+        selection: { basis: 'MAINTENANCE' },
+      },
       lesson: {
-        path: expect.stringContaining(
-          `/student/enrollments/${studentDemo.enrollmentId}/lessons/`,
-        ),
+        path: expect.stringContaining(`/student/enrollments/${studentDemo.enrollmentId}/lessons/`),
       },
-      practice: {
-        actionable: true,
-        availability: 'AVAILABLE',
-        startPath: expect.stringContaining(
-          `/api/learning/enrollments/${studentDemo.enrollmentId}/tests/`,
-        ),
-      },
+      practice: null,
     });
     expect(concurrent.body.recommendations.map((item: { id: string }) => item.id)).toEqual(
       first.body.recommendations.map((item: { id: string }) => item.id),
@@ -180,9 +178,12 @@ describe('M08-B study recommendations (e2e)', () => {
   });
 
   it('applies policy changes only to a new source and retains frozen history', async () => {
-    await admin.get('/api/admin/study-recommendation-policy').expect(200).expect(({ body }) => {
-      expect(body).toMatchObject({ code: 'M08_STUDY_REC_V1', ...DEFAULT_POLICY });
-    });
+    await admin
+      .get('/api/admin/study-recommendation-policy')
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ code: 'M08_STUDY_REC_V1', ...DEFAULT_POLICY });
+      });
     await admin
       .put('/api/admin/study-recommendation-policy')
       .send({ ...DEFAULT_POLICY, weakThreshold: 85, strongThreshold: 80 })
@@ -218,8 +219,7 @@ describe('M08-B study recommendations (e2e)', () => {
       strongThreshold: 85,
     });
     const oldHistory = next.body.history.find(
-      (item: { sourceAttemptId: string }) =>
-        item.sourceAttemptId === studentNewestFinalAttemptId,
+      (item: { sourceAttemptId: string }) => item.sourceAttemptId === studentNewestFinalAttemptId,
     );
     expect(oldHistory).toBeDefined();
     expect(oldHistory.current).toBe(false);

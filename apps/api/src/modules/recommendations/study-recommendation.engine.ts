@@ -1,8 +1,4 @@
-import {
-  LessonProgressStatus,
-  TestAttemptStatus,
-  ToeicSkill,
-} from '../../generated/prisma/client';
+import { LessonProgressStatus, TestAttemptStatus, ToeicSkill } from '../../generated/prisma/client';
 import { StudyRecommendationSelectionBasis } from './study-recommendation-rule-reason';
 
 export const CANONICAL_TASK_ORDER = [
@@ -14,6 +10,10 @@ export const CANONICAL_TASK_ORDER = [
   'R6_TEXT_COMPLETION',
   'R7_READING_COMPREHENSION',
 ] as const;
+
+const CANONICAL_TASK_INDEX = new Map<string, number>(
+  CANONICAL_TASK_ORDER.map((code, index) => [code, index]),
+);
 
 export interface StudyRecommendationPolicyInput {
   code: string;
@@ -74,10 +74,7 @@ export interface PracticeActionabilityInput {
   };
 }
 
-export function isPracticeActionable(
-  input: PracticeActionabilityInput,
-  now = new Date(),
-): boolean {
+export function isPracticeActionable(input: PracticeActionabilityInput, now = new Date()): boolean {
   const { assignment } = input;
   const maxAttempts = assignment.maxAttemptsOverride ?? input.maxAttempts;
   const hasInProgress = assignment.attempts.some(
@@ -174,23 +171,13 @@ export function groupTaskEvidence(
     current.maxPoints += answer.maxPoints;
     grouped.set(answer.taskCode, current);
   }
-  const canonicalIndex = new Map<string, number>(
-    CANONICAL_TASK_ORDER.map((code, index) => [code, index]),
-  );
   return [...grouped.values()]
     .filter(({ questionCount }) => questionCount >= minimumTaskQuestions)
     .map((evidence) => ({
       ...evidence,
       normalizedScore: roundPercent((evidence.awardedPoints / evidence.maxPoints) * 100),
     }))
-    .sort(
-      (left, right) =>
-        left.normalizedScore - right.normalizedScore ||
-        right.maxPoints - left.maxPoints ||
-        (canonicalIndex.get(left.taskCode) ?? Number.MAX_SAFE_INTEGER) -
-          (canonicalIndex.get(right.taskCode) ?? Number.MAX_SAFE_INTEGER) ||
-        left.taskCode.localeCompare(right.taskCode),
-    );
+    .sort(compareTaskEvidence);
 }
 
 export function selectRecommendationTargets(input: {
@@ -206,11 +193,21 @@ export function selectRecommendationTargets(input: {
   const used = new Set<string>();
   const orderedLessons = [...input.lessons].sort(compareLessons);
 
-  for (const task of input.taskEvidence) {
+  const weakTaskEvidence = input.taskEvidence.filter(
+    (task) =>
+      task.questionCount >= policy.minimumTaskQuestions &&
+      task.normalizedScore <= policy.weakThreshold,
+  ).sort(compareTaskEvidence);
+
+  for (const task of weakTaskEvidence) {
     if (selected.length >= policy.maxRecommendations) break;
     const candidates = orderedLessons
       .filter((lesson) => lesson.focusTaskCodes.includes(task.taskCode) && !used.has(lesson.id))
-      .sort((left, right) => Number(right.practiceAvailable) - Number(left.practiceAvailable) || compareLessons(left, right));
+      .sort(
+        (left, right) =>
+          Number(right.practiceAvailable) - Number(left.practiceAvailable) ||
+          compareLessons(left, right),
+      );
     const lesson = candidates[0];
     const skillEvidence = skillByCode.get(task.skill);
     if (!lesson || !skillEvidence) continue;
@@ -220,7 +217,8 @@ export function selectRecommendationTargets(input: {
 
   for (const focus of analysis.focus) {
     if (selected.length >= policy.maxRecommendations) break;
-    if (selected.some(({ skillEvidence }) => skillEvidence.skill === focus.evidence.skill)) continue;
+    if (selected.some(({ skillEvidence }) => skillEvidence.skill === focus.evidence.skill))
+      continue;
     const lesson = orderedLessons
       .filter(
         (candidate) =>
@@ -259,18 +257,14 @@ export function buildSevenDayPlan(recommendations: ScheduleRecommendationInput[]
     planDay(2, `Tóm tắt và tự kiểm tra ${first.lessonTitle}`, null),
     planDay(
       3,
-      first.practicePath
-        ? `Làm bài luyện ${first.lessonTitle}`
-        : `Ôn lại ${first.lessonTitle}`,
+      first.practicePath ? `Làm bài luyện ${first.lessonTitle}` : `Ôn lại ${first.lessonTitle}`,
       first.practicePath ?? first.lessonPath,
     ),
     planDay(4, 'Ôn nhẹ hoặc nghỉ', null),
     planDay(5, `Học ${second.lessonTitle}`, second.lessonPath),
     planDay(
       6,
-      second.practicePath
-        ? `Làm bài luyện ${second.lessonTitle}`
-        : `Ôn lại ${second.lessonTitle}`,
+      second.practicePath ? `Làm bài luyện ${second.lessonTitle}` : `Ôn lại ${second.lessonTitle}`,
       second.practicePath ?? second.lessonPath,
     ),
     planDay(7, `Xem lại lỗi sai và ôn ${first.lessonTitle}`, first.lessonPath),
@@ -282,7 +276,21 @@ function planDay(day: number, title: string, path: string | null) {
 }
 
 function compareLessons(left: LessonCandidate, right: LessonCandidate): number {
-  return left.moduleOrder - right.moduleOrder || left.lessonOrder - right.lessonOrder || left.id.localeCompare(right.id);
+  return (
+    left.moduleOrder - right.moduleOrder ||
+    left.lessonOrder - right.lessonOrder ||
+    left.id.localeCompare(right.id)
+  );
+}
+
+function compareTaskEvidence(left: TaskEvidence, right: TaskEvidence): number {
+  return (
+    left.normalizedScore - right.normalizedScore ||
+    right.maxPoints - left.maxPoints ||
+    (CANONICAL_TASK_INDEX.get(left.taskCode) ?? Number.MAX_SAFE_INTEGER) -
+      (CANONICAL_TASK_INDEX.get(right.taskCode) ?? Number.MAX_SAFE_INTEGER) ||
+    left.taskCode.localeCompare(right.taskCode)
+  );
 }
 
 function progressRank(status: LessonProgressStatus): number {

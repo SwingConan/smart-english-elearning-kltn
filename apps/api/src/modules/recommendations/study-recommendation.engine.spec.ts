@@ -1,8 +1,4 @@
-import {
-  LessonProgressStatus,
-  TestAttemptStatus,
-  ToeicSkill,
-} from '../../generated/prisma/client';
+import { LessonProgressStatus, TestAttemptStatus, ToeicSkill } from '../../generated/prisma/client';
 import {
   analyzeSkillEvidence,
   buildSevenDayPlan,
@@ -46,7 +42,9 @@ describe('M08-B deterministic study recommendation engine', () => {
     expect(() => validateStudyRecommendationPolicy({ ...policy, weakThreshold: 80 })).toThrow(
       'STUDY_RECOMMENDATION_POLICY_INVALID',
     );
-    expect(() => validateStudyRecommendationPolicy({ ...policy, minimumTaskQuestions: 0 })).toThrow();
+    expect(() =>
+      validateStudyRecommendationPolicy({ ...policy, minimumTaskQuestions: 0 }),
+    ).toThrow();
     expect(() => validateStudyRecommendationPolicy({ ...policy, maxRecommendations: 6 })).toThrow();
   });
 
@@ -78,38 +76,86 @@ describe('M08-B deterministic study recommendation engine', () => {
   it('groups finalized task answers and enforces the minimum question count', () => {
     const result = groupTaskEvidence(
       [
-        { taskCode: 'L2_QUESTION_RESPONSE', skill: ToeicSkill.LISTENING, pointsAwarded: 0, maxPoints: 1 },
-        { taskCode: 'L2_QUESTION_RESPONSE', skill: ToeicSkill.LISTENING, pointsAwarded: 1, maxPoints: 1 },
+        {
+          taskCode: 'L2_QUESTION_RESPONSE',
+          skill: ToeicSkill.LISTENING,
+          pointsAwarded: 0,
+          maxPoints: 1,
+        },
+        {
+          taskCode: 'L2_QUESTION_RESPONSE',
+          skill: ToeicSkill.LISTENING,
+          pointsAwarded: 1,
+          maxPoints: 1,
+        },
         { taskCode: 'L1_PHOTOGRAPH', skill: ToeicSkill.LISTENING, pointsAwarded: 1, maxPoints: 1 },
-        { taskCode: 'R5_INCOMPLETE_SENTENCE', skill: ToeicSkill.READING, pointsAwarded: null, maxPoints: 1 },
+        {
+          taskCode: 'R5_INCOMPLETE_SENTENCE',
+          skill: ToeicSkill.READING,
+          pointsAwarded: null,
+          maxPoints: 1,
+        },
       ],
       [ToeicSkill.LISTENING, ToeicSkill.READING],
       2,
     );
     expect(result).toEqual([
-      expect.objectContaining({ taskCode: 'L2_QUESTION_RESPONSE', questionCount: 2, normalizedScore: 50 }),
+      expect.objectContaining({
+        taskCode: 'L2_QUESTION_RESPONSE',
+        questionCount: 2,
+        normalizedScore: 50,
+      }),
     ]);
   });
 
   it('sorts equal task evidence by max points and canonical task order', () => {
     const result = groupTaskEvidence(
       [
-        { taskCode: 'L2_QUESTION_RESPONSE', skill: ToeicSkill.LISTENING, pointsAwarded: 1, maxPoints: 2 },
-        { taskCode: 'L2_QUESTION_RESPONSE', skill: ToeicSkill.LISTENING, pointsAwarded: 1, maxPoints: 2 },
-        { taskCode: 'L1_PHOTOGRAPH', skill: ToeicSkill.LISTENING, pointsAwarded: 0.5, maxPoints: 1 },
-        { taskCode: 'L1_PHOTOGRAPH', skill: ToeicSkill.LISTENING, pointsAwarded: 0.5, maxPoints: 1 },
+        {
+          taskCode: 'L2_QUESTION_RESPONSE',
+          skill: ToeicSkill.LISTENING,
+          pointsAwarded: 1,
+          maxPoints: 2,
+        },
+        {
+          taskCode: 'L2_QUESTION_RESPONSE',
+          skill: ToeicSkill.LISTENING,
+          pointsAwarded: 1,
+          maxPoints: 2,
+        },
+        {
+          taskCode: 'L1_PHOTOGRAPH',
+          skill: ToeicSkill.LISTENING,
+          pointsAwarded: 0.5,
+          maxPoints: 1,
+        },
+        {
+          taskCode: 'L1_PHOTOGRAPH',
+          skill: ToeicSkill.LISTENING,
+          pointsAwarded: 0.5,
+          maxPoints: 1,
+        },
       ],
       [ToeicSkill.LISTENING],
       2,
     );
-    expect(result.map(({ taskCode }) => taskCode)).toEqual(['L2_QUESTION_RESPONSE', 'L1_PHOTOGRAPH']);
+    expect(result.map(({ taskCode }) => taskCode)).toEqual([
+      'L2_QUESTION_RESPONSE',
+      'L1_PHOTOGRAPH',
+    ]);
   });
 
   it('prefers a task-matching lesson with accessible practice then curriculum order', () => {
-    const taskEvidence = [{
-      taskCode: 'L2_QUESTION_RESPONSE', skill: ToeicSkill.LISTENING,
-      questionCount: 2, awardedPoints: 1, maxPoints: 2, normalizedScore: 50,
-    }];
+    const taskEvidence = [
+      {
+        taskCode: 'L2_QUESTION_RESPONSE',
+        skill: ToeicSkill.LISTENING,
+        questionCount: 2,
+        awardedPoints: 1,
+        maxPoints: 2,
+        normalizedScore: 50,
+      },
+    ];
     const targets = selectRecommendationTargets({
       policy,
       skillEvidence: skills,
@@ -120,6 +166,137 @@ describe('M08-B deterministic study recommendation engine', () => {
       ],
     });
     expect(targets[0]).toMatchObject({ lesson: { id: 'practice' }, basis: 'TASK_WEAKNESS' });
+  });
+
+  it('uses one deterministic maintenance target when strong skills have only perfect task evidence', () => {
+    const targets = selectRecommendationTargets({
+      policy,
+      skillEvidence: [
+        { skill: ToeicSkill.LISTENING, rawScore: 44, maxRawScore: 50, normalizedScore: 88 },
+        { skill: ToeicSkill.READING, rawScore: 41, maxRawScore: 50, normalizedScore: 82 },
+      ],
+      taskEvidence: [
+        {
+          taskCode: 'L3_CONVERSATION',
+          skill: ToeicSkill.LISTENING,
+          questionCount: 12,
+          awardedPoints: 12,
+          maxPoints: 12,
+          normalizedScore: 100,
+        },
+        {
+          taskCode: 'R5_INCOMPLETE_SENTENCE',
+          skill: ToeicSkill.READING,
+          questionCount: 16,
+          awardedPoints: 16,
+          maxPoints: 16,
+          normalizedScore: 100,
+        },
+        {
+          taskCode: 'R6_TEXT_COMPLETION',
+          skill: ToeicSkill.READING,
+          questionCount: 8,
+          awardedPoints: 8,
+          maxPoints: 8,
+          normalizedScore: 100,
+        },
+      ],
+      lessons: [
+        lesson({
+          id: 'reading-maintenance',
+          focusSkills: [ToeicSkill.READING],
+          focusTaskCodes: [],
+        }),
+        lesson({ id: 'part-3', focusTaskCodes: ['L3_CONVERSATION'] }),
+      ],
+    });
+
+    expect(targets).toHaveLength(1);
+    expect(targets[0]).toMatchObject({
+      lesson: { id: 'reading-maintenance' },
+      skillEvidence: { skill: ToeicSkill.READING, normalizedScore: 82 },
+      taskEvidence: null,
+      basis: 'MAINTENANCE',
+    });
+  });
+
+  it('keeps task evidence exactly at the weak threshold eligible', () => {
+    const targets = selectRecommendationTargets({
+      policy,
+      skillEvidence: skills,
+      taskEvidence: [
+        {
+          taskCode: 'L2_QUESTION_RESPONSE',
+          skill: ToeicSkill.LISTENING,
+          questionCount: 2,
+          awardedPoints: 1.2,
+          maxPoints: 2,
+          normalizedScore: 60,
+        },
+      ],
+      lessons: [lesson()],
+    });
+
+    expect(targets[0]).toMatchObject({
+      basis: 'TASK_WEAKNESS',
+      taskEvidence: { normalizedScore: 60 },
+    });
+  });
+
+  it('excludes task evidence above the weak threshold', () => {
+    const targets = selectRecommendationTargets({
+      policy,
+      skillEvidence: skills,
+      taskEvidence: [
+        {
+          taskCode: 'L2_QUESTION_RESPONSE',
+          skill: ToeicSkill.LISTENING,
+          questionCount: 2,
+          awardedPoints: 1.2002,
+          maxPoints: 2,
+          normalizedScore: 60.01,
+        },
+      ],
+      lessons: [lesson()],
+    });
+
+    expect(targets).toHaveLength(1);
+    expect(targets[0]).toMatchObject({ basis: 'SKILL_FALLBACK', taskEvidence: null });
+  });
+
+  it('preserves deterministic ordering among actual weak tasks', () => {
+    const targets = selectRecommendationTargets({
+      policy,
+      skillEvidence: skills,
+      taskEvidence: [
+        {
+          taskCode: 'L1_PHOTOGRAPH',
+          skill: ToeicSkill.LISTENING,
+          questionCount: 2,
+          awardedPoints: 1,
+          maxPoints: 2,
+          normalizedScore: 50,
+        },
+        {
+          taskCode: 'L2_QUESTION_RESPONSE',
+          skill: ToeicSkill.LISTENING,
+          questionCount: 2,
+          awardedPoints: 0.8,
+          maxPoints: 2,
+          normalizedScore: 40,
+        },
+      ],
+      lessons: [
+        lesson({ id: 'part-2', focusTaskCodes: ['L2_QUESTION_RESPONSE'] }),
+        lesson({ id: 'part-1', lessonOrder: 1, focusTaskCodes: ['L1_PHOTOGRAPH'] }),
+      ],
+    });
+
+    expect(targets.map((target) => target.taskEvidence?.taskCode)).toEqual([
+      'L2_QUESTION_RESPONSE',
+      'L1_PHOTOGRAPH',
+    ]);
+    expect(targets.every((target) => target.basis === 'TASK_WEAKNESS')).toBe(true);
   });
 
   it('does not mark an exhausted practice actionable', () => {
@@ -220,7 +397,9 @@ describe('M08-B deterministic study recommendation engine', () => {
   });
 
   it('returns no target rather than inventing content', () => {
-    expect(selectRecommendationTargets({ policy, skillEvidence: skills, taskEvidence: [], lessons: [] })).toEqual([]);
+    expect(
+      selectRecommendationTargets({ policy, skillEvidence: skills, taskEvidence: [], lessons: [] }),
+    ).toEqual([]);
   });
 
   it('builds a deterministic seven-day plan using only real target paths', () => {

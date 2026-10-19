@@ -170,6 +170,12 @@ function ReadyContent({
   onStartPractice: (testId: string) => Promise<void>;
   startingTestId: string | null;
 }) {
+  const focusReason = data.focus
+    ? data.recommendations.find((item) => item.reason?.skillEvidence.skill === data.focus?.skill)
+        ?.reason
+    : null;
+  const maintenanceFocus = focusReason?.selection.basis === 'MAINTENANCE';
+
   return (
     <>
       <section className="grid gap-4 md:grid-cols-2">
@@ -206,9 +212,11 @@ function ReadyContent({
                 </p>
               ) : null}
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                {data.focus.taskCode && data.focus.taskNormalizedScore !== undefined
-                  ? `Đây là nhóm câu thấp nhất có đủ dữ liệu để xác định trọng tâm ${taskCodeLabel(data.focus.taskCode)}.`
-                  : 'Trọng tâm được xác định từ kết quả kỹ năng trong bài đánh giá nguồn.'}
+                {maintenanceFocus
+                  ? `Không có kỹ năng dưới ngưỡng ưu tiên. ${skillLabel[data.focus.skill]} là kỹ năng có kết quả thấp hơn trong bài đánh giá này và được chọn làm trọng tâm duy trì.`
+                  : data.focus.taskCode && data.focus.taskNormalizedScore !== undefined
+                    ? `Đây là nhóm câu thấp nhất có đủ dữ liệu để xác định trọng tâm ${taskCodeLabel(data.focus.taskCode)}.`
+                    : 'Trọng tâm được xác định từ kết quả kỹ năng trong bài đánh giá nguồn.'}
               </p>
             </div>
           ) : (
@@ -307,7 +315,7 @@ function RecommendationCard({
             Ưu tiên {item.priority} · {skillLabel[item.skill]}
           </p>
           <h3 className="mt-2 text-xl font-bold">{item.title}</h3>
-          <p className="mt-2 text-slate-600">{item.actionText}</p>
+          <p className="mt-2 text-slate-600">{learnerActionText(item.actionText)}</p>
         </div>
         {item.lesson.estimatedMinutes ? (
           <span className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-sm">
@@ -416,6 +424,14 @@ function isBalancedEvidence(
   );
 }
 
+function learnerActionText(actionText: string): string {
+  const normalized = actionText.trim().toLowerCase();
+  if (!normalized || normalized === 'study this lesson next.') {
+    return 'Ưu tiên bài học này dựa trên kết quả đánh giá nguồn.';
+  }
+  return actionText;
+}
+
 function ReasonText({ item }: { item: StudyRecommendationItem }) {
   const reason = item.reason;
   if (!reason)
@@ -510,11 +526,7 @@ function RecommendationHistory({ history }: { history: StudyRecommendationRespon
       </div>
       <div className="mt-4 space-y-3">
         {history.map((entry) => (
-          <details
-            className="rounded-2xl border bg-white p-5"
-            key={entry.sourceAttemptId}
-            open={entry.current}
-          >
+          <details className="rounded-2xl border bg-white p-5" key={entry.sourceAttemptId}>
             <summary className="cursor-pointer list-none">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>

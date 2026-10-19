@@ -151,9 +151,9 @@ export class StudyRecommendationService {
       },
     });
     const eligibility = attempts.map((attempt) => {
-      const representedSkills = [...new Set(
-        attempt.test.testQuestions.map(({ question }) => question.toeicSkill),
-      )];
+      const representedSkills = [
+        ...new Set(attempt.test.testQuestions.map(({ question }) => question.toeicSkill)),
+      ];
       const finalSkills = new Set(
         attempt.skillScores
           .filter(({ status }) => status === SkillScoreStatus.FINAL)
@@ -171,12 +171,14 @@ export class StudyRecommendationService {
       };
     });
     const selected = eligibility.find(({ eligible }) => eligible) ?? null;
-    const pendingNewer = eligibility.find(
-      ({ attempt, eligible }) =>
-        !eligible &&
-        attempt.test.showResultAfterSubmit &&
-        (!selected || this.dateValue(attempt.submittedAt) > this.dateValue(selected.attempt.submittedAt)),
-    ) ?? null;
+    const pendingNewer =
+      eligibility.find(
+        ({ attempt, eligible }) =>
+          !eligible &&
+          attempt.test.showResultAfterSubmit &&
+          (!selected ||
+            this.dateValue(attempt.submittedAt) > this.dateValue(selected.attempt.submittedAt)),
+      ) ?? null;
 
     if (!selected) {
       return {
@@ -200,8 +202,7 @@ export class StudyRecommendationService {
     const targetSkills = this.targetSkills(enrollment.classOffering.course.skillScope);
     const skillEvidence: SkillEvidenceInput[] = selected.attempt.skillScores
       .filter(
-        ({ status, skill }) =>
-          status === SkillScoreStatus.FINAL && targetSkills.includes(skill),
+        ({ status, skill }) => status === SkillScoreStatus.FINAL && targetSkills.includes(skill),
       )
       .map((row) => ({
         skill: row.skill,
@@ -349,7 +350,7 @@ export class StudyRecommendationService {
           targetType: StudyRecommendationTarget.LESSON,
           lessonId: target.lesson.id,
           title: target.lesson.title,
-          actionText: 'Study this lesson next.',
+          actionText: 'Ưu tiên bài học này dựa trên kết quả đánh giá nguồn.',
           aiExplanation: null,
           isActive: true,
         };
@@ -479,11 +480,13 @@ export class StudyRecommendationService {
     const currentRows = state.sourceAttemptId
       ? rows.filter(({ sourceAttemptId }) => sourceAttemptId === state.sourceAttemptId)
       : [];
-    const projectedCurrent = currentRows.map((row) => this.projectRecommendation(row, enrollmentId));
+    const projectedCurrent = currentRows.map((row) =>
+      this.projectRecommendation(row, enrollmentId),
+    );
     const currentReasons = projectedCurrent
       .map(({ reason }) => reason)
       .filter((reason): reason is StudyRecommendationRuleReasonV1 => reason !== null);
-    const source = state.sourceAttemptId ? sourceById.get(state.sourceAttemptId) ?? null : null;
+    const source = state.sourceAttemptId ? (sourceById.get(state.sourceAttemptId) ?? null) : null;
     const skillRows = source
       ? this.projectSourceSkillEvidence(source.skillScores, targetSkills)
       : [];
@@ -499,27 +502,32 @@ export class StudyRecommendationService {
       group.push(row);
       historyGroups.set(row.sourceAttemptId, group);
     }
-    const history = [...historyGroups.entries()].slice(0, HISTORY_LIMIT).map(([sourceAttemptId, items]) => {
-      const historySource = sourceById.get(sourceAttemptId) ?? null;
-      const projected = items.map((item) => this.projectRecommendation(item, enrollmentId));
-      const reasons = projected.map(({ reason }) => reason).filter((reason): reason is StudyRecommendationRuleReasonV1 => reason !== null);
-      const historicalSkills = historySource
-        ? this.projectSourceSkillEvidence(historySource.skillScores, targetSkills)
-        : [];
-      return {
-        sourceAttemptId,
-        sourceTitle: historySource?.test.title ?? items[0].sourceAttempt?.test.title ?? 'Assessment result',
-        sourceSubmittedAt:
-          historySource?.submittedAt ?? items[0].sourceAttempt?.submittedAt ?? null,
-        current: items.some(({ isActive }) => isActive),
-        mainFocus: reasons[0]?.skillEvidence.skill ?? null,
-        itemCount: items.length,
-        strengths: this.historyStrengths(historicalSkills, reasons),
-        focus: this.historyFocus(historicalSkills, reasons),
-        sourceResultPath: `/student/enrollments/${enrollmentId}/attempts/${sourceAttemptId}/result`,
-        recommendations: projected,
-      };
-    });
+    const history = [...historyGroups.entries()]
+      .slice(0, HISTORY_LIMIT)
+      .map(([sourceAttemptId, items]) => {
+        const historySource = sourceById.get(sourceAttemptId) ?? null;
+        const projected = items.map((item) => this.projectRecommendation(item, enrollmentId));
+        const reasons = projected
+          .map(({ reason }) => reason)
+          .filter((reason): reason is StudyRecommendationRuleReasonV1 => reason !== null);
+        const historicalSkills = historySource
+          ? this.projectSourceSkillEvidence(historySource.skillScores, targetSkills)
+          : [];
+        return {
+          sourceAttemptId,
+          sourceTitle:
+            historySource?.test.title ?? items[0].sourceAttempt?.test.title ?? 'Assessment result',
+          sourceSubmittedAt:
+            historySource?.submittedAt ?? items[0].sourceAttempt?.submittedAt ?? null,
+          current: items.some(({ isActive }) => isActive),
+          mainFocus: reasons[0]?.skillEvidence.skill ?? null,
+          itemCount: items.length,
+          strengths: this.historyStrengths(historicalSkills, reasons),
+          focus: this.historyFocus(historicalSkills, reasons),
+          sourceResultPath: `/student/enrollments/${enrollmentId}/attempts/${sourceAttemptId}/result`,
+          recommendations: projected,
+        };
+      });
     return {
       state: state.state,
       source: source
@@ -552,42 +560,48 @@ export class StudyRecommendationService {
     };
   }
 
-  private projectRecommendation<TRow extends {
-    id: string;
-    priority: number;
-    skill: ToeicSkill;
-    targetType: StudyRecommendationTarget;
-    title: string;
-    actionText: string;
-    aiExplanation: string | null;
-    ruleReason: Prisma.JsonValue;
-    lesson: null | {
+  private projectRecommendation<
+    TRow extends {
       id: string;
+      priority: number;
+      skill: ToeicSkill;
+      targetType: StudyRecommendationTarget;
       title: string;
-      estimatedMinutes: number | null;
-      module: { title: string };
-      resources: Array<{ id: string; title: string; type: string; url: string | null; isDownloadable: boolean }>;
-      tests: Array<{
+      actionText: string;
+      aiExplanation: string | null;
+      ruleReason: Prisma.JsonValue;
+      lesson: null | {
         id: string;
         title: string;
-        maxAttempts: number;
-        classAssessments: Array<{
+        estimatedMinutes: number | null;
+        module: { title: string };
+        resources: Array<{
           id: string;
-          openAt: Date | null;
-          closeAt: Date | null;
-          maxAttemptsOverride: number | null;
-          attempts: Array<{ id: string; status: TestAttemptStatus }>;
+          title: string;
+          type: string;
+          url: string | null;
+          isDownloadable: boolean;
         }>;
-      }>;
-    };
-  }>(row: TRow, enrollmentId: string) {
+        tests: Array<{
+          id: string;
+          title: string;
+          maxAttempts: number;
+          classAssessments: Array<{
+            id: string;
+            openAt: Date | null;
+            closeAt: Date | null;
+            maxAttemptsOverride: number | null;
+            attempts: Array<{ id: string; status: TestAttemptStatus }>;
+          }>;
+        }>;
+      };
+    },
+  >(row: TRow, enrollmentId: string) {
     if (!row.lesson) throw new ConflictException('Stored recommendation target is unavailable.');
     const reason = parseStudyRecommendationRuleReason(row.ruleReason);
     const now = new Date();
     const practice = row.lesson.tests
-      .flatMap((test) =>
-        test.classAssessments.map((assessment) => ({ test, assessment })),
-      )
+      .flatMap((test) => test.classAssessments.map((assessment) => ({ test, assessment })))
       .find(({ test, assessment }) =>
         isPracticeActionable({ maxAttempts: test.maxAttempts, assignment: assessment }, now),
       );
@@ -607,7 +621,9 @@ export class StudyRecommendationService {
       },
       resources: row.lesson.resources.map((resource) => ({
         ...resource,
-        path: resource.url ?? `/api/learning/enrollments/${enrollmentId}/resources/${resource.id}/download`,
+        path:
+          resource.url ??
+          `/api/learning/enrollments/${enrollmentId}/resources/${resource.id}/download`,
       })),
       practice: practice
         ? {
@@ -643,10 +659,13 @@ export class StudyRecommendationService {
     });
     if (!attempt) return null;
     const finalSkills = new Set(
-      attempt.skillScores.filter(({ status }) => status === SkillScoreStatus.FINAL).map(({ skill }) => skill),
+      attempt.skillScores
+        .filter(({ status }) => status === SkillScoreStatus.FINAL)
+        .map(({ skill }) => skill),
     );
-    const pendingSkills = [...new Set(attempt.test.testQuestions.map(({ question }) => question.toeicSkill))]
-      .filter((skill) => !finalSkills.has(skill));
+    const pendingSkills = [
+      ...new Set(attempt.test.testQuestions.map(({ question }) => question.toeicSkill)),
+    ].filter((skill) => !finalSkills.has(skill));
     return {
       attemptId: attempt.id,
       title: attempt.test.title,
@@ -661,7 +680,9 @@ export class StudyRecommendationService {
     reasons: StudyRecommendationRuleReasonV1[],
   ) {
     if (!skill) return null;
-    const task = reasons.find(({ skillEvidence }) => skillEvidence.skill === skill.skill)?.taskEvidence ?? null;
+    const task =
+      reasons.find(({ skillEvidence }) => skillEvidence.skill === skill.skill)?.taskEvidence ??
+      null;
     return {
       skill: skill.skill,
       normalizedScore: skill.normalizedScore,
@@ -677,16 +698,19 @@ export class StudyRecommendationService {
   ) {
     const policy = reasons[0]?.policy;
     if (!policy) return [];
-    return analyzeSkillEvidence(skills, policy).strengths.map(({ evidence, relative }) => ({ ...evidence, relative }));
+    return analyzeSkillEvidence(skills, policy).strengths.map(({ evidence, relative }) => ({
+      ...evidence,
+      relative,
+    }));
   }
 
-  private historyFocus(
-    skills: SkillEvidenceInput[],
-    reasons: StudyRecommendationRuleReasonV1[],
-  ) {
+  private historyFocus(skills: SkillEvidenceInput[], reasons: StudyRecommendationRuleReasonV1[]) {
     const policy = reasons[0]?.policy;
     if (!policy) return null;
-    return this.projectFocus(analyzeSkillEvidence(skills, policy).focus[0]?.evidence ?? null, reasons);
+    return this.projectFocus(
+      analyzeSkillEvidence(skills, policy).focus[0]?.evidence ?? null,
+      reasons,
+    );
   }
 
   private uniqueSkillEvidence(rows: SkillEvidenceInput[]) {
@@ -731,9 +755,7 @@ export class StudyRecommendationService {
     }
   }
 
-  private async requireSingleActivePolicy(
-    client: Prisma.TransactionClient | PrismaService,
-  ) {
+  private async requireSingleActivePolicy(client: Prisma.TransactionClient | PrismaService) {
     const policies = await client.studyRecommendationPolicy.findMany({
       where: { isActive: true },
       orderBy: { code: 'asc' },

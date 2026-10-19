@@ -84,6 +84,69 @@ describe('StudyRecommendationsPage', () => {
     expect(within(details!).queryByText(/Listening84%/)).not.toBeInTheDocument();
   });
 
+  it('keeps current history collapsed by default and expands it on explicit interaction', async () => {
+    const response = readyResponse();
+    response.history[0].current = true;
+    vi.spyOn(studyRecommendationApi, 'get').mockResolvedValue(response);
+    renderLearner();
+
+    const status = await screen.findByText('Hiện tại');
+    const details = status.closest('details') as HTMLDetailsElement;
+    expect(details).not.toBeNull();
+    expect(details.open).toBe(false);
+    fireEvent.click(within(details).getByText('Periodic September'));
+    expect(details.open).toBe(true);
+  });
+
+  it('renders maintenance semantics and replaces legacy English action copy', async () => {
+    const response = readyResponse();
+    response.strengths = [
+      {
+        skill: 'LISTENING',
+        rawScore: 44,
+        maxRawScore: 50,
+        normalizedScore: 88,
+        relative: false,
+      },
+      {
+        skill: 'READING',
+        rawScore: 41,
+        maxRawScore: 50,
+        normalizedScore: 82,
+        relative: false,
+      },
+    ];
+    response.focus = { skill: 'READING', normalizedScore: 82 };
+    response.recommendations[0].actionText = 'Study this lesson next.';
+    response.recommendations[0].reason = {
+      ...response.recommendations[0].reason!,
+      skillEvidence: {
+        skill: 'READING',
+        rawScore: 41,
+        maxRawScore: 50,
+        normalizedScore: 82,
+      },
+      taskEvidence: null,
+      selection: {
+        ...response.recommendations[0].reason!.selection,
+        basis: 'MAINTENANCE',
+      },
+    };
+    vi.spyOn(studyRecommendationApi, 'get').mockResolvedValue(response);
+    renderLearner();
+
+    expect(
+      await screen.findByText(
+        'Không có kỹ năng dưới ngưỡng ưu tiên. Reading là kỹ năng có kết quả thấp hơn trong bài đánh giá này và được chọn làm trọng tâm duy trì.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Ưu tiên bài học này dựa trên kết quả đánh giá nguồn.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Study this lesson next.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/100%.*Part/i)).not.toBeInTheDocument();
+  });
+
   it('starts or resumes an actionable practice and navigates with the returned attempt id', async () => {
     vi.spyOn(studyRecommendationApi, 'get').mockResolvedValue(readyResponse());
     const start = vi.spyOn(studentAssessmentApi, 'startOrResume').mockResolvedValue({
