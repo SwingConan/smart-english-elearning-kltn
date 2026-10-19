@@ -124,11 +124,15 @@ describe('StudentTestAttemptPage', () => {
     });
     expect(save).toHaveBeenCalledTimes(1);
     older.resolve({ attemptId, answers: expectedAnswers({ sc: ['sc-b'] }) });
-    await act(async () => { await Promise.resolve(); });
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(save).toHaveBeenCalledTimes(2);
     expect(save.mock.calls[1][2]).toEqual(expectedAnswers({ sc: ['sc-a'] }));
     newer.resolve({ attemptId, answers: expectedAnswers({ sc: ['sc-a'] }) });
-    await act(async () => { await Promise.resolve(); });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(screen.getByLabelText('SC A')).toBeChecked();
     expect(screen.getByLabelText('SC B')).not.toBeChecked();
@@ -172,7 +176,10 @@ describe('StudentTestAttemptPage', () => {
     fireEvent.click(screen.getByLabelText('MC A'));
     fireEvent.click(screen.getByRole('button', { name: /^Nộp bài$/i }));
     fireEvent.click(screen.getByRole('button', { name: /Xác nhận nộp/i }));
-    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     expect(submit).toHaveBeenCalledOnce();
     const payload = submit.mock.calls[0][2];
     expect(payload).toEqual(expectedAnswers({ sc: ['sc-b'], tf: ['tf-a'], mc: ['mc-b'] }));
@@ -330,6 +337,23 @@ describe('StudentTestResultPage', () => {
     expect(screen.getByText(/Bạn đã chọn/i)).toBeInTheDocument();
     expect(screen.getByText(/7\/10 điểm/i)).toBeInTheDocument();
     expect(screen.getByText(/Result explanation/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /gợi ý tự học/i })).toHaveAttribute(
+      'href',
+      `/student/enrollments/${enrollmentId}/recommendations`,
+    );
+  });
+
+  it('does not show the self-study recommendation CTA for practice results', async () => {
+    const practiceResult = result();
+    practiceResult.test = {
+      ...practiceResult.test,
+      purpose: 'PRACTICE_MOCK',
+      lessonId: 'lesson-a',
+    };
+    vi.spyOn(studentAssessmentApi, 'getResult').mockResolvedValue(practiceResult);
+    renderResult();
+    await screen.findByText(/Result Test/i);
+    expect(screen.queryByRole('link', { name: /gợi ý tự học/i })).not.toBeInTheDocument();
   });
 
   it('distinguishes publication-policy 403 from session expiry and hides result details', async () => {

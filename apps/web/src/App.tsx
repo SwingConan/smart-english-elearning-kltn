@@ -10,6 +10,7 @@ import { AboutPage } from '@/pages/AboutPage';
 import { AdaptivePolicyPage } from '@/pages/AdaptivePolicyPage';
 import { AdminClassOfferingsPage } from '@/pages/AdminClassOfferingsPage';
 import { AdminCoursesPage } from '@/pages/AdminCoursesPage';
+import { AdminStudyRecommendationPolicyPage } from '@/pages/AdminStudyRecommendationPolicyPage';
 import { ClassOfferingDetailPage } from '@/pages/ClassOfferingDetailPage';
 import { ClassOverviewPage } from '@/pages/ClassOverviewPage';
 import { ClassResultsPage } from '@/pages/ClassResultsPage';
@@ -49,6 +50,7 @@ import { StudentAssessmentListPage } from '@/pages/StudentAssessmentListPage';
 import { StudentMasteryPage } from '@/pages/StudentMasteryPage';
 import { StudentTestAttemptPage } from '@/pages/StudentTestAttemptPage';
 import { StudentTestResultPage } from '@/pages/StudentTestResultPage';
+import { StudyRecommendationsPage } from '@/pages/StudyRecommendationsPage';
 import { SystemStatusPage } from '@/pages/SystemStatusPage';
 import { TestEditorPage } from '@/pages/TestEditorPage';
 import { TestManagementPage } from '@/pages/TestManagementPage';
@@ -105,7 +107,10 @@ export function App() {
           element={instructor(<TestManagementPage />)}
         />
         <Route path="instructor/tests/:testId/edit" element={instructor(<TestEditorPage />)} />
-        <Route path="instructor/classes/:classOfferingId" element={instructor(<InstructorClassWorkspaceLayout />)}>
+        <Route
+          path="instructor/classes/:classOfferingId"
+          element={instructor(<InstructorClassWorkspaceLayout />)}
+        >
           <Route index element={<InstructorClassOverviewPage />} />
           <Route path="learners" element={<InstructorRosterPage />} />
           <Route path="learners/:enrollmentId" element={<InstructorLearnerDetailPage />} />
@@ -113,11 +118,21 @@ export function App() {
           <Route path="assessments" element={<ClassAssessmentManagementPage />} />
           <Route path="grading" element={<InstructorClassGradingPage />} />
           <Route path="results" element={<InstructorClassResultsPage />} />
-          <Route path="assessments/:classAssessmentId/grading" element={<AssessmentGradingQueuePage />} />
-          <Route path="assessments/:classAssessmentId/attempts/:attemptId/grading" element={<AssessmentGradingDetailPage />} />
+          <Route
+            path="assessments/:classAssessmentId/grading"
+            element={<AssessmentGradingQueuePage />}
+          />
+          <Route
+            path="assessments/:classAssessmentId/attempts/:attemptId/grading"
+            element={<AssessmentGradingDetailPage />}
+          />
         </Route>
         <Route path="admin/courses" element={admin(<AdminCoursesPage />)} />
         <Route path="admin/class-offerings" element={admin(<AdminClassOfferingsPage />)} />
+        <Route
+          path="admin/study-recommendations"
+          element={admin(<AdminStudyRecommendationPolicyPage />)}
+        />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
 
@@ -134,6 +149,7 @@ export function App() {
         <Route path="lessons/:lessonId" element={<LessonPage />} />
         <Route path="tests" element={<StudentAssessmentListPage />} />
         <Route path="results" element={<ClassResultsPage />} />
+        <Route path="recommendations" element={<StudyRecommendationsPage />} />
         <Route path="progress" element={<ProgressPage />} />
         <Route path="attempts/:attemptId" element={<StudentTestAttemptPage />} />
         <Route path="attempts/:attemptId/result" element={<StudentTestResultPage />} />
