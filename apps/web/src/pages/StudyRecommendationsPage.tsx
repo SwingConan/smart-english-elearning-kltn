@@ -85,6 +85,8 @@ export function StudyRecommendationsPage() {
 
   const { data } = loadState;
   const base = `/student/enrollments/${enrollmentId}`;
+  const pendingWithoutPriorFinal =
+    data.state === 'PENDING_REVIEW' && !data.source ? data.pendingNewerAttempt : null;
   return (
     <div className="space-y-6">
       {data.source ? (
@@ -121,7 +123,7 @@ export function StudyRecommendationsPage() {
         </header>
       )}
 
-      {data.pendingNewerAttempt ? (
+      {data.pendingNewerAttempt && !pendingWithoutPriorFinal ? (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
           <p className="font-semibold">Kết quả mới nhất đang chờ hoàn tất chấm</p>
           <p className="mt-1 text-sm leading-6">
@@ -143,7 +145,9 @@ export function StudyRecommendationsPage() {
         </section>
       ) : null}
 
-      {data.state === 'READY' ? (
+      {pendingWithoutPriorFinal ? (
+        <PendingReviewState attempt={pendingWithoutPriorFinal} />
+      ) : data.state === 'READY' ? (
         <ReadyContent
           actionError={actionError}
           data={data}
@@ -156,6 +160,27 @@ export function StudyRecommendationsPage() {
 
       <RecommendationHistory history={data.history} />
     </div>
+  );
+}
+
+function PendingReviewState({
+  attempt,
+}: {
+  attempt: NonNullable<StudyRecommendationResponse['pendingNewerAttempt']>;
+}) {
+  const pendingSkills =
+    attempt.pendingSkills.map((skill) => skillLabel[skill]).join(', ') || 'một số kỹ năng';
+  return (
+    <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950 shadow-sm sm:p-8">
+      <Target size={32} />
+      <h2 className="mt-4 text-xl font-bold">Kết quả mới nhất đang chờ hoàn tất chấm.</h2>
+      <p className="mt-3 font-semibold">{attempt.title}</p>
+      <p className="mt-1 text-sm leading-6">Kỹ năng đang chờ: {pendingSkills}.</p>
+      <p className="mt-2 text-sm leading-6">Điểm đang chờ không được tính là 0.</p>
+      <Link className="btn-primary mt-5" to={attempt.resultPath}>
+        Xem trạng thái chấm
+      </Link>
+    </section>
   );
 }
 

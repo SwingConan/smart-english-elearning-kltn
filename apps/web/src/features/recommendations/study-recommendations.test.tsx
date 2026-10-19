@@ -174,6 +174,38 @@ describe('StudyRecommendationsPage', () => {
     expect(screen.queryByRole('button', { name: 'Làm bài luyện' })).not.toBeInTheDocument();
   });
 
+  it('consolidates PENDING_REVIEW without a prior final source into one pending state', async () => {
+    const response = readyResponse();
+    response.state = 'PENDING_REVIEW';
+    response.source = null;
+    response.recommendations = [];
+    response.schedule7Days = [];
+    response.pendingNewerAttempt = {
+      ...response.pendingNewerAttempt!,
+      title: 'Kiểm tra giữa kỳ đang chờ chấm',
+      pendingSkills: ['SPEAKING', 'WRITING'],
+    };
+    vi.spyOn(studyRecommendationApi, 'get').mockResolvedValue(response);
+    renderLearner();
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Kết quả mới nhất đang chờ hoàn tất chấm.',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Kết quả mới nhất đang chờ hoàn tất chấm\.?/)).toHaveLength(1);
+    expect(screen.getByText('Kiểm tra giữa kỳ đang chờ chấm')).toBeInTheDocument();
+    expect(screen.getByText('Kỹ năng đang chờ: Speaking, Writing.')).toBeInTheDocument();
+    expect(screen.getByText('Điểm đang chờ không được tính là 0.')).toBeInTheDocument();
+    const pendingActions = screen.getAllByRole('link', { name: 'Xem trạng thái chấm' });
+    expect(pendingActions).toHaveLength(1);
+    expect(pendingActions[0]).toHaveAttribute(
+      'href',
+      `/student/enrollments/${enrollmentId}/attempts/pending-1/result`,
+    );
+    expect(screen.queryByText('Reading focus lesson')).not.toBeInTheDocument();
+  });
+
   it.each([
     ['NO_ELIGIBLE_RESULT', 'Chưa đủ dữ liệu để tạo gợi ý tự học.'],
     ['PENDING_REVIEW', 'Kết quả mới nhất đang chờ hoàn tất chấm.'],
@@ -186,6 +218,7 @@ describe('StudyRecommendationsPage', () => {
       response.recommendations = [];
       response.schedule7Days = [];
       if (state !== 'NO_MATCHING_CONTENT') response.source = null;
+      if (state === 'NO_ELIGIBLE_RESULT') response.pendingNewerAttempt = null;
       vi.spyOn(studyRecommendationApi, 'get').mockResolvedValue(response);
       renderLearner();
       expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
