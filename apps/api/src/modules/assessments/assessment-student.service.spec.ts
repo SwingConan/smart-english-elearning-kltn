@@ -5,6 +5,7 @@ import {
   QuestionResponseType,
   TestAttemptStatus,
   TestPurpose,
+  TestStatus,
   ToeicSkill,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -146,6 +147,46 @@ describe('AssessmentStudentService', () => {
         where: expect.objectContaining({ classOfferingId: enrollment.classOffering.id }),
       }),
     );
+  });
+
+  it('lists all seven canonical linked practices while excluding retired standalone legacy tests', async () => {
+    prisma.classAssessment.findMany.mockResolvedValue(
+      Array.from({ length: 7 }, (_, index) => ({
+        id: `canonical-assignment-${index + 1}`,
+        stage: 'PERIODIC',
+        openAt: null,
+        closeAt: null,
+        maxAttemptsOverride: 3,
+        test: {
+          id: `canonical-practice-${index + 1}`,
+          purpose: TestPurpose.PRACTICE_MOCK,
+          title: `Bài luyện sau bài học — Part ${index + 1}`,
+          description: null,
+          lessonId: `lesson-${index + 1}`,
+          maxAttempts: 3,
+          timeLimitMinutes: 10,
+          showResultAfterSubmit: true,
+          questionGroups: [],
+          _count: { testQuestions: 1 },
+        },
+        attempts: [],
+      })),
+    );
+    // The retired legacy Test is DRAFT, so Prisma's PUBLISHED query does not return it.
+    prisma.test.findMany.mockResolvedValue([]);
+
+    const result = await service.listTests(learnerId, enrollmentId);
+
+    expect(result).toHaveLength(7);
+    expect(result.every((test) => test.lessonId !== null)).toBe(true);
+    expect(result.map((test) => test.id)).not.toContain('legacy-practice');
+    expect(prisma.test.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        status: TestStatus.PUBLISHED,
+        purpose: TestPurpose.PRACTICE_MOCK,
+        lessonId: null,
+      }),
+    }));
   });
 
   it('projects visible IMAGE/AUDIO stimuli with authorized URLs and excludes protected rows in the query', async () => {
@@ -389,6 +430,21 @@ describe('AssessmentStudentService', () => {
     await expect(service.startOrResumeAttempt(learnerId, enrollmentId, 'practice-test'))
       .rejects.toBeInstanceOf(NotFoundException);
     expect(transaction.testAttempt.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start or resume a retired DRAFT legacy practice', async () => {
+    transaction.test.findFirst.mockResolvedValue(null);
+
+    await expect(service.startOrResumeAttempt(learnerId, enrollmentId, 'legacy-practice'))
+      .rejects.toBeInstanceOf(NotFoundException);
+    expect(transaction.test.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        id: 'legacy-practice',
+        status: TestStatus.PUBLISHED,
+      }),
+    }));
+    expect(transaction.testAttempt.findFirst).not.toHaveBeenCalled();
+    expect(transaction.testAttempt.create).not.toHaveBeenCalled();
   });
 
   function practiceAttempt(lessonId: string | null) {

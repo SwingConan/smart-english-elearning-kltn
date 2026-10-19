@@ -35,7 +35,7 @@ const legacyResourceIds = Array.from(
   { length: 6 },
   (_, index) => `40000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
 );
-const legacyPracticeTestId = '80000000-0000-4000-8000-000000000003';
+export const M08_LEGACY_PRACTICE_TEST_ID = '80000000-0000-4000-8000-000000000003';
 const legacyPracticeAssessmentId = 'f2000000-0000-4000-8000-000000000002';
 
 interface CurriculumLesson {
@@ -202,6 +202,24 @@ export function loadAndValidateM08ContentPack(): {
   };
 }
 
+export async function retireLegacyM08Practice(prisma: PrismaClient): Promise<void> {
+  // Preserve the legacy test, questions, attempts, and results for historical access.
+  // DRAFT is the existing lifecycle state that removes it from new learner availability.
+  await prisma.test.update({
+    where: { id: M08_LEGACY_PRACTICE_TEST_ID },
+    data: {
+      status: TestStatus.DRAFT,
+      lessonId: null,
+      title: 'Luyện tập / Thi thử tổng hợp (legacy)',
+      description: 'Bài luyện tập độc lập được giữ lại để tương thích dữ liệu demo cũ.',
+    },
+  });
+  await prisma.classAssessment.update({
+    where: { id: legacyPracticeAssessmentId },
+    data: { isActive: false },
+  });
+}
+
 const difficultyMap = {
   FOUNDATION: QuestionDifficulty.EASY,
   CORE: QuestionDifficulty.MEDIUM,
@@ -288,18 +306,7 @@ export async function seedM08(
   await prisma.learningResource.deleteMany({ where: { id: { in: legacyResourceIds } } });
 
   const media = new Map(mediaManifest.assets.map((asset) => [asset.mediaKey, asset]));
-  await prisma.test.update({
-    where: { id: legacyPracticeTestId },
-    data: {
-      lessonId: null,
-      title: 'Luyện tập / Thi thử tổng hợp (legacy)',
-      description: 'Bài luyện tập độc lập được giữ lại để tương thích dữ liệu demo cũ.',
-    },
-  });
-  await prisma.classAssessment.update({
-    where: { id: legacyPracticeAssessmentId },
-    data: { isActive: false },
-  });
+  await retireLegacyM08Practice(prisma);
   for (const [taskCode, definition] of Object.entries(practiceDefinitions)) {
     const typedTaskCode = taskCode as keyof typeof practiceDefinitions;
     const testId = stableUuid(`test:${definition.code}`);

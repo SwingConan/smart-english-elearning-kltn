@@ -1,7 +1,12 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { loadAndValidateM08ContentPack } from '../../../prisma/m08-seed';
+import { PrismaClient, TestStatus } from '../../generated/prisma/client';
+import {
+  loadAndValidateM08ContentPack,
+  M08_LEGACY_PRACTICE_TEST_ID,
+  retireLegacyM08Practice,
+} from '../../../prisma/m08-seed';
 
 const contentRoot = resolve(__dirname, '../../../content/m08');
 
@@ -25,5 +30,25 @@ describe('M08 canonical curriculum and practice pack', () => {
       questionCount: 82,
       runtimeMediaCount: 32,
     });
+  });
+
+  it('retires the legacy practice without deleting historical rows or attempts', async () => {
+    const prisma = {
+      test: { update: jest.fn().mockResolvedValue({}) },
+      classAssessment: { update: jest.fn().mockResolvedValue({}) },
+    };
+
+    await retireLegacyM08Practice(prisma as unknown as PrismaClient);
+
+    expect(prisma.test.update).toHaveBeenCalledWith({
+      where: { id: M08_LEGACY_PRACTICE_TEST_ID },
+      data: expect.objectContaining({ status: TestStatus.DRAFT, lessonId: null }),
+    });
+    expect(prisma.classAssessment.update).toHaveBeenCalledWith({
+      where: { id: 'f2000000-0000-4000-8000-000000000002' },
+      data: { isActive: false },
+    });
+    expect(Object.keys(prisma.test)).toEqual(['update']);
+    expect(Object.keys(prisma.classAssessment)).toEqual(['update']);
   });
 });

@@ -135,10 +135,10 @@ describe('LearningService', () => {
     expect(JSON.stringify(result)).not.toMatch(/storageKey|stimulus|transcript/i);
   });
 
-  it('exposes practice only from an active, available assignment for this enrollment class', async () => {
+  it('resolves the canonical lesson CTA from its active, available class assignment', async () => {
     prisma.classAssessment.findFirst.mockResolvedValue({
       id: 'practice-assessment',
-      test: { id: 'practice-test', title: 'Part 1 practice' },
+      test: { id: 'practice-test', title: 'Bài luyện sau bài học — Part 1' },
     });
     const result = await service.openLesson(learnerId, enrollmentId, lessonId);
     expect(prisma.classAssessment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
@@ -155,7 +155,7 @@ describe('LearningService', () => {
     expect(result.practice).toEqual({
       classAssessmentId: 'practice-assessment',
       testId: 'practice-test',
-      title: 'Part 1 practice',
+      title: 'Bài luyện sau bài học — Part 1',
     });
   });
 
