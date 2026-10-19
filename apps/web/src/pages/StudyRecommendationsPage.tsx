@@ -87,16 +87,14 @@ export function StudyRecommendationsPage() {
   const base = `/student/enrollments/${enrollmentId}`;
   return (
     <div className="space-y-6">
-      <header className="overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 to-indigo-950 p-6 text-white shadow-sm sm:p-8">
-        <p className="text-sm font-semibold text-indigo-200">
-          Lộ trình cá nhân hóa theo kết quả trong lớp
-        </p>
-        <h1 className="mt-2 text-3xl font-bold">Gợi ý tự học</h1>
-        <p className="mt-3 max-w-3xl leading-7 text-indigo-100">
-          Các bước dưới đây được chọn theo quy tắc xác định từ kết quả đã chấm cuối cùng. Gợi ý
-          không thay đổi chương trình học trên lớp.
-        </p>
-        {data.source ? (
+      {data.source ? (
+        <header className="overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 to-indigo-950 p-6 text-white shadow-sm sm:p-8">
+          <p className="text-sm font-bold tracking-wider text-indigo-200">GỢI Ý TỰ HỌC</p>
+          <h1 className="mt-2 text-3xl font-bold">Gợi ý dành cho bạn</h1>
+          <p className="mt-3 max-w-3xl leading-7 text-indigo-100">
+            Dựa trên kết quả bài kiểm tra đã hoàn tất, hệ thống đề xuất nội dung nên ưu tiên tiếp
+            theo.
+          </p>
           <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl bg-white/10 p-4 text-sm">
             <div className="min-w-0 flex-1">
               <p className="font-semibold">Nguồn: {data.source.testTitle}</p>
@@ -112,18 +110,29 @@ export function StudyRecommendationsPage() {
               Xem kết quả nguồn
             </Link>
           </div>
-        ) : null}
-      </header>
+        </header>
+      ) : (
+        <header className="rounded-3xl border bg-white p-6 shadow-sm sm:p-8">
+          <p className="text-sm font-bold tracking-wider text-indigo-700">GỢI Ý TỰ HỌC</p>
+          <h1 className="mt-2 text-3xl font-bold">Gợi ý tự học</h1>
+          <p className="mt-3 max-w-3xl leading-7 text-slate-600">
+            Theo dõi trạng thái kết quả cần thiết để nhận nội dung tự học phù hợp.
+          </p>
+        </header>
+      )}
 
       {data.pendingNewerAttempt ? (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
-          <p className="font-semibold">Có kết quả mới hơn đang chờ hoàn tất chấm</p>
+          <p className="font-semibold">Kết quả mới nhất đang chờ hoàn tất chấm</p>
           <p className="mt-1 text-sm leading-6">
             {data.pendingNewerAttempt.title} còn chờ:{' '}
             {data.pendingNewerAttempt.pendingSkills.map((skill) => skillLabel[skill]).join(', ') ||
               'một số kỹ năng'}
-            . Gợi ý hiện tại vẫn dùng kết quả cuối cùng gần nhất; điểm đang chờ không được tính là
-            0.
+            .{' '}
+            {data.source
+              ? `Gợi ý hiện tại vẫn dựa trên kết quả cuối cùng gần nhất: ${data.source.testTitle}.`
+              : 'Kết quả này chưa được dùng để tạo gợi ý.'}{' '}
+            Điểm đang chờ không được tính là 0.
           </p>
           <Link
             className="mt-3 inline-block text-sm font-semibold underline"
@@ -167,33 +176,24 @@ function ReadyContent({
         <article className="rounded-2xl border bg-white p-5 shadow-sm">
           <div className="flex items-center gap-2 text-emerald-700">
             <CheckCircle2 size={20} />
-            <h2 className="font-bold">Điểm mạnh hiện tại</h2>
+            <h2 className="font-bold">Điểm mạnh</h2>
           </div>
-          {data.strengths.length ? (
-            <ul className="mt-4 space-y-3">
-              {data.strengths.map((item) => (
-                <li
-                  className="flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3"
-                  key={item.skill}
-                >
-                  <span className="font-semibold">{skillLabel[item.skill]}</span>
-                  <span>{formatPercent(item.normalizedScore)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-4 text-sm text-slate-600">
-              Chưa có kỹ năng vượt ngưỡng mạnh trong kết quả nguồn.
-            </p>
-          )}
+          <StrengthSnapshot
+            focus={data.focus}
+            recommendations={data.recommendations}
+            strengths={data.strengths}
+          />
         </article>
         <article className="rounded-2xl border bg-white p-5 shadow-sm">
           <div className="flex items-center gap-2 text-indigo-700">
             <Target size={20} />
-            <h2 className="font-bold">Trọng tâm ưu tiên</h2>
+            <h2 className="font-bold">Cần cải thiện</h2>
           </div>
           {data.focus ? (
             <div className="mt-4">
+              {isBalancedEvidence(data.strengths, data.focus) ? (
+                <p className="mb-2 font-semibold text-slate-700">Kết quả khá cân bằng</p>
+              ) : null}
               <p className="text-2xl font-bold">
                 {skillLabel[data.focus.skill]} · {formatPercent(data.focus.normalizedScore)}
               </p>
@@ -205,6 +205,11 @@ function ReadyContent({
                     : ''}
                 </p>
               ) : null}
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                {data.focus.taskCode && data.focus.taskNormalizedScore !== undefined
+                  ? `Đây là nhóm câu thấp nhất có đủ dữ liệu để xác định trọng tâm ${taskCodeLabel(data.focus.taskCode)}.`
+                  : 'Trọng tâm được xác định từ kết quả kỹ năng trong bài đánh giá nguồn.'}
+              </p>
             </div>
           ) : (
             <p className="mt-4 text-sm text-slate-600">
@@ -216,7 +221,7 @@ function ReadyContent({
 
       <section aria-labelledby="recommendation-list-heading">
         <h2 className="text-2xl font-bold" id="recommendation-list-heading">
-          Việc nên làm tiếp theo
+          Nên học gì tiếp?
         </h2>
         <div className="mt-4 space-y-4">
           {data.recommendations.map((item) => (
@@ -239,7 +244,7 @@ function ReadyContent({
         <details className="rounded-2xl border bg-white p-5 shadow-sm">
           <summary className="flex cursor-pointer list-none items-center gap-2 font-bold">
             <CalendarDays className="text-indigo-700" size={20} />
-            Kế hoạch 7 ngày
+            Xem kế hoạch 7 ngày
           </summary>
           <ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {data.schedule7Days.map((entry) => {
@@ -317,13 +322,13 @@ function RecommendationCard({
         {task ? <p className="mt-1 text-sm text-indigo-800">{task}</p> : null}
       </div>
       <details className="mt-4 rounded-xl bg-slate-50 p-4">
-        <summary className="cursor-pointer font-semibold">Vì sao có gợi ý này?</summary>
+        <summary className="cursor-pointer font-semibold">Vì sao hệ thống gợi ý?</summary>
         <ReasonText item={item} />
       </details>
       <div className="mt-5 flex flex-wrap gap-3">
         <Link className="btn-primary" to={item.lesson.path}>
           <BookOpen size={17} />
-          Mở bài học
+          Học bài này
         </Link>
         {item.practice ? (
           <button
@@ -332,11 +337,82 @@ function RecommendationCard({
             onClick={() => void onStartPractice(item.practice!.testId)}
             type="button"
           >
-            {starting ? 'Đang mở bài luyện...' : 'Làm bài luyện sau bài học'}
+            {starting ? 'Đang mở bài luyện...' : 'Làm bài luyện'}
           </button>
         ) : null}
       </div>
     </article>
+  );
+}
+
+function StrengthSnapshot({
+  focus,
+  recommendations,
+  strengths,
+}: {
+  focus: StudyRecommendationResponse['focus'];
+  recommendations: StudyRecommendationItem[];
+  strengths: StudyRecommendationResponse['strengths'];
+}) {
+  if (!strengths.length)
+    return (
+      <p className="mt-4 text-sm text-slate-600">
+        Chưa có kỹ năng được ghi nhận là điểm mạnh trong kết quả nguồn.
+      </p>
+    );
+  if (isBalancedEvidence(strengths, focus)) {
+    const relative = strengths.find((item) => item.relative);
+    return (
+      <div className="mt-4 rounded-xl bg-emerald-50 p-4">
+        <p className="font-semibold">Kết quả khá cân bằng</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
+          {relative && focus
+            ? `${skillLabel[relative.skill]} và ${skillLabel[focus.skill]} cùng đạt ${formatPercent(relative.normalizedScore)} trong kết quả nguồn.`
+            : 'Các kỹ năng mục tiêu có kết quả ngang nhau trong bài đánh giá nguồn.'}
+        </p>
+      </div>
+    );
+  }
+  const strongThreshold = recommendations.find((item) => item.reason)?.reason?.policy
+    .strongThreshold;
+  return (
+    <ul className="mt-4 space-y-3">
+      {strengths.map((item) => (
+        <li className="rounded-xl bg-emerald-50 px-4 py-3" key={item.skill}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-semibold">{skillLabel[item.skill]}</span>
+            <span>{formatPercent(item.normalizedScore)}</span>
+          </div>
+          {item.rawScore !== null && item.maxRawScore !== null ? (
+            <p className="mt-1 text-xs text-slate-500">
+              {item.rawScore}/{item.maxRawScore} điểm trong kết quả nguồn
+            </p>
+          ) : null}
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            {item.relative
+              ? focus && focus.skill !== item.skill
+                ? `${skillLabel[item.skill]} hiện cao hơn ${skillLabel[focus.skill]} trong kết quả nguồn.`
+                : `${skillLabel[item.skill]} hiện là kỹ năng có kết quả cao hơn trong kết quả nguồn.`
+              : strongThreshold !== undefined
+                ? `Kết quả này đạt ngưỡng kỹ năng mạnh ${formatPercent(strongThreshold)} tại thời điểm tạo gợi ý.`
+                : 'Kỹ năng này được ghi nhận là điểm mạnh trong snapshot kết quả.'}
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function isBalancedEvidence(
+  strengths: StudyRecommendationResponse['strengths'],
+  focus: StudyRecommendationResponse['focus'],
+): boolean {
+  const relative = strengths.find((item) => item.relative);
+  return Boolean(
+    relative &&
+    focus &&
+    relative.skill !== focus.skill &&
+    relative.normalizedScore === focus.normalizedScore,
   );
 }
 
@@ -351,21 +427,33 @@ function ReasonText({ item }: { item: StudyRecommendationItem }) {
   if (reason.taskEvidence)
     return (
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        Ở {taskCodeLabel(reason.taskEvidence.taskCode)}, bạn đạt {reason.taskEvidence.awardedPoints}
-        /{reason.taskEvidence.maxPoints} điểm ({formatPercent(reason.taskEvidence.normalizedScore)}
-        ). Kết quả này nằm trong vùng cần ưu tiên theo chính sách {reason.policy.code} tại thời điểm
-        tạo gợi ý.
+        Bạn đạt {reason.taskEvidence.awardedPoints}/{reason.taskEvidence.maxPoints} điểm ở{' '}
+        {taskCodeLabel(reason.taskEvidence.taskCode)} (
+        {formatPercent(reason.taskEvidence.normalizedScore)})
+        {reason.taskEvidence.normalizedScore < reason.policy.weakThreshold
+          ? `, dưới ngưỡng ưu tiên ${formatPercent(reason.policy.weakThreshold)}`
+          : reason.taskEvidence.normalizedScore === reason.policy.weakThreshold
+            ? `, tại ngưỡng ưu tiên ${formatPercent(reason.policy.weakThreshold)}`
+            : ''}
+        . Bài học {reason.selection.targetLessonTitle} được chọn vì phù hợp với trọng tâm này
+        {reason.selection.targetPracticeAvailableAtGeneration
+          ? ' và có bài luyện liên kết khả dụng tại thời điểm tạo gợi ý.'
+          : '.'}
       </p>
     );
-  const basis =
-    reason.selection.basis === 'MAINTENANCE'
-      ? 'duy trì kỹ năng hiện có'
-      : 'củng cố kỹ năng cần ưu tiên';
+  const basis = {
+    TASK_WEAKNESS: 'phù hợp với trọng tâm theo Part',
+    SKILL_FALLBACK: 'phù hợp với trọng tâm kỹ năng khi chưa đủ bằng chứng theo Part',
+    MAINTENANCE: 'giúp duy trì kỹ năng hiện có',
+  }[reason.selection.basis];
   return (
     <p className="mt-3 text-sm leading-6 text-slate-600">
       Kết quả {skillLabel[reason.skillEvidence.skill]} là{' '}
-      {formatPercent(reason.skillEvidence.normalizedScore)}. Bài học được chọn để {basis}, theo
-      chính sách {reason.policy.code} tại thời điểm tạo gợi ý.
+      {formatPercent(reason.skillEvidence.normalizedScore)}. Bài học{' '}
+      {reason.selection.targetLessonTitle} được chọn vì {basis}
+      {reason.selection.targetPracticeAvailableAtGeneration
+        ? ' và có bài luyện liên kết khả dụng tại thời điểm tạo gợi ý.'
+        : '.'}
     </p>
   );
 }
@@ -379,20 +467,20 @@ function EmptyState({
 }) {
   const copy = {
     NO_ELIGIBLE_RESULT: {
-      title: 'Chưa có kết quả đủ điều kiện',
-      body: 'Hoàn thành một bài kiểm tra trong lớp để hệ thống có căn cứ tạo gợi ý tự học.',
+      title: 'Chưa đủ dữ liệu để tạo gợi ý tự học.',
+      body: 'Gợi ý sẽ xuất hiện sau khi bạn có ít nhất một bài kiểm tra trong lớp với kết quả cuối cùng.',
       link: `${enrollmentBase}/tests`,
       action: 'Xem bài kiểm tra',
     },
     PENDING_REVIEW: {
-      title: 'Kết quả đang chờ hoàn tất chấm',
-      body: 'Một hoặc nhiều kỹ năng vẫn đang chờ giảng viên đánh giá. Hệ thống không xem điểm đang thiếu là 0.',
+      title: 'Kết quả mới nhất đang chờ hoàn tất chấm.',
+      body: 'Một hoặc nhiều kỹ năng vẫn đang chờ giảng viên đánh giá. Điểm đang chờ không được tính là 0.',
       link: `${enrollmentBase}/results`,
       action: 'Xem kết quả',
     },
     NO_MATCHING_CONTENT: {
-      title: 'Chưa có nội dung phù hợp',
-      body: 'Kết quả nguồn đã được ghi nhận nhưng chưa có bài học phù hợp với quy tắc hiện tại. Các gợi ý cũ vẫn được giữ trong lịch sử.',
+      title: 'Đã có kết quả, nhưng hiện chưa có nội dung học phù hợp để đề xuất.',
+      body: 'Hệ thống không tạo mục tiêu thay thế khi chưa có bài học thật phù hợp. Các gợi ý cũ vẫn được giữ trong lịch sử.',
       link: `${enrollmentBase}/learn`,
       action: 'Xem nội dung học',
     },
@@ -444,19 +532,65 @@ function RecommendationHistory({ history }: { history: StudyRecommendationRespon
               </div>
             </summary>
             <div className="mt-4 border-t pt-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <section className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+                  <h3 className="font-semibold text-emerald-900">Điểm mạnh tại thời điểm này</h3>
+                  <StrengthSnapshot
+                    focus={entry.focus}
+                    recommendations={entry.recommendations}
+                    strengths={entry.strengths}
+                  />
+                </section>
+                <section className="rounded-xl border border-amber-100 bg-amber-50/60 p-4">
+                  <h3 className="font-semibold text-amber-900">Trọng tâm tại thời điểm này</h3>
+                  {entry.focus ? (
+                    <div className="mt-3 text-sm">
+                      <p className="font-semibold">
+                        {skillLabel[entry.focus.skill]} ·{' '}
+                        {formatPercent(entry.focus.normalizedScore)}
+                      </p>
+                      {taskCodeLabel(entry.focus.taskCode) ? (
+                        <p className="mt-1 text-slate-600">
+                          {taskCodeLabel(entry.focus.taskCode)}
+                          {entry.focus.taskNormalizedScore !== undefined
+                            ? ` · ${formatPercent(entry.focus.taskNormalizedScore)}`
+                            : ''}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-600">
+                      Snapshot này không có trọng tâm riêng.
+                    </p>
+                  )}
+                </section>
+              </div>
               <Link
-                className="text-sm font-semibold text-indigo-700 underline"
+                className="mt-4 inline-block text-sm font-semibold text-indigo-700 underline"
                 to={entry.sourceResultPath}
               >
                 Xem kết quả nguồn
               </Link>
-              <ol className="mt-3 space-y-2">
+              <ol className="mt-4 space-y-3">
                 {entry.recommendations.map((item) => (
-                  <li className="rounded-lg bg-slate-50 p-3 text-sm" key={item.id}>
-                    <span className="font-semibold">
-                      {item.priority}. {item.lesson.title}
-                    </span>
-                    <span className="text-slate-500"> · {skillLabel[item.skill]}</span>
+                  <li className="rounded-xl bg-slate-50 p-4 text-sm" key={item.id}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-800">
+                        Ưu tiên {item.priority}
+                      </span>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">
+                        {skillLabel[item.skill]}
+                      </span>
+                      {taskCodeLabel(item.reason?.taskEvidence?.taskCode) ? (
+                        <span className="rounded-full bg-white px-2.5 py-1 text-xs text-slate-600">
+                          {taskCodeLabel(item.reason?.taskEvidence?.taskCode)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-3 font-semibold">{item.lesson.title}</p>
+                    <div className="mt-2 border-t pt-2">
+                      <ReasonText item={item} />
+                    </div>
                   </li>
                 ))}
               </ol>

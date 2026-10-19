@@ -44,6 +44,7 @@ export function AuthNavigation() {
         <>
           <Link to="/admin/courses">Quản lý khóa học</Link>
           <Link to="/admin/class-offerings">Quản lý lớp học</Link>
+          <Link to="/admin/study-recommendations">Tiêu chí gợi ý tự học</Link>
         </>
       ) : null}
       {user.role === 'INSTRUCTOR' ? <Link to="/instructor/teaching">Lớp giảng dạy</Link> : null}

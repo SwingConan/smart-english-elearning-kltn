@@ -48,37 +48,47 @@ export function AdminStudyRecommendationPolicyPage() {
     event.preventDefault();
     if (!form) return;
     const parsed = {
-      weakThreshold: Number(form.weakThreshold),
-      strongThreshold: Number(form.strongThreshold),
-      minimumTaskQuestions: Number(form.minimumTaskQuestions),
-      maxRecommendations: Number(form.maxRecommendations),
+      weakThreshold: parseNumericField(form.weakThreshold),
+      strongThreshold: parseNumericField(form.strongThreshold),
+      minimumTaskQuestions: parseNumericField(form.minimumTaskQuestions),
+      maxRecommendations: parseNumericField(form.maxRecommendations),
     };
     const nextErrors: typeof errors = {};
-    if (
+    if (parsed.weakThreshold === null)
+      nextErrors.weakThreshold = 'Vui lòng nhập ngưỡng kỹ năng yếu.';
+    else if (
       !Number.isFinite(parsed.weakThreshold) ||
       parsed.weakThreshold < 0 ||
       parsed.weakThreshold > 100
     )
       nextErrors.weakThreshold = 'Nhập giá trị từ 0 đến 100.';
-    if (
+    if (parsed.strongThreshold === null)
+      nextErrors.strongThreshold = 'Vui lòng nhập ngưỡng kỹ năng mạnh.';
+    else if (
       !Number.isFinite(parsed.strongThreshold) ||
       parsed.strongThreshold < 0 ||
       parsed.strongThreshold > 100
     )
       nextErrors.strongThreshold = 'Nhập giá trị từ 0 đến 100.';
     if (
+      parsed.weakThreshold !== null &&
+      parsed.strongThreshold !== null &&
       Number.isFinite(parsed.weakThreshold) &&
       Number.isFinite(parsed.strongThreshold) &&
       parsed.weakThreshold >= parsed.strongThreshold
     )
       nextErrors.strongThreshold = 'Ngưỡng mạnh phải lớn hơn ngưỡng yếu.';
-    if (
+    if (parsed.minimumTaskQuestions === null)
+      nextErrors.minimumTaskQuestions = 'Vui lòng nhập số câu tối thiểu.';
+    else if (
       !Number.isInteger(parsed.minimumTaskQuestions) ||
       parsed.minimumTaskQuestions < 1 ||
       parsed.minimumTaskQuestions > 20
     )
       nextErrors.minimumTaskQuestions = 'Nhập số nguyên từ 1 đến 20.';
-    if (
+    if (parsed.maxRecommendations === null)
+      nextErrors.maxRecommendations = 'Vui lòng nhập số gợi ý tối đa.';
+    else if (
       !Number.isInteger(parsed.maxRecommendations) ||
       parsed.maxRecommendations < 1 ||
       parsed.maxRecommendations > 5
@@ -87,9 +97,22 @@ export function AdminStudyRecommendationPolicyPage() {
     setErrors(nextErrors);
     setSaveError(null);
     if (Object.keys(nextErrors).length) return;
+    if (
+      parsed.weakThreshold === null ||
+      parsed.strongThreshold === null ||
+      parsed.minimumTaskQuestions === null ||
+      parsed.maxRecommendations === null
+    )
+      return;
+    const input = {
+      weakThreshold: parsed.weakThreshold,
+      strongThreshold: parsed.strongThreshold,
+      minimumTaskQuestions: parsed.minimumTaskQuestions,
+      maxRecommendations: parsed.maxRecommendations,
+    };
     setSaving(true);
     try {
-      const saved = await adminApi.studyRecommendationPolicy.update(parsed);
+      const saved = await adminApi.studyRecommendationPolicy.update(input);
       setPolicy(saved);
       setForm(toForm(saved));
       setSuccess('Đã cập nhật tiêu chí gợi ý tự học.');
@@ -251,4 +274,8 @@ function toForm(policy: StudyRecommendationPolicy): PolicyForm {
     minimumTaskQuestions: String(policy.minimumTaskQuestions),
     maxRecommendations: String(policy.maxRecommendations),
   };
+}
+
+function parseNumericField(value: string): number | null {
+  return value.trim() === '' ? null : Number(value);
 }

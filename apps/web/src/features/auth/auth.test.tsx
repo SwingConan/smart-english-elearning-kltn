@@ -75,6 +75,32 @@ describe('AuthProvider', () => {
 });
 
 describe('AuthNavigation', () => {
+  it('exposes the study recommendation criteria to administrators', async () => {
+    vi.spyOn(authApi, 'me').mockResolvedValueOnce({
+      ...student,
+      id: 'admin-1',
+      email: 'admin@example.test',
+      fullName: 'Admin',
+      role: 'ADMIN_COORDINATOR',
+    });
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <ToastProvider>
+            <AuthNavigation />
+          </ToastProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('link', { name: 'Tiêu chí gợi ý tự học' })).toHaveAttribute(
+      'href',
+      '/admin/study-recommendations',
+    );
+    expect(screen.getByRole('link', { name: 'Quản lý khóa học' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Quản lý lớp học' })).toBeInTheDocument();
+  });
+
   it('confirms logout, exposes a loading state, and announces completion', async () => {
     vi.spyOn(authApi, 'me').mockResolvedValueOnce(student);
     let finishLogout!: () => void;

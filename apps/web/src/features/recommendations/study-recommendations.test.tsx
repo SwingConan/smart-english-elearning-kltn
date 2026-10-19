@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { adminApi } from '@/features/admin/api';
@@ -26,25 +26,62 @@ describe('StudyRecommendationsPage', () => {
     vi.spyOn(studyRecommendationApi, 'get').mockResolvedValue(readyResponse());
     renderLearner();
 
-    expect(await screen.findByRole('heading', { name: 'Gợi ý tự học' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Gợi ý dành cho bạn' })).toBeInTheDocument();
+    expect(screen.getByText('GỢI Ý TỰ HỌC')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Dựa trên kết quả bài kiểm tra đã hoàn tất, hệ thống đề xuất nội dung nên ưu tiên tiếp theo.',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Nguồn: Midterm October/)).toBeInTheDocument();
     expect(screen.getByText(/điểm đang chờ không được tính là 0/i)).toBeInTheDocument();
-    expect(screen.getByText('Điểm mạnh hiện tại').closest('article')).toHaveTextContent(
-      'Listening84%',
+    expect(screen.getByText('Điểm mạnh').closest('article')).toHaveTextContent('Listening84%');
+    expect(screen.getByText('Điểm mạnh').closest('article')).toHaveTextContent(
+      'Listening hiện cao hơn Reading trong kết quả nguồn.',
     );
-    expect(screen.getByText('Trọng tâm ưu tiên').closest('article')).toHaveTextContent(
-      'Reading · 42%',
-    );
-    expect(screen.getByText('Trọng tâm ưu tiên').closest('article')).toHaveTextContent(
+    expect(screen.getByText('Cần cải thiện').closest('article')).toHaveTextContent('Reading · 42%');
+    expect(screen.getByText('Cần cải thiện').closest('article')).toHaveTextContent(
       'Part 7 · Đọc hiểu · 35%',
     );
     expect(screen.getByText('Reading focus lesson')).toBeInTheDocument();
-    expect(screen.getByText(/theo chính sách M08_STUDY_REC_V1/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Kế hoạch 7 ngày'));
+    expect(screen.getByText(/dưới ngưỡng ưu tiên 50%/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Xem kế hoạch 7 ngày'));
     expect(screen.getByText('Ôn Reading ngày 1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Làm practice ngày 3' })).toBeInTheDocument();
     expect(screen.getByText('Lịch sử gợi ý')).toBeInTheDocument();
     expect(screen.getByText('Trước đây')).toBeInTheDocument();
+  });
+
+  it('distinguishes absolute strengths from balanced relative evidence', async () => {
+    const absolute = readyResponse();
+    absolute.strengths[0].relative = false;
+    vi.spyOn(studyRecommendationApi, 'get').mockResolvedValueOnce(absolute);
+    const first = renderLearner();
+    expect(await screen.findByText(/đạt ngưỡng kỹ năng mạnh 75%/i)).toBeInTheDocument();
+    first.unmount();
+
+    const balanced = readyResponse();
+    balanced.strengths[0].normalizedScore = balanced.focus!.normalizedScore;
+    vi.spyOn(studyRecommendationApi, 'get').mockResolvedValueOnce(balanced);
+    renderLearner();
+    expect(await screen.findAllByText('Kết quả khá cân bằng')).not.toHaveLength(0);
+    expect(screen.getByText('Cần cải thiện').closest('article')).toHaveTextContent(
+      'Part 7 · Đọc hiểu',
+    );
+  });
+
+  it('renders frozen historical strength, focus and reasons from the supplied snapshot', async () => {
+    vi.spyOn(studyRecommendationApi, 'get').mockResolvedValue(readyResponse());
+    renderLearner();
+    const details = (await screen.findByText('Periodic September')).closest('details');
+    expect(details).not.toBeNull();
+    fireEvent.click(within(details!).getByText('Periodic September'));
+    expect(within(details!).getByText('Reading')).toBeInTheDocument();
+    expect(within(details!).getByText('91%')).toBeInTheDocument();
+    expect(within(details!).getByText(/Listening · 33%/)).toBeInTheDocument();
+    expect(within(details!).getByText('Historical listening lesson')).toBeInTheDocument();
+    expect(within(details!).getByText(/2\/4 điểm.*Part 2/i)).toBeInTheDocument();
+    expect(within(details!).queryByText(/Listening84%/)).not.toBeInTheDocument();
   });
 
   it('starts or resumes an actionable practice and navigates with the returned attempt id', async () => {
@@ -58,7 +95,7 @@ describe('StudyRecommendationsPage', () => {
       startedAt: '2026-10-19T08:00:00.000Z',
     });
     renderLearner();
-    fireEvent.click(await screen.findByRole('button', { name: 'Làm bài luyện sau bài học' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Làm bài luyện' }));
     await waitFor(() => expect(start).toHaveBeenCalledWith(enrollmentId, 'practice-1'));
     expect(await screen.findByTestId('location')).toHaveTextContent(
       `/student/enrollments/${enrollmentId}/attempts/attempt-returned`,
@@ -71,15 +108,13 @@ describe('StudyRecommendationsPage', () => {
     vi.spyOn(studyRecommendationApi, 'get').mockResolvedValue(response);
     renderLearner();
     await screen.findByText('Reading focus lesson');
-    expect(
-      screen.queryByRole('button', { name: 'Làm bài luyện sau bài học' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Làm bài luyện' })).not.toBeInTheDocument();
   });
 
   it.each([
-    ['NO_ELIGIBLE_RESULT', 'Chưa có kết quả đủ điều kiện'],
-    ['PENDING_REVIEW', 'Kết quả đang chờ hoàn tất chấm'],
-    ['NO_MATCHING_CONTENT', 'Chưa có nội dung phù hợp'],
+    ['NO_ELIGIBLE_RESULT', 'Chưa đủ dữ liệu để tạo gợi ý tự học.'],
+    ['PENDING_REVIEW', 'Kết quả mới nhất đang chờ hoàn tất chấm.'],
+    ['NO_MATCHING_CONTENT', 'Đã có kết quả, nhưng hiện chưa có nội dung học phù hợp để đề xuất.'],
   ] as const)(
     'renders the %s state without fabricating recommendations',
     async (state, heading) => {
@@ -92,6 +127,14 @@ describe('StudyRecommendationsPage', () => {
       renderLearner();
       expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
       expect(screen.queryByText('Reading focus lesson')).not.toBeInTheDocument();
+      if (!response.source) {
+        expect(
+          screen.queryByRole('heading', { name: 'Gợi ý dành cho bạn' }),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByText(/Dựa trên kết quả bài kiểm tra đã hoàn tất/),
+        ).not.toBeInTheDocument();
+      }
     },
   );
 
@@ -101,7 +144,7 @@ describe('StudyRecommendationsPage', () => {
     response.recommendations[0].reasonStatus = 'UNAVAILABLE';
     vi.spyOn(studyRecommendationApi, 'get').mockResolvedValue(response);
     renderLearner();
-    fireEvent.click(await screen.findByText('Vì sao có gợi ý này?'));
+    fireEvent.click(await screen.findByText('Vì sao hệ thống gợi ý?'));
     expect(screen.getByText(/Chi tiết quy tắc.*không còn khả dụng/i)).toBeInTheDocument();
   });
 
@@ -178,6 +221,20 @@ describe('AdminStudyRecommendationPolicyPage', () => {
     fireEvent.submit(screen.getByRole('button', { name: 'Lưu tiêu chí' }).closest('form')!);
     expect(screen.getByText('Ngưỡng mạnh phải lớn hơn ngưỡng yếu.')).toBeInTheDocument();
     expect(screen.getByText('Nhập số nguyên từ 1 đến 5.')).toBeInTheDocument();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['Ngưỡng kỹ năng yếu (%)', 'Vui lòng nhập ngưỡng kỹ năng yếu.'],
+    ['Ngưỡng kỹ năng mạnh (%)', 'Vui lòng nhập ngưỡng kỹ năng mạnh.'],
+  ])('rejects a blank %s without sending PUT', async (label, message) => {
+    vi.spyOn(adminApi.studyRecommendationPolicy, 'get').mockResolvedValue(policyResponse());
+    const update = vi.spyOn(adminApi.studyRecommendationPolicy, 'update');
+    renderAdmin();
+    await screen.findByText('M08 deterministic policy');
+    fireEvent.change(screen.getByLabelText(label), { target: { value: '' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Lưu tiêu chí' }).closest('form')!);
+    expect(screen.getByText(message)).toBeInTheDocument();
     expect(update).not.toHaveBeenCalled();
   });
 
@@ -283,6 +340,41 @@ function readyResponse(): StudyRecommendationResponse {
     reasonStatus: 'AVAILABLE' as const,
     aiExplanation: null,
   };
+  const historicalRecommendation = {
+    ...recommendation,
+    id: 'old-rec',
+    skill: 'LISTENING' as const,
+    lesson: {
+      ...recommendation.lesson,
+      id: 'historical-lesson',
+      title: 'Historical listening lesson',
+      path: `/student/enrollments/${enrollmentId}/lessons/historical-lesson`,
+    },
+    practice: null,
+    reason: {
+      ...recommendation.reason,
+      policy: { ...recommendation.reason.policy, weakThreshold: 60, strongThreshold: 85 },
+      skillEvidence: {
+        skill: 'LISTENING' as const,
+        rawScore: 16,
+        maxRawScore: 50,
+        normalizedScore: 33,
+      },
+      taskEvidence: {
+        taskCode: 'L2_QUESTION_RESPONSE',
+        questionCount: 4,
+        awardedPoints: 2,
+        maxPoints: 4,
+        normalizedScore: 50,
+      },
+      selection: {
+        basis: 'TASK_WEAKNESS' as const,
+        targetLessonTitle: 'Historical listening lesson',
+        targetPracticeAvailableAtGeneration: false,
+        rank: 1,
+      },
+    },
+  };
   return {
     state: 'READY',
     source: {
@@ -330,10 +422,24 @@ function readyResponse(): StudyRecommendationResponse {
         current: false,
         mainFocus: 'LISTENING',
         itemCount: 1,
-        strengths: [],
-        focus: { skill: 'LISTENING', normalizedScore: 45 },
+        strengths: [
+          {
+            skill: 'READING',
+            rawScore: 45,
+            maxRawScore: 50,
+            normalizedScore: 91,
+            relative: false,
+          },
+        ],
+        focus: {
+          skill: 'LISTENING',
+          normalizedScore: 33,
+          taskCode: 'L2_QUESTION_RESPONSE',
+          taskQuestionCount: 4,
+          taskNormalizedScore: 50,
+        },
         sourceResultPath: `/student/enrollments/${enrollmentId}/attempts/old-source/result`,
-        recommendations: [{ ...recommendation, id: 'old-rec', skill: 'LISTENING' }],
+        recommendations: [historicalRecommendation],
       },
     ],
   };
