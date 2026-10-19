@@ -81,7 +81,7 @@ describe('Reading stimulus presentation', () => {
       );
 
       const workspace = await screen.findByTestId('reading-workspace');
-      expect(workspace).toHaveClass('grid', 'xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]');
+      expect(workspace).toHaveClass('grid', 'xl:grid-cols-[minmax(0,56fr)_minmax(24rem,44fr)]');
       expect(screen.getByTestId('reading-document-pane')).toHaveClass('xl:sticky');
       expect(screen.getByTestId('reading-question-pane')).toHaveTextContent('What is stated?');
       expect(workspace.querySelectorAll('[data-document-type]')).toHaveLength(2);
