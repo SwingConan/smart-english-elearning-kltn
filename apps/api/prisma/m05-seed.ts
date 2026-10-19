@@ -185,7 +185,7 @@ export async function seedM05(prisma: PrismaClient, courseId: string): Promise<v
     for (const stimulus of group.stimuli) {
       const asset = stimulus.mediaKey ? media.get(stimulus.mediaKey) : undefined;
       if (stimulus.mediaKey && !asset) throw new Error(`Missing M05 media ${stimulus.mediaKey}`);
-      const storageKey = asset?.proposedRuntimePath.split('apps/api/assets/assessment/m05/')[1];
+      const storageKey = asset?.proposedRuntimePath.split('apps/api/assets/assessment/')[1];
       const id = stableUuid(`stimulus:${group.contentKey}:${stimulus.orderIndex}`);
       await prisma.assessmentStimulus.upsert({
         where: { id },

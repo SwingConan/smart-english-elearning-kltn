@@ -1,0 +1,4386 @@
+{
+  "schemaVersion": 1,
+  "artifact": "M08_Test2_Practice_Content_Manifest_v1",
+  "status": "CONTENT_PACK_READY_FOR_GPT_PRODUCT_REVIEW_NOT_IMPORTED",
+  "generatedAtUtc": "2026-10-18T16:28:20.021946+00:00",
+  "source": {
+    "pack": "NEW TOEIC - TEST 2.rar",
+    "archiveSha256": "faac4c608e5d05c60f747fecf0f4515a3c11a1c147839cf5c54c8a60121769d2",
+    "selectionManifest": "M08_A2_Final_Practice_Selection_Manifest_v1.json",
+    "selectionManifestSha256": "7972b6e7351f6e4d3d410c4f4193fb7cf9c096f8de09592a6d53d024e89ddb18",
+    "sourceManifest": "M08_A2_Test2_Source_Manifest.json",
+    "sourceManifestSha256": "0165603bc917a5bf03e9522ed52f3e7637f1344f1ff355bee2f06bac1f906b3e",
+    "pedagogicalTaggingSha256": "91cb36faf6ab5c431af835e72abedc97df87ec8c11d92947e26a42267cbda7bb"
+  },
+  "target": {
+    "purpose": "PRACTICE_MOCK",
+    "totalSelectedQuestions": 82,
+    "implementationStatus": "NOT_SEEDED"
+  },
+  "protectionRules": [
+    "Every LISTENING_TRANSCRIPT stimulus is protected and must be removed from active learner payloads before submission.",
+    "Part 1 and Part 2 spoken option text exists only inside protected transcripts; learner-facing options are letter-only.",
+    "Media pack paths are stable relative paths; source extraction paths and storage keys must not be exposed to learners."
+  ],
+  "groups": [
+    {
+      "contentKey": "T2-L-P1-Q001",
+      "taskCode": "L1_PHOTOGRAPH",
+      "part": 1,
+      "sourceQuestionNumbers": [
+        1
+      ],
+      "instructions": "Quan sát ảnh, nghe bốn mô tả và chọn phương án phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L1_Q001_IMAGE",
+          "isProtected": false,
+          "altText": "Photograph for Listening Part 1 source question 1.",
+          "runtimeDisposition": "LEARNER_VISIBLE_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        },
+        {
+          "type": "AUDIO",
+          "orderIndex": 1,
+          "mediaKey": "MEDIA_T2_L1_Q001_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "(A) She's searching in her handbag. (B) She's looking in a display case. (C) She's paying for a purchase. (D) She's holding some flowers."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P1-Q001-Q",
+          "sourceQuestionNumber": 1,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn phương án mô tả đúng nhất cho hình ảnh.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            },
+            {
+              "key": "D",
+              "content": "D"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L1_PHOTOGRAPH",
+          "part": 1,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P1_ACTION_SUBJECT_LOCATION",
+          "secondaryPedagogicalTags": [
+            "P1_PREPOSITION_STATE_DISTRACTOR"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.2 (Q1); Transcript - Test 2.pdf pp.1 (protected; never expose pre-submit)",
+          "conciseEvidence": "Visual and keyed narration distinguish looking into a display case from unrelated actions."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.2 (Q1); Transcript - Test 2.pdf pp.1 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P1-Q002",
+      "taskCode": "L1_PHOTOGRAPH",
+      "part": 1,
+      "sourceQuestionNumbers": [
+        2
+      ],
+      "instructions": "Quan sát ảnh, nghe bốn mô tả và chọn phương án phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L1_Q002_IMAGE",
+          "isProtected": false,
+          "altText": "Photograph for Listening Part 1 source question 2.",
+          "runtimeDisposition": "LEARNER_VISIBLE_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        },
+        {
+          "type": "AUDIO",
+          "orderIndex": 1,
+          "mediaKey": "MEDIA_T2_L1_Q002_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "(A) The man is switching off a lamp. (B) The man is opening some curtains. (C) The man is seated by a window. (D) The man is hanging some photographs on the wall."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P1-Q002-Q",
+          "sourceQuestionNumber": 2,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn phương án mô tả đúng nhất cho hình ảnh.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            },
+            {
+              "key": "D",
+              "content": "D"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "L1_PHOTOGRAPH",
+          "part": 1,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P1_PREPOSITION_STATE_DISTRACTOR",
+          "secondaryPedagogicalTags": [
+            "P1_ACTION_SUBJECT_LOCATION"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.2 (Q2); Transcript - Test 2.pdf pp.1 (protected; never expose pre-submit)",
+          "conciseEvidence": "The photograph is keyed to a seated-by-the-window state; action distractors are visually absent."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.2 (Q2); Transcript - Test 2.pdf pp.1 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P1-Q003",
+      "taskCode": "L1_PHOTOGRAPH",
+      "part": 1,
+      "sourceQuestionNumbers": [
+        3
+      ],
+      "instructions": "Quan sát ảnh, nghe bốn mô tả và chọn phương án phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L1_Q003_IMAGE",
+          "isProtected": false,
+          "altText": "Photograph for Listening Part 1 source question 3.",
+          "runtimeDisposition": "LEARNER_VISIBLE_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        },
+        {
+          "type": "AUDIO",
+          "orderIndex": 1,
+          "mediaKey": "MEDIA_T2_L1_Q003_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "(A) Some chairs are arranged in a circle. (B) Some stairs are being cleaned. (C) A roof is being repaired. (D) A tree is being trimmed."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P1-Q003-Q",
+          "sourceQuestionNumber": 3,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn phương án mô tả đúng nhất cho hình ảnh.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            },
+            {
+              "key": "D",
+              "content": "D"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "L1_PHOTOGRAPH",
+          "part": 1,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P1_PREPOSITION_STATE_DISTRACTOR",
+          "secondaryPedagogicalTags": [
+            "P1_ACTION_SUBJECT_LOCATION"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.3 (Q3); Transcript - Test 2.pdf pp.1-2 (protected; never expose pre-submit)",
+          "conciseEvidence": "Chair arrangement and the phrase describing a circular layout carry the answer; human-action distractors do not fit."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.3 (Q3); Transcript - Test 2.pdf pp.1-2 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P1-Q004",
+      "taskCode": "L1_PHOTOGRAPH",
+      "part": 1,
+      "sourceQuestionNumbers": [
+        4
+      ],
+      "instructions": "Quan sát ảnh, nghe bốn mô tả và chọn phương án phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L1_Q004_IMAGE",
+          "isProtected": false,
+          "altText": "Photograph for Listening Part 1 source question 4.",
+          "runtimeDisposition": "LEARNER_VISIBLE_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        },
+        {
+          "type": "AUDIO",
+          "orderIndex": 1,
+          "mediaKey": "MEDIA_T2_L1_Q004_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "(A) One of the women is wearing a scarf. (B) The women are talking to each other. (C) The man is pouring coffee into a cup. (D) The people are closing their menus."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P1-Q004-Q",
+          "sourceQuestionNumber": 4,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn phương án mô tả đúng nhất cho hình ảnh.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            },
+            {
+              "key": "D",
+              "content": "D"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "L1_PHOTOGRAPH",
+          "part": 1,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P1_PREPOSITION_STATE_DISTRACTOR",
+          "secondaryPedagogicalTags": [
+            "P1_ACTION_SUBJECT_LOCATION"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.3 (Q4); Transcript - Test 2.pdf pp.2 (protected; never expose pre-submit)",
+          "conciseEvidence": "The correct description identifies a worn scarf while distractors substitute unsupported table actions."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.3 (Q4); Transcript - Test 2.pdf pp.2 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P1-Q005",
+      "taskCode": "L1_PHOTOGRAPH",
+      "part": 1,
+      "sourceQuestionNumbers": [
+        5
+      ],
+      "instructions": "Quan sát ảnh, nghe bốn mô tả và chọn phương án phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L1_Q005_IMAGE",
+          "isProtected": false,
+          "altText": "Photograph for Listening Part 1 source question 5.",
+          "runtimeDisposition": "LEARNER_VISIBLE_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        },
+        {
+          "type": "AUDIO",
+          "orderIndex": 1,
+          "mediaKey": "MEDIA_T2_L1_Q005_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "(A) A notice is being hung on a post. (B) The women are walking toward a doorway. (C) The man is changing a bicycle tire. (D) A basket is being removed from a cart."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P1-Q005-Q",
+          "sourceQuestionNumber": 5,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn phương án mô tả đúng nhất cho hình ảnh.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            },
+            {
+              "key": "D",
+              "content": "D"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L1_PHOTOGRAPH",
+          "part": 1,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P1_ACTION_SUBJECT_LOCATION",
+          "secondaryPedagogicalTags": [
+            "P1_PREPOSITION_STATE_DISTRACTOR"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.4 (Q5); Transcript - Test 2.pdf pp.2 (protected; never expose pre-submit)",
+          "conciseEvidence": "The image shows two women moving toward an entrance; object-state distractors conflict with the scene."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.4 (Q5); Transcript - Test 2.pdf pp.2 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P1-Q006",
+      "taskCode": "L1_PHOTOGRAPH",
+      "part": 1,
+      "sourceQuestionNumbers": [
+        6
+      ],
+      "instructions": "Quan sát ảnh, nghe bốn mô tả và chọn phương án phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L1_Q006_IMAGE",
+          "isProtected": false,
+          "altText": "Photograph for Listening Part 1 source question 6.",
+          "runtimeDisposition": "LEARNER_VISIBLE_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        },
+        {
+          "type": "AUDIO",
+          "orderIndex": 1,
+          "mediaKey": "MEDIA_T2_L1_Q006_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "(A) A shop assistant is giving a man some money. (B) Some people are entering a supermarket. (C) A cashier is putting merchandise into a bag. (D) Some customers are waiting in line."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P1-Q006-Q",
+          "sourceQuestionNumber": 6,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn phương án mô tả đúng nhất cho hình ảnh.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            },
+            {
+              "key": "D",
+              "content": "D"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "L1_PHOTOGRAPH",
+          "part": 1,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P1_ACTION_SUBJECT_LOCATION",
+          "secondaryPedagogicalTags": [
+            "P1_PREPOSITION_STATE_DISTRACTOR"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.4 (Q6); Transcript - Test 2.pdf pp.2 (protected; never expose pre-submit)",
+          "conciseEvidence": "The scene shows customers waiting in a checkout line; other options assign unsupported actions."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.4 (Q6); Transcript - Test 2.pdf pp.2 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P2-Q007",
+      "taskCode": "L2_QUESTION_RESPONSE",
+      "part": 2,
+      "sourceQuestionNumbers": [
+        7
+      ],
+      "instructions": "Nghe câu hỏi hoặc phát biểu và ba câu trả lời; chọn phản hồi phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L2_Q007_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "When did you buy your new phone? (A) The store is close to my house. (B) Last week when it was on sale. (C) I think it's the same number."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P2-Q007-Q",
+          "sourceQuestionNumber": 7,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn câu trả lời phù hợp nhất với nội dung bạn nghe.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L2_QUESTION_RESPONSE",
+          "part": 2,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P2_QUESTION_TYPE_DIRECT_RESPONSE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.5 (Q7); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)",
+          "conciseEvidence": "A when-question receives a concrete past-time response; place and number distractors do not answer it."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.5 (Q7); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P2-Q008",
+      "taskCode": "L2_QUESTION_RESPONSE",
+      "part": 2,
+      "sourceQuestionNumbers": [
+        8
+      ],
+      "instructions": "Nghe câu hỏi hoặc phát biểu và ba câu trả lời; chọn phản hồi phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L2_Q008_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "Do you know where Keiko's office is? (A) That's the official logo. (B) To reserve a room. (C) It's on the second floor."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P2-Q008-Q",
+          "sourceQuestionNumber": 8,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn câu trả lời phù hợp nhất với nội dung bạn nghe.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "L2_QUESTION_RESPONSE",
+          "part": 2,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P2_QUESTION_TYPE_DIRECT_RESPONSE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.5 (Q8); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)",
+          "conciseEvidence": "An embedded location question is answered with an office floor."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.5 (Q8); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P2-Q011",
+      "taskCode": "L2_QUESTION_RESPONSE",
+      "part": 2,
+      "sourceQuestionNumbers": [
+        11
+      ],
+      "instructions": "Nghe câu hỏi hoặc phát biểu và ba câu trả lời; chọn phản hồi phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L2_Q011_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "Who's going to lead the merger negotiations? (A) John Sanchez is. (B) Thanks, I appreciate it. (C) No, that's not mine."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P2-Q011-Q",
+          "sourceQuestionNumber": 11,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn câu trả lời phù hợp nhất với nội dung bạn nghe.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "L2_QUESTION_RESPONSE",
+          "part": 2,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P2_QUESTION_TYPE_DIRECT_RESPONSE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.5 (Q11); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)",
+          "conciseEvidence": "A who-question is answered with the named person leading negotiations."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.5 (Q11); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P2-Q012",
+      "taskCode": "L2_QUESTION_RESPONSE",
+      "part": 2,
+      "sourceQuestionNumbers": [
+        12
+      ],
+      "instructions": "Nghe câu hỏi hoặc phát biểu và ba câu trả lời; chọn phản hồi phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L2_Q012_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "How do I contact the financial consultant? (A) A free consultation. (B) He left his business card. (C) In a few more days."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P2-Q012-Q",
+          "sourceQuestionNumber": 12,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn câu trả lời phù hợp nhất với nội dung bạn nghe.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L2_QUESTION_RESPONSE",
+          "part": 2,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P2_INDIRECT_RESPONSE_REPEAT_WORD_DISTRACTOR",
+          "secondaryPedagogicalTags": [
+            "P2_QUESTION_TYPE_DIRECT_RESPONSE"
+          ],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.5 (Q12); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)",
+          "conciseEvidence": "The response indirectly explains how to contact the consultant through a business card."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.5 (Q12); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P2-Q014",
+      "taskCode": "L2_QUESTION_RESPONSE",
+      "part": 2,
+      "sourceQuestionNumbers": [
+        14
+      ],
+      "instructions": "Nghe câu hỏi hoặc phát biểu và ba câu trả lời; chọn phản hồi phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L2_Q014_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "Wasn't this assignment due last week? (A) It's taking longer than we thought. (B) Sign at the bottom of the page. (C) No, you don't need permission."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P2-Q014-Q",
+          "sourceQuestionNumber": 14,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn câu trả lời phù hợp nhất với nội dung bạn nghe.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "L2_QUESTION_RESPONSE",
+          "part": 2,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P2_INDIRECT_RESPONSE_REPEAT_WORD_DISTRACTOR",
+          "secondaryPedagogicalTags": [
+            "P2_QUESTION_TYPE_DIRECT_RESPONSE"
+          ],
+          "readinessStatus": "READY",
+          "confidence": "MEDIUM",
+          "sourceRef": "Đề Listening - Test 2.pdf p.5 (Q14); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)",
+          "conciseEvidence": "The response explains a delay instead of merely confirming the negative tag question."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.5 (Q14); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P2-Q017",
+      "taskCode": "L2_QUESTION_RESPONSE",
+      "part": 2,
+      "sourceQuestionNumbers": [
+        17
+      ],
+      "instructions": "Nghe câu hỏi hoặc phát biểu và ba câu trả lời; chọn phản hồi phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L2_Q017_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "Let's discuss the building designs this morning. (A) We can do it this afternoon instead. (B) The sign on the wall. (C) Does he work in that building, too?"
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P2-Q017-Q",
+          "sourceQuestionNumber": 17,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn câu trả lời phù hợp nhất với nội dung bạn nghe.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "L2_QUESTION_RESPONSE",
+          "part": 2,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P2_INDIRECT_RESPONSE_REPEAT_WORD_DISTRACTOR",
+          "secondaryPedagogicalTags": [
+            "P2_QUESTION_TYPE_DIRECT_RESPONSE"
+          ],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.5 (Q17); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)",
+          "conciseEvidence": "A proposal to discuss designs is answered with an alternative time."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.5 (Q17); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P2-Q018",
+      "taskCode": "L2_QUESTION_RESPONSE",
+      "part": 2,
+      "sourceQuestionNumbers": [
+        18
+      ],
+      "instructions": "Nghe câu hỏi hoặc phát biểu và ba câu trả lời; chọn phản hồi phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L2_Q018_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "Why is there a cake sitting out on the front desk? (A) The potted plant on the ground. (B) I'll answer the phone. (C) Because Barb's party is today."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P2-Q018-Q",
+          "sourceQuestionNumber": 18,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn câu trả lời phù hợp nhất với nội dung bạn nghe.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "L2_QUESTION_RESPONSE",
+          "part": 2,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P2_QUESTION_TYPE_DIRECT_RESPONSE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.5 (Q18); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)",
+          "conciseEvidence": "A why-question receives a direct cause involving a party."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.5 (Q18); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P2-Q022",
+      "taskCode": "L2_QUESTION_RESPONSE",
+      "part": 2,
+      "sourceQuestionNumbers": [
+        22
+      ],
+      "instructions": "Nghe câu hỏi hoặc phát biểu và ba câu trả lời; chọn phản hồi phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L2_Q022_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "What kind of tablet computer do you have? (A) I have a few more minutes. (B) An electronics store nearby. (C) Are you thinking of buying one?"
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P2-Q022-Q",
+          "sourceQuestionNumber": 22,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn câu trả lời phù hợp nhất với nội dung bạn nghe.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "L2_QUESTION_RESPONSE",
+          "part": 2,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P2_INDIRECT_RESPONSE_REPEAT_WORD_DISTRACTOR",
+          "secondaryPedagogicalTags": [
+            "P2_QUESTION_TYPE_DIRECT_RESPONSE"
+          ],
+          "readinessStatus": "READY",
+          "confidence": "MEDIUM",
+          "sourceRef": "Đề Listening - Test 2.pdf p.5 (Q22); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)",
+          "conciseEvidence": "A product-type question is answered indirectly with a clarifying purchase question."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.5 (Q22); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P2-Q026",
+      "taskCode": "L2_QUESTION_RESPONSE",
+      "part": 2,
+      "sourceQuestionNumbers": [
+        26
+      ],
+      "instructions": "Nghe câu hỏi hoặc phát biểu và ba câu trả lời; chọn phản hồi phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L2_Q026_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "Would you like your receipt now, or shall I put it in the bag? (A) Just put it in my bag, thanks. (B) About twenty-five euros. (C) That's a great-looking sweater."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P2-Q026-Q",
+          "sourceQuestionNumber": 26,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn câu trả lời phù hợp nhất với nội dung bạn nghe.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "L2_QUESTION_RESPONSE",
+          "part": 2,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P2_QUESTION_TYPE_DIRECT_RESPONSE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.5 (Q26); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)",
+          "conciseEvidence": "An either-or service choice receives a direct instruction to place the receipt in the bag."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.5 (Q26); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P2-Q029",
+      "taskCode": "L2_QUESTION_RESPONSE",
+      "part": 2,
+      "sourceQuestionNumbers": [
+        29
+      ],
+      "instructions": "Nghe câu hỏi hoặc phát biểu và ba câu trả lời; chọn phản hồi phù hợp nhất.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L2_Q029_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "I can't seem to open the file you sent me. (A) Yes, the post office is still open. (B) Sorry—I'll try sending it again. (C) We can't see that far either."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P2-Q029-Q",
+          "sourceQuestionNumber": 29,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Chọn câu trả lời phù hợp nhất với nội dung bạn nghe.",
+          "options": [
+            {
+              "key": "A",
+              "content": "A"
+            },
+            {
+              "key": "B",
+              "content": "B"
+            },
+            {
+              "key": "C",
+              "content": "C"
+            }
+          ],
+          "optionVisibility": "LETTER_ONLY; SPOKEN_OPTIONS_PROTECTED",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L2_QUESTION_RESPONSE",
+          "part": 2,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P2_INDIRECT_RESPONSE_REPEAT_WORD_DISTRACTOR",
+          "secondaryPedagogicalTags": [
+            "P2_QUESTION_TYPE_DIRECT_RESPONSE"
+          ],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.5 (Q29); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)",
+          "conciseEvidence": "A file-access problem receives an apology and a repair action to resend it."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.5 (Q29); Transcript - Test 2.pdf pp.2-7 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P3-Q032-034",
+      "taskCode": "L3_CONVERSATION",
+      "part": 3,
+      "sourceQuestionNumbers": [
+        32,
+        33,
+        34
+      ],
+      "instructions": "Nghe toàn bộ đoạn hội thoại/bài nói và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L3_Q032_034_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "M-Cn: Thanks for calling Riverside Auto Repair. How can I help you?\nW-Br: Hi. I got my car repaired last week and used your shuttle service to get a ride back to my office. Can you tell me why there's a service charge on my invoice for using the shuttle? I've never had to pay that before.\nM-Cn: Yes, unfortunately the cost of auto fuel has risen quite a bit, so the company now requires us to charge for the shuttle.\nW-Br: Well, I wasn't expecting that.\nM-Cn: I'm sorry we didn't inform you of this ahead of time. I'll waive the fee now, but please be aware that you'll have to pay for rides in the future."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P3-Q032-Q",
+          "sourceQuestionNumber": 32,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Why is the woman calling?",
+          "options": [
+            {
+              "key": "A",
+              "content": "To make an appointment"
+            },
+            {
+              "key": "B",
+              "content": "To rent a car"
+            },
+            {
+              "key": "C",
+              "content": "To ask about a fee"
+            },
+            {
+              "key": "D",
+              "content": "To apply for a position"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P3_CONTEXT_ROLE_PURPOSE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.6 (Q32); Transcript - Test 2.pdf pp.7-8 (protected; never expose pre-submit)",
+          "conciseEvidence": "Identifies the dialogue's setting, role, topic, or communicative purpose from the exchange."
+        },
+        {
+          "contentKey": "T2-L-P3-Q033-Q",
+          "sourceQuestionNumber": 33,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "According to the man, what has recently changed?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Office hours"
+            },
+            {
+              "key": "B",
+              "content": "Job requirements"
+            },
+            {
+              "key": "C",
+              "content": "A computer system"
+            },
+            {
+              "key": "D",
+              "content": "A company policy"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P3_DETAIL_NEXT_ACTION_INFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.6 (Q33); Transcript - Test 2.pdf pp.7-8 (protected; never expose pre-submit)",
+          "conciseEvidence": "Retrieves a specific detail or relationship from the complete three-question dialogue."
+        },
+        {
+          "contentKey": "T2-L-P3-Q034-Q",
+          "sourceQuestionNumber": 34,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What does the man agree to do?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Waive a fee"
+            },
+            {
+              "key": "B",
+              "content": "Reschedule a meeting"
+            },
+            {
+              "key": "C",
+              "content": "Sign a contract"
+            },
+            {
+              "key": "D",
+              "content": "Repair a vehicle"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P3_DETAIL_NEXT_ACTION_INFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.6 (Q34); Transcript - Test 2.pdf pp.7-8 (protected; never expose pre-submit)",
+          "conciseEvidence": "Tracks a stated or proposed next action within the complete three-question dialogue."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.6 (Q32); Transcript - Test 2.pdf pp.7-8 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.6 (Q33); Transcript - Test 2.pdf pp.7-8 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.6 (Q34); Transcript - Test 2.pdf pp.7-8 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P3-Q044-046",
+      "taskCode": "L3_CONVERSATION",
+      "part": 3,
+      "sourceQuestionNumbers": [
+        44,
+        45,
+        46
+      ],
+      "instructions": "Nghe toàn bộ đoạn hội thoại/bài nói và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L3_Q044_046_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "M-Cn: Hi, Siba. Do you need help taking those files up to our office? It looks like you have your hands full.\nW-Br: If you don't mind, that'd be great. The elevator is still out of order, so we'll have to use the stairs.\nM-Cn: But that broke last week—the maintenance crew should have repaired that by now.\nW-Br: Well, apparently a piece of hardware had to be custom made.\nM-Cn: Ah, I see. Well, at least our office is only on the second floor, so we don't have to climb too many stairs.\nW-Br: That's true. Thanks again for carrying some of these files—it would have taken two trips to get them all without your help."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P3-Q044-Q",
+          "sourceQuestionNumber": 44,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What does the man offer to do?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Meet in the lobby"
+            },
+            {
+              "key": "B",
+              "content": "Contact a receptionist"
+            },
+            {
+              "key": "C",
+              "content": "Carry some files"
+            },
+            {
+              "key": "D",
+              "content": "Delay a meeting"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P3_DETAIL_NEXT_ACTION_INFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.7 (Q44); Transcript - Test 2.pdf pp.11-12 (protected; never expose pre-submit)",
+          "conciseEvidence": "Tracks a stated or proposed next action within the complete three-question dialogue."
+        },
+        {
+          "contentKey": "T2-L-P3-Q045-Q",
+          "sourceQuestionNumber": 45,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "According to the man, what happened last week?",
+          "options": [
+            {
+              "key": "A",
+              "content": "An office door would not lock."
+            },
+            {
+              "key": "B",
+              "content": "A sink was installed incorrectly."
+            },
+            {
+              "key": "C",
+              "content": "An elevator stopped working."
+            },
+            {
+              "key": "D",
+              "content": "A document was lost."
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P3_DETAIL_NEXT_ACTION_INFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.7 (Q45); Transcript - Test 2.pdf pp.11-12 (protected; never expose pre-submit)",
+          "conciseEvidence": "Retrieves a specific detail or relationship from the complete three-question dialogue."
+        },
+        {
+          "contentKey": "T2-L-P3-Q046-Q",
+          "sourceQuestionNumber": 46,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Why does the woman say, “a piece of hardware had to be custom made”?",
+          "options": [
+            {
+              "key": "A",
+              "content": "To justify a price"
+            },
+            {
+              "key": "B",
+              "content": "To explain a delay"
+            },
+            {
+              "key": "C",
+              "content": "To illustrate a product's age"
+            },
+            {
+              "key": "D",
+              "content": "To express regret for a purchase"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P3_DETAIL_NEXT_ACTION_INFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.7 (Q46); Transcript - Test 2.pdf pp.11-12 (protected; never expose pre-submit)",
+          "conciseEvidence": "Interprets the speaker's implied intention from a quoted remark in the dialogue."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.7 (Q44); Transcript - Test 2.pdf pp.11-12 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.7 (Q45); Transcript - Test 2.pdf pp.11-12 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.7 (Q46); Transcript - Test 2.pdf pp.11-12 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P3-Q056-058",
+      "taskCode": "L3_CONVERSATION",
+      "part": 3,
+      "sourceQuestionNumbers": [
+        56,
+        57,
+        58
+      ],
+      "instructions": "Nghe toàn bộ đoạn hội thoại/bài nói và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L3_Q056_058_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "W-Am: Welcome to the Westfield Hotel! I'm the event coordinator, and this is my associate, Diane. So, you'd like to host an event here?\nM-Au: Yes! I work for the National Journalists Association. We're planning our annual awards banquet for June—for about a hundred guests.\nW-Br: Well, we have a beautiful ballroom on this floor that I can show you. It's been used for awards ceremonies before.\nM-Au: Okay. Also, about half of our guests will be coming from out of town. Do you have enough rooms available for them to stay here?\nW-Am: I'm sure we do, but we'll check and send you a quote for a group rate.\nW-Br: And additionally, we do offer free shuttle service to and from the airport."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P3-Q056-Q",
+          "sourceQuestionNumber": 56,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What type of event is being planned?",
+          "options": [
+            {
+              "key": "A",
+              "content": "A trade show"
+            },
+            {
+              "key": "B",
+              "content": "An awards ceremony"
+            },
+            {
+              "key": "C",
+              "content": "A film festival"
+            },
+            {
+              "key": "D",
+              "content": "A wedding"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P3_CONTEXT_ROLE_PURPOSE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.8 (Q56); Transcript - Test 2.pdf pp.15 (protected; never expose pre-submit)",
+          "conciseEvidence": "Identifies the dialogue's setting, role, topic, or communicative purpose from the exchange."
+        },
+        {
+          "contentKey": "T2-L-P3-Q057-Q",
+          "sourceQuestionNumber": 57,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What does the man ask about?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Accommodations"
+            },
+            {
+              "key": "B",
+              "content": "Entertainment"
+            },
+            {
+              "key": "C",
+              "content": "Meal options"
+            },
+            {
+              "key": "D",
+              "content": "Outdoor seating"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P3_DETAIL_NEXT_ACTION_INFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.8 (Q57); Transcript - Test 2.pdf pp.15 (protected; never expose pre-submit)",
+          "conciseEvidence": "Retrieves a specific detail or relationship from the complete three-question dialogue."
+        },
+        {
+          "contentKey": "T2-L-P3-Q058-Q",
+          "sourceQuestionNumber": 58,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What does the hotel offer for free?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Meals"
+            },
+            {
+              "key": "B",
+              "content": "Internet access"
+            },
+            {
+              "key": "C",
+              "content": "Transportation"
+            },
+            {
+              "key": "D",
+              "content": "Parking"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P3_DETAIL_NEXT_ACTION_INFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.8 (Q58); Transcript - Test 2.pdf pp.15 (protected; never expose pre-submit)",
+          "conciseEvidence": "Tracks a stated or proposed next action within the complete three-question dialogue."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.8 (Q56); Transcript - Test 2.pdf pp.15 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.8 (Q57); Transcript - Test 2.pdf pp.15 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.8 (Q58); Transcript - Test 2.pdf pp.15 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P3-Q068-070",
+      "taskCode": "L3_CONVERSATION",
+      "part": 3,
+      "sourceQuestionNumbers": [
+        68,
+        69,
+        70
+      ],
+      "instructions": "Nghe toàn bộ đoạn hội thoại/bài nói và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L3_Q068_070_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "IMAGE",
+          "orderIndex": 1,
+          "mediaKey": "MEDIA_T2_L3_Q068_070_DOC",
+          "isProtected": false,
+          "altText": "Source graphic required by the selected listening group.",
+          "runtimeDisposition": "LEARNER_VISIBLE_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "W-Br: Hi, Mr. Foster. This is Kasumi Ito, the hiring manager at Silverby Industries. We've reviewed your job application and would like you to come in for an interview. Are you available Tuesday at 2 P.M. next week?\nM-Cn: Thanks for getting back to me. Let me check my calendar. Yes, I can do that.\nW-Br: Good. Now, Silverby Industries is in a business complex. Our building is on Tinley Avenue, and we're right next to the lake.\nM-Cn: Thanks. And am I able to park anywhere, or will I need a permit?\nW-Br: Just make sure you're in a space marked Visitor, and you won't get a parking violation."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P3-Q068-Q",
+          "sourceQuestionNumber": 68,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What are the speakers mainly discussing?",
+          "options": [
+            {
+              "key": "A",
+              "content": "A job interview"
+            },
+            {
+              "key": "B",
+              "content": "A company celebration"
+            },
+            {
+              "key": "C",
+              "content": "An office relocation"
+            },
+            {
+              "key": "D",
+              "content": "A landscaping project"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P3_CONTEXT_ROLE_PURPOSE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.9 (Q68); Transcript - Test 2.pdf pp.19-20 (protected; never expose pre-submit)",
+          "conciseEvidence": "Identifies the dialogue's setting, role, topic, or communicative purpose from the exchange."
+        },
+        {
+          "contentKey": "T2-L-P3-Q069-Q",
+          "sourceQuestionNumber": 69,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Look at the graphic. Which building is Silverby Industries located in?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Building 1"
+            },
+            {
+              "key": "B",
+              "content": "Building 2"
+            },
+            {
+              "key": "C",
+              "content": "Building 3"
+            },
+            {
+              "key": "D",
+              "content": "Building 4"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P3_DETAIL_NEXT_ACTION_INFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.9 (Q69); Transcript - Test 2.pdf pp.19-20 (protected; never expose pre-submit)",
+          "conciseEvidence": "Combines a spoken detail with the supplied visual/graphic to identify the requested item."
+        },
+        {
+          "contentKey": "T2-L-P3-Q070-Q",
+          "sourceQuestionNumber": 70,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What does the woman tell the man about parking?",
+          "options": [
+            {
+              "key": "A",
+              "content": "He should park in a visitor's space."
+            },
+            {
+              "key": "B",
+              "content": "He will have to pay at a meter."
+            },
+            {
+              "key": "C",
+              "content": "A parking pass is required."
+            },
+            {
+              "key": "D",
+              "content": "The parking area fills up quickly."
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "L3_CONVERSATION",
+          "part": 3,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P3_DETAIL_NEXT_ACTION_INFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.9 (Q70); Transcript - Test 2.pdf pp.19-20 (protected; never expose pre-submit)",
+          "conciseEvidence": "Retrieves a specific detail or relationship from the complete three-question dialogue."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.9 (Q68); Transcript - Test 2.pdf pp.19-20 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.9 (Q69); Transcript - Test 2.pdf pp.19-20 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.9 (Q70); Transcript - Test 2.pdf pp.19-20 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P4-Q071-073",
+      "taskCode": "L4_TALK",
+      "part": 4,
+      "sourceQuestionNumbers": [
+        71,
+        72,
+        73
+      ],
+      "instructions": "Nghe toàn bộ đoạn hội thoại/bài nói và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L4_Q071_073_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "W-Am: Attention all listeners! Palmer's Gym now has several locations in your area. We have everything you need to keep fit, including exercise classes and fitness instructors ready to help you! But that's not all. Starting in April, your membership gives you access to any of our locations across the country. So if you're traveling for business or just on vacation, you won't have to skip your workout routine! Visit our Web site to see a map of all the Palmer's Gym locations across the nation!"
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P4-Q071-Q",
+          "sourceQuestionNumber": 71,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What type of business is being advertised?",
+          "options": [
+            {
+              "key": "A",
+              "content": "A farmers market"
+            },
+            {
+              "key": "B",
+              "content": "A fitness center"
+            },
+            {
+              "key": "C",
+              "content": "A medical clinic"
+            },
+            {
+              "key": "D",
+              "content": "A sporting goods store"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P4_TALK_TYPE_PURPOSE_AUDIENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.10 (Q71); Transcript - Test 2.pdf pp.20-21 (protected; never expose pre-submit)",
+          "conciseEvidence": "Identifies the monologue's type, purpose, setting, speaker, or intended audience."
+        },
+        {
+          "contentKey": "T2-L-P4-Q072-Q",
+          "sourceQuestionNumber": 72,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What will the listeners be able to do starting in April?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Use multiple locations"
+            },
+            {
+              "key": "B",
+              "content": "Try free samples"
+            },
+            {
+              "key": "C",
+              "content": "Meet with a nutritionist"
+            },
+            {
+              "key": "D",
+              "content": "Enter a contest"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P4_TIME_NUMBER_SCHEDULE_NEXT_ACTION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.10 (Q72); Transcript - Test 2.pdf pp.20-21 (protected; never expose pre-submit)",
+          "conciseEvidence": "Tracks a time, schedule, requested action, or next step stated in the talk."
+        },
+        {
+          "contentKey": "T2-L-P4-Q073-Q",
+          "sourceQuestionNumber": 73,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Why does the speaker invite the listeners to visit a Web site?",
+          "options": [
+            {
+              "key": "A",
+              "content": "To write a review"
+            },
+            {
+              "key": "B",
+              "content": "To register for a class"
+            },
+            {
+              "key": "C",
+              "content": "To check a policy"
+            },
+            {
+              "key": "D",
+              "content": "To look at a map"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P4_TIME_NUMBER_SCHEDULE_NEXT_ACTION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.10 (Q73); Transcript - Test 2.pdf pp.20-21 (protected; never expose pre-submit)",
+          "conciseEvidence": "Retrieves a concrete detail, reason, or outcome from the complete three-question talk."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.10 (Q71); Transcript - Test 2.pdf pp.20-21 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.10 (Q72); Transcript - Test 2.pdf pp.20-21 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.10 (Q73); Transcript - Test 2.pdf pp.20-21 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P4-Q083-085",
+      "taskCode": "L4_TALK",
+      "part": 4,
+      "sourceQuestionNumbers": [
+        83,
+        84,
+        85
+      ],
+      "instructions": "Nghe toàn bộ đoạn hội thoại/bài nói và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L4_Q083_085_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "W-Am: Hello. It's Dana, one of your truck drivers. I'm supposed to deliver kitchen appliances to our store branches in Syracuse. I'm looking for one of the branches, and according to the list I was given, there should be a store at 33 Thistle Lane. Well, I've driven up and down the whole road, and all I see are houses. I'll deliver the appliances to the other stores on my list, but while I'm doing that, could you please get back to me with the correct address?"
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P4-Q083-Q",
+          "sourceQuestionNumber": 83,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Who is the speaker?",
+          "options": [
+            {
+              "key": "A",
+              "content": "A repair person"
+            },
+            {
+              "key": "B",
+              "content": "A store clerk"
+            },
+            {
+              "key": "C",
+              "content": "A factory worker"
+            },
+            {
+              "key": "D",
+              "content": "A truck driver"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P4_TALK_TYPE_PURPOSE_AUDIENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.11 (Q83); Transcript - Test 2.pdf pp.23-24 (protected; never expose pre-submit)",
+          "conciseEvidence": "Identifies the monologue's type, purpose, setting, speaker, or intended audience."
+        },
+        {
+          "contentKey": "T2-L-P4-Q084-Q",
+          "sourceQuestionNumber": 84,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What does the company sell?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Household furniture"
+            },
+            {
+              "key": "B",
+              "content": "Kitchen appliances"
+            },
+            {
+              "key": "C",
+              "content": "Packaged foods"
+            },
+            {
+              "key": "D",
+              "content": "Construction equipment"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P4_TIME_NUMBER_SCHEDULE_NEXT_ACTION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.11 (Q84); Transcript - Test 2.pdf pp.23-24 (protected; never expose pre-submit)",
+          "conciseEvidence": "Retrieves a concrete detail, reason, or outcome from the complete three-question talk."
+        },
+        {
+          "contentKey": "T2-L-P4-Q085-Q",
+          "sourceQuestionNumber": 85,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What does the speaker imply when she says, “all I see are houses”?",
+          "options": [
+            {
+              "key": "A",
+              "content": "She is concerned about some regulations."
+            },
+            {
+              "key": "B",
+              "content": "She thinks a mistake has been made."
+            },
+            {
+              "key": "C",
+              "content": "A loan application has been completed."
+            },
+            {
+              "key": "D",
+              "content": "A development plan cannot be approved."
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P4_TIME_NUMBER_SCHEDULE_NEXT_ACTION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.11 (Q85); Transcript - Test 2.pdf pp.23-24 (protected; never expose pre-submit)",
+          "conciseEvidence": "Interprets an implied meaning from the speaker's remark in the monologue."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.11 (Q83); Transcript - Test 2.pdf pp.23-24 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.11 (Q84); Transcript - Test 2.pdf pp.23-24 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.11 (Q85); Transcript - Test 2.pdf pp.23-24 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P4-Q089-091",
+      "taskCode": "L4_TALK",
+      "part": 4,
+      "sourceQuestionNumbers": [
+        89,
+        90,
+        91
+      ],
+      "instructions": "Nghe toàn bộ đoạn hội thoại/bài nói và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L4_Q089_091_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "W-Br: This is Guo Lin with KDM TV News. Tonight, there's news about the Ashworth City light-rail. Work continues on this massive construction project, but the announcement of new federal safety regulations means that major modifications must be made to the tracks. Opening day could be delayed by as much as three months. Public opinion about the railway is already divided. Some residents say they don't approve of how much money is being spent on the project, but others say it's worth the cost. I'm here at the Fourth Street station where I'll ask a few passersby how they feel about this latest development in the project."
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P4-Q089-Q",
+          "sourceQuestionNumber": 89,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What does the speaker say has recently been announced?",
+          "options": [
+            {
+              "key": "A",
+              "content": "An increase in funding"
+            },
+            {
+              "key": "B",
+              "content": "A factory opening"
+            },
+            {
+              "key": "C",
+              "content": "A new venue for an event"
+            },
+            {
+              "key": "D",
+              "content": "A change in regulations"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P4_TIME_NUMBER_SCHEDULE_NEXT_ACTION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.11 (Q89); Transcript - Test 2.pdf pp.25-26 (protected; never expose pre-submit)",
+          "conciseEvidence": "Retrieves a concrete detail, reason, or outcome from the complete three-question talk."
+        },
+        {
+          "contentKey": "T2-L-P4-Q090-Q",
+          "sourceQuestionNumber": 90,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "According to the speaker, why do some people dislike a construction project?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Because it caused a power outage"
+            },
+            {
+              "key": "B",
+              "content": "Because it costs too much"
+            },
+            {
+              "key": "C",
+              "content": "Because roads have been closed"
+            },
+            {
+              "key": "D",
+              "content": "Because of the loud noise"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P4_TIME_NUMBER_SCHEDULE_NEXT_ACTION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.11 (Q90); Transcript - Test 2.pdf pp.25-26 (protected; never expose pre-submit)",
+          "conciseEvidence": "Retrieves a concrete detail, reason, or outcome from the complete three-question talk."
+        },
+        {
+          "contentKey": "T2-L-P4-Q091-Q",
+          "sourceQuestionNumber": 91,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What will the speaker do next?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Introduce an advertiser"
+            },
+            {
+              "key": "B",
+              "content": "Attend a press conference"
+            },
+            {
+              "key": "C",
+              "content": "Interview some people"
+            },
+            {
+              "key": "D",
+              "content": "End a broadcast"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P4_TIME_NUMBER_SCHEDULE_NEXT_ACTION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.11 (Q91); Transcript - Test 2.pdf pp.25-26 (protected; never expose pre-submit)",
+          "conciseEvidence": "Tracks a time, schedule, requested action, or next step stated in the talk."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.11 (Q89); Transcript - Test 2.pdf pp.25-26 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.11 (Q90); Transcript - Test 2.pdf pp.25-26 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.11 (Q91); Transcript - Test 2.pdf pp.25-26 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-L-P4-Q095-097",
+      "taskCode": "L4_TALK",
+      "part": 4,
+      "sourceQuestionNumbers": [
+        95,
+        96,
+        97
+      ],
+      "instructions": "Nghe toàn bộ đoạn hội thoại/bài nói và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "AUDIO",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_L4_Q095_097_AUDIO",
+          "isProtected": false
+        },
+        {
+          "type": "IMAGE",
+          "orderIndex": 1,
+          "mediaKey": "MEDIA_T2_L4_Q095_097_DOC",
+          "isProtected": false,
+          "altText": "Source graphic required by the selected listening group.",
+          "runtimeDisposition": "LEARNER_VISIBLE_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": true,
+          "learnerVisiblePreSubmit": false,
+          "purpose": "LISTENING_TRANSCRIPT",
+          "textContent": "W-Am: And now, an event we've all been waiting for since last year—Danville's Annual Cook-Off. Held outside at City Park, the Cook-Off always attracts a lot of participants. Competitors prepare one dish, which they serve throughout the day. A panel of judges will select the winners based on taste, presentation, and uniqueness. This event is great fun for the whole family, and entry and food samples are free! If you're interested in participating, the contest registration form is available on the city's Web site. Now, keep in mind we're expecting a cloudy day for this year's event. We won't see any sunshine, so be sure to bring a jacket!"
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-L-P4-Q095-Q",
+          "sourceQuestionNumber": 95,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What event is being described?",
+          "options": [
+            {
+              "key": "A",
+              "content": "A sports competition"
+            },
+            {
+              "key": "B",
+              "content": "A government ceremony"
+            },
+            {
+              "key": "C",
+              "content": "A music festival"
+            },
+            {
+              "key": "D",
+              "content": "A cooking contest"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P4_TALK_TYPE_PURPOSE_AUDIENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.12 (Q95); Transcript - Test 2.pdf pp.27 (protected; never expose pre-submit)",
+          "conciseEvidence": "Identifies the monologue's type, purpose, setting, speaker, or intended audience."
+        },
+        {
+          "contentKey": "T2-L-P4-Q096-Q",
+          "sourceQuestionNumber": 96,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "According to the speaker, what can the listeners find on a Web site?",
+          "options": [
+            {
+              "key": "A",
+              "content": "A city map"
+            },
+            {
+              "key": "B",
+              "content": "A list of vendors"
+            },
+            {
+              "key": "C",
+              "content": "A demonstration video"
+            },
+            {
+              "key": "D",
+              "content": "An entry form"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P4_TIME_NUMBER_SCHEDULE_NEXT_ACTION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.12 (Q96); Transcript - Test 2.pdf pp.27 (protected; never expose pre-submit)",
+          "conciseEvidence": "Retrieves a concrete detail, reason, or outcome from the complete three-question talk."
+        },
+        {
+          "contentKey": "T2-L-P4-Q097-Q",
+          "sourceQuestionNumber": 97,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Look at the graphic. Which day is the event being held?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Saturday"
+            },
+            {
+              "key": "B",
+              "content": "Sunday"
+            },
+            {
+              "key": "C",
+              "content": "Monday"
+            },
+            {
+              "key": "D",
+              "content": "Tuesday"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "L4_TALK",
+          "part": 4,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P4_TIME_NUMBER_SCHEDULE_NEXT_ACTION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Listening - Test 2.pdf p.12 (Q97); Transcript - Test 2.pdf pp.27 (protected; never expose pre-submit)",
+          "conciseEvidence": "Combines scheduling information in the talk with the supplied graphic."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Listening - Test 2.pdf p.12 (Q95); Transcript - Test 2.pdf pp.27 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.12 (Q96); Transcript - Test 2.pdf pp.27 (protected; never expose pre-submit)",
+        "Đề Listening - Test 2.pdf p.12 (Q97); Transcript - Test 2.pdf pp.27 (protected; never expose pre-submit)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q101",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        101
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q101-Q",
+          "sourceQuestionNumber": 101,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Ms. Durkin asked for volunteers to help ------- with the employee fitness program.",
+          "options": [
+            {
+              "key": "A",
+              "content": "she"
+            },
+            {
+              "key": "B",
+              "content": "her"
+            },
+            {
+              "key": "C",
+              "content": "hers"
+            },
+            {
+              "key": "D",
+              "content": "herself"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P5_VERB_TENSE_AGREEMENT_STRUCTURE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.2 (Q101)",
+          "conciseEvidence": "Reflexive-pronoun choice must agree with the volunteer-help construction."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.2 (Q101)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q102",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        102
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q102-Q",
+          "sourceQuestionNumber": 102,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Lasner Electronics' staff have extensive ------- of current hardware systems.",
+          "options": [
+            {
+              "key": "A",
+              "content": "know"
+            },
+            {
+              "key": "B",
+              "content": "known"
+            },
+            {
+              "key": "C",
+              "content": "knowledge"
+            },
+            {
+              "key": "D",
+              "content": "knowledgeable"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P5_WORD_FORM",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.2 (Q102)",
+          "conciseEvidence": "The possessive adjective requires the noun form meaning expertise."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.2 (Q102)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q104",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        104
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q104-Q",
+          "sourceQuestionNumber": 104,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Ms. Pham requested a refund ------- the coffeemaker she received was damaged.",
+          "options": [
+            {
+              "key": "A",
+              "content": "despite"
+            },
+            {
+              "key": "B",
+              "content": "why"
+            },
+            {
+              "key": "C",
+              "content": "concerning"
+            },
+            {
+              "key": "D",
+              "content": "because"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P5_PREPOSITION_CONJUNCTION_VOCAB_COLLOCATION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.2 (Q104)",
+          "conciseEvidence": "A causal conjunction links the refund request to the damaged appliance."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.2 (Q104)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q106",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        106
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q106-Q",
+          "sourceQuestionNumber": 106,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "With the Gema XTI binoculars, users can ------- see objects that are more than 100 meters away.",
+          "options": [
+            {
+              "key": "A",
+              "content": "ease"
+            },
+            {
+              "key": "B",
+              "content": "easy"
+            },
+            {
+              "key": "C",
+              "content": "easily"
+            },
+            {
+              "key": "D",
+              "content": "easier"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P5_WORD_FORM",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.2 (Q106)",
+          "conciseEvidence": "An adverb form is required to modify the verb describing visibility."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.2 (Q106)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q108",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        108
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q108-Q",
+          "sourceQuestionNumber": 108,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Mr. Brennel ------- positions in various areas of the company before he became president.",
+          "options": [
+            {
+              "key": "A",
+              "content": "occupation"
+            },
+            {
+              "key": "B",
+              "content": "occupational"
+            },
+            {
+              "key": "C",
+              "content": "occupying"
+            },
+            {
+              "key": "D",
+              "content": "occupied"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P5_VERB_TENSE_AGREEMENT_STRUCTURE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.2 (Q108)",
+          "conciseEvidence": "A completed sequence before becoming president requires a finite past verb."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.2 (Q108)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q112",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        112
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q112-Q",
+          "sourceQuestionNumber": 112,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Ms. Suto claims that important market trends become ------- with the use of data analysis.",
+          "options": [
+            {
+              "key": "A",
+              "content": "predict"
+            },
+            {
+              "key": "B",
+              "content": "prediction"
+            },
+            {
+              "key": "C",
+              "content": "predictable"
+            },
+            {
+              "key": "D",
+              "content": "predictably"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P5_WORD_FORM",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.3 (Q112)",
+          "conciseEvidence": "The linking verb requires an adjective from the predict word family."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.3 (Q112)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q113",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        113
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q113-Q",
+          "sourceQuestionNumber": 113,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "One of Grommer Consulting's goals is to enhance the relationship ------- salespeople and their customers.",
+          "options": [
+            {
+              "key": "A",
+              "content": "inside"
+            },
+            {
+              "key": "B",
+              "content": "within"
+            },
+            {
+              "key": "C",
+              "content": "around"
+            },
+            {
+              "key": "D",
+              "content": "between"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P5_PREPOSITION_CONJUNCTION_VOCAB_COLLOCATION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.3 (Q113)",
+          "conciseEvidence": "The relationship of two parties requires the paired preposition between."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.3 (Q113)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q114",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        114
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q114-Q",
+          "sourceQuestionNumber": 114,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Depending on your answers to the survey, we ------- you to collect additional information.",
+          "options": [
+            {
+              "key": "A",
+              "content": "may call"
+            },
+            {
+              "key": "B",
+              "content": "are calling"
+            },
+            {
+              "key": "C",
+              "content": "have been called"
+            },
+            {
+              "key": "D",
+              "content": "must be calling"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P5_VERB_TENSE_AGREEMENT_STRUCTURE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.3 (Q114)",
+          "conciseEvidence": "A conditional possibility calls for a modal plus base verb."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.3 (Q114)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q118",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        118
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q118-Q",
+          "sourceQuestionNumber": 118,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "BYF Company specializes in ------- promotional items to help companies advertise their brand.",
+          "options": [
+            {
+              "key": "A",
+              "content": "personally"
+            },
+            {
+              "key": "B",
+              "content": "personalized"
+            },
+            {
+              "key": "C",
+              "content": "personality"
+            },
+            {
+              "key": "D",
+              "content": "personalizes"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P5_WORD_FORM",
+          "secondaryPedagogicalTags": [
+            "P5_PREPOSITION_CONJUNCTION_VOCAB_COLLOCATION"
+          ],
+          "readinessStatus": "READY",
+          "confidence": "MEDIUM",
+          "sourceRef": "Đề Reading - Test 2.pdf p.3 (Q118)",
+          "conciseEvidence": "The specialize-in construction requires a gerund describing customization."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.3 (Q118)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q119",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        119
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q119-Q",
+          "sourceQuestionNumber": 119,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "------- the rent increase is less than 2 percent, Selwin Electrical Supply will continue to lease the space.",
+          "options": [
+            {
+              "key": "A",
+              "content": "As long as"
+            },
+            {
+              "key": "B",
+              "content": "Along with"
+            },
+            {
+              "key": "C",
+              "content": "Not only"
+            },
+            {
+              "key": "D",
+              "content": "Otherwise"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P5_PREPOSITION_CONJUNCTION_VOCAB_COLLOCATION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.3 (Q119)",
+          "conciseEvidence": "A conditional multiword conjunction expresses the condition for renewing the lease."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.3 (Q119)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q120",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        120
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q120-Q",
+          "sourceQuestionNumber": 120,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Belden Hospital's chief of staff meets regularly with the staff to ensure that procedures ------- correctly.",
+          "options": [
+            {
+              "key": "A",
+              "content": "to be performed"
+            },
+            {
+              "key": "B",
+              "content": "would have performed"
+            },
+            {
+              "key": "C",
+              "content": "had been performed"
+            },
+            {
+              "key": "D",
+              "content": "are being performed"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P5_VERB_TENSE_AGREEMENT_STRUCTURE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.3 (Q120)",
+          "conciseEvidence": "The clause requires a present passive progressive form for procedures being carried out."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.3 (Q120)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q121",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        121
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q121-Q",
+          "sourceQuestionNumber": 121,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Any requests for time off should be addressed to the ------- department supervisor.",
+          "options": [
+            {
+              "key": "A",
+              "content": "urgent"
+            },
+            {
+              "key": "B",
+              "content": "appropriate"
+            },
+            {
+              "key": "C",
+              "content": "subsequent"
+            },
+            {
+              "key": "D",
+              "content": "deliverable"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P5_PREPOSITION_CONJUNCTION_VOCAB_COLLOCATION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.4 (Q121)",
+          "conciseEvidence": "The context requires the adjective meaning the correct responsible department."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.4 (Q121)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q124",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        124
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q124-Q",
+          "sourceQuestionNumber": 124,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Even the CEO had to admit that Prasma Designs' win was ------- the result of fortunate timing.",
+          "options": [
+            {
+              "key": "A",
+              "content": "parts"
+            },
+            {
+              "key": "B",
+              "content": "parted"
+            },
+            {
+              "key": "C",
+              "content": "partly"
+            },
+            {
+              "key": "D",
+              "content": "parting"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P5_WORD_FORM",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.4 (Q124)",
+          "conciseEvidence": "An adverb is needed to modify the phrase describing the result of timing."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.4 (Q124)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q127",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        127
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q127-Q",
+          "sourceQuestionNumber": 127,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "------- the popularity of the BPT39 wireless speaker, production will be increased fivefold starting next month.",
+          "options": [
+            {
+              "key": "A",
+              "content": "On behalf of"
+            },
+            {
+              "key": "B",
+              "content": "Whether"
+            },
+            {
+              "key": "C",
+              "content": "Moreover"
+            },
+            {
+              "key": "D",
+              "content": "As a result of"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P5_PREPOSITION_CONJUNCTION_VOCAB_COLLOCATION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.4 (Q127)",
+          "conciseEvidence": "A causal multiword preposition links popularity to increased production."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.4 (Q127)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q128",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        128
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q128-Q",
+          "sourceQuestionNumber": 128,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Zypo Properties has just signed a lease agreement with the law firm ------- offices are on the third floor.",
+          "options": [
+            {
+              "key": "A",
+              "content": "how"
+            },
+            {
+              "key": "B",
+              "content": "what"
+            },
+            {
+              "key": "C",
+              "content": "whose"
+            },
+            {
+              "key": "D",
+              "content": "wherever"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P5_VERB_TENSE_AGREEMENT_STRUCTURE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.4 (Q128)",
+          "conciseEvidence": "A possessive relative pronoun links the law firm to its offices."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.4 (Q128)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P5-Q130",
+      "taskCode": "R5_INCOMPLETE_SENTENCE",
+      "part": 5,
+      "sourceQuestionNumbers": [
+        130
+      ],
+      "instructions": "Chọn từ hoặc cụm từ phù hợp nhất để hoàn thành câu.",
+      "stimuli": [],
+      "questions": [
+        {
+          "contentKey": "T2-R-P5-Q130-Q",
+          "sourceQuestionNumber": 130,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "The timeline for the pathway lighting project was extended to ------- input from the environmental commission.",
+          "options": [
+            {
+              "key": "A",
+              "content": "use up"
+            },
+            {
+              "key": "B",
+              "content": "believe in"
+            },
+            {
+              "key": "C",
+              "content": "make into"
+            },
+            {
+              "key": "D",
+              "content": "allow for"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R5_INCOMPLETE_SENTENCE",
+          "part": 5,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P5_PREPOSITION_CONJUNCTION_VOCAB_COLLOCATION",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.4 (Q130)",
+          "conciseEvidence": "The project timeline uses the phrasal verb meaning make room for commission input."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.4 (Q130)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P6-Q135-138",
+      "taskCode": "R6_TEXT_COMPLETION",
+      "part": 6,
+      "sourceQuestionNumbers": [
+        135,
+        136,
+        137,
+        138
+      ],
+      "instructions": "Đọc toàn bộ tài liệu dùng chung và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_R6_Q135_138_DOC",
+          "isProtected": false,
+          "altText": "Source document 1 for selected group R6-Q135-138.",
+          "runtimeDisposition": "SOURCE_REFERENCE_ONLY",
+          "learnerVisibleAtRuntime": false,
+          "seedAsLearnerStimulus": false,
+          "reviewEvidenceOnly": true,
+          "excludeFromLearnerPayload": true
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": false,
+          "purpose": "READING_STIMULUS_TEXT",
+          "textContent": "As a Hanson-Roves employee, you are entitled to sick absences, during which you will be paid for time off work for health ------- [135]. To avoid deductions to your pay, you ------- [136] to provide a physician-signed note as documentation of your illness. ------- [137] should include the date you were seen by the doctor, a statement certifying that you are unable to perform the duties of your position, and your expected date of return. Your supervisor will then forward the documentation to Human Resources. ------- [138]. Employee health records can be accessed only by those with a valid business reason for reviewing them.",
+          "runtimeDisposition": "PRIMARY_LEARNER_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-R-P6-Q135-Q",
+          "sourceQuestionNumber": 135,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Select the best answer for blank 135.",
+          "options": [
+            {
+              "key": "A",
+              "content": "reasons"
+            },
+            {
+              "key": "B",
+              "content": "origins"
+            },
+            {
+              "key": "C",
+              "content": "senses"
+            },
+            {
+              "key": "D",
+              "content": "contributions"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "R6_TEXT_COMPLETION",
+          "part": 6,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P6_COHESION_CONNECTOR_REFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "MEDIUM",
+          "sourceRef": "Đề Reading - Test 2.pdf p.6 (Q135)",
+          "conciseEvidence": "Selects the collocation explaining health-related absences."
+        },
+        {
+          "contentKey": "T2-R-P6-Q136-Q",
+          "sourceQuestionNumber": 136,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Select the best answer for blank 136.",
+          "options": [
+            {
+              "key": "A",
+              "content": "were required"
+            },
+            {
+              "key": "B",
+              "content": "require"
+            },
+            {
+              "key": "C",
+              "content": "are required"
+            },
+            {
+              "key": "D",
+              "content": "are requiring"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R6_TEXT_COMPLETION",
+          "part": 6,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P6_COHESION_CONNECTOR_REFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.6 (Q136)",
+          "conciseEvidence": "Maintains present passive structure in the employee-policy instructions."
+        },
+        {
+          "contentKey": "T2-R-P6-Q137-Q",
+          "sourceQuestionNumber": 137,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Select the best answer for blank 137.",
+          "options": [
+            {
+              "key": "A",
+              "content": "Those"
+            },
+            {
+              "key": "B",
+              "content": "They"
+            },
+            {
+              "key": "C",
+              "content": "I"
+            },
+            {
+              "key": "D",
+              "content": "It"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R6_TEXT_COMPLETION",
+          "part": 6,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P6_COHESION_CONNECTOR_REFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.6 (Q137)",
+          "conciseEvidence": "Resolves the physician-note reference with the correct singular pronoun."
+        },
+        {
+          "contentKey": "T2-R-P6-Q138-Q",
+          "sourceQuestionNumber": 138,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Select the best answer for blank 138.",
+          "options": [
+            {
+              "key": "A",
+              "content": "Hanson-Roves ensures the privacy of your health information."
+            },
+            {
+              "key": "B",
+              "content": "Absences may be caused by a number of factors."
+            },
+            {
+              "key": "C",
+              "content": "You should then explain why a physician's note is not available."
+            },
+            {
+              "key": "D",
+              "content": "Take note of the duties you were originally assigned."
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "R6_TEXT_COMPLETION",
+          "part": 6,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P6_SENTENCE_INSERTION_CONTEXT",
+          "secondaryPedagogicalTags": [
+            "P6_COHESION_CONNECTOR_REFERENCE"
+          ],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.6 (Q138)",
+          "conciseEvidence": "Inserts a privacy sentence that bridges document handling and restricted record access."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.6 (Q135)",
+        "Đề Reading - Test 2.pdf p.6 (Q136)",
+        "Đề Reading - Test 2.pdf p.6 (Q137)",
+        "Đề Reading - Test 2.pdf p.6 (Q138)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P6-Q139-142",
+      "taskCode": "R6_TEXT_COMPLETION",
+      "part": 6,
+      "sourceQuestionNumbers": [
+        139,
+        140,
+        141,
+        142
+      ],
+      "instructions": "Đọc toàn bộ tài liệu dùng chung và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_R6_Q139_142_DOC",
+          "isProtected": false,
+          "altText": "Source document 1 for selected group R6-Q139-142.",
+          "runtimeDisposition": "SOURCE_REFERENCE_ONLY",
+          "learnerVisibleAtRuntime": false,
+          "seedAsLearnerStimulus": false,
+          "reviewEvidenceOnly": true,
+          "excludeFromLearnerPayload": true
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": false,
+          "purpose": "READING_STIMULUS_TEXT",
+          "textContent": "To: fcontini@attmail.com\nFrom: btakemoto@arolischems.co.uk\nDate: 15 July\nSubject: Your first day at Arolis\n\nDear Mr. Contini,\n\nWelcome to Arolis Chemicals! Thank you for ------- [139] the full-time, permanent position of laboratory assistant. We look forward to your arrival on 1 August in the Harris Building. Please report to the front desk and ask for Jack McNolan. He ------- [140] you to the Human Resources office. There, you will obtain your employee badge ------- [141] all documents necessary to start work. Note that because of its large size, the Leicester campus of Arolis can be difficult to navigate. Studying a campus map will help orient you to the location of the different buildings. ------- [142].\n\nShould you have any questions, please do not hesitate to contact me.\n\nSincerely,\nBrandon Takemoto\nHR Administrative Officer",
+          "runtimeDisposition": "PRIMARY_LEARNER_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-R-P6-Q139-Q",
+          "sourceQuestionNumber": 139,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Select the best answer for blank 139.",
+          "options": [
+            {
+              "key": "A",
+              "content": "offering"
+            },
+            {
+              "key": "B",
+              "content": "accepting"
+            },
+            {
+              "key": "C",
+              "content": "discussing"
+            },
+            {
+              "key": "D",
+              "content": "advertising"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "R6_TEXT_COMPLETION",
+          "part": 6,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P6_COHESION_CONNECTOR_REFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "MEDIUM",
+          "sourceRef": "Đề Reading - Test 2.pdf p.7 (Q139)",
+          "conciseEvidence": "Chooses the verb that coherently acknowledges acceptance of a job offer."
+        },
+        {
+          "contentKey": "T2-R-P6-Q140-Q",
+          "sourceQuestionNumber": 140,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Select the best answer for blank 140.",
+          "options": [
+            {
+              "key": "A",
+              "content": "accompany"
+            },
+            {
+              "key": "B",
+              "content": "did accompany"
+            },
+            {
+              "key": "C",
+              "content": "accompanies"
+            },
+            {
+              "key": "D",
+              "content": "will accompany"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R6_TEXT_COMPLETION",
+          "part": 6,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P6_COHESION_CONNECTOR_REFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.7 (Q140)",
+          "conciseEvidence": "Uses future tense for the escort action scheduled on the employee's first day."
+        },
+        {
+          "contentKey": "T2-R-P6-Q141-Q",
+          "sourceQuestionNumber": 141,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Select the best answer for blank 141.",
+          "options": [
+            {
+              "key": "A",
+              "content": "too"
+            },
+            {
+              "key": "B",
+              "content": "also"
+            },
+            {
+              "key": "C",
+              "content": "as well as"
+            },
+            {
+              "key": "D",
+              "content": "additionally"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R6_TEXT_COMPLETION",
+          "part": 6,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P6_COHESION_CONNECTOR_REFERENCE",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.7 (Q141)",
+          "conciseEvidence": "Connects receiving a badge with the additional documents using an additive linker."
+        },
+        {
+          "contentKey": "T2-R-P6-Q142-Q",
+          "sourceQuestionNumber": 142,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Select the best answer for blank 142.",
+          "options": [
+            {
+              "key": "A",
+              "content": "Please sign all the documents."
+            },
+            {
+              "key": "B",
+              "content": "I will provide you with a replacement."
+            },
+            {
+              "key": "C",
+              "content": "Construction will be completed next year."
+            },
+            {
+              "key": "D",
+              "content": "You can download one from our Web site."
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R6_TEXT_COMPLETION",
+          "part": 6,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P6_SENTENCE_INSERTION_CONTEXT",
+          "secondaryPedagogicalTags": [
+            "P6_COHESION_CONNECTOR_REFERENCE"
+          ],
+          "readinessStatus": "READY",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.7 (Q142)",
+          "conciseEvidence": "Inserts the map-download sentence after the campus-navigation advice."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.7 (Q139)",
+        "Đề Reading - Test 2.pdf p.7 (Q140)",
+        "Đề Reading - Test 2.pdf p.7 (Q141)",
+        "Đề Reading - Test 2.pdf p.7 (Q142)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P7-Q164-167",
+      "taskCode": "R7_READING_COMPREHENSION",
+      "part": 7,
+      "sourceQuestionNumbers": [
+        164,
+        165,
+        166,
+        167
+      ],
+      "instructions": "Đọc toàn bộ tài liệu dùng chung và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_R7_Q164_167_DOC",
+          "isProtected": false,
+          "altText": "Source document 1 for selected group R7-Q164-167.",
+          "runtimeDisposition": "SOURCE_REFERENCE_ONLY",
+          "learnerVisibleAtRuntime": false,
+          "seedAsLearnerStimulus": false,
+          "reviewEvidenceOnly": true,
+          "excludeFromLearnerPayload": true
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": false,
+          "purpose": "READING_STIMULUS_TEXT",
+          "textContent": "Oliver Koh (10:15 A.M.): Hi, Aaron and Denise. Do you know if a package has arrived for me? I was supposed to get a delivery of some documents today, but maybe they were sent to someone else by mistake. It's from Schrantz Farm Organics and should be labeled urgent.\nAaron Koskinen (10:17 A.M.): There's nothing for you here at the front desk. You might want to check with the print shop on the ground floor.\nDenise Matova (10:18 A.M.): There's a package from Schrantz Farm Organics here in the mail room, but there's no name on it.\nOliver Koh (10:18 A.M.): That must be the one for me. Could you please look at the delivery slip again?\nDenise Matova (10:19 A.M.): Sorry, it does have your name on it. It was so small I didn't notice it.\nOliver Koh (10:20 A.M.): Great! Could you have the package sent up to my office please?\nDenise Matova (10:20 A.M.): No problem. I'm going upstairs in a minute anyway.\nOliver Koh (10:21 A.M.): OK, thanks for your help.",
+          "runtimeDisposition": "PRIMARY_LEARNER_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-R-P7-Q164-Q",
+          "sourceQuestionNumber": 164,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Why did Mr. Koh start the online chat discussion?",
+          "options": [
+            {
+              "key": "A",
+              "content": "He received a damaged package."
+            },
+            {
+              "key": "B",
+              "content": "He has a meeting with a client soon."
+            },
+            {
+              "key": "C",
+              "content": "He is expecting some important documents."
+            },
+            {
+              "key": "D",
+              "content": "He delivered a shipment to the wrong person."
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P7_PURPOSE_DETAIL_VOCAB_CONTEXT",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.16 (Q164)",
+          "conciseEvidence": "Retrieves an explicit detail or contextual relationship from the shared document set."
+        },
+        {
+          "contentKey": "T2-R-P7-Q165-Q",
+          "sourceQuestionNumber": 165,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What does Mr. Koskinen recommend doing?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Calling Schrantz Farm Organics"
+            },
+            {
+              "key": "B",
+              "content": "Changing a meeting place"
+            },
+            {
+              "key": "C",
+              "content": "Going to the front desk"
+            },
+            {
+              "key": "D",
+              "content": "Checking a different location"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P7_PURPOSE_DETAIL_VOCAB_CONTEXT",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.16 (Q165)",
+          "conciseEvidence": "Retrieves an explicit detail or contextual relationship from the shared document set."
+        },
+        {
+          "contentKey": "T2-R-P7-Q166-Q",
+          "sourceQuestionNumber": 166,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "At 10:19 A.M., what does Ms. Matova most likely mean when she writes, “Sorry”?",
+          "options": [
+            {
+              "key": "A",
+              "content": "She misplaced a delivery slip."
+            },
+            {
+              "key": "B",
+              "content": "She arrived late to work today."
+            },
+            {
+              "key": "C",
+              "content": "She would like Mr. Koh to repeat his instructions."
+            },
+            {
+              "key": "D",
+              "content": "She made a mistake reading a label."
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P7_INFERENCE_IMPLICIT",
+          "secondaryPedagogicalTags": [
+            "P7_PURPOSE_DETAIL_VOCAB_CONTEXT"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.16 (Q166)",
+          "conciseEvidence": "Interprets the intended meaning of a short quoted message from its conversation context."
+        },
+        {
+          "contentKey": "T2-R-P7-Q167-Q",
+          "sourceQuestionNumber": 167,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What will Ms. Matova probably do with the package?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Take it to Mr. Koh"
+            },
+            {
+              "key": "B",
+              "content": "Send it out by express mail"
+            },
+            {
+              "key": "C",
+              "content": "Leave it at the front desk"
+            },
+            {
+              "key": "D",
+              "content": "Remove the items from it"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P7_INFERENCE_IMPLICIT",
+          "secondaryPedagogicalTags": [
+            "P7_PURPOSE_DETAIL_VOCAB_CONTEXT"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.16 (Q167)",
+          "conciseEvidence": "Infers an unstated role, location, intention, or outcome from contextual clues."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.16 (Q164)",
+        "Đề Reading - Test 2.pdf p.16 (Q165)",
+        "Đề Reading - Test 2.pdf p.16 (Q166)",
+        "Đề Reading - Test 2.pdf p.16 (Q167)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P7-Q168-171",
+      "taskCode": "R7_READING_COMPREHENSION",
+      "part": 7,
+      "sourceQuestionNumbers": [
+        168,
+        169,
+        170,
+        171
+      ],
+      "instructions": "Đọc toàn bộ tài liệu dùng chung và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_R7_Q168_171_DOC",
+          "isProtected": false,
+          "altText": "Source document 1 for selected group R7-Q168-171.",
+          "runtimeDisposition": "SOURCE_REFERENCE_ONLY",
+          "learnerVisibleAtRuntime": false,
+          "seedAsLearnerStimulus": false,
+          "reviewEvidenceOnly": true,
+          "excludeFromLearnerPayload": true
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": false,
+          "purpose": "READING_STIMULUS_TEXT",
+          "textContent": "From: Won Ho Kim\nTo: Management Team\nDate: 12 August\nSubject: Improving employee satisfaction\n\nManagement Team:\n\n— [1] —. Over the next few months, the Human Resources department will be engaging with the Management Team in a variety of conversations about increasing productivity and employee satisfaction. — [2] —.\n\nTelecommuting, in which employees are permitted to work from home all or part of the time, is an approach that many companies are using because it allows employees to work on tasks that may be difficult to complete in an office full of disruptions. With the building reconfiguration project coming up in January, we would like to take the opportunity to consider whether telecommuting would be a good solution for our company. Our final decision on this matter will influence the way in which the work space is reorganized.\n\nI am writing to ask for your feedback. — [3] —. At this point, Human Resources is simply gathering information. Please complete the telecommuting survey, which is found on the Human Resources Web site. — [4] —. Just look for the link on the left side of the home page.\n\nThank you in advance, and please let me know if you have any questions.\n\nWon Ho Kim\nHuman Resources Manager\nGHTY Engineering, Inc.",
+          "runtimeDisposition": "PRIMARY_LEARNER_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-R-P7-Q168-Q",
+          "sourceQuestionNumber": 168,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Why was the e-mail sent?",
+          "options": [
+            {
+              "key": "A",
+              "content": "To remind employees about a policy"
+            },
+            {
+              "key": "B",
+              "content": "To request participation in a survey"
+            },
+            {
+              "key": "C",
+              "content": "To discuss upcoming meetings"
+            },
+            {
+              "key": "D",
+              "content": "To encourage employees to attend an event"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P7_PURPOSE_DETAIL_VOCAB_CONTEXT",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.17 (Q168)",
+          "conciseEvidence": "Identifies the document's explicit communicative purpose."
+        },
+        {
+          "contentKey": "T2-R-P7-Q169-Q",
+          "sourceQuestionNumber": 169,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What is mentioned as a benefit of telecommuting?",
+          "options": [
+            {
+              "key": "A",
+              "content": "It helps employees work without interruptions."
+            },
+            {
+              "key": "B",
+              "content": "It frees up space in the building for new workers."
+            },
+            {
+              "key": "C",
+              "content": "It is good for the environment."
+            },
+            {
+              "key": "D",
+              "content": "It saves the company money."
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P7_PURPOSE_DETAIL_VOCAB_CONTEXT",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.17 (Q169)",
+          "conciseEvidence": "Retrieves an explicit detail or contextual relationship from the shared document set."
+        },
+        {
+          "contentKey": "T2-R-P7-Q170-Q",
+          "sourceQuestionNumber": 170,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What is the company planning to do in the new year?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Hire a new human resources manager"
+            },
+            {
+              "key": "B",
+              "content": "Reorganize the management team"
+            },
+            {
+              "key": "C",
+              "content": "Change the layout of its building"
+            },
+            {
+              "key": "D",
+              "content": "Introduce a new Web site"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P7_PURPOSE_DETAIL_VOCAB_CONTEXT",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf p.17 (Q170)",
+          "conciseEvidence": "Retrieves an explicit detail or contextual relationship from the shared document set."
+        },
+        {
+          "contentKey": "T2-R-P7-Q171-Q",
+          "sourceQuestionNumber": 171,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "In which position does the sentence “It should be noted that no decisions about telecommuting have been made.” best belong?",
+          "options": [
+            {
+              "key": "A",
+              "content": "[1]"
+            },
+            {
+              "key": "B",
+              "content": "[2]"
+            },
+            {
+              "key": "C",
+              "content": "[3]"
+            },
+            {
+              "key": "D",
+              "content": "[4]"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P7_INFERENCE_IMPLICIT",
+          "secondaryPedagogicalTags": [
+            "P7_PURPOSE_DETAIL_VOCAB_CONTEXT"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "MEDIUM",
+          "sourceRef": "Đề Reading - Test 2.pdf p.17 (Q171)",
+          "conciseEvidence": "Requires placing a sentence by following discourse continuity and reference across the document."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf p.17 (Q168)",
+        "Đề Reading - Test 2.pdf p.17 (Q169)",
+        "Đề Reading - Test 2.pdf p.17 (Q170)",
+        "Đề Reading - Test 2.pdf p.17 (Q171)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P7-Q176-180",
+      "taskCode": "R7_READING_COMPREHENSION",
+      "part": 7,
+      "sourceQuestionNumbers": [
+        176,
+        177,
+        178,
+        179,
+        180
+      ],
+      "instructions": "Đọc toàn bộ tài liệu dùng chung và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_R7_Q176_180_DOC",
+          "isProtected": false,
+          "altText": "Source document 1 for selected group R7-Q176-180.",
+          "runtimeDisposition": "SOURCE_REFERENCE_ONLY",
+          "learnerVisibleAtRuntime": false,
+          "seedAsLearnerStimulus": false,
+          "reviewEvidenceOnly": true,
+          "excludeFromLearnerPayload": true
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 1,
+          "isProtected": false,
+          "purpose": "READING_STIMULUS_TEXT",
+          "textContent": "WEB PAGE\nMountain and Forest Company\nThe Leader in Quality Camping and Hiking Gear\n\nPlease note that most regular electronic or phone orders can be processed and made ready for shipping almost immediately. Custom and personalized orders may take up to five days for processing before they are shipped.\n\nPlease direct any questions or concerns to our customer service department at service@mountainandforest.ca. We will respond within 24 hours.\n\nOur shipping rates:\nOrder cost with tax | Overnight shipping (1 day) | Express shipping (3 days) | Standard (6–8 days)\nUnder $25 | $8 | $5 | $3\n$25 to $100 | $13 | $7 | $5\nOver $100 | $18 | $15 | FREE\n\nE-MAIL\nTo: service@mountainandforest.ca\nFrom: jinheeshin@sharemail.ca\nDate: 10 January\nSubject: Order B75022\n\nI recently placed an order for $135 for hiking boots and a thermal jacket intended for a camping trip this weekend. According to the confirmation I received at the time of my purchase, my order should have arrived yesterday. Since I paid an additional fee for three-day shipping, I was expecting that my order would arrive in a timely fashion. As it has not, I am requesting a refund of the shipping cost. Additionally, if my order has not been delivered by tomorrow, please cancel my order as I will have to purchase similar items at a local shop.\n\nSincerely,\nJin-Hee Shin",
+          "runtimeDisposition": "PRIMARY_LEARNER_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-R-P7-Q176-Q",
+          "sourceQuestionNumber": 176,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "In the Web page, what is indicated about Mountain and Forest's shipping?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Standard shipping is free for orders under $25."
+            },
+            {
+              "key": "B",
+              "content": "Some shipped orders may take up to eight days to arrive."
+            },
+            {
+              "key": "C",
+              "content": "The shipping cost depends on the total weight of an order."
+            },
+            {
+              "key": "D",
+              "content": "Custom orders are not eligible for standard delivery."
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P7_PURPOSE_DETAIL_VOCAB_CONTEXT",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf pp.20-21 (Q176)",
+          "conciseEvidence": "Retrieves an explicit detail or contextual relationship from the shared document set."
+        },
+        {
+          "contentKey": "T2-R-P7-Q177-Q",
+          "sourceQuestionNumber": 177,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "In the Web page, the word “direct” in paragraph 2, line 1, is closest in meaning to",
+          "options": [
+            {
+              "key": "A",
+              "content": "address"
+            },
+            {
+              "key": "B",
+              "content": "supervise"
+            },
+            {
+              "key": "C",
+              "content": "prescribe"
+            },
+            {
+              "key": "D",
+              "content": "handle"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "A",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P7_PURPOSE_DETAIL_VOCAB_CONTEXT",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf pp.20-21 (Q177)",
+          "conciseEvidence": "Determines a word's contextual meaning within the source document."
+        },
+        {
+          "contentKey": "T2-R-P7-Q178-Q",
+          "sourceQuestionNumber": 178,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What is the purpose of the e-mail?",
+          "options": [
+            {
+              "key": "A",
+              "content": "To suggest a new service policy"
+            },
+            {
+              "key": "B",
+              "content": "To inquire about an order packing error"
+            },
+            {
+              "key": "C",
+              "content": "To request a personalized item"
+            },
+            {
+              "key": "D",
+              "content": "To report a delivery problem"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "CORE",
+          "primaryPedagogicalTag": "P7_PURPOSE_DETAIL_VOCAB_CONTEXT",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf pp.20-21 (Q178)",
+          "conciseEvidence": "Identifies the document's explicit communicative purpose."
+        },
+        {
+          "contentKey": "T2-R-P7-Q179-Q",
+          "sourceQuestionNumber": 179,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "How much did Ms. Shin pay for shipping?",
+          "options": [
+            {
+              "key": "A",
+              "content": "$5"
+            },
+            {
+              "key": "B",
+              "content": "$8"
+            },
+            {
+              "key": "C",
+              "content": "$15"
+            },
+            {
+              "key": "D",
+              "content": "$18"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P7_MULTI_DOCUMENT_CROSS_REFERENCE",
+          "secondaryPedagogicalTags": [
+            "P7_PURPOSE_DETAIL_VOCAB_CONTEXT"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf pp.20-21 (Q179)",
+          "conciseEvidence": "Combines the order total and shipping choice in the e-mail with the Web-page rate table."
+        },
+        {
+          "contentKey": "T2-R-P7-Q180-Q",
+          "sourceQuestionNumber": 180,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "According to the e-mail, why might Ms. Shin decide to visit a local shop?",
+          "options": [
+            {
+              "key": "A",
+              "content": "She expects to purchase her items for a lower price."
+            },
+            {
+              "key": "B",
+              "content": "She wants to support businesses in her town."
+            },
+            {
+              "key": "C",
+              "content": "She needs to have her items before a certain date."
+            },
+            {
+              "key": "D",
+              "content": "She hopes to find a greater selection of sportswear."
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P7_INFERENCE_IMPLICIT",
+          "secondaryPedagogicalTags": [
+            "P7_PURPOSE_DETAIL_VOCAB_CONTEXT"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf pp.20-21 (Q180)",
+          "conciseEvidence": "Infers an unstated role, location, intention, or outcome from contextual clues."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf pp.20-21 (Q176)",
+        "Đề Reading - Test 2.pdf pp.20-21 (Q177)",
+        "Đề Reading - Test 2.pdf pp.20-21 (Q178)",
+        "Đề Reading - Test 2.pdf pp.20-21 (Q179)",
+        "Đề Reading - Test 2.pdf pp.20-21 (Q180)"
+      ]
+    },
+    {
+      "contentKey": "T2-R-P7-Q186-190",
+      "taskCode": "R7_READING_COMPREHENSION",
+      "part": 7,
+      "sourceQuestionNumbers": [
+        186,
+        187,
+        188,
+        189,
+        190
+      ],
+      "instructions": "Đọc toàn bộ tài liệu dùng chung và trả lời đủ các câu trong nhóm.",
+      "stimuli": [
+        {
+          "type": "IMAGE",
+          "orderIndex": 0,
+          "mediaKey": "MEDIA_T2_R7_Q186_190_01_DOC",
+          "isProtected": false,
+          "altText": "Source document 1 for selected group R7-Q186-190.",
+          "runtimeDisposition": "SOURCE_REFERENCE_ONLY",
+          "learnerVisibleAtRuntime": false,
+          "seedAsLearnerStimulus": false,
+          "reviewEvidenceOnly": true,
+          "excludeFromLearnerPayload": true
+        },
+        {
+          "type": "IMAGE",
+          "orderIndex": 1,
+          "mediaKey": "MEDIA_T2_R7_Q186_190_02_DOC",
+          "isProtected": false,
+          "altText": "Source document 2 for selected group R7-Q186-190.",
+          "runtimeDisposition": "SOURCE_REFERENCE_ONLY",
+          "learnerVisibleAtRuntime": false,
+          "seedAsLearnerStimulus": false,
+          "reviewEvidenceOnly": true,
+          "excludeFromLearnerPayload": true
+        },
+        {
+          "type": "TEXT",
+          "orderIndex": 2,
+          "isProtected": false,
+          "purpose": "READING_STIMULUS_TEXT",
+          "textContent": "E-MAIL\nFrom: mstoch@hesidionclinic.com\nTo: lstawinski@nostilde.com\nDate: March 20\nSubject: Hesidion Clinic's Health Awareness Day\n\nDear Ms. Stawinski,\nIn appreciation of your loyalty as a long-time patient of Hesidion Clinic, we are pleased to invite you to our clinic's Health Awareness Day to be held at the clinic on Saturday, April 10. We would be delighted to see you attend, as we will offer a number of activities designed to promote health awareness in our community. If you sign up for this special event by responding to this e-mail by March 31, you will receive a code to present at the clinic for a surprise benefit.\nMartin Stoch, Communications Director, Hesidion Clinic\n\nTASKS AND RESPONSIBILITIES\nCommunications: Martin Stoch\nAdvertising: Adilene Walker\nPresentations: Jillian Opala (Nutrition), Lance Verhoeven (Fitness)\nKids' Health Game: Susan Hayashi\nHealth Checkups/Talks: Anne Spillane, Rami Al-Araj, Kurt Yin, Thierry Daumas\n\nARTICLE — Health Day at Hesidion Clinic\nby Shai Herzog on April 14\n\nHesidion Clinic hosted a successful Health Awareness Day this past Saturday. The event was held as a way to thank the community for supporting the clinic over the past 15 years. It was well attended by both Hesidion Clinic patients and members of the general public.\n\nAttendees participated in a variety of presentations and everyone received free water bottles, notepads, and other items from event sponsors. Participants who provided a special code were offered a complimentary physical checkup from the team of clinic physicians.\n\nDuring the event, a sizable line formed at Dr. Thierry Daumas' table. “I came out today to learn about skin care and advances in eye-care technology. But Dr. Daumas' talk about how to prevent cavities and improve oral health provided me with the most helpful information,” said attendee Liana Stawinski.\n\nBy far the most popular event was nutritionist Jillian Opala's presentation on healthy eating habits. More than 100 people, many of them retirees, flocked to hear the latest on super foods. The event took nearly twice as long as expected, as Ms. Opala answered a steady stream of participant questions.\n\nChildren were delighted to take part in a health contest involving questions about general health and hygiene. The winners received toys and certificates from the game host. The day was such a success that Hesidion Clinic director, Lance Verhoeven, is already considering making it an annual event.",
+          "runtimeDisposition": "PRIMARY_LEARNER_STIMULUS",
+          "learnerVisibleAtRuntime": true,
+          "seedAsLearnerStimulus": true,
+          "reviewEvidenceOnly": false,
+          "excludeFromLearnerPayload": false
+        }
+      ],
+      "questions": [
+        {
+          "contentKey": "T2-R-P7-Q186-Q",
+          "sourceQuestionNumber": 186,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What is Ms. Stawinski encouraged to do?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Complete a survey"
+            },
+            {
+              "key": "B",
+              "content": "Go to an event"
+            },
+            {
+              "key": "C",
+              "content": "Organize some activities"
+            },
+            {
+              "key": "D",
+              "content": "Meet with Mr. Stoch"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P7_PURPOSE_DETAIL_VOCAB_CONTEXT",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf pp.24-25 (Q186)",
+          "conciseEvidence": "Retrieves an explicit detail or contextual relationship from the shared document set."
+        },
+        {
+          "contentKey": "T2-R-P7-Q187-Q",
+          "sourceQuestionNumber": 187,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "How did some attendees get a free health checkup?",
+          "options": [
+            {
+              "key": "A",
+              "content": "By arriving when the clinic opened"
+            },
+            {
+              "key": "B",
+              "content": "By attending Dr. Daumas' talk"
+            },
+            {
+              "key": "C",
+              "content": "By responding to an e-mail from Mr. Stoch"
+            },
+            {
+              "key": "D",
+              "content": "By winning a competition"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P7_MULTI_DOCUMENT_CROSS_REFERENCE",
+          "secondaryPedagogicalTags": [
+            "P7_PURPOSE_DETAIL_VOCAB_CONTEXT"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf pp.24-25 (Q187)",
+          "conciseEvidence": "Connects the advance e-mail response/code with the article's complimentary checkup rule."
+        },
+        {
+          "contentKey": "T2-R-P7-Q188-Q",
+          "sourceQuestionNumber": 188,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What does Dr. Daumas most likely specialize in?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Skin"
+            },
+            {
+              "key": "B",
+              "content": "Ears"
+            },
+            {
+              "key": "C",
+              "content": "Eyes"
+            },
+            {
+              "key": "D",
+              "content": "Teeth"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "D",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P7_INFERENCE_IMPLICIT",
+          "secondaryPedagogicalTags": [
+            "P7_PURPOSE_DETAIL_VOCAB_CONTEXT"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf pp.24-25 (Q188)",
+          "conciseEvidence": "Infers an unstated role, location, intention, or outcome from contextual clues."
+        },
+        {
+          "contentKey": "T2-R-P7-Q189-Q",
+          "sourceQuestionNumber": 189,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "What is indicated about the presentation on food?",
+          "options": [
+            {
+              "key": "A",
+              "content": "It was filmed."
+            },
+            {
+              "key": "B",
+              "content": "It was postponed."
+            },
+            {
+              "key": "C",
+              "content": "It attracted a lot of attention."
+            },
+            {
+              "key": "D",
+              "content": "It was given by a retired clinic employee."
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "C",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "FOUNDATION",
+          "primaryPedagogicalTag": "P7_PURPOSE_DETAIL_VOCAB_CONTEXT",
+          "secondaryPedagogicalTags": [],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf pp.24-25 (Q189)",
+          "conciseEvidence": "Retrieves an explicit detail or contextual relationship from the shared document set."
+        },
+        {
+          "contentKey": "T2-R-P7-Q190-Q",
+          "sourceQuestionNumber": 190,
+          "responseType": "SINGLE_CHOICE",
+          "questionText": "Who most likely distributed certificates?",
+          "options": [
+            {
+              "key": "A",
+              "content": "Mr. Stoch"
+            },
+            {
+              "key": "B",
+              "content": "Ms. Hayashi"
+            },
+            {
+              "key": "C",
+              "content": "Ms. Spillane"
+            },
+            {
+              "key": "D",
+              "content": "Mr. Verhoeven"
+            }
+          ],
+          "optionVisibility": "LEARNER_VISIBLE",
+          "correctOptionKey": "B",
+          "answerKeyVerified": true,
+          "taskCode": "R7_READING_COMPREHENSION",
+          "part": 7,
+          "difficultyBand": "STRETCH",
+          "primaryPedagogicalTag": "P7_MULTI_DOCUMENT_CROSS_REFERENCE",
+          "secondaryPedagogicalTags": [
+            "P7_PURPOSE_DETAIL_VOCAB_CONTEXT"
+          ],
+          "readinessStatus": "READY_WITH_PROCESSING",
+          "confidence": "HIGH",
+          "sourceRef": "Đề Reading - Test 2.pdf pp.24-25 (Q190)",
+          "conciseEvidence": "Links certificate distribution in the article to the children's-game owner in the responsibility list."
+        }
+      ],
+      "sourceRefs": [
+        "Đề Reading - Test 2.pdf pp.24-25 (Q186)",
+        "Đề Reading - Test 2.pdf pp.24-25 (Q187)",
+        "Đề Reading - Test 2.pdf pp.24-25 (Q188)",
+        "Đề Reading - Test 2.pdf pp.24-25 (Q189)",
+        "Đề Reading - Test 2.pdf pp.24-25 (Q190)"
+      ]
+    }
+  ],
+  "sourceHygieneClarifications": [
+    {
+      "questionNumber": 67,
+      "status": "EXCLUDED_NOT_SELECTED",
+      "clarification": "The tagging row's visual/graphic evidence is inconsistent with the prior audited printed-graphic map. Q65–67 and their audio/visual material are excluded from this pack; no visual claim from Q67 is propagated."
+    }
+  ],
+  "correctedAtUtc": "2026-10-18T17:09:31.811557+00:00",
+  "runtimeRepresentationPolicy": {
+    "readingParts": [
+      6,
+      7
+    ],
+    "readingPrimaryRuntimeRepresentation": "READING_STIMULUS_TEXT",
+    "readingImageDisposition": "SOURCE_REFERENCE_ONLY",
+    "readingImageSeedAsLearnerStimulus": false,
+    "duplicatePreventionRule": "For Part 6 and Part 7, seed exactly one learner-visible shared stimulus from READING_STIMULUS_TEXT. Do not seed the JPEG crop as a second learner-visible stimulus.",
+    "learnerVisibleImageExceptions": [
+      "Part 1 photographs",
+      "Part 3 Q68-70 graphic",
+      "Part 4 Q95-97 graphic"
+    ]
+  }
+}
