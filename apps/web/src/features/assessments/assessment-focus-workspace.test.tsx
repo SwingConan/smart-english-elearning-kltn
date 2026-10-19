@@ -154,6 +154,43 @@ describe('assessment question navigator drawer', () => {
     expect(trigger).toHaveFocus();
   });
 
+  it('resets both Reading pane scroll positions after drawer, previous, and next group changes', async () => {
+    vi.spyOn(studentAssessmentApi, 'getAttempt').mockResolvedValue(attemptContent());
+    renderAttempt();
+
+    await screen.findByText('First group');
+    const documentPane = screen.getByTestId('reading-document-pane');
+    const questionPane = screen.getByTestId('reading-question-pane');
+    const scrollBoth = () => {
+      documentPane.scrollTop = 240;
+      questionPane.scrollTop = 360;
+    };
+    const expectBothAtTop = async () => {
+      await waitFor(() => {
+        expect(documentPane.scrollTop).toBe(0);
+        expect(questionPane.scrollTop).toBe(0);
+      });
+    };
+
+    scrollBoth();
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp' }));
+    expect(await screen.findByText('Second group')).toBeInTheDocument();
+    await expectBothAtTop();
+
+    scrollBoth();
+    fireEvent.click(screen.getByRole('button', { name: 'Trước' }));
+    expect(await screen.findByText('First group')).toBeInTheDocument();
+    await expectBothAtTop();
+
+    scrollBoth();
+    fireEvent.click(screen.getByRole('button', { name: /Điều hướng · 0\/2/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Điều hướng câu hỏi' });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Câu 2/ }));
+    expect(await screen.findByText('Second group')).toBeInTheDocument();
+    await expectBothAtTop();
+    await waitFor(() => expect(screen.getByText('Second group').closest('section')).toHaveFocus());
+  });
+
   it('does not force a Reading split for a non-Reading attempt group', async () => {
     const content = attemptContent();
     content.groups = [

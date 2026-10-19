@@ -65,6 +65,8 @@ export function StudentTestAttemptPage() {
   const [questionDrawer, setQuestionDrawer] = useState(false);
   const questionDrawerTriggerRef = useRef<HTMLButtonElement>(null);
   const activeGroupSectionRef = useRef<HTMLElement>(null);
+  const documentPaneRef = useRef<HTMLDivElement>(null);
+  const questionPaneRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => Date.now());
   const [expired, setExpired] = useState(false);
   const [markedGroups, setMarkedGroups] = useState<Set<string>>(new Set());
@@ -128,6 +130,10 @@ export function StudentTestAttemptPage() {
   const structuredReading = activeGroup
     ? isStructuredReadingTask(activeGroup.skill, activeGroup.taskCode)
     : false;
+  useEffect(() => {
+    if (documentPaneRef.current) documentPaneRef.current.scrollTop = 0;
+    if (questionPaneRef.current) questionPaneRef.current.scrollTop = 0;
+  }, [activeGroupIndex]);
   const answered = questions.filter((question) =>
     isAnswered(question, drafts[question.testQuestionId]),
   ).length;
@@ -436,6 +442,7 @@ export function StudentTestAttemptPage() {
                     ? 'xl:sticky xl:top-24 xl:max-h-[calc(100vh-13rem)] xl:overflow-y-auto xl:pr-2'
                     : ''
                 }
+                ref={documentPaneRef}
               >
                 <AttemptStimuli
                   stimuli={activeGroup.stimuli}
@@ -451,6 +458,7 @@ export function StudentTestAttemptPage() {
                     ? 'space-y-4 xl:max-h-[calc(100vh-13rem)] xl:overflow-y-auto xl:pr-2'
                     : 'mt-5 space-y-4'
                 }
+                ref={questionPaneRef}
               >
                 {activeGroup.questions.map((question, questionIndex) => (
                   <QuestionCard
