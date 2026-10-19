@@ -1,4 +1,8 @@
-import { LessonProgressStatus, ToeicSkill } from '../../generated/prisma/client';
+import {
+  LessonProgressStatus,
+  TestAttemptStatus,
+  ToeicSkill,
+} from '../../generated/prisma/client';
 import { StudyRecommendationSelectionBasis } from './study-recommendation-rule-reason';
 
 export const CANONICAL_TASK_ORDER = [
@@ -58,6 +62,32 @@ export interface SelectedTarget {
   skillEvidence: SkillEvidenceInput;
   taskEvidence: TaskEvidence | null;
   basis: StudyRecommendationSelectionBasis;
+}
+
+export interface PracticeActionabilityInput {
+  maxAttempts: number;
+  assignment: {
+    openAt: Date | null;
+    closeAt: Date | null;
+    maxAttemptsOverride: number | null;
+    attempts: Array<{ status: TestAttemptStatus }>;
+  };
+}
+
+export function isPracticeActionable(
+  input: PracticeActionabilityInput,
+  now = new Date(),
+): boolean {
+  const { assignment } = input;
+  const maxAttempts = assignment.maxAttemptsOverride ?? input.maxAttempts;
+  const hasInProgress = assignment.attempts.some(
+    ({ status }) => status === TestAttemptStatus.IN_PROGRESS,
+  );
+  return (
+    (!assignment.openAt || assignment.openAt <= now) &&
+    (!assignment.closeAt || assignment.closeAt > now) &&
+    (hasInProgress || assignment.attempts.length < maxAttempts)
+  );
 }
 
 export function validateStudyRecommendationPolicy(

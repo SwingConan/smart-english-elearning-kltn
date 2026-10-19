@@ -1,8 +1,13 @@
-import { LessonProgressStatus, ToeicSkill } from '../../generated/prisma/client';
+import {
+  LessonProgressStatus,
+  TestAttemptStatus,
+  ToeicSkill,
+} from '../../generated/prisma/client';
 import {
   analyzeSkillEvidence,
   buildSevenDayPlan,
   groupTaskEvidence,
+  isPracticeActionable,
   LessonCandidate,
   selectRecommendationTargets,
   StudyRecommendationPolicyInput,
@@ -115,6 +120,89 @@ describe('M08-B deterministic study recommendation engine', () => {
       ],
     });
     expect(targets[0]).toMatchObject({ lesson: { id: 'practice' }, basis: 'TASK_WEAKNESS' });
+  });
+
+  it('does not mark an exhausted practice actionable', () => {
+    expect(
+      isPracticeActionable(
+        {
+          maxAttempts: 1,
+          assignment: {
+            openAt: null,
+            closeAt: null,
+            maxAttemptsOverride: null,
+            attempts: [{ status: TestAttemptStatus.SUBMITTED }],
+          },
+        },
+        new Date('2026-10-19T00:00:00Z'),
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps an in-progress practice actionable even when attempt capacity is reached', () => {
+    expect(
+      isPracticeActionable(
+        {
+          maxAttempts: 1,
+          assignment: {
+            openAt: new Date('2026-10-01T00:00:00Z'),
+            closeAt: new Date('2026-11-01T00:00:00Z'),
+            maxAttemptsOverride: null,
+            attempts: [{ status: TestAttemptStatus.IN_PROGRESS }],
+          },
+        },
+        new Date('2026-10-19T00:00:00Z'),
+      ),
+    ).toBe(true);
+  });
+
+  it('prefers only the deterministically actionable practice candidate', () => {
+    const available = isPracticeActionable(
+      {
+        maxAttempts: 2,
+        assignment: {
+          openAt: null,
+          closeAt: null,
+          maxAttemptsOverride: null,
+          attempts: [{ status: TestAttemptStatus.SUBMITTED }],
+        },
+      },
+      new Date('2026-10-19T00:00:00Z'),
+    );
+    const exhausted = isPracticeActionable(
+      {
+        maxAttempts: 1,
+        assignment: {
+          openAt: null,
+          closeAt: null,
+          maxAttemptsOverride: null,
+          attempts: [{ status: TestAttemptStatus.SUBMITTED }],
+        },
+      },
+      new Date('2026-10-19T00:00:00Z'),
+    );
+    const targets = selectRecommendationTargets({
+      policy,
+      skillEvidence: skills,
+      taskEvidence: [
+        {
+          taskCode: 'L2_QUESTION_RESPONSE',
+          skill: ToeicSkill.LISTENING,
+          questionCount: 2,
+          awardedPoints: 1,
+          maxPoints: 2,
+          normalizedScore: 50,
+        },
+      ],
+      lessons: [
+        lesson({ id: 'exhausted', lessonOrder: 0, practiceAvailable: exhausted }),
+        lesson({ id: 'available', lessonOrder: 2, practiceAvailable: available }),
+      ],
+    });
+
+    expect(targets[0]).toMatchObject({
+      lesson: { id: 'available', practiceAvailable: true },
+    });
   });
 
   it('falls back to an unfinished skill lesson and avoids duplicate targets', () => {

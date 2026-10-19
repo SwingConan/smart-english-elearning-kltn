@@ -152,6 +152,216 @@ describe('StudyRecommendationService source eligibility', () => {
   );
 });
 
+describe('StudyRecommendationService projection', () => {
+  it('uses all FINAL LR source scores for current and frozen historical summaries', async () => {
+    const currentSource = projectionSource('source-current', '2026-10-04T12:30:00Z', 40, 90);
+    const historicalSource = projectionSource(
+      'source-history',
+      '2026-09-18T12:30:00Z',
+      70,
+      75,
+    );
+    const rows = [
+      recommendationRow(
+        currentSource,
+        { weakThreshold: 60, strongThreshold: 80 },
+        ToeicSkill.LISTENING,
+        true,
+      ),
+      recommendationRow(
+        historicalSource,
+        { weakThreshold: 72, strongThreshold: 74 },
+        ToeicSkill.LISTENING,
+        false,
+      ),
+    ];
+    const projectionService = createProjectionService(rows, [currentSource, historicalSource]);
+
+    const result = await projectionService.projectState('learner-a', 'enrollment-a', {
+      state: 'READY',
+      sourceAttemptId: currentSource.id,
+      pendingNewerAttemptId: null,
+    });
+
+    expect(result.strengths).toEqual([
+      expect.objectContaining({ skill: ToeicSkill.READING, normalizedScore: 90 }),
+    ]);
+    expect(result.focus).toMatchObject({
+      skill: ToeicSkill.LISTENING,
+      normalizedScore: 40,
+    });
+    const historical = result.history.find(
+      ({ sourceAttemptId }) => sourceAttemptId === historicalSource.id,
+    );
+    expect(historical).toMatchObject({
+      strengths: [expect.objectContaining({ skill: ToeicSkill.READING, normalizedScore: 75 })],
+      focus: expect.objectContaining({
+        skill: ToeicSkill.LISTENING,
+        normalizedScore: 70,
+      }),
+    });
+  });
+
+  it('projects the eligible source for NO_MATCHING_CONTENT without recommendation rows', async () => {
+    const source = projectionSource('source-no-target', '2026-10-11T12:30:00Z', 45, 55);
+    const projectionService = createProjectionService([], [source]);
+
+    const result = await projectionService.projectState('learner-a', 'enrollment-a', {
+      state: 'NO_MATCHING_CONTENT',
+      sourceAttemptId: source.id,
+      pendingNewerAttemptId: null,
+    });
+
+    expect(result).toMatchObject({
+      state: 'NO_MATCHING_CONTENT',
+      source: {
+        attemptId: source.id,
+        testId: source.testId,
+        testTitle: source.test.title,
+        stage: AssessmentStage.MIDTERM,
+        submittedAt: source.submittedAt,
+        resultPath: `/student/enrollments/enrollment-a/attempts/${source.id}/result`,
+      },
+      recommendations: [],
+      history: [],
+    });
+  });
+});
+
+type ProjectionState = {
+  state: 'READY' | 'NO_MATCHING_CONTENT';
+  sourceAttemptId: string;
+  pendingNewerAttemptId: null;
+};
+
+type ProjectionResult = {
+  state: string;
+  source: Record<string, unknown> | null;
+  strengths: Array<{ skill: ToeicSkill; normalizedScore: number }>;
+  focus: { skill: ToeicSkill; normalizedScore: number } | null;
+  recommendations: unknown[];
+  history: Array<{
+    sourceAttemptId: string;
+    strengths: Array<{ skill: ToeicSkill; normalizedScore: number }>;
+    focus: { skill: ToeicSkill; normalizedScore: number } | null;
+  }>;
+};
+
+function createProjectionService(
+  rows: Array<ReturnType<typeof recommendationRow>>,
+  sources: Array<ReturnType<typeof projectionSource>>,
+) {
+  const prisma = {
+    enrollment: {
+      findFirstOrThrow: jest.fn().mockResolvedValue({
+        classOfferingId: 'class-a',
+        classOffering: { course: { skillScope: CourseSkillScope.LR } },
+      }),
+    },
+    studyRecommendation: { findMany: jest.fn().mockResolvedValue(rows) },
+    testAttempt: { findMany: jest.fn().mockResolvedValue(sources) },
+  } as unknown as PrismaService;
+  return new StudyRecommendationService(prisma) as unknown as {
+    projectState: (
+      learnerId: string,
+      enrollmentId: string,
+      state: ProjectionState,
+    ) => Promise<ProjectionResult>;
+  };
+}
+
+function projectionSource(
+  id: string,
+  submittedAt: string,
+  listeningScore: number,
+  readingScore: number,
+) {
+  return {
+    id,
+    testId: `test-${id}`,
+    submittedAt: new Date(submittedAt),
+    test: { title: `Assessment ${id}` },
+    classAssessment: { stage: AssessmentStage.MIDTERM },
+    skillScores: [
+      projectionSkillScore(ToeicSkill.LISTENING, listeningScore),
+      projectionSkillScore(ToeicSkill.READING, readingScore),
+      projectionSkillScore(ToeicSkill.SPEAKING, 99),
+    ],
+  };
+}
+
+function projectionSkillScore(skill: ToeicSkill, normalizedScore: number) {
+  return {
+    skill,
+    rawScore: new Prisma.Decimal(normalizedScore),
+    maxRawScore: new Prisma.Decimal(100),
+    normalizedScore: new Prisma.Decimal(normalizedScore),
+  };
+}
+
+function recommendationRow(
+  source: ReturnType<typeof projectionSource>,
+  thresholds: { weakThreshold: number; strongThreshold: number },
+  skill: ToeicSkill,
+  isActive: boolean,
+) {
+  return {
+    id: `recommendation-${source.id}`,
+    sourceAttemptId: source.id,
+    priority: 1,
+    skill,
+    targetType: 'LESSON' as const,
+    title: 'Real lesson',
+    actionText: 'Study this lesson next.',
+    aiExplanation: null,
+    isActive,
+    ruleReason: {
+      schemaVersion: 1,
+      policy: {
+        code: 'M08_STUDY_REC_V1',
+        ...thresholds,
+        minimumTaskQuestions: 2,
+        maxRecommendations: 3,
+      },
+      source: {
+        attemptId: source.id,
+        testId: source.testId,
+        stage: AssessmentStage.MIDTERM,
+        submittedAt: source.submittedAt.toISOString(),
+      },
+      skillEvidence: {
+        skill,
+        rawScore: 40,
+        maxRawScore: 100,
+        normalizedScore: 40,
+      },
+      taskEvidence: null,
+      selection: {
+        basis: 'SKILL_FALLBACK',
+        targetLessonId: 'lesson-a',
+        targetLessonTitle: 'Real lesson',
+        targetPracticeAvailableAtGeneration: false,
+        rank: 1,
+      },
+    },
+    sourceAttempt: {
+      id: source.id,
+      testId: source.testId,
+      submittedAt: source.submittedAt,
+      test: source.test,
+      classAssessment: source.classAssessment,
+    },
+    lesson: {
+      id: 'lesson-a',
+      title: 'Real lesson',
+      estimatedMinutes: 30,
+      module: { title: 'Module' },
+      resources: [],
+      tests: [],
+    },
+  };
+}
+
 function createTransactionMock() {
   return {
     enrollment: {
