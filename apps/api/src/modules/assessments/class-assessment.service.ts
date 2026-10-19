@@ -9,6 +9,7 @@ import {
 import {
   AnswerEvaluationSource,
   AnswerEvaluationStatus,
+  AssessmentStage,
   Prisma,
   QuestionResponseType,
   SkillScoreSource,
@@ -55,6 +56,8 @@ export class ClassAssessmentService {
               id: true,
               title: true,
               purpose: true,
+              lessonId: true,
+              lesson: { select: { id: true, title: true } },
               status: true,
               maxAttempts: true,
               timeLimitMinutes: true,
@@ -85,11 +88,22 @@ export class ClassAssessmentService {
       this.prisma.test.findMany({
         where: {
           courseId: offering.courseId,
-          purpose: TestPurpose.IN_CLASS,
+          OR: [
+            { purpose: TestPurpose.IN_CLASS },
+            { purpose: TestPurpose.PRACTICE_MOCK, lessonId: { not: null } },
+          ],
           status: TestStatus.PUBLISHED,
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        select: { id: true, title: true, timeLimitMinutes: true, maxAttempts: true },
+        select: {
+          id: true,
+          title: true,
+          purpose: true,
+          lessonId: true,
+          lesson: { select: { id: true, title: true } },
+          timeLimitMinutes: true,
+          maxAttempts: true,
+        },
       }),
     ]);
 
@@ -120,15 +134,21 @@ export class ClassAssessmentService {
         where: {
           id: dto.testId,
           courseId: offering.courseId,
-          purpose: TestPurpose.IN_CLASS,
+          purpose: { in: [TestPurpose.IN_CLASS, TestPurpose.PRACTICE_MOCK] },
           status: TestStatus.PUBLISHED,
         },
-        select: { id: true },
+        select: { id: true, purpose: true },
       });
       if (!test) {
         throw new BadRequestException({
           code: 'CLASS_ASSESSMENT_TEST_INVALID',
-          message: 'Chỉ có thể giao bài kiểm tra trong lớp đã xuất bản cùng khóa học.',
+          message: 'Chỉ có thể giao bài kiểm tra trong lớp hoặc bài luyện tập đã xuất bản cùng khóa học.',
+        });
+      }
+      if (test.purpose === TestPurpose.IN_CLASS && dto.stage === undefined) {
+        throw new BadRequestException({
+          code: 'CLASS_ASSESSMENT_STAGE_REQUIRED',
+          message: 'Bài kiểm tra lớp phải có giai đoạn đánh giá.',
         });
       }
       await this.assessmentInstructorService.validatePublishableTest(transaction, dto.testId);
@@ -145,13 +165,26 @@ export class ClassAssessmentService {
           data: {
             classOfferingId,
             testId: dto.testId,
-            stage: dto.stage,
+            stage:
+              test.purpose === TestPurpose.PRACTICE_MOCK
+                ? AssessmentStage.PERIODIC
+                : dto.stage!,
             openAt: dto.openAt ?? null,
             closeAt: dto.closeAt ?? null,
             maxAttemptsOverride: dto.maxAttemptsOverride ?? null,
             isActive: dto.isActive ?? true,
           },
-          include: { test: { select: { id: true, title: true } } },
+          include: {
+            test: {
+              select: {
+                id: true,
+                title: true,
+                purpose: true,
+                lessonId: true,
+                lesson: { select: { id: true, title: true } },
+              },
+            },
+          },
         });
       } catch (error: unknown) {
         if (this.isPrismaError(error, 'P2002')) this.duplicateAssignment();
@@ -200,13 +233,14 @@ export class ClassAssessmentService {
           openAt: true,
           closeAt: true,
           isActive: true,
+          test: { select: { purpose: true } },
           _count: { select: { attempts: true } },
         },
       });
       if (!assessment) throw new NotFoundException('Class assessment not found');
 
       const schedulingChanged =
-        dto.stage !== undefined ||
+        (assessment.test.purpose === TestPurpose.IN_CLASS && dto.stage !== undefined) ||
         dto.openAt !== undefined ||
         dto.closeAt !== undefined ||
         dto.maxAttemptsOverride !== undefined;
@@ -232,10 +266,24 @@ export class ClassAssessmentService {
         if (duplicate) this.duplicateAssignment();
       }
       try {
+        const updateData =
+          assessment.test.purpose === TestPurpose.PRACTICE_MOCK
+            ? { ...dto, stage: undefined }
+            : dto;
         return await transaction.classAssessment.update({
           where: { id: classAssessmentId },
-          data: dto,
-          include: { test: { select: { id: true, title: true } } },
+          data: updateData,
+          include: {
+            test: {
+              select: {
+                id: true,
+                title: true,
+                purpose: true,
+                lessonId: true,
+                lesson: { select: { id: true, title: true } },
+              },
+            },
+          },
         });
       } catch (error: unknown) {
         if (this.isPrismaError(error, 'P2002')) this.duplicateAssignment();

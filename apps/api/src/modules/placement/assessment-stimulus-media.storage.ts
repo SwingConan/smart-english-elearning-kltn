@@ -76,7 +76,7 @@ export function resolveAssessmentStimulusMediaRoot(startDirectory = __dirname): 
       try {
         const manifest = JSON.parse(readFileSync(packageJson, 'utf8')) as { name?: string };
         if (manifest.name === '@smart-elearning/api') {
-          return resolve(directory, 'assets/assessment/m05');
+          return resolve(directory, 'assets/assessment');
         }
       } catch {
         // Continue walking so a malformed unrelated package manifest cannot select the media root.

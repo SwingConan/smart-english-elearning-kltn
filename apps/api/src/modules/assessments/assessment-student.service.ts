@@ -107,6 +107,7 @@ const studentAttemptSelect = {
       title: true,
       description: true,
       purpose: true,
+      lessonId: true,
       showResultAfterSubmit: true,
       timeLimitMinutes: true,
       testQuestions: {
@@ -229,7 +230,10 @@ export class AssessmentStudentService {
         where: {
           classOfferingId: enrollment.classOffering.id,
           isActive: true,
-          test: { status: TestStatus.PUBLISHED, purpose: TestPurpose.IN_CLASS },
+          test: {
+            status: TestStatus.PUBLISHED,
+            purpose: { in: [TestPurpose.IN_CLASS, TestPurpose.PRACTICE_MOCK] },
+          },
         },
         orderBy: [{ openAt: 'asc' }, { createdAt: 'asc' }],
         select: {
@@ -268,6 +272,7 @@ export class AssessmentStudentService {
           courseId: enrollment.classOffering.courseId,
           status: TestStatus.PUBLISHED,
           purpose: TestPurpose.PRACTICE_MOCK,
+          lessonId: null,
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         select: {
@@ -363,6 +368,7 @@ export class AssessmentStudentService {
         select: {
           id: true,
           purpose: true,
+          lessonId: true,
           maxAttempts: true,
           timeLimitMinutes: true,
           testQuestions: {
@@ -385,8 +391,11 @@ export class AssessmentStudentService {
         throw new NotFoundException('Test not found');
       }
 
+      const requiresAssignment =
+        test.purpose === TestPurpose.IN_CLASS ||
+        (test.purpose === TestPurpose.PRACTICE_MOCK && test.lessonId !== null);
       const classAssessment =
-        test.purpose === TestPurpose.IN_CLASS
+        requiresAssignment
           ? await transaction.classAssessment.findFirst({
               where: {
                 classOfferingId: enrollment.classOffering.id,
@@ -401,7 +410,7 @@ export class AssessmentStudentService {
               },
             })
           : null;
-      if (test.purpose === TestPurpose.IN_CLASS && !classAssessment) {
+      if (requiresAssignment && !classAssessment) {
         throw new NotFoundException('Class assessment not found');
       }
       const now = new Date();
@@ -514,6 +523,7 @@ export class AssessmentStudentService {
       type: attempt.test.purpose,
       purpose: attempt.test.purpose,
       stage: attempt.classAssessment?.stage ?? null,
+      lessonId: attempt.test.lessonId,
       timeLimitMinutes: attempt.test.timeLimitMinutes,
     };
 
@@ -1029,6 +1039,7 @@ export class AssessmentStudentService {
         type: attempt.test.purpose,
         purpose: attempt.test.purpose,
         stage: attempt.classAssessment?.stage ?? null,
+        lessonId: attempt.test.lessonId,
       },
       gradingState: allSkillsFinal ? 'REVIEWED_FINAL' : 'SUBMITTED_PENDING_REVIEW',
       skills: skillResults,
@@ -1234,7 +1245,10 @@ export class AssessmentStudentService {
       });
     }
 
-    if (attempt.test.purpose === TestPurpose.PRACTICE_MOCK) {
+    if (
+      attempt.test.purpose === TestPurpose.PRACTICE_MOCK &&
+      attempt.test.lessonId === null
+    ) {
       await this.applyBktObservations(transaction, enrollmentId, attemptId, bktObservations);
     }
 
@@ -1380,6 +1394,7 @@ export class AssessmentStudentService {
       id: string;
       title: string;
       purpose: string;
+      lessonId: string | null;
       showResultAfterSubmit: boolean;
     };
   }) {
@@ -1395,6 +1410,8 @@ export class AssessmentStudentService {
         id: attempt.test.id,
         title: attempt.test.title,
         type: attempt.test.purpose,
+        purpose: attempt.test.purpose,
+        lessonId: attempt.test.lessonId,
       },
       resultAvailable: attempt.test.showResultAfterSubmit,
     };

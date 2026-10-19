@@ -3,7 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
-import { Prisma, ResourceType } from '../../generated/prisma/client';
+import { Prisma, ResourceType, ToeicSkill } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { InstructorContentService } from './instructor-content.service';
 import { LearningResourceStorage } from './learning-resource.storage';
@@ -50,6 +50,11 @@ describe('InstructorContentService', () => {
     transaction.classOffering.findFirst.mockResolvedValue({ id: 'offering-id' });
     transaction.module.findUnique.mockResolvedValue({ id: moduleId, courseId, updatedAt: new Date() });
     transaction.lesson.findFirst.mockResolvedValue({ orderIndex: 3 });
+    transaction.lesson.findUnique.mockResolvedValue({
+      updatedAt: new Date('2026-10-06T00:00:00.000Z'),
+      learningObjectives: [], contentMarkdown: null, estimatedMinutes: null,
+      focusSkills: [], focusTaskCodes: [], module: { courseId },
+    });
     transaction.learningResource.findFirst.mockResolvedValue({ orderIndex: 4 });
     transaction.module.create.mockImplementation(({ data }) => Promise.resolve({ id: moduleId, ...data }));
     transaction.lesson.create.mockImplementation(({ data }) => Promise.resolve({ id: lessonId, ...data }));
@@ -92,6 +97,23 @@ describe('InstructorContentService', () => {
       title: 'Stale title', expectedUpdatedAt: '2026-10-05T00:00:00.000Z',
     })).rejects.toMatchObject({ response: expect.objectContaining({ code: 'STALE_SHARED_CONTENT' }) });
     expect(transaction.module.update).not.toHaveBeenCalled();
+  });
+
+  it('preserves lesson optimistic concurrency and validates merged skill/task state', async () => {
+    await expect(service.updateLesson(instructorId, lessonId, {
+      title: 'Stale lesson', expectedUpdatedAt: '2026-10-05T00:00:00.000Z',
+    })).rejects.toMatchObject({ response: expect.objectContaining({ code: 'STALE_SHARED_CONTENT' }) });
+    expect(transaction.lesson.update).not.toHaveBeenCalled();
+
+    transaction.lesson.findUnique.mockResolvedValue({
+      updatedAt: new Date('2026-10-06T00:00:00.000Z'),
+      learningObjectives: [], contentMarkdown: null, estimatedMinutes: null,
+      focusSkills: [ToeicSkill.READING], focusTaskCodes: [], module: { courseId },
+    });
+    await expect(service.updateLesson(instructorId, lessonId, {
+      focusTaskCodes: ['L1_PHOTOGRAPH'],
+      expectedUpdatedAt: '2026-10-06T00:00:00.000Z',
+    })).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('preserves the old object and cleans up the new object on a stale resource replacement', async () => {

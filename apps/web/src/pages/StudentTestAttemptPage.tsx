@@ -1,14 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, ChevronLeft, ChevronRight, CircleAlert, Mic, Square } from 'lucide-react';
+import {
+  Bookmark,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  Mic,
+  PanelRightOpen,
+  Square,
+} from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
+import { AttemptStimuli } from '@/components/assessments/AttemptStimuli';
+import { OverlayDrawer } from '@/components/ui/OverlayDrawer';
 import { studentAssessmentApi } from '@/features/assessments/api';
+import { assessmentTypeLabel } from '@/features/assessments/display';
 import { studentAssessmentErrorMessage } from '@/features/assessments/errors';
+import { isStructuredReadingTask } from '@/features/assessments/reading-stimulus';
 import type {
   StudentAnswerSelection,
   StudentAttemptContent,
   StudentAttemptGroup,
   StudentAttemptQuestion,
-  StudentAttemptStimulus,
   ToeicSkill,
 } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
@@ -31,7 +42,6 @@ const skillLabels: Record<ToeicSkill, string> = {
   SPEAKING: 'Speaking',
   WRITING: 'Writing',
 };
-const stageLabels = { PERIODIC: 'Thường kỳ', MIDTERM: 'Giữa kỳ', FINAL: 'Cuối kỳ' } as const;
 
 export function StudentTestAttemptPage() {
   const { enrollmentId, attemptId } = useParams<{ enrollmentId: string; attemptId: string }>();
@@ -52,6 +62,11 @@ export function StudentTestAttemptPage() {
   const [submitting, setSubmitting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
+  const [questionDrawer, setQuestionDrawer] = useState(false);
+  const questionDrawerTriggerRef = useRef<HTMLButtonElement>(null);
+  const activeGroupSectionRef = useRef<HTMLElement>(null);
+  const documentPaneRef = useRef<HTMLDivElement>(null);
+  const questionPaneRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => Date.now());
   const [expired, setExpired] = useState(false);
   const [markedGroups, setMarkedGroups] = useState<Set<string>>(new Set());
@@ -112,6 +127,13 @@ export function StudentTestAttemptPage() {
   const groups = useMemo(() => normalizedGroups(content), [content]);
   const questions = useMemo(() => groups.flatMap((group) => group.questions), [groups]);
   const activeGroup = groups[Math.min(activeGroupIndex, Math.max(0, groups.length - 1))];
+  const structuredReading = activeGroup
+    ? isStructuredReadingTask(activeGroup.skill, activeGroup.taskCode)
+    : false;
+  useEffect(() => {
+    if (documentPaneRef.current) documentPaneRef.current.scrollTop = 0;
+    if (questionPaneRef.current) questionPaneRef.current.scrollTop = 0;
+  }, [activeGroupIndex]);
   const answered = questions.filter((question) =>
     isAnswered(question, drafts[question.testQuestionId]),
   ).length;
@@ -306,12 +328,16 @@ export function StudentTestAttemptPage() {
   ).length;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 pb-28">
+    <div className="w-full space-y-5 pb-32" data-assessment-focus-workspace="true">
       <header className="sticky top-0 z-20 rounded-xl border bg-white/95 p-4 shadow-sm backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
-              {content.test.stage ? stageLabels[content.test.stage] : 'Bài kiểm tra trên lớp'}
+              {assessmentTypeLabel(
+                content.test.purpose ?? 'IN_CLASS',
+                content.test.stage,
+                content.test.lessonId,
+              )}
             </p>
             <h1 className="text-xl font-bold">{content.test.title}</h1>
           </div>
@@ -325,6 +351,17 @@ export function StudentTestAttemptPage() {
                 {formatTime(secondsLeft)}
               </span>
             )}
+            <button
+              aria-expanded={questionDrawer}
+              aria-haspopup="dialog"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-700"
+              onClick={() => setQuestionDrawer(true)}
+              ref={questionDrawerTriggerRef}
+              type="button"
+            >
+              <PanelRightOpen aria-hidden="true" size={17} />
+              Điều hướng · {answered}/{questions.length}
+            </button>
           </div>
         </div>
       </header>
@@ -353,18 +390,16 @@ export function StudentTestAttemptPage() {
           chuyển câu hay nộp bài.
         </div>
       )}
-      <MobileNavigator
-        groups={groups}
-        drafts={drafts}
-        markedGroups={markedGroups}
-        activeIndex={activeGroupIndex}
-        starts={groupStarts}
-        disabled={unsafeAudio}
-        onSelect={setActiveGroupIndex}
-      />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div
+        className={structuredReading ? 'w-full' : 'mx-auto max-w-[68rem]'}
+        data-attempt-layout={structuredReading ? 'reading-split' : 'standard-column'}
+      >
         {activeGroup ? (
-          <section className="rounded-2xl border bg-slate-50 p-4 sm:p-6">
+          <section
+            className="rounded-2xl border bg-slate-50 p-4 outline-none sm:p-6"
+            ref={activeGroupSectionRef}
+            tabIndex={-1}
+          >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-800">
@@ -392,26 +427,61 @@ export function StudentTestAttemptPage() {
                 Đánh dấu xem lại
               </button>
             </div>
-            <Stimuli stimuli={activeGroup.stimuli} stimulusText={activeGroup.stimulusText} />
-            <div className="mt-5 space-y-4">
-              {activeGroup.questions.map((question, questionIndex) => (
-                <QuestionCard
-                  key={question.testQuestionId}
-                  number={groupStarts[activeGroupIndex] + questionIndex}
-                  question={question}
-                  draft={drafts[question.testQuestionId]}
-                  disabled={submitting || expired}
-                  preparationSeconds={activeGroup.preparationSeconds ?? 0}
-                  maxRecordingSeconds={
-                    activeGroup.maxRecordingSeconds ?? activeGroup.responseSeconds ?? 60
-                  }
-                  onChange={(update) => updateDraft(question.testQuestionId, update)}
-                  onAudio={(blob) => uploadAudio(question.testQuestionId, blob)}
-                  onAudioState={(safety) =>
-                    setAudioSafety((current) => ({ ...current, [question.testQuestionId]: safety }))
-                  }
+            <div
+              data-testid={structuredReading ? 'reading-workspace' : undefined}
+              className={
+                structuredReading
+                  ? 'grid gap-5 xl:grid-cols-[minmax(0,56fr)_minmax(24rem,44fr)] xl:items-start xl:gap-6'
+                  : ''
+              }
+            >
+              <div
+                data-testid={structuredReading ? 'reading-document-pane' : undefined}
+                className={
+                  structuredReading
+                    ? 'xl:sticky xl:top-24 xl:max-h-[calc(100vh-13rem)] xl:overflow-y-auto xl:pr-2'
+                    : ''
+                }
+                ref={documentPaneRef}
+              >
+                <AttemptStimuli
+                  stimuli={activeGroup.stimuli}
+                  stimulusText={activeGroup.stimulusText}
+                  skill={activeGroup.skill}
+                  taskCode={activeGroup.taskCode}
                 />
-              ))}
+              </div>
+              <div
+                data-testid={structuredReading ? 'reading-question-pane' : undefined}
+                className={
+                  structuredReading
+                    ? 'space-y-4 xl:max-h-[calc(100vh-13rem)] xl:overflow-y-auto xl:pr-2'
+                    : 'mt-5 space-y-4'
+                }
+                ref={questionPaneRef}
+              >
+                {activeGroup.questions.map((question, questionIndex) => (
+                  <QuestionCard
+                    key={question.testQuestionId}
+                    number={groupStarts[activeGroupIndex] + questionIndex}
+                    question={question}
+                    draft={drafts[question.testQuestionId]}
+                    disabled={submitting || expired}
+                    preparationSeconds={activeGroup.preparationSeconds ?? 0}
+                    maxRecordingSeconds={
+                      activeGroup.maxRecordingSeconds ?? activeGroup.responseSeconds ?? 60
+                    }
+                    onChange={(update) => updateDraft(question.testQuestionId, update)}
+                    onAudio={(blob) => uploadAudio(question.testQuestionId, blob)}
+                    onAudioState={(safety) =>
+                      setAudioSafety((current) => ({
+                        ...current,
+                        [question.testQuestionId]: safety,
+                      }))
+                    }
+                  />
+                ))}
+              </div>
             </div>
             <div className="mt-6 flex justify-between gap-3">
               <button
@@ -435,18 +505,30 @@ export function StudentTestAttemptPage() {
             </div>
           </section>
         ) : null}
-        <DesktopNavigator
+      </div>
+      <OverlayDrawer
+        onClose={() => setQuestionDrawer(false)}
+        open={questionDrawer}
+        side="right"
+        title="Điều hướng câu hỏi"
+        triggerRef={questionDrawerTriggerRef}
+      >
+        <NavigatorContent
           groups={groups}
           drafts={drafts}
           markedGroups={markedGroups}
           activeIndex={activeGroupIndex}
           starts={groupStarts}
           disabled={unsafeAudio}
-          onSelect={setActiveGroupIndex}
+          onSelect={(index) => {
+            setActiveGroupIndex(index);
+            setQuestionDrawer(false);
+            window.setTimeout(() => activeGroupSectionRef.current?.focus(), 0);
+          }}
         />
-      </div>
+      </OverlayDrawer>
       <footer className="fixed inset-x-0 bottom-0 z-20 border-t bg-white p-3 shadow-lg">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+        <div className="mx-auto flex w-full max-w-[1920px] items-center justify-between gap-3 px-1 sm:px-3 lg:px-5">
           <button
             className="rounded border px-4 py-2 text-sm disabled:opacity-50"
             disabled={unsafeAudio}
@@ -907,22 +989,6 @@ type NavigatorProps = {
   disabled: boolean;
   onSelect: (index: number) => void;
 };
-function DesktopNavigator(props: NavigatorProps) {
-  return (
-    <aside className="hidden self-start rounded-2xl border bg-white p-4 shadow-sm lg:sticky lg:top-24 lg:block">
-      <h2 className="font-bold">Điều hướng câu hỏi</h2>
-      <NavigatorContent {...props} />
-    </aside>
-  );
-}
-function MobileNavigator(props: NavigatorProps) {
-  return (
-    <details className="rounded-xl border bg-white p-4 lg:hidden">
-      <summary className="cursor-pointer font-semibold">Điều hướng câu hỏi</summary>
-      <NavigatorContent {...props} />
-    </details>
-  );
-}
 function NavigatorContent({
   groups,
   drafts,
@@ -944,7 +1010,7 @@ function NavigatorContent({
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
               {skillLabels[skill]}
             </h3>
-            <div className="mt-2 grid grid-cols-2 gap-2 lg:grid-cols-1">
+            <div className="mt-2 grid grid-cols-1 gap-2">
               {skillGroups.map(({ group, index }) => {
                 const complete = group.questions.every((question) =>
                   isAnswered(question, drafts[question.testQuestionId]),
@@ -972,40 +1038,6 @@ function NavigatorContent({
           </section>
         );
       })}
-    </div>
-  );
-}
-function Stimuli({
-  stimuli,
-  stimulusText,
-}: {
-  stimuli: StudentAttemptStimulus[];
-  stimulusText?: string | null;
-}) {
-  return (
-    <div className="space-y-3">
-      {stimulusText && (
-        <div className="whitespace-pre-wrap rounded-xl border bg-white p-4 text-sm leading-7">
-          {stimulusText}
-        </div>
-      )}
-      {stimuli.map((stimulus) => (
-        <div className="rounded-xl border bg-white p-3" key={stimulus.id}>
-          {stimulus.type === 'TEXT' ? (
-            <p className="whitespace-pre-wrap">{stimulus.textContent}</p>
-          ) : stimulus.type === 'IMAGE' ? (
-            <img
-              className="mx-auto max-h-96 rounded object-contain"
-              src={stimulus.mediaUrl ?? ''}
-              alt={stimulus.altText ?? 'Nội dung câu hỏi'}
-            />
-          ) : (
-            <audio className="w-full" controls preload="metadata" src={stimulus.mediaUrl ?? ''}>
-              Trình duyệt không hỗ trợ phát âm thanh.
-            </audio>
-          )}
-        </div>
-      ))}
     </div>
   );
 }

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { BarChart3, BookOpen, ClipboardList, Home, Menu, Trophy, X } from 'lucide-react';
-import { Link, NavLink, Outlet, useParams } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { BarChart3, BookOpen, ClipboardList, Home, Menu, Trophy } from 'lucide-react';
+import { Link, NavLink, Outlet, useMatch, useParams } from 'react-router';
+import { OverlayDrawer } from '@/components/ui/OverlayDrawer';
 import { enrollmentApi } from '@/features/enrollments/api';
 import type { EnrollmentView } from '@/features/enrollments/types';
 import { ApiError } from '@/lib/api-client';
@@ -11,9 +12,16 @@ export interface ClassShellContext {
 
 export function ClassShellLayout() {
   const { enrollmentId = '' } = useParams();
+  const focusMode = Boolean(
+    useMatch({
+      path: '/student/enrollments/:enrollmentId/attempts/:attemptId',
+      end: true,
+    }),
+  );
   const [enrollment, setEnrollment] = useState<EnrollmentView | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
   const [drawer, setDrawer] = useState(false);
+  const drawerTriggerRef = useRef<HTMLButtonElement>(null);
   const [reload, setReload] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
@@ -90,12 +98,17 @@ export function ClassShellLayout() {
   return (
     <div className="min-h-screen bg-slate-100">
       <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-8">
+        <div
+          className={`mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 ${focusMode ? 'w-full max-w-[1920px] py-3' : 'max-w-7xl py-5'}`}
+          data-class-shell-mode={focusMode ? 'focus' : 'standard'}
+        >
           <div>
             <Link className="text-sm font-semibold text-indigo-700" to="/student/enrollments">
               ← Lớp học của tôi
             </Link>
-            <h1 className="mt-2 text-xl font-bold">{enrollment.classOffering.name}</h1>
+            <h1 className={`${focusMode ? 'mt-1 text-lg' : 'mt-2 text-xl'} font-bold`}>
+              {enrollment.classOffering.name}
+            </h1>
             <p className="text-sm text-slate-500">
               {enrollment.classOffering.code} · {enrollment.classOffering.course.title}
             </p>
@@ -113,48 +126,46 @@ export function ClassShellLayout() {
             </div>
           </div>
           <button
-            aria-label="Mở điều hướng lớp"
-            className="rounded-lg border p-2 lg:hidden"
+            aria-label="Mở không gian lớp"
+            className={`items-center gap-2 rounded-lg border px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50 ${focusMode ? 'flex' : 'flex lg:hidden'}`}
             onClick={() => setDrawer(true)}
+            ref={drawerTriggerRef}
             type="button"
           >
-            <Menu />
+            <Menu aria-hidden="true" size={20} />
+            {focusMode ? <span className="hidden sm:inline">Không gian lớp</span> : null}
           </button>
         </div>
       </header>
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[250px_1fr] lg:px-8">
-        <aside className="hidden self-start rounded-2xl border bg-white p-4 shadow-sm lg:sticky lg:top-24 lg:block">
-          {navigation}
-        </aside>
+      <div
+        className={
+          focusMode
+            ? 'mx-auto w-full max-w-[1920px] px-4 py-4 sm:px-6 lg:px-8'
+            : 'mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[250px_1fr] lg:px-8'
+        }
+        data-class-shell-workspace={focusMode ? 'focus' : 'standard'}
+      >
+        {!focusMode ? (
+          <aside
+            className="hidden self-start rounded-2xl border bg-white p-4 shadow-sm lg:sticky lg:top-24 lg:block"
+            data-class-navigation="persistent"
+          >
+            {navigation}
+          </aside>
+        ) : null}
         <main className="min-w-0">
           <Outlet context={{ enrollment } satisfies ClassShellContext} />
         </main>
       </div>
-      {drawer ? (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/50 lg:hidden"
-          onClick={() => setDrawer(false)}
-          role="presentation"
-        >
-          <aside
-            aria-label="Điều hướng lớp di động"
-            className="h-full w-72 bg-white p-5"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-6 flex items-center justify-between">
-              <strong>Không gian lớp</strong>
-              <button
-                aria-label="Đóng điều hướng lớp"
-                onClick={() => setDrawer(false)}
-                type="button"
-              >
-                <X />
-              </button>
-            </div>
-            {navigation}
-          </aside>
-        </div>
-      ) : null}
+      <OverlayDrawer
+        onClose={() => setDrawer(false)}
+        open={drawer}
+        side="left"
+        title="Không gian lớp"
+        triggerRef={drawerTriggerRef}
+      >
+        {navigation}
+      </OverlayDrawer>
     </div>
   );
 }

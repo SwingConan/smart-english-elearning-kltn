@@ -38,6 +38,7 @@ describe('M06 four-skill assessment UI', () => {
     expect(await screen.findByText(/Writing task/)).toBeInTheDocument();
     expect(screen.queryByText(/Speaking task/)).not.toBeInTheDocument();
     expect(screen.queryByText('M06-WRITE-01')).not.toBeInTheDocument();
+    openQuestionNavigator();
     fireEvent.click(screen.getAllByRole('button', { name: /Câu 2/ })[0]);
     expect(await screen.findByText(/Speaking task/)).toBeInTheDocument();
     expect(screen.queryByText(/Writing task/)).not.toBeInTheDocument();
@@ -88,19 +89,17 @@ describe('M06 four-skill assessment UI', () => {
     vi.spyOn(studentAssessmentApi, 'getAttempt').mockResolvedValue(writingContent());
     const saving = deferred<{ attemptId: string; answers: [] }>();
     vi.spyOn(studentAssessmentApi, 'saveAnswers').mockReturnValue(saving.promise);
-    const submit = vi
-      .spyOn(studentAssessmentApi, 'submit')
-      .mockResolvedValue({
-        attempt: {
-          id: 'a1',
-          attemptNumber: 1,
-          status: 'SUBMITTED',
-          startedAt: '',
-          submittedAt: '',
-        },
-        test: { id: 't1', title: 'Kiểm tra giữa kỳ', type: 'IN_CLASS' },
-        resultAvailable: true,
-      });
+    const submit = vi.spyOn(studentAssessmentApi, 'submit').mockResolvedValue({
+      attempt: {
+        id: 'a1',
+        attemptNumber: 1,
+        status: 'SUBMITTED',
+        startedAt: '',
+        submittedAt: '',
+      },
+      test: { id: 't1', title: 'Kiểm tra giữa kỳ', type: 'IN_CLASS' },
+      resultAvailable: true,
+    });
     renderAttempt();
     const textarea = await screen.findByPlaceholderText('Nhập câu trả lời của bạn...');
     vi.useFakeTimers();
@@ -163,6 +162,7 @@ describe('M06 four-skill assessment UI', () => {
     expect(await screen.findByText(/Bản ghi Speaking mới chưa được lưu/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Nộp bài$/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Danh sách bài kiểm tra' })).toBeDisabled();
+    openQuestionNavigator();
     expect(
       screen
         .getAllByRole('button', { name: /Câu 1/ })
@@ -197,6 +197,7 @@ describe('M06 four-skill assessment UI', () => {
     expect(screen.getByRole('button', { name: 'Bỏ bản ghi mới' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Nộp bài$/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Danh sách bài kiểm tra' })).toBeDisabled();
+    openQuestionNavigator();
     expect(
       screen
         .getAllByRole('button', { name: /Câu 1/ })
@@ -316,6 +317,7 @@ describe('M06 four-skill assessment UI', () => {
     const mark = await screen.findByRole('button', { name: /Đánh dấu xem lại/ });
     fireEvent.click(mark);
     expect(mark).toHaveAttribute('aria-pressed', 'true');
+    openQuestionNavigator();
     expect(screen.getAllByRole('button', { name: /Đã đánh dấu xem lại/ }).length).toBeGreaterThan(
       0,
     );
@@ -391,24 +393,44 @@ describe('M06 four-skill assessment UI', () => {
   it('moves to the next unfinished productive response in the same attempt before another learner', async () => {
     const detail = gradingDetail();
     detail.answers.push({
-      ...detail.answers[0], id: 'ans2', textResponse: null, audioUrl: '/api/audio/ans2',
-      testQuestion: { ...detail.answers[0].testQuestion, id: 'tq2', orderIndex: 1, question: { ...detail.answers[0].testQuestion.question, content: 'Speak', responseType: 'AUDIO_RESPONSE', toeicSkill: 'SPEAKING' } },
+      ...detail.answers[0],
+      id: 'ans2',
+      textResponse: null,
+      audioUrl: '/api/audio/ans2',
+      testQuestion: {
+        ...detail.answers[0].testQuestion,
+        id: 'tq2',
+        orderIndex: 1,
+        question: {
+          ...detail.answers[0].testQuestion.question,
+          content: 'Speak',
+          responseType: 'AUDIO_RESPONSE',
+          toeicSkill: 'SPEAKING',
+        },
+      },
     });
     vi.spyOn(classAssessmentApi, 'gradingDetail').mockResolvedValue(detail);
     vi.spyOn(classAssessmentApi, 'gradeAnswer').mockResolvedValue({});
     const queue = vi.spyOn(instructorApi.classes, 'grading');
     const scroll = vi.fn();
-    Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scroll });
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scroll,
+    });
     renderAssessmentRoute(
       <AssessmentGradingDetailPage />,
       '/instructor/classes/c1/assessments/ca1/attempts/a1/grading',
       '/instructor/classes/:classOfferingId/assessments/:classAssessmentId/attempts/:attemptId/grading',
       { role: 'INSTRUCTOR' },
     );
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Lưu nháp & sang câu tiếp theo' }))[0]);
+    fireEvent.click(
+      (await screen.findAllByRole('button', { name: 'Lưu nháp & sang câu tiếp theo' }))[0],
+    );
     await waitFor(() => expect(scroll).toHaveBeenCalled());
     expect(queue).not.toHaveBeenCalled();
-    expect(screen.getByRole('navigation', { name: 'Điều hướng câu chấm' })).toHaveTextContent('Câu 2 · Chờ chấm');
+    expect(screen.getByRole('navigation', { name: 'Điều hướng câu chấm' })).toHaveTextContent(
+      'Câu 2 · Chờ chấm',
+    );
   });
 
   it('blocks out-of-range rubric scores inline and displays teacher-friendly weights', async () => {
@@ -474,6 +496,9 @@ describe('M06 four-skill assessment UI', () => {
           test: {
             id: 't1',
             title: 'Kiểm tra giữa kỳ',
+            purpose: 'IN_CLASS',
+            lessonId: null,
+            lesson: null,
             maxAttempts: 1,
             timeLimitMinutes: 30,
             _count: { testQuestions: 11 },
@@ -489,7 +514,7 @@ describe('M06 four-skill assessment UI', () => {
       { role: 'INSTRUCTOR' },
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Chỉnh sửa lịch' }));
-    fireEvent.change(screen.getAllByLabelText('Loại đánh giá')[1], { target: { value: 'FINAL' } });
+    fireEvent.change(screen.getByLabelText('Loại đánh giá'), { target: { value: 'FINAL' } });
     fireEvent.change(screen.getAllByLabelText('Số lượt tối đa')[1], { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Lưu lịch' }));
     await waitFor(() =>
@@ -501,6 +526,96 @@ describe('M06 four-skill assessment UI', () => {
     );
   });
 
+  it('separates lesson practice from formal stage semantics', async () => {
+    vi.spyOn(classAssessmentApi, 'list').mockResolvedValue({
+      classOffering: {
+        id: 'c1',
+        code: 'C1',
+        name: 'Class',
+        course: { id: 'course', title: 'Course' },
+      },
+      availableTests: [
+        {
+          id: 'practice',
+          title: 'Part 3 drill',
+          purpose: 'PRACTICE_MOCK',
+          lessonId: 'lesson-3',
+          lesson: { id: 'lesson-3', title: 'Lesson 3 · Conversations' },
+          maxAttempts: 2,
+          timeLimitMinutes: 20,
+        },
+      ],
+      assessments: [
+        {
+          id: 'practice-assignment',
+          stage: 'FINAL',
+          openAt: null,
+          closeAt: null,
+          maxAttemptsOverride: null,
+          isActive: true,
+          submissionCount: 0,
+          pendingGradingCount: 0,
+          attemptCount: 0,
+          test: {
+            id: 'practice',
+            title: 'Part 3 drill',
+            purpose: 'PRACTICE_MOCK',
+            lessonId: 'lesson-3',
+            lesson: { id: 'lesson-3', title: 'Lesson 3 · Conversations' },
+            maxAttempts: 2,
+            timeLimitMinutes: 20,
+            _count: { testQuestions: 5 },
+          },
+        },
+        {
+          id: 'standalone-assignment',
+          stage: 'MIDTERM',
+          openAt: null,
+          closeAt: null,
+          maxAttemptsOverride: null,
+          isActive: true,
+          submissionCount: 1,
+          pendingGradingCount: 0,
+          attemptCount: 1,
+          test: {
+            id: 'standalone-practice',
+            title: 'General mock',
+            purpose: 'PRACTICE_MOCK',
+            lessonId: null,
+            lesson: null,
+            maxAttempts: 1,
+            timeLimitMinutes: 30,
+            _count: { testQuestions: 10 },
+          },
+        },
+      ],
+    });
+    const create = vi.spyOn(classAssessmentApi, 'create').mockResolvedValue({});
+    renderAssessmentRoute(
+      <ClassAssessmentManagementPage />,
+      '/instructor/classes/c1/assessments',
+      '/instructor/classes/:classOfferingId/assessments',
+      { role: 'INSTRUCTOR' },
+    );
+
+    expect(await screen.findByRole('group', { name: 'Bài luyện sau bài học' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Lesson 3 · Conversations/ })).toBeInTheDocument();
+    expect(screen.getByText(/Liên kết:/)).toHaveTextContent('Lesson 3 · Conversations');
+    expect(screen.getByText(/Bài học:/)).toHaveTextContent('Lesson 3 · Conversations');
+    expect(screen.getByText('Luyện tập / Thi thử')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Loại đánh giá')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cuối kỳ')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Giao cho lớp' }));
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith(
+        'c1',
+        expect.not.objectContaining({ stage: expect.anything() }),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Chỉnh sửa lịch' }));
+    expect(screen.queryByLabelText('Loại đánh giá')).not.toBeInTheDocument();
+  });
+
   it('shows truthful four-skill assessment snapshots in progress history', async () => {
     vi.spyOn(learningApi, 'getProgress').mockResolvedValue(progressWithAttemptHistory());
     renderAssessmentRoute(
@@ -508,7 +623,7 @@ describe('M06 four-skill assessment UI', () => {
       '/student/enrollments/e1/progress',
       '/student/enrollments/:enrollmentId/progress',
     );
-      expect(await screen.findByText('Đang làm lượt 2/2')).toBeInTheDocument();
+    expect(await screen.findByText('Đang làm lượt 2/2')).toBeInTheDocument();
     expect(screen.getByText('Lượt 1 · Đã nộp')).toBeInTheDocument();
     expect(await screen.findByText('80%')).toBeInTheDocument();
     expect(screen.getByText('70.5%')).toBeInTheDocument();
@@ -577,6 +692,9 @@ function renderAttempt() {
     '/student/enrollments/e1/attempts/a1',
     '/student/enrollments/:enrollmentId/attempts/:attemptId',
   );
+}
+function openQuestionNavigator() {
+  fireEvent.click(screen.getByRole('button', { name: /Điều hướng ·/ }));
 }
 function question(
   id: string,
@@ -794,10 +912,11 @@ function progressWithAttemptHistory(): CourseProgress {
         testId: 't1',
         title: 'Kiểm tra giữa kỳ',
         purpose: 'IN_CLASS',
+        lessonId: null,
         stage: 'MIDTERM',
-          openAt: null,
-          closeAt: null,
-          maxAttempts: 2,
+        openAt: null,
+        closeAt: null,
+        maxAttempts: 2,
         status: 'IN_PROGRESS',
         currentAttempt: { attemptId: 'a2', attemptNumber: 2, status: 'IN_PROGRESS' },
         submittedAttempts: [

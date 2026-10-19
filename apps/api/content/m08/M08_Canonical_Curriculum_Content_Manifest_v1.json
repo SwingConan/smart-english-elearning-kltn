@@ -1,0 +1,465 @@
+{
+  "schemaVersion": 1,
+  "artifact": "M08_A2_Canonical_Curriculum_Content_Manifest_v1",
+  "status": "PRODUCT_AUTHORED_READY_FOR_IMPLEMENTATION",
+  "course": {
+    "slug": "demo-english-foundations",
+    "title": "TOEIC Workplace Foundations",
+    "level": "FOUNDATION",
+    "skillScope": "LR",
+    "language": "vi-VN",
+    "officialToeicEquivalence": false
+  },
+  "rules": {
+    "moduleCount": 9,
+    "lessonCount": 20,
+    "lessonBodyFormat": "SAFE_MARKDOWN_SUPPORTED_SUBSET",
+    "noDummyResources": true,
+    "noCurriculumReorderingByRecommendation": true,
+    "practiceLanding": {
+      "L04": "M08_PRACTICE_P1_V1",
+      "L06": "M08_PRACTICE_P2_V1",
+      "L08": "M08_PRACTICE_P3_V1",
+      "L10": "M08_PRACTICE_P4_V1",
+      "L13": "M08_PRACTICE_P5_V1",
+      "L15": "M08_PRACTICE_P6_V1",
+      "L18": "M08_PRACTICE_P7_V1"
+    }
+  },
+  "modules": [
+    {
+      "moduleKey": "M01",
+      "title": "Khởi động TOEIC L&R và chiến lược học",
+      "description": "Hiểu cấu trúc bài thi, cách dùng kết quả đánh giá và xây nhịp học hiệu quả trước khi đi vào từng Part.",
+      "lessons": [
+        {
+          "lessonKey": "L01",
+          "title": "Hiểu cấu trúc TOEIC Listening & Reading",
+          "description": "Làm quen với Part 1–7, dạng nhiệm vụ và cách hệ thống dùng kết quả để định hướng tự học.",
+          "learningObjectives": [
+            "Phân biệt được 4 Part Listening và 3 Part Reading trong TOEIC L&R.",
+            "Nhận biết mục tiêu chính của từng Part thay vì học mẹo rời rạc.",
+            "Hiểu rằng điểm và tỷ lệ đúng trong hệ thống là dữ liệu học tập nội bộ, không phải điểm TOEIC chính thức."
+          ],
+          "estimatedMinutes": 25,
+          "focusSkills": [
+            "LISTENING",
+            "READING"
+          ],
+          "focusTaskCodes": [],
+          "contentMarkdown": "# Bức tranh tổng thể\nTOEIC Listening & Reading gồm bảy dạng nhiệm vụ chính. Trong khóa học này, mỗi Part được tách thành một cụm kỹ năng nhỏ để bạn biết mình đang luyện điều gì thay vì chỉ làm nhiều câu liên tiếp.\n\n## Listening\n- Part 1: chọn mô tả phù hợp với hình ảnh.\n- Part 2: chọn phản hồi phù hợp cho câu hỏi hoặc phát biểu.\n- Part 3: nghe hội thoại và trả lời theo nhóm câu.\n- Part 4: nghe bài nói ngắn như thông báo, quảng cáo hoặc tin nhắn.\n\n## Reading\n- Part 5: hoàn thành câu bằng ngữ pháp và từ vựng.\n- Part 6: hoàn thành văn bản dựa trên mạch nghĩa giữa các câu.\n- Part 7: đọc một hoặc nhiều tài liệu và trả lời câu hỏi.\n\n## Cách học trong khóa\nMỗi bài học có ba lớp: nhận diện nhiệm vụ, luyện chiến thuật, rồi tự kiểm tra bằng ví dụ hoặc checklist. Cuối mỗi Part sẽ có một bài luyện ngắn gắn trực tiếp với nội dung đã học.\n\n## Tự kiểm tra 3 phút\n1. Không nhìn lại phần trên, hãy kể tên Part 1–7.\n2. Với mỗi Part, nói một câu về việc người học phải làm.\n3. Đánh dấu Part bạn cảm thấy thiếu tự tin nhất để theo dõi khi làm Assessment sau này.\n\n> Kết quả trong hệ thống dùng để hỗ trợ học tập nội bộ. Không diễn giải thành điểm TOEIC chính thức nếu hệ thống không có phép quy đổi được phê duyệt."
+        },
+        {
+          "lessonKey": "L02",
+          "title": "Quản lý thời gian và tự kiểm tra sau Assessment",
+          "description": "Học cách đọc kết quả, tách lỗi do kiến thức và lỗi do chiến thuật, rồi lên kế hoạch ôn theo bằng chứng.",
+          "learningObjectives": [
+            "Phân biệt lỗi do không biết kiến thức với lỗi do đọc/nghe vội.",
+            "Biết cách ghi lại bằng chứng sau một bài Assessment hoặc Practice.",
+            "Lập được kế hoạch ôn ngắn theo kỹ năng yếu mà không thay đổi thứ tự curriculum."
+          ],
+          "estimatedMinutes": 25,
+          "focusSkills": [
+            "LISTENING",
+            "READING"
+          ],
+          "focusTaskCodes": [],
+          "contentMarkdown": "# Học từ kết quả, không chỉ nhìn số điểm\nMột bài làm chỉ có giá trị khi bạn biết câu sai nói gì về cách học của mình. Sau mỗi Assessment hoặc Practice, hãy tách lỗi thành ba nhóm: thiếu kiến thức, bỏ sót chi tiết, và quản lý thời gian chưa tốt.\n\n## Nhật ký lỗi tối giản\n- Câu hoặc nhóm câu nào sai?\n- Dạng nhiệm vụ là gì?\n- Bạn sai vì không hiểu từ/cấu trúc, vì bỏ sót tín hiệu, hay vì vội?\n- Lần sau cần đổi hành động nào?\n\n## Nguyên tắc 20 phút\nKhi ôn lại một Part yếu, hãy dành phần lớn thời gian cho lỗi lặp lại thay vì làm lại toàn bộ đề. Một phiên 20 phút có thể gồm:\n1. 5 phút đọc lại chiến thuật.\n2. 10 phút làm một nhóm bài tập.\n3. 5 phút ghi lại lỗi và điều chỉnh.\n\n## Không tự suy diễn điểm chính thức\nTỷ lệ đúng, normalized score hoặc nhãn trong hệ thống chỉ phục vụ cá nhân hóa học tập. Không tự quy đổi chúng thành điểm TOEIC chính thức.\n\n## Bài tập nhanh\nViết ba dòng: Part yếu nhất hiện tại, lỗi thường gặp nhất, và một hành động cụ thể bạn sẽ làm ở phiên học tiếp theo."
+        }
+      ]
+    },
+    {
+      "moduleKey": "M02",
+      "title": "Listening Part 1 — Photographs",
+      "description": "Nhận diện chủ thể, hành động, vị trí và các distractor thường gặp trong câu mô tả hình ảnh.",
+      "lessons": [
+        {
+          "lessonKey": "L03",
+          "title": "Chủ thể, hành động và vị trí trong ảnh",
+          "description": "Luyện quét ảnh theo thứ tự chủ thể → hành động → vị trí trước khi nghe đáp án.",
+          "learningObjectives": [
+            "Xác định nhanh chủ thể chính và vật thể nổi bật trong ảnh.",
+            "Phân biệt hành động đang diễn ra với trạng thái tĩnh.",
+            "Đối chiếu mô tả với vị trí tương đối của người và vật."
+          ],
+          "estimatedMinutes": 30,
+          "focusSkills": [
+            "LISTENING"
+          ],
+          "focusTaskCodes": [
+            "L1_PHOTOGRAPH"
+          ],
+          "contentMarkdown": "# Quy trình quét ảnh 5 giây\nTrước khi audio bắt đầu, đừng cố đặt câu đầy đủ. Hãy nhìn theo ba lớp: ai/cái gì, đang làm gì, ở đâu.\n\n## Lớp 1 — Chủ thể\nXác định người, nhóm người, phương tiện, đồ vật hoặc cảnh vật nào nổi bật nhất.\n\n## Lớp 2 — Hành động\nTập trung vào động từ có thể quan sát được như carrying, standing, arranging, entering, waiting. Nếu ảnh không cho thấy hành động, ưu tiên mô tả trạng thái.\n\n## Lớp 3 — Vị trí\nChú ý các quan hệ như beside, behind, in front of, near, on, around.\n\n## Bẫy thường gặp\n- Đúng danh từ nhưng sai hành động.\n- Đúng hành động nhưng sai chủ thể.\n- Mô tả một vật có trong ảnh nhưng không phải chi tiết chính.\n- Dùng thì tiếp diễn cho một trạng thái không diễn ra.\n\n## Guided drill\nChọn một ảnh bất kỳ quanh bạn và tự nói ba cụm từ: chủ thể chính, hành động/trạng thái, vị trí. Sau đó tạo một mô tả sai chỉ bằng cách thay một yếu tố. Đây chính là cách distractor Part 1 thường được xây."
+        },
+        {
+          "lessonKey": "L04",
+          "title": "Giới từ, trạng thái và distractor Part 1",
+          "description": "Tập trung vào giới từ vị trí, trạng thái đồ vật và cách loại đáp án gần đúng.",
+          "learningObjectives": [
+            "Nhận diện các giới từ vị trí thường tạo khác biệt giữa đáp án đúng và distractor.",
+            "Phân biệt trạng thái với hành động được suy diễn quá mức.",
+            "Dùng phương pháp loại trừ khi hai mô tả có từ vựng gần nhau."
+          ],
+          "estimatedMinutes": 35,
+          "focusSkills": [
+            "LISTENING"
+          ],
+          "focusTaskCodes": [
+            "L1_PHOTOGRAPH"
+          ],
+          "practiceCode": "M08_PRACTICE_P1_V1",
+          "contentMarkdown": "# Khi đáp án nghe đều có vẻ hợp lý\nPart 1 thường không đánh lừa bằng từ quá khó. Bẫy nằm ở một chi tiết nhỏ: giới từ, trạng thái, hoặc hành động không thật sự xuất hiện.\n\n## Giới từ cần phản xạ nhanh\n- next to / beside: ngay bên cạnh.\n- in front of / behind: trước / sau.\n- across from: đối diện.\n- along: dọc theo.\n- around: bao quanh.\n- on / in / at: phụ thuộc quan hệ thực tế trong ảnh.\n\n## Trạng thái không phải hành động\nMột chiếc ghế được xếp thành vòng tròn có thể được mô tả là arranged in a circle. Không vì thấy người gần đó mà suy ra họ đang sắp xếp ghế.\n\n## Kỹ thuật loại trừ 2 bước\n1. Loại câu có chi tiết chắc chắn sai.\n2. Trong các câu còn lại, chọn câu mô tả đúng nhất những gì thực sự nhìn thấy, không thêm suy luận.\n\n## Checklist trước bài luyện\n- Tôi đã nhìn chủ thể trước khi nghe chưa?\n- Tôi có kiểm tra giới từ vị trí không?\n- Tôi có tránh suy diễn hành động không xuất hiện không?\n\nSau bài học này, làm bài luyện Part 1 để kiểm tra cả hai nhóm kỹ năng của Module."
+        }
+      ]
+    },
+    {
+      "moduleKey": "M03",
+      "title": "Listening Part 2 — Question–Response",
+      "description": "Phản xạ với loại câu hỏi, câu trả lời trực tiếp và phản hồi gián tiếp mà không bị từ lặp đánh lừa.",
+      "lessons": [
+        {
+          "lessonKey": "L05",
+          "title": "WH, Yes/No và Choice questions",
+          "description": "Nhận diện loại câu hỏi từ tín hiệu đầu câu và dự đoán loại thông tin của đáp án.",
+          "learningObjectives": [
+            "Phân biệt nhanh WH-question, Yes/No question và choice question.",
+            "Dự đoán loại thông tin cần nghe trong câu trả lời.",
+            "Loại đáp án đúng ngữ pháp nhưng không trả lời đúng ý."
+          ],
+          "estimatedMinutes": 30,
+          "focusSkills": [
+            "LISTENING"
+          ],
+          "focusTaskCodes": [
+            "L2_QUESTION_RESPONSE"
+          ],
+          "contentMarkdown": "# Nghe từ khóa mở đầu trước\nỞ Part 2, một từ đầu câu có thể quyết định loại thông tin cần tìm.\n\n## WH-question\nWho cần người. Where cần địa điểm. When cần thời gian. Why cần lý do. How có thể hỏi cách thức, mức độ hoặc tình trạng.\n\n## Yes/No question\nĐáp án đúng không bắt buộc phải bắt đầu bằng Yes hoặc No. Quan trọng là phản hồi có giải quyết ý của câu hỏi hay không.\n\n## Choice question\nKhi nghe or, hãy chờ hai lựa chọn. Đáp án thường chọn một phương án hoặc đưa ra một lựa chọn khác hợp lý.\n\n## Thói quen tốt\n- Không dịch từng từ.\n- Xác định loại câu hỏi.\n- Dự đoán loại thông tin.\n- Nghe đáp án theo nghĩa, không theo từ trùng.\n\n## Mini drill\nTự tạo ba câu hỏi: một When, một Yes/No, một câu có or. Với mỗi câu, viết một đáp án đúng trực tiếp và một đáp án nghe có từ giống nhưng sai ý."
+        },
+        {
+          "lessonKey": "L06",
+          "title": "Indirect responses và repeated-word traps",
+          "description": "Luyện phản hồi gián tiếp, suy ra ý định và tránh chọn đáp án chỉ vì lặp từ.",
+          "learningObjectives": [
+            "Nhận biết phản hồi gián tiếp vẫn giải quyết đúng câu hỏi.",
+            "Tránh repeated-word trap và sound-alike trap.",
+            "Suy ra hành động hoặc lý do được ngụ ý trong câu trả lời."
+          ],
+          "estimatedMinutes": 35,
+          "focusSkills": [
+            "LISTENING"
+          ],
+          "focusTaskCodes": [
+            "L2_QUESTION_RESPONSE"
+          ],
+          "practiceCode": "M08_PRACTICE_P2_V1",
+          "contentMarkdown": "# Đáp án đúng có thể không trả lời thẳng\nTrong giao tiếp thật, người nói thường phản hồi bằng một hành động, lý do hoặc thông tin liên quan thay vì trả lời theo mẫu sách giáo khoa.\n\n## Ví dụ tư duy\nNếu ai đó hỏi cách liên hệ một người và câu trả lời là người đó đã để lại danh thiếp, đây vẫn là phản hồi hợp lý vì danh thiếp cung cấp cách liên hệ.\n\n## Repeated-word trap\nĐáp án sai thường lặp đúng một từ trong câu hỏi nhưng ghép vào ngữ cảnh khác. Đừng chọn chỉ vì nghe thấy từ quen.\n\n## Ba câu hỏi tự kiểm\n- Phản hồi này có giải quyết mục đích câu hỏi không?\n- Từ lặp có thật sự cùng nghĩa trong ngữ cảnh không?\n- Có đáp án nào đưa ra hành động hợp lý hơn không?\n\n## Checklist trước bài luyện\n1. Xác định intent của câu hỏi.\n2. Không chờ Yes/No máy móc.\n3. Ưu tiên nghĩa toàn câu.\n4. Cảnh giác đáp án lặp từ nhưng không liên quan.\n\nSau bài học này, làm bài luyện Part 2 để kiểm tra cả direct và indirect response."
+        }
+      ]
+    },
+    {
+      "moduleKey": "M04",
+      "title": "Listening Part 3 — Conversations",
+      "description": "Theo dõi bối cảnh hội thoại, vai trò người nói, chi tiết, bước tiếp theo và suy luận.",
+      "lessons": [
+        {
+          "lessonKey": "L07",
+          "title": "Bối cảnh, vai trò và mục đích hội thoại",
+          "description": "Dùng lượt mở đầu và quan hệ giữa người nói để xác định setting, role và purpose.",
+          "learningObjectives": [
+            "Xác định bối cảnh và mối quan hệ giữa người nói từ vài lượt đầu.",
+            "Nhận biết mục đích chính của cuộc gọi hoặc cuộc trao đổi.",
+            "Ghi chú bằng keyword thay vì chép nguyên câu."
+          ],
+          "estimatedMinutes": 35,
+          "focusSkills": [
+            "LISTENING"
+          ],
+          "focusTaskCodes": [
+            "L3_CONVERSATION"
+          ],
+          "contentMarkdown": "# Bắt bối cảnh trước khi săn chi tiết\nNếu chưa biết ai đang nói với ai và vì sao họ nói chuyện, bạn rất dễ mất dấu khi câu hỏi chuyển sang chi tiết.\n\n## Ba tín hiệu mở đầu\n- Nơi chốn hoặc tổ chức được nhắc đến.\n- Quan hệ vai trò: khách hàng, nhân viên, quản lý, ứng viên, nhà cung cấp.\n- Vấn đề hoặc mục đích: hỏi phí, đặt lịch, báo lỗi, xác nhận sự kiện.\n\n## Ghi chú tối giản\nDùng 3 ô nhỏ:\n- WHO\n- WHY\n- WHERE\n\nSau đó thêm chi tiết khi nghe tiếp. Không cố chép từng câu.\n\n## Bẫy phổ biến\nMột danh từ xuất hiện nhiều lần chưa chắc là chủ đề chính. Hãy hỏi: người nói đang cố giải quyết việc gì?\n\n## Guided activity\nNghe một cuộc hội thoại ngắn bất kỳ. Sau 15 giây đầu, dừng lại và nói một câu: ai đang nói, họ ở tình huống nào, mục đích hiện tại là gì."
+        },
+        {
+          "lessonKey": "L08",
+          "title": "Chi tiết, next step và inference trong Part 3",
+          "description": "Theo dõi thay đổi quyết định, hành động tiếp theo và câu hỏi suy luận trong nhóm ba câu.",
+          "learningObjectives": [
+            "Theo dõi được chi tiết quan trọng xuyên suốt một hội thoại.",
+            "Xác định hành động tiếp theo từ lời đề nghị hoặc quyết định.",
+            "Giải câu inference bằng bằng chứng trong hội thoại và graphic khi có."
+          ],
+          "estimatedMinutes": 40,
+          "focusSkills": [
+            "LISTENING"
+          ],
+          "focusTaskCodes": [
+            "L3_CONVERSATION"
+          ],
+          "practiceCode": "M08_PRACTICE_P3_V1",
+          "contentMarkdown": "# Nhóm ba câu cần một bức tranh chung\nĐừng xử lý mỗi câu hỏi như một đoạn audio riêng. Một hội thoại thường có diễn tiến: vấn đề → giải thích → hành động tiếp theo.\n\n## Chi tiết có giá trị cao\n- thời gian và địa điểm;\n- nguyên nhân thay đổi;\n- yêu cầu hoặc đề nghị;\n- quyết định cuối;\n- bước tiếp theo.\n\n## Câu inference\nKhông tìm một câu giống hệt đáp án. Hãy ghép hai bằng chứng nhỏ và chọn điều được hỗ trợ tốt nhất.\n\n## Khi có graphic\nĐọc graphic trước khi nghe. Xác định nhãn, hướng, ngày, cột hoặc lựa chọn có thể được gọi tên trong audio.\n\n## Quy trình 4 bước\n1. Đọc nhanh câu hỏi.\n2. Dự đoán loại thông tin.\n3. Nghe cả đoạn và ghi keyword.\n4. Trả lời theo bằng chứng, không theo trí nhớ mơ hồ.\n\nSau bài học này, bài luyện Part 3 sẽ có cả hội thoại thường và một nhóm cần kết hợp graphic."
+        }
+      ]
+    },
+    {
+      "moduleKey": "M05",
+      "title": "Listening Part 4 — Talks",
+      "description": "Xử lý thông báo, quảng cáo, tin nhắn và bài nói ngắn bằng cách xác định loại bài, người nghe và hành động.",
+      "lessons": [
+        {
+          "lessonKey": "L09",
+          "title": "Talk type, purpose và audience",
+          "description": "Nhận diện loại bài nói, mục đích giao tiếp và đối tượng nghe từ opening cues.",
+          "learningObjectives": [
+            "Phân biệt quảng cáo, thông báo, tin nhắn, bản tin và hướng dẫn.",
+            "Suy ra mục đích của người nói từ opening và closing cues.",
+            "Xác định nhóm người nghe mục tiêu khi câu hỏi không nói trực tiếp."
+          ],
+          "estimatedMinutes": 35,
+          "focusSkills": [
+            "LISTENING"
+          ],
+          "focusTaskCodes": [
+            "L4_TALK"
+          ],
+          "contentMarkdown": "# Part 4 có ít người nói nhưng nhiều cấu trúc thông tin\nMột bài nói ngắn thường theo bố cục rõ hơn hội thoại. Việc nhận ra loại bài giúp bạn dự đoán nội dung sẽ xuất hiện.\n\n## Opening cues\n- quảng cáo: giới thiệu lợi ích, ưu đãi, lời kêu gọi;\n- thông báo: attention, schedule, policy, change;\n- voicemail: người gọi, lý do gọi, yêu cầu phản hồi;\n- news/report: sự kiện, nguyên nhân, ảnh hưởng.\n\n## Closing cues\nPhần cuối thường chứa next step: truy cập website, gọi lại, đăng ký, đến địa điểm, mang theo vật dụng.\n\n## Audience\nTìm dấu hiệu về người nhận: members, employees, passengers, customers, visitors.\n\n## Guided drill\nVới một đoạn thông báo ngắn, hãy ghi đúng ba dòng: loại bài, mục đích, audience. Chỉ sau đó mới ghi chi tiết."
+        },
+        {
+          "lessonKey": "L10",
+          "title": "Số liệu, lịch trình và next action trong Part 4",
+          "description": "Theo dõi thời gian, số lượng, lịch trình, thay đổi và hành động cần thực hiện.",
+          "learningObjectives": [
+            "Bắt được thời gian, ngày, số lượng và mốc thay đổi quan trọng.",
+            "Theo dõi chuỗi nguyên nhân → ảnh hưởng → next action.",
+            "Kết hợp graphic với thông tin nghe khi câu hỏi yêu cầu."
+          ],
+          "estimatedMinutes": 40,
+          "focusSkills": [
+            "LISTENING"
+          ],
+          "focusTaskCodes": [
+            "L4_TALK"
+          ],
+          "practiceCode": "M08_PRACTICE_P4_V1",
+          "contentMarkdown": "# Không phải mọi con số đều quan trọng\nPart 4 thường đưa nhiều ngày, giờ hoặc số lượng. Hãy đánh dấu con số gắn với câu hỏi hoặc một thay đổi cụ thể.\n\n## Bộ ba cần nghe\n- WHEN: khi nào?\n- WHAT CHANGED: điều gì thay đổi?\n- WHAT NEXT: người nghe cần làm gì?\n\n## Khi bài nói có graphic\nĐừng đọc graphic như một bài Reading dài. Chỉ xác định trục thông tin: ngày, vị trí, lựa chọn hoặc nhãn. Audio sẽ cung cấp điều kiện để chọn đúng.\n\n## Câu hỏi implied meaning\nNếu người nói nhấn mạnh một tình trạng như “all I see are houses”, hãy hỏi điều đó nói lên vấn đề gì trong bối cảnh chung.\n\n## Checklist trước bài luyện\n- Tôi đã xác định loại bài nói chưa?\n- Tôi có ghi mốc thời gian gắn với hành động không?\n- Tôi có nghe phần cuối để lấy next step không?\n- Nếu có graphic, tôi đã nhìn cấu trúc trước khi audio chạy chưa?\n\nBài luyện Part 4 kết hợp cả talk thông thường và một nhóm có graphic."
+        }
+      ]
+    },
+    {
+      "moduleKey": "M06",
+      "title": "Reading Part 5 — Incomplete Sentences",
+      "description": "Xây nền ngữ pháp và từ vựng để ra quyết định nhanh ở cấp độ câu.",
+      "lessons": [
+        {
+          "lessonKey": "L11",
+          "title": "Word forms và cấu trúc quanh chỗ trống",
+          "description": "Nhận diện loại từ cần điền dựa trên vị trí và thành phần câu.",
+          "learningObjectives": [
+            "Xác định loại từ cần điền từ cấu trúc trước và sau chỗ trống.",
+            "Phân biệt noun, verb, adjective và adverb trong word family.",
+            "Tránh chọn từ đúng nghĩa nhưng sai vai trò ngữ pháp."
+          ],
+          "estimatedMinutes": 35,
+          "focusSkills": [
+            "READING"
+          ],
+          "focusTaskCodes": [
+            "R5_INCOMPLETE_SENTENCE"
+          ],
+          "contentMarkdown": "# Nhìn cấu trúc trước khi nhìn nghĩa\nKhi bốn đáp án cùng một word family, câu hỏi chủ yếu kiểm tra loại từ.\n\n## Dấu hiệu nhanh\n- Sau article hoặc possessive adjective thường cần noun.\n- Trước noun thường có adjective.\n- Sau linking verb thường cần adjective.\n- Trước động từ hoặc adjective có thể cần adverb.\n\n## Quy trình\n1. Che đáp án.\n2. Xác định loại từ cần điền.\n3. Mở đáp án và loại những loại từ sai.\n4. Kiểm tra nghĩa cuối cùng.\n\n## Bẫy\nMột từ nghe quen hoặc có nghĩa hợp lý vẫn sai nếu vị trí ngữ pháp không phù hợp.\n\n## Mini drill\nLấy một câu tiếng Anh trong email công việc. Gạch chân một noun, một adjective và một adverb. Giải thích dấu hiệu vị trí giúp bạn nhận ra từng loại."
+        },
+        {
+          "lessonKey": "L12",
+          "title": "Verb tense, agreement và sentence structure",
+          "description": "Luyện động từ, voice, relative pronoun và các cấu trúc quyết định hình thái đáp án.",
+          "learningObjectives": [
+            "Chọn thì và dạng động từ dựa trên mốc thời gian và voice.",
+            "Kiểm tra subject–verb agreement trong câu dài.",
+            "Nhận diện relative pronoun và các cấu trúc nối mệnh đề."
+          ],
+          "estimatedMinutes": 40,
+          "focusSkills": [
+            "READING"
+          ],
+          "focusTaskCodes": [
+            "R5_INCOMPLETE_SENTENCE"
+          ],
+          "contentMarkdown": "# Tìm động từ chính trước\nCâu dài thường có nhiều danh từ khiến bạn mất chủ ngữ thật. Hãy xác định động từ chính và mệnh đề chứa chỗ trống.\n\n## Tense\nDùng time marker và quan hệ thời gian: before, since, next month, regularly, currently.\n\n## Voice\nHỏi chủ ngữ thực hiện hành động hay nhận hành động. Procedures are being performed khác với staff perform procedures.\n\n## Agreement\nBỏ các cụm chen giữa chủ ngữ và động từ rồi kiểm tra số ít/số nhiều.\n\n## Relative structure\nwhose thể hiện sở hữu; who/which/that nối mệnh đề theo vai trò khác nhau.\n\n## Tự kiểm tra\nVới mỗi câu sai, ghi nhãn một trong bốn nhóm: tense, voice, agreement, clause. Việc này giúp bạn thấy lỗi nào đang lặp lại."
+        },
+        {
+          "lessonKey": "L13",
+          "title": "Prepositions, conjunctions và business vocabulary",
+          "description": "Luyện liên từ, giới từ, collocation và cụm từ công việc thường xuất hiện trong Part 5.",
+          "learningObjectives": [
+            "Phân biệt chức năng của preposition, conjunction và adverb connector.",
+            "Nhận diện collocation và phrasal verb trong ngữ cảnh công việc.",
+            "Dùng logic quan hệ nguyên nhân, điều kiện và bổ sung để chọn đáp án."
+          ],
+          "estimatedMinutes": 40,
+          "focusSkills": [
+            "READING"
+          ],
+          "focusTaskCodes": [
+            "R5_INCOMPLETE_SENTENCE"
+          ],
+          "practiceCode": "M08_PRACTICE_P5_V1",
+          "contentMarkdown": "# Khi ngữ pháp đúng nhưng nghĩa chưa đủ\nMột số câu Part 5 có nhiều đáp án cùng loại từ. Lúc này quan hệ nghĩa và collocation quyết định.\n\n## Quan hệ cần nhận diện\n- nguyên nhân: because, because of, as a result of;\n- điều kiện: as long as, provided that;\n- bổ sung: in addition, as well as;\n- đối lập: although, despite.\n\n## Collocation\nHọc theo cụm thay vì từ đơn: allow for, relationship between, responsible for, comply with, apply for.\n\n## Phrasal verb\nĐừng dịch từng từ. Hãy học nghĩa của cả cụm trong tình huống công việc.\n\n## Quy trình 2 tầng\n1. Loại đáp án sai cấu trúc.\n2. So sánh nghĩa và collocation của các đáp án còn lại.\n\nSau bài này, bài luyện Part 5 kết hợp word form, verb/structure và vocabulary/collocation để tránh luyện lệch một dạng."
+        }
+      ]
+    },
+    {
+      "moduleKey": "M07",
+      "title": "Reading Part 6 — Text Completion",
+      "description": "Đọc văn bản như một chỉnh thể để xử lý cohesion, reference, connector và sentence insertion.",
+      "lessons": [
+        {
+          "lessonKey": "L14",
+          "title": "Cohesion, connectors và reference",
+          "description": "Theo dõi mạch nghĩa giữa các câu, đại từ tham chiếu và từ nối trong email/thông báo.",
+          "learningObjectives": [
+            "Dùng câu trước và câu sau để chọn từ nối phù hợp.",
+            "Xác định referent của đại từ và cụm thay thế.",
+            "Kết hợp grammar local với logic toàn đoạn."
+          ],
+          "estimatedMinutes": 40,
+          "focusSkills": [
+            "READING"
+          ],
+          "focusTaskCodes": [
+            "R6_TEXT_COMPLETION"
+          ],
+          "contentMarkdown": "# Part 6 không chỉ là Part 5 dài hơn\nMột blank có thể được giải bằng ngữ pháp cục bộ, nhưng nhiều blank chỉ rõ đáp án khi bạn đọc mạch cả đoạn.\n\n## Cohesion\nHỏi câu hiện tại đang bổ sung, giải thích, đối lập hay nối tiếp hành động nào.\n\n## Reference\nIt, they, this, those phải trỏ tới một danh từ hoặc ý tưởng hợp lý trước đó.\n\n## Connector\nChọn từ nối dựa trên quan hệ logic, không dựa vào dịch riêng lẻ từng từ.\n\n## Cách làm\n1. Đọc nhanh toàn văn bản để biết mục đích.\n2. Làm blank có dấu hiệu ngữ pháp rõ.\n3. Quay lại blank cần context.\n4. Đọc lại toàn đoạn sau khi điền.\n\n## Guided activity\nLấy một email ngắn, che ba connector hoặc pronoun, rồi thử khôi phục chúng bằng mạch nghĩa."
+        },
+        {
+          "lessonKey": "L15",
+          "title": "Sentence insertion và context toàn đoạn",
+          "description": "Luyện chọn câu chèn phù hợp bằng topic continuity, reference và logic trước–sau.",
+          "learningObjectives": [
+            "Xác định vị trí hợp lý của câu chèn dựa trên topic continuity.",
+            "Dùng từ khóa tham chiếu để nối câu chèn với câu trước/sau.",
+            "Loại câu đúng chủ đề nhưng phá logic của đoạn."
+          ],
+          "estimatedMinutes": 40,
+          "focusSkills": [
+            "READING"
+          ],
+          "focusTaskCodes": [
+            "R6_TEXT_COMPLETION"
+          ],
+          "practiceCode": "M08_PRACTICE_P6_V1",
+          "contentMarkdown": "# Sentence insertion là bài kiểm tra logic đoạn văn\nCâu chèn đúng phải vừa đúng chủ đề vừa nối mượt với hai phía.\n\n## Ba dấu hiệu mạnh\n- reference: this, these, it, such;\n- chronology: first, then, afterward;\n- topic continuity: câu mới phải tiếp tục đúng đối tượng đang được nói tới.\n\n## Sai nhưng dễ chọn\nMột câu có từ vựng giống đoạn nhưng đưa vào một ý mới quá sớm hoặc làm mất liên kết với câu sau.\n\n## Kiểm tra hai phía\nĐừng chỉ đọc câu trước blank. Sau khi chọn, đọc cả câu trước + câu chèn + câu sau như một chuỗi.\n\n## Checklist trước bài luyện\n- Đại từ trong câu chèn trỏ tới đâu?\n- Câu sau có phụ thuộc vào thông tin của câu chèn không?\n- Trình tự thời gian hoặc hành động có tự nhiên không?\n\nBài luyện Part 6 sử dụng hai văn bản hoàn chỉnh, mỗi văn bản giữ nguyên toàn bộ nhóm bốn câu."
+        }
+      ]
+    },
+    {
+      "moduleKey": "M08",
+      "title": "Reading Part 7 — Reading Comprehension",
+      "description": "Đọc single và multiple documents để tìm purpose, detail, inference và cross-reference.",
+      "lessons": [
+        {
+          "lessonKey": "L16",
+          "title": "Single document: purpose, detail và vocabulary in context",
+          "description": "Đọc nhanh email, chat, notice và article để xác định mục đích và chi tiết.",
+          "learningObjectives": [
+            "Xác định document type và purpose trước khi đọc sâu.",
+            "Định vị chi tiết theo keyword và paraphrase.",
+            "Suy nghĩa từ/cụm từ dựa trên context thay vì dịch riêng."
+          ],
+          "estimatedMinutes": 40,
+          "focusSkills": [
+            "READING"
+          ],
+          "focusTaskCodes": [
+            "R7_READING_COMPREHENSION"
+          ],
+          "contentMarkdown": "# Đọc tài liệu theo cấu trúc\nTrước khi nhìn câu hỏi, hãy xác định đây là email, chat, notice, web page hay article. Loại tài liệu cho biết nơi thông tin quan trọng thường xuất hiện.\n\n## Purpose\nĐọc opening và closing. Người viết đang thông báo, yêu cầu, phàn nàn, xác nhận hay quảng bá?\n\n## Detail\nDùng keyword của câu hỏi để tìm vùng thông tin, nhưng nhớ đáp án thường paraphrase chứ không lặp nguyên từ.\n\n## Vocabulary in context\nThử thay từ bằng nghĩa của từng đáp án và kiểm tra cả câu. Không chọn chỉ vì đó là nghĩa từ điển quen thuộc nhất.\n\n## Guided drill\nVới một email ngắn, ghi: ai viết, viết cho ai, mục đích, một chi tiết hành động. Chỉ mất khoảng một phút nhưng tạo khung đọc rất tốt."
+        },
+        {
+          "lessonKey": "L17",
+          "title": "Inference và thông tin ngụ ý",
+          "description": "Giải câu suy luận bằng bằng chứng cụ thể và tránh suy diễn vượt quá văn bản.",
+          "learningObjectives": [
+            "Phân biệt inference hợp lý với suy đoán không có bằng chứng.",
+            "Ghép hai chi tiết để rút ra kết luận được hỗ trợ.",
+            "Nhận diện hàm ý từ lời phàn nàn, yêu cầu, lịch trình hoặc phản hồi."
+          ],
+          "estimatedMinutes": 40,
+          "focusSkills": [
+            "READING"
+          ],
+          "focusTaskCodes": [
+            "R7_READING_COMPREHENSION"
+          ],
+          "contentMarkdown": "# Inference phải có bằng chứng\nCâu suy luận không có nghĩa là đoán. Đáp án đúng luôn có thể quay lại ít nhất một hoặc hai chi tiết cụ thể trong tài liệu.\n\n## Công thức\nEvidence 1 + Evidence 2 → conclusion vừa đủ.\n\n## Cảnh giác\n- đáp án nghe hợp lý ngoài đời nhưng văn bản không nói;\n- đáp án dùng từ tuyệt đối như always/never khi tài liệu chỉ nói một trường hợp;\n- suy luận quá xa từ một chi tiết nhỏ.\n\n## Kỹ thuật chứng minh ngược\nSau khi chọn đáp án, hãy chỉ ra câu hoặc cụm từ nào trong tài liệu hỗ trợ nó. Nếu không chỉ ra được, xem lại.\n\n## Mini drill\nĐọc một email có yêu cầu thay đổi lịch. Viết một điều được nói trực tiếp và một điều có thể suy ra. Giải thích bằng chứng cho phần suy ra."
+        },
+        {
+          "lessonKey": "L18",
+          "title": "Multiple documents và cross-reference",
+          "description": "Kết nối thông tin giữa hai hoặc ba tài liệu mà không đọc lại toàn bộ nhiều lần.",
+          "learningObjectives": [
+            "Xác định vai trò của từng document trong một set nhiều tài liệu.",
+            "Kết nối tên, thời gian, số tiền, sự kiện hoặc hành động giữa các tài liệu.",
+            "Giải câu cross-reference bằng cách giữ một bảng thông tin tối giản."
+          ],
+          "estimatedMinutes": 45,
+          "focusSkills": [
+            "READING"
+          ],
+          "focusTaskCodes": [
+            "R7_READING_COMPREHENSION"
+          ],
+          "practiceCode": "M08_PRACTICE_P7_V1",
+          "contentMarkdown": "# Đừng đọc ba tài liệu như ba bài riêng\nMultiple documents kiểm tra khả năng nối thông tin. Mỗi tài liệu thường đóng một vai trò khác nhau: thông báo gốc, phản hồi, bảng giá, lịch hoặc bài báo.\n\n## Bảng 3 cột\n- DOCUMENT: tài liệu nào?\n- KEY FACT: thông tin chính?\n- LINK: nó liên hệ với tài liệu khác ở đâu?\n\n## Cross-reference\nMột câu hỏi có thể yêu cầu lấy giá từ bảng và điều kiện từ email, hoặc tên người từ agenda và vai trò từ article.\n\n## Trình tự làm\n1. Xác định loại từng tài liệu.\n2. Đọc câu hỏi và đánh dấu câu cần cross-reference.\n3. Tìm bằng chứng ở từng nguồn.\n4. Chỉ kết luận sau khi hai nguồn khớp.\n\n## Checklist trước bài luyện\n- Tôi có biết mỗi document dùng để làm gì không?\n- Tôi có ghi các mốc tên/ngày/số tiền quan trọng không?\n- Với câu cross-reference, tôi đã kiểm tra đủ hai nguồn chưa?\n\nBài luyện Part 7 gồm single, double và triple document sets để luyện tăng dần độ phức tạp."
+        }
+      ]
+    },
+    {
+      "moduleKey": "M09",
+      "title": "Integrated Review & Practice",
+      "description": "Tổng hợp Listening và Reading, biến lỗi thành kế hoạch ôn và chuẩn bị cho chu kỳ đánh giá tiếp theo.",
+      "lessons": [
+        {
+          "lessonKey": "L19",
+          "title": "Mini review L&R theo lỗi thường gặp",
+          "description": "Ôn lại chiến thuật cốt lõi của Part 1–7 bằng checklist và lỗi điển hình.",
+          "learningObjectives": [
+            "Tự rà soát chiến thuật cốt lõi của cả Part 1–7.",
+            "Nhóm lỗi gần đây theo kiến thức, chi tiết, inference và thời gian.",
+            "Chọn đúng Lesson cần quay lại thay vì làm lại ngẫu nhiên."
+          ],
+          "estimatedMinutes": 35,
+          "focusSkills": [
+            "LISTENING",
+            "READING"
+          ],
+          "focusTaskCodes": [
+            "L1_PHOTOGRAPH",
+            "L2_QUESTION_RESPONSE",
+            "L3_CONVERSATION",
+            "L4_TALK",
+            "R5_INCOMPLETE_SENTENCE",
+            "R6_TEXT_COMPLETION",
+            "R7_READING_COMPREHENSION"
+          ],
+          "contentMarkdown": "# Review theo lỗi, không theo cảm giác\nTrước khi làm thêm bài mới, hãy nhìn lại ba lỗi gần nhất của bạn.\n\n## Listening checklist\n- Part 1: chủ thể, hành động, vị trí.\n- Part 2: intent của câu hỏi và indirect response.\n- Part 3: context, detail, next step, inference.\n- Part 4: talk type, schedule, next action, graphic.\n\n## Reading checklist\n- Part 5: word form, verb/structure, collocation.\n- Part 6: cohesion, reference, sentence insertion.\n- Part 7: purpose, detail, inference, cross-reference.\n\n## Bảng lỗi cá nhân\nVới mỗi lỗi, ghi Part, nguyên nhân và Lesson cần quay lại. Nếu nhiều lỗi cùng nhóm, ưu tiên học lại Lesson tương ứng trước khi làm thêm Practice.\n\n## Guided review\nChọn đúng hai Lesson để ôn lại: một Listening và một Reading. Viết lý do bằng bằng chứng từ kết quả gần nhất, không chọn theo cảm giác."
+        },
+        {
+          "lessonKey": "L20",
+          "title": "Lập kế hoạch ôn theo kỹ năng yếu",
+          "description": "Biến kết quả hiện tại thành một kế hoạch tự học ngắn, có thể theo dõi và điều chỉnh.",
+          "learningObjectives": [
+            "Lập kế hoạch tự học 7 ngày dựa trên kỹ năng yếu và quỹ thời gian.",
+            "Chọn Lesson/Practice phù hợp mà không thay đổi curriculum của lớp.",
+            "Biết khi nào cần luyện lại, khi nào cần quay về học chiến thuật."
+          ],
+          "estimatedMinutes": 30,
+          "focusSkills": [
+            "LISTENING",
+            "READING"
+          ],
+          "focusTaskCodes": [],
+          "contentMarkdown": "# Một kế hoạch tốt phải đủ nhỏ để thực hiện\nKhông cần học tất cả Part mỗi ngày. Hãy chọn một trọng tâm chính và một trọng tâm phụ.\n\n## Mẫu 7 ngày\n- Ngày 1: xem lại lỗi và học lại Lesson trọng tâm.\n- Ngày 2: Guided drill ngắn.\n- Ngày 3: Practice của Part.\n- Ngày 4: nghỉ hoặc ôn nhẹ.\n- Ngày 5: xem lại câu sai và học Lesson phụ.\n- Ngày 6: Practice ngắn hoặc review.\n- Ngày 7: tổng kết lỗi còn lặp lại.\n\n## Quy tắc chọn hành động\nNếu sai vì kiến thức: quay lại Lesson.\nNếu sai vì bỏ sót chi tiết: làm practice có kiểm soát và ghi chú.\nNếu sai vì thời gian: luyện cùng dạng với giới hạn thời gian vừa phải.\nNếu Listening/Speaking hoặc Writing đang chờ review trong flow khác, không tự coi pending là điểm 0.\n\n## Chuẩn bị cho recommendation\nSau này hệ thống có thể gợi ý Lesson hoặc Practice dựa trên Assessment hợp lệ. Dù vậy, gợi ý chỉ hỗ trợ tự học và không thay đổi thứ tự curriculum của lớp.\n\n## Bài tập cuối\nViết kế hoạch 7 ngày của bạn bằng ba cột: ngày, trọng tâm, hành động cụ thể."
+        }
+      ]
+    }
+  ]
+}

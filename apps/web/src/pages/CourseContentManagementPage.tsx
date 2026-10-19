@@ -7,6 +7,9 @@ import { ApiError } from '@/lib/api-client';
 import { knowledgeModelApi } from '@/features/knowledge-model/api';
 import { SkillChecklistDialog } from '@/features/knowledge-model/SkillChecklistDialog';
 import type { Skill } from '@/features/knowledge-model/types';
+import { ConfirmDialog } from '@/components/ui/Feedback';
+import { LessonEditorDialog } from '@/features/instructor/LessonEditorDialog';
+import type { LessonInput } from '@/features/instructor/types';
 
 export function CourseContentManagementPage({ courseId: explicitCourseId, sharedWarning = false }: { courseId?: string; sharedWarning?: boolean } = {}) {
   const { courseId: routeCourseId } = useParams<{ courseId: string }>();
@@ -45,6 +48,12 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
   const [mappingError, setMappingError] = useState<string | null>(null);
   const [mappingMessage, setMappingMessage] = useState<string | null>(null);
   const [mappingLoading, setMappingLoading] = useState(false);
+  const [deleteRequest, setDeleteRequest] = useState<
+    | { kind: 'module'; id: string }
+    | { kind: 'lesson'; id: string; moduleId: string }
+    | { kind: 'resource'; id: string; lessonId: string }
+    | null
+  >(null);
 
   const beginMutation = (action: string): boolean => {
     if (mutationInFlight.current) return false;
@@ -165,7 +174,6 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
   };
 
   const handleDeleteModule = async (id: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa module này? Tất cả bài học bên trong cũng sẽ bị xóa.')) return;
     if (!beginMutation('Xóa module')) return;
     try {
       await instructorApi.modules.delete(id);
@@ -207,23 +215,19 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
 
 
   // Lessons handlers
-  const handleSaveLesson = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!expandedModuleId || !beginMutation('Lưu bài học')) return;
+  const handleSaveLesson = async (input: LessonInput): Promise<boolean> => {
+    if (!expandedModuleId || !beginMutation('Lưu bài học')) return false;
     const moduleId = expandedModuleId;
-    const formData = new FormData(e.currentTarget);
-    const title = formData.get('title') as string;
-    const description = formData.get('description') as string;
 
     try {
       if (editingLesson?.id) {
-        const updated = await instructorApi.lessons.update(editingLesson.id, { title, description, expectedUpdatedAt: editingLesson.updatedAt! });
+        const updated = await instructorApi.lessons.update(editingLesson.id, { ...input, expectedUpdatedAt: editingLesson.updatedAt! });
         setLessonsMap(prev => ({
           ...prev,
           [moduleId]: (prev[moduleId] ?? []).map((item) => item.id === updated.id ? updated : item)
         }));
       } else {
-        const created = await instructorApi.lessons.create(moduleId, { title, description });
+        const created = await instructorApi.lessons.create(moduleId, input);
         setLessonsMap(prev => ({
           ...prev,
           [moduleId]: [...(prev[moduleId] || []), created]
@@ -231,15 +235,16 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
       }
       setIsLessonModalOpen(false);
       setEditingLesson(null);
+      return true;
     } catch (err) {
       await handleRequestError(err, 'Không thể lưu bài học. Vui lòng thử lại.');
+      return false;
     } finally {
       endMutation();
     }
   };
 
   const handleDeleteLesson = async (id: string, moduleId: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa bài học này? Tất cả tài liệu bên trong cũng sẽ bị xóa.')) return;
     if (!beginMutation('Xóa bài học')) return;
     try {
       await instructorApi.lessons.delete(id);
@@ -345,7 +350,6 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
   };
 
   const handleDeleteResource = async (id: string, lessonId: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa tài liệu này?')) return;
     if (!beginMutation('Xóa tài liệu')) return;
     try {
       await instructorApi.resources.delete(id);
@@ -427,6 +431,15 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
     }
   };
 
+  const confirmDelete = async () => {
+    const request = deleteRequest;
+    if (!request) return;
+    if (request.kind === 'module') await handleDeleteModule(request.id);
+    if (request.kind === 'lesson') await handleDeleteLesson(request.id, request.moduleId);
+    if (request.kind === 'resource') await handleDeleteResource(request.id, request.lessonId);
+    setDeleteRequest(null);
+  };
+
 
   if (loading) return <div className="p-8 text-center">Đang tải nội dung...</div>;
   if (error) return <div className="p-8 text-center text-red-600">{error}</div>;
@@ -499,7 +512,7 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
                   <button onClick={() => handleReorderModules(mIndex, 'up')} disabled={mIndex === 0} className="px-2 py-1 text-gray-500 disabled:opacity-30">▲</button>
                   <button onClick={() => handleReorderModules(mIndex, 'down')} disabled={mIndex === modules.length - 1} className="px-2 py-1 text-gray-500 disabled:opacity-30">▼</button>
                   <button onClick={() => { setEditingModule(module); setIsModuleModalOpen(true); }} className="px-3 py-1 text-sm text-blue-600 border border-blue-600 rounded hover:bg-blue-50">Sửa</button>
-                  <button onClick={() => handleDeleteModule(module.id)} className="px-3 py-1 text-sm text-red-600 border border-red-600 rounded hover:bg-red-50">Xóa</button>
+                  <button onClick={() => setDeleteRequest({ kind: 'module', id: module.id })} className="px-3 py-1 text-sm text-red-600 border border-red-600 rounded hover:bg-red-50">Xóa</button>
                 </div>
               </div>
 
@@ -538,7 +551,7 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
                                <button onClick={() => handleReorderLessons(module.id, lIndex, 'up')} disabled={lIndex === 0} className="px-1 text-gray-400 disabled:opacity-30">▲</button>
                                <button onClick={() => handleReorderLessons(module.id, lIndex, 'down')} disabled={lIndex === lessonsMap[module.id].length - 1} className="px-1 text-gray-400 disabled:opacity-30">▼</button>
                                <button onClick={() => { setEditingLesson(lesson); setIsLessonModalOpen(true); }} className="text-xs text-blue-600 hover:underline">Sửa</button>
-                               <button onClick={() => handleDeleteLesson(lesson.id, module.id)} className="text-xs text-red-600 hover:underline">Xóa</button>
+                               <button onClick={() => setDeleteRequest({ kind: 'lesson', id: lesson.id, moduleId: module.id })} className="text-xs text-red-600 hover:underline">Xóa</button>
                             </div>
                           </div>
 
@@ -568,7 +581,7 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
                                            <button onClick={() => handleReorderResources(lesson.id, rIndex, 'up')} disabled={rIndex === 0} className="px-1 text-gray-400 disabled:opacity-30 text-xs">▲</button>
                                            <button onClick={() => handleReorderResources(lesson.id, rIndex, 'down')} disabled={rIndex === resourcesMap[lesson.id].length - 1} className="px-1 text-gray-400 disabled:opacity-30 text-xs">▼</button>
                                            <button onClick={() => { setEditingResource(resource); setIsResourceModalOpen(true); }} className="text-xs text-blue-600 hover:underline">Sửa</button>
-                                           <button onClick={() => handleDeleteResource(resource.id, lesson.id)} className="text-xs text-red-600 hover:underline">Xóa</button>
+                                           <button onClick={() => setDeleteRequest({ kind: 'resource', id: resource.id, lessonId: lesson.id })} className="text-xs text-red-600 hover:underline">Xóa</button>
                                         </div>
                                       </li>
                                     ))}
@@ -610,28 +623,13 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
         </div>
       )}
 
-      {/* Lesson Modal */}
-      {isLessonModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">{editingLesson?.id ? 'Sửa Bài học' : 'Thêm Bài học'}</h2>
-            <form onSubmit={handleSaveLesson} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Tiêu đề</label>
-                <input name="title" required defaultValue={editingLesson?.title} className="w-full border rounded p-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Mô tả (tùy chọn)</label>
-                <textarea name="description" defaultValue={editingLesson?.description || ''} className="w-full border rounded p-2" rows={3}></textarea>
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <button type="button" onClick={() => setIsLessonModalOpen(false)} className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200">Hủy</button>
-                <button type="submit" className="px-4 py-2 text-white bg-green-600 rounded hover:bg-green-700">Lưu</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {isLessonModalOpen ? <LessonEditorDialog
+        isSaving={pendingAction === 'Lưu bài học'}
+        lesson={editingLesson}
+        onCancel={() => { setIsLessonModalOpen(false); setEditingLesson(null); setActionError(null); }}
+        onSave={handleSaveLesson}
+        serverError={actionError}
+      /> : null}
 
       {/* Resource Modal */}
       {isResourceModalOpen && (
@@ -658,7 +656,7 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
                 <label htmlFor="isDownloadable" className="text-sm font-medium">Cho phép tải xuống</label>
               </div>
               <div className="flex justify-end gap-2 mt-4">
-                {editingResource?.id && expandedLessonId ? <button type="button" onClick={() => { void handleDeleteResource(editingResource.id!, expandedLessonId); setIsResourceModalOpen(false); }} className="mr-auto px-4 py-2 text-red-700 border border-red-200 rounded">Xóa tài liệu</button> : null}
+                {editingResource?.id && expandedLessonId ? <button type="button" onClick={() => { setDeleteRequest({ kind: 'resource', id: editingResource.id!, lessonId: expandedLessonId }); setIsResourceModalOpen(false); }} className="mr-auto px-4 py-2 text-red-700 border border-red-200 rounded">Xóa tài liệu</button> : null}
                 <button type="button" onClick={() => setIsResourceModalOpen(false)} className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200">Hủy</button>
                 <button type="submit" className="px-4 py-2 text-white bg-purple-600 rounded hover:bg-purple-700">Lưu</button>
               </div>
@@ -677,6 +675,16 @@ export function CourseContentManagementPage({ courseId: explicitCourseId, shared
         onSave={() => void saveLessonSkillMapping()}
         onCancel={() => setMappingLesson(null)}
       /> : null}
+      <ConfirmDialog
+        busyLabel="Đang xóa…"
+        confirmLabel="Xóa"
+        description={deleteRequest?.kind === 'module' ? 'Tất cả bài học và tài liệu trong module cũng sẽ bị xóa nếu chưa có tiến độ học viên.' : deleteRequest?.kind === 'lesson' ? 'Tất cả tài liệu trong bài học cũng sẽ bị xóa nếu chưa có tiến độ học viên.' : 'Tài liệu sẽ bị xóa khỏi bài học.'}
+        isBusy={Boolean(pendingAction?.startsWith('Xóa'))}
+        onCancel={() => setDeleteRequest(null)}
+        onConfirm={() => void confirmDelete()}
+        open={deleteRequest !== null}
+        title="Xác nhận xóa nội dung?"
+      />
       </fieldset>
     </div>
   );

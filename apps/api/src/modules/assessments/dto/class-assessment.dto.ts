@@ -6,8 +6,9 @@ export class CreateClassAssessmentDto {
   @IsUUID()
   testId: string;
 
+  @IsOptional()
   @IsEnum(AssessmentStage)
-  stage: AssessmentStage;
+  stage?: AssessmentStage;
 
   @IsOptional()
   @Type(() => Date)

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, CheckCircle2, ChevronRight, Circle } from 'lucide-react';
+import { BookOpen, CheckCircle2, ChevronRight, Circle, Clock3 } from 'lucide-react';
+import { SKILL_LABELS, TASK_CODE_LABELS } from '@/features/learning/curriculum';
 import { Link, useParams } from 'react-router';
 import { learningApi } from '@/features/learning/api';
 import type { CourseContent } from '@/features/learning/types';
@@ -88,6 +89,11 @@ export function LearningPage() {
                         <p className="mt-1 text-sm text-slate-500">
                           {lesson.resourceCount} tài liệu · {statusLabel(lesson.progressStatus)}
                         </p>
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
+                          {lesson.estimatedMinutes ? <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1"><Clock3 size={13} />{lesson.estimatedMinutes} phút</span> : null}
+                          {lesson.focusSkills.map((skill) => <span className="rounded-full bg-indigo-50 px-2 py-1 text-indigo-700" key={skill}>{SKILL_LABELS[skill]}</span>)}
+                          {lesson.focusTaskCodes.map((code) => <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-800" key={code}>{TASK_CODE_LABELS[code]}</span>)}
+                        </div>
                       </div>
                       <ChevronRight className="text-slate-400" size={20} />
                     </Link>

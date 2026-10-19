@@ -5,6 +5,7 @@ import {
   QuestionResponseType,
   TestAttemptStatus,
   TestPurpose,
+  TestStatus,
   ToeicSkill,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -39,6 +40,7 @@ describe('AssessmentStudentService', () => {
     learnerSkillState: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
     masteryHistory: { create: jest.fn() },
     test: { findFirst: jest.fn() },
+    classAssessment: { findFirst: jest.fn() },
   };
   const prisma = {
     enrollment: { findFirst: jest.fn() },
@@ -69,6 +71,7 @@ describe('AssessmentStudentService', () => {
       title: 'Scoring',
       description: null,
       purpose: TestPurpose.IN_CLASS,
+      lessonId: null,
       timeLimitMinutes: null,
       showResultAfterSubmit: true,
       testQuestions: questions,
@@ -144,6 +147,46 @@ describe('AssessmentStudentService', () => {
         where: expect.objectContaining({ classOfferingId: enrollment.classOffering.id }),
       }),
     );
+  });
+
+  it('lists all seven canonical linked practices while excluding retired standalone legacy tests', async () => {
+    prisma.classAssessment.findMany.mockResolvedValue(
+      Array.from({ length: 7 }, (_, index) => ({
+        id: `canonical-assignment-${index + 1}`,
+        stage: 'PERIODIC',
+        openAt: null,
+        closeAt: null,
+        maxAttemptsOverride: 3,
+        test: {
+          id: `canonical-practice-${index + 1}`,
+          purpose: TestPurpose.PRACTICE_MOCK,
+          title: `Bài luyện sau bài học — Part ${index + 1}`,
+          description: null,
+          lessonId: `lesson-${index + 1}`,
+          maxAttempts: 3,
+          timeLimitMinutes: 10,
+          showResultAfterSubmit: true,
+          questionGroups: [],
+          _count: { testQuestions: 1 },
+        },
+        attempts: [],
+      })),
+    );
+    // The retired legacy Test is DRAFT, so Prisma's PUBLISHED query does not return it.
+    prisma.test.findMany.mockResolvedValue([]);
+
+    const result = await service.listTests(learnerId, enrollmentId);
+
+    expect(result).toHaveLength(7);
+    expect(result.every((test) => test.lessonId !== null)).toBe(true);
+    expect(result.map((test) => test.id)).not.toContain('legacy-practice');
+    expect(prisma.test.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        status: TestStatus.PUBLISHED,
+        purpose: TestPurpose.PRACTICE_MOCK,
+        lessonId: null,
+      }),
+    }));
   });
 
   it('projects visible IMAGE/AUDIO stimuli with authorized URLs and excludes protected rows in the query', async () => {
@@ -284,6 +327,39 @@ describe('AssessmentStudentService', () => {
     );
   });
 
+  it('does not write legacy BKT state for lesson-linked practice', async () => {
+    const practice = practiceAttempt('lesson-id');
+    transaction.testAttempt.findFirst
+      .mockResolvedValueOnce(practice)
+      .mockResolvedValueOnce({ ...practice, status: TestAttemptStatus.SUBMITTED });
+
+    await finalizeAttemptForTest();
+
+    expect(transaction.learnerSkillState.findUnique).not.toHaveBeenCalled();
+    expect(transaction.learnerSkillState.create).not.toHaveBeenCalled();
+    expect(transaction.learnerSkillState.update).not.toHaveBeenCalled();
+    expect(transaction.masteryHistory.create).not.toHaveBeenCalled();
+  });
+
+  it('preserves legacy BKT writes for standalone practice', async () => {
+    const practice = practiceAttempt(null);
+    transaction.testAttempt.findFirst
+      .mockResolvedValueOnce(practice)
+      .mockResolvedValueOnce({ ...practice, status: TestAttemptStatus.SUBMITTED });
+    transaction.learnerSkillState.findUnique.mockResolvedValue(null);
+
+    await finalizeAttemptForTest();
+
+    expect(transaction.learnerSkillState.create).toHaveBeenCalledTimes(1);
+    expect(transaction.masteryHistory.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        enrollmentId,
+        testAttemptId: attemptId,
+        skillId: 'legacy-skill',
+      }),
+    }));
+  });
+
   it('returns an already submitted attempt without rescoring', async () => {
     const submittedAt = new Date('2026-09-21T01:00:00Z');
     transaction.testAttempt.findFirst.mockResolvedValue({
@@ -298,6 +374,7 @@ describe('AssessmentStudentService', () => {
         id: 'test-id',
         title: 'Done',
         purpose: TestPurpose.IN_CLASS,
+        lessonId: null,
         timeLimitMinutes: null,
         showResultAfterSubmit: true,
         testQuestions: questions,
@@ -326,6 +403,98 @@ describe('AssessmentStudentService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.$transaction).toHaveBeenCalledTimes(3);
   });
+
+  it('starts lesson practice only through the active assignment for the enrollment class', async () => {
+    transaction.test.findFirst.mockResolvedValue({
+      id: 'practice-test', purpose: TestPurpose.PRACTICE_MOCK, lessonId: 'lesson-id',
+      maxAttempts: 1, timeLimitMinutes: null, testQuestions: [],
+    });
+    transaction.classAssessment.findFirst.mockResolvedValue({
+      id: 'practice-assignment', openAt: null, closeAt: null, maxAttemptsOverride: null,
+    });
+    transaction.testAttempt.findFirst.mockResolvedValue(null);
+    transaction.testAttempt.count.mockResolvedValue(0);
+    transaction.testAttempt.create.mockResolvedValue({ id: 'practice-attempt' });
+
+    await expect(service.startOrResumeAttempt(learnerId, enrollmentId, 'practice-test'))
+      .resolves.toEqual({ id: 'practice-attempt' });
+    expect(transaction.classAssessment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        classOfferingId: enrollment.classOffering.id,
+        testId: 'practice-test',
+        isActive: true,
+      },
+    }));
+
+    transaction.classAssessment.findFirst.mockResolvedValue(null);
+    await expect(service.startOrResumeAttempt(learnerId, enrollmentId, 'practice-test'))
+      .rejects.toBeInstanceOf(NotFoundException);
+    expect(transaction.testAttempt.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start or resume a retired DRAFT legacy practice', async () => {
+    transaction.test.findFirst.mockResolvedValue(null);
+
+    await expect(service.startOrResumeAttempt(learnerId, enrollmentId, 'legacy-practice'))
+      .rejects.toBeInstanceOf(NotFoundException);
+    expect(transaction.test.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        id: 'legacy-practice',
+        status: TestStatus.PUBLISHED,
+      }),
+    }));
+    expect(transaction.testAttempt.findFirst).not.toHaveBeenCalled();
+    expect(transaction.testAttempt.create).not.toHaveBeenCalled();
+  });
+
+  function practiceAttempt(lessonId: string | null) {
+    const baseQuestion = testQuestion(
+      'practice-question',
+      QuestionResponseType.SINGLE_CHOICE,
+      1,
+      [['correct', true], ['wrong', false]],
+    );
+    const question = {
+      ...baseQuestion,
+      question: {
+        ...baseQuestion.question,
+        skills: [{
+          skill: {
+            id: 'legacy-skill',
+            pInit: 0.2,
+            pLearn: 0.1,
+            pGuess: 0.2,
+            pSlip: 0.1,
+          },
+        }],
+      },
+    };
+    return {
+      ...attemptRecord([{
+        testQuestionId: question.id,
+        selectedOptionIds: ['correct'],
+        textResponse: null,
+        audioStorageKey: null,
+      }]),
+      test: {
+        ...attemptRecord([]).test,
+        purpose: TestPurpose.PRACTICE_MOCK,
+        lessonId,
+        testQuestions: [question],
+      },
+    };
+  }
+
+  async function finalizeAttemptForTest() {
+    const internal = service as unknown as {
+      finalizeAttempt: (
+        client: typeof transaction,
+        enrollment: string,
+        attempt: string,
+      ) => Promise<unknown>;
+    };
+    return internal.finalizeAttempt(transaction, enrollmentId, attemptId);
+  }
 });
 
 function testQuestion(

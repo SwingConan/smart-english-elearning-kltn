@@ -26,6 +26,7 @@ import {
 import { seedM05 } from './m05-seed';
 import { seedM06 } from './m06-seed';
 import { seedM07 } from './m07-seed';
+import { seedM08 } from './m08-seed';
 
 const FREE_OFFERING_ID = '10000000-0000-4000-8000-000000000001';
 const PAID_OFFERING_ID = '10000000-0000-4000-8000-000000000002';
@@ -1687,23 +1688,23 @@ async function main(): Promise<void> {
       update: {
         lessonId: DEMO_LESSON_1_ID,
         title: 'Course Syllabus',
-        type: ResourceType.DOCUMENT,
-        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-        originalFileName: 'lo-trinh-toeic-workplace-foundations.pdf',
-        mimeType: 'application/pdf',
+        type: ResourceType.LINK,
+        url: 'https://www.ets.org/toeic/test-takers/about/listening-reading.html',
+        originalFileName: null,
+        mimeType: 'text/html',
         orderIndex: 1,
-        isDownloadable: true,
+        isDownloadable: false,
       },
       create: {
         id: DEMO_RESOURCE_DOC_ID,
         lessonId: DEMO_LESSON_1_ID,
         title: 'Course Syllabus',
-        type: ResourceType.DOCUMENT,
-        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-        originalFileName: 'lo-trinh-toeic-workplace-foundations.pdf',
-        mimeType: 'application/pdf',
+        type: ResourceType.LINK,
+        url: 'https://www.ets.org/toeic/test-takers/about/listening-reading.html',
+        originalFileName: null,
+        mimeType: 'text/html',
         orderIndex: 1,
-        isDownloadable: true,
+        isDownloadable: false,
       },
     });
 
@@ -1759,29 +1760,29 @@ async function main(): Promise<void> {
         0,
       ],
     ] as const;
-    for (const [id, lessonId, title, type, originalFileName, orderIndex] of extendedResources) {
+    for (const [id, lessonId, title, , , orderIndex] of extendedResources) {
       await prisma.learningResource.upsert({
         where: { id },
         update: {
           lessonId,
           title,
-          type,
-          url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-          originalFileName,
-          mimeType: 'application/pdf',
+          type: ResourceType.LINK,
+          url: 'https://www.ets.org/toeic/test-takers/prepare.html',
+          originalFileName: null,
+          mimeType: 'text/html',
           orderIndex,
-          isDownloadable: true,
+          isDownloadable: false,
         },
         create: {
           id,
           lessonId,
           title,
-          type,
-          url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-          originalFileName,
-          mimeType: 'application/pdf',
+          type: ResourceType.LINK,
+          url: 'https://www.ets.org/toeic/test-takers/prepare.html',
+          originalFileName: null,
+          mimeType: 'text/html',
           orderIndex,
-          isDownloadable: true,
+          isDownloadable: false,
         },
       });
     }
@@ -2429,6 +2430,11 @@ async function main(): Promise<void> {
         create: mapping,
       });
     }
+
+    await seedM08(prisma, {
+      courseId: course.id,
+      classOfferingId: FREE_OFFERING_ID,
+    });
 
     for (const mapping of lessonSkillSeeds) {
       await prisma.lessonSkill.upsert({

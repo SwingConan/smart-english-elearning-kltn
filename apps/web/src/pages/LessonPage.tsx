@@ -7,12 +7,17 @@ import {
   ExternalLink,
   FileText,
   Link2,
+  Clock3,
+  ClipboardCheck,
+  Target,
   Video,
 } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { learningApi } from '@/features/learning/api';
 import type { CourseContent, LessonDetail, LessonResource } from '@/features/learning/types';
 import { parseYouTubeVideoId } from '@/features/learning/youtube';
+import { SafeMarkdown } from '@/components/ui/SafeMarkdown';
+import { SKILL_LABELS, TASK_CODE_LABELS } from '@/features/learning/curriculum';
 
 export function LessonPage() {
   const { enrollmentId = '', lessonId = '' } = useParams();
@@ -109,10 +114,28 @@ export function LessonPage() {
       <p className="mt-7 text-sm font-semibold text-indigo-700">{data.lesson.module.title}</p>
       <h2 className="mt-2 text-3xl font-bold">{data.lesson.title}</h2>
       {data.lesson.description ? (
-        <p className="mt-4 whitespace-pre-line leading-8 text-slate-700">
+        <p className="mt-3 whitespace-pre-line text-slate-600">
           {data.lesson.description}
         </p>
       ) : null}
+      <div className="mt-5 flex flex-wrap gap-2" aria-label="Thông tin bài học">
+        {data.lesson.focusSkills.map((skill) => <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700" key={skill}><Target size={15} />{SKILL_LABELS[skill]}</span>)}
+        {data.lesson.focusTaskCodes.map((code) => <span className="rounded-full bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800" key={code}>{TASK_CODE_LABELS[code]}</span>)}
+        {data.lesson.estimatedMinutes ? <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700"><Clock3 size={15} />{data.lesson.estimatedMinutes} phút</span> : null}
+        <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700">{statusLabel(data.lesson.progress.status)}</span>
+      </div>
+
+      <section className="mt-9">
+        <h3 className="text-xl font-bold">Mục tiêu bài học</h3>
+        {data.lesson.learningObjectives.length ? <ol className="mt-4 space-y-3">{data.lesson.learningObjectives.map((objective, index) => <li className="flex gap-3 rounded-xl bg-indigo-50/70 p-4" key={`${index}-${objective}`}><span className="grid size-7 shrink-0 place-items-center rounded-full bg-indigo-600 text-sm font-bold text-white">{index + 1}</span><span className="leading-7 text-slate-700">{objective}</span></li>)}</ol> : <div className="state-empty mt-4">Bài học định hướng/ôn tập này chưa khai báo mục tiêu chi tiết.</div>}
+      </section>
+
+      <section className="mt-9">
+        <h3 className="text-xl font-bold">Nội dung bài học</h3>
+        <div className="mt-4 rounded-2xl border bg-slate-50 p-5 sm:p-7">
+          {data.lesson.contentMarkdown ? <SafeMarkdown markdown={data.lesson.contentMarkdown} /> : <p className="text-slate-500">Nội dung chi tiết đang được giảng viên hoàn thiện.</p>}
+        </div>
+      </section>
       <section className="mt-9">
         <h3 className="text-xl font-bold">Tài liệu liên quan</h3>
         {downloadError ? (
@@ -130,6 +153,10 @@ export function LessonPage() {
           </div>
         )}
       </section>
+      {data.lesson.practice ? <section className="mt-9 rounded-2xl border border-indigo-200 bg-indigo-50 p-5 sm:flex sm:items-center sm:justify-between sm:gap-5">
+        <div><p className="flex items-center gap-2 font-bold text-indigo-950"><ClipboardCheck />Luyện tập sau bài học</p><p className="mt-2 text-sm text-indigo-800">{data.lesson.practice.title}</p></div>
+        <Link className="btn-primary mt-4 sm:mt-0" to={`/student/enrollments/${enrollmentId}/tests?focus=${encodeURIComponent(data.lesson.practice.testId)}`}>Đến bài luyện tập<ArrowRight size={17} /></Link>
+      </section> : null}
       <div className="mt-9 border-t pt-6">
         {completeError ? (
           <p className="state-error mb-4" role="alert">
@@ -259,4 +286,10 @@ function resourceTypeLabel(resource: LessonResource): string {
     VIDEO: 'Video',
     DOCUMENT: 'Tài liệu',
   }[resource.type];
+}
+
+function statusLabel(status: string): string {
+  if (status === 'COMPLETED') return 'Đã hoàn thành';
+  if (status === 'IN_PROGRESS') return 'Đang học';
+  return 'Chưa học';
 }

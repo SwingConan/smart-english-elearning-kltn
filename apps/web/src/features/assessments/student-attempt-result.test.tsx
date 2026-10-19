@@ -23,6 +23,37 @@ afterEach(() => {
 });
 
 describe('StudentTestAttemptPage', () => {
+  it('labels lesson practice by purpose and never exposes its compatibility stage', async () => {
+    const content = attemptContent();
+    content.test = {
+      ...content.test,
+      purpose: 'PRACTICE_MOCK',
+      stage: 'FINAL',
+      lessonId: 'lesson-a',
+    };
+    vi.spyOn(studentAssessmentApi, 'getAttempt').mockResolvedValue(content);
+    renderAttempt();
+
+    expect(await screen.findByText('Bài luyện sau bài học')).toBeInTheDocument();
+    expect(screen.queryByText('Cuối kỳ')).not.toBeInTheDocument();
+  });
+
+  it('uses a neutral label for standalone practice', async () => {
+    const content = attemptContent();
+    content.test = {
+      ...content.test,
+      purpose: 'PRACTICE_MOCK',
+      stage: 'FINAL',
+      lessonId: null,
+    };
+    vi.spyOn(studentAssessmentApi, 'getAttempt').mockResolvedValue(content);
+    renderAttempt();
+
+    expect(await screen.findByText('Luyện tập / Thi thử')).toBeInTheDocument();
+    expect(screen.queryByText('Cuối kỳ')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bài luyện sau bài học')).not.toBeInTheDocument();
+  });
+
   it('renders SC/TF radios and MC checkboxes with saved selections and no pre-submit secrets', async () => {
     vi.spyOn(studentAssessmentApi, 'getAttempt').mockResolvedValue(attemptContent());
     renderAttempt();
@@ -256,6 +287,37 @@ describe('StudentTestAttemptPage', () => {
 });
 
 describe('StudentTestResultPage', () => {
+  it('labels a practice result without formal assessment stage semantics', async () => {
+    const practiceResult = result();
+    practiceResult.test = {
+      ...practiceResult.test,
+      purpose: 'PRACTICE_MOCK',
+      stage: 'MIDTERM',
+      lessonId: 'lesson-a',
+    };
+    vi.spyOn(studentAssessmentApi, 'getResult').mockResolvedValue(practiceResult);
+    renderResult();
+
+    expect(await screen.findByText('Bài luyện sau bài học')).toBeInTheDocument();
+    expect(screen.queryByText('Kiểm tra giữa kỳ')).not.toBeInTheDocument();
+  });
+
+  it('uses a neutral label for a standalone practice result', async () => {
+    const practiceResult = result();
+    practiceResult.test = {
+      ...practiceResult.test,
+      purpose: 'PRACTICE_MOCK',
+      stage: 'MIDTERM',
+      lessonId: null,
+    };
+    vi.spyOn(studentAssessmentApi, 'getResult').mockResolvedValue(practiceResult);
+    renderResult();
+
+    expect(await screen.findByText('Luyện tập / Thi thử')).toBeInTheDocument();
+    expect(screen.queryByText('Kiểm tra giữa kỳ')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bài luyện sau bài học')).not.toBeInTheDocument();
+  });
+
   it('renders allowed post-submit score, metadata, correctness, selections and explanation', async () => {
     vi.spyOn(studentAssessmentApi, 'getResult').mockResolvedValue(result());
     renderResult();

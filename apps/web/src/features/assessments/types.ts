@@ -216,6 +216,7 @@ export interface StudentAttemptContent {
     type: TestType | TestPurpose;
     purpose?: TestPurpose;
     stage?: AssessmentStage | null;
+    lessonId?: string | null;
     timeLimitMinutes?: number | null;
   };
   questions?: StudentAttemptQuestion[];
@@ -237,7 +238,7 @@ export interface StudentSubmission {
     maxScore?: number;
     percentage?: number;
   };
-  test: { id: string; title: string; type: TestType | TestPurpose; purpose?: TestPurpose; stage?: AssessmentStage | null };
+  test: { id: string; title: string; type: TestType | TestPurpose; purpose?: TestPurpose; stage?: AssessmentStage | null; lessonId?: string | null };
   resultAvailable: boolean;
 }
 export interface StudentResultOption extends StudentAttemptOption { isCorrect: boolean; wasSelected: boolean }
@@ -278,7 +279,7 @@ export interface StudentAttemptResult {
     startedAt: string;
     submittedAt: string;
   };
-  test: { id: string; title: string; type: TestType | TestPurpose; purpose?: TestPurpose; stage?: AssessmentStage | null };
+  test: { id: string; title: string; type: TestType | TestPurpose; purpose?: TestPurpose; stage?: AssessmentStage | null; lessonId?: string | null };
   gradingState?: 'SUBMITTED_PENDING_REVIEW' | 'REVIEWED_FINAL';
   skills?: Array<{
     skill: ToeicSkill;
@@ -303,11 +304,28 @@ export interface ClassAssessmentSummary {
   submissionCount: number;
   pendingGradingCount: number;
   attemptCount: number;
-  test: { id: string; title: string; maxAttempts: number; timeLimitMinutes: number | null; _count: { testQuestions: number } };
+  test: {
+    id: string;
+    title: string;
+    purpose: Exclude<TestPurpose, 'PLACEMENT'>;
+    lessonId: string | null;
+    lesson: { id: string; title: string } | null;
+    maxAttempts: number;
+    timeLimitMinutes: number | null;
+    _count: { testQuestions: number };
+  };
 }
 export interface ClassAssessmentWorkspace {
   classOffering: { id: string; code: string; name: string; course: { id: string; title: string } };
-  availableTests: Array<{ id: string; title: string; timeLimitMinutes: number | null; maxAttempts: number }>;
+  availableTests: Array<{
+    id: string;
+    title: string;
+    purpose: Exclude<TestPurpose, 'PLACEMENT'>;
+    lessonId: string | null;
+    lesson: { id: string; title: string } | null;
+    timeLimitMinutes: number | null;
+    maxAttempts: number;
+  }>;
   assessments: ClassAssessmentSummary[];
 }
 export interface GradingQueue {

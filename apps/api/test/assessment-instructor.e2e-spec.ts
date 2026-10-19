@@ -4,6 +4,7 @@ import * as argon2 from 'argon2';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import {
+  AssessmentStage,
   ClassOfferingStatus,
   EnrollmentStatus,
   PricingType,
@@ -155,6 +156,7 @@ describe('Instructor assessment APIs (e2e)', () => {
         where: { attemptId: { in: attempts.map(({ id }) => id) } },
       });
       await prisma.testAttempt.deleteMany({ where: { testId: { in: testIds } } });
+      await prisma.classAssessment.deleteMany({ where: { classOfferingId: { in: offeringIds } } });
       await prisma.testQuestion.deleteMany({ where: { testId: { in: testIds } } });
       await prisma.test.deleteMany({ where: { id: { in: testIds } } });
       const questions = await prisma.question.findMany({
@@ -532,6 +534,14 @@ describe('Instructor assessment APIs (e2e)', () => {
     }
 
     await instructorAgent.patch(`/api/instructor/tests/${assessment.id}/publish`).expect(200);
+    await prisma.classAssessment.create({
+      data: {
+        classOfferingId: offeringIds[0],
+        testId: assessment.id,
+        stage: AssessmentStage.PERIODIC,
+        isActive: true,
+      },
+    });
     const attempt = await studentAgent
       .post(`/api/learning/enrollments/${activeEnrollment}/tests/${assessment.id}/attempts`)
       .expect(201);
