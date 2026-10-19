@@ -66,6 +66,7 @@ const DEMO_MIDTERM_ASSESSMENT_ID = 'f2000000-0000-4000-8000-000000000003';
 const DEMO_FINAL_ASSESSMENT_ID = 'f2000000-0000-4000-8000-000000000004';
 const DEMO_SUBMITTED_ATTEMPT_ID = 'f3000000-0000-4000-8000-000000000001';
 const DEMO_MODULE_3_ID = '20000000-0000-4000-8000-000000000003';
+const M08_STUDY_RECOMMENDATION_POLICY_ID = 'f8000000-0000-4000-8000-000000000001';
 
 const additionalCourseSeeds = [
   {
@@ -1021,6 +1022,32 @@ async function main(): Promise<void> {
     if (!admin || !instructor) {
       throw new Error('Development seed could not prepare demo users.');
     }
+
+    await prisma.studyRecommendationPolicy.updateMany({
+      where: { code: { not: 'M08_STUDY_REC_V1' }, isActive: true },
+      data: { isActive: false },
+    });
+    await prisma.studyRecommendationPolicy.upsert({
+      where: { code: 'M08_STUDY_REC_V1' },
+      update: {
+        name: 'M08 deterministic study recommendation policy',
+        weakThreshold: 60,
+        strongThreshold: 80,
+        minimumTaskQuestions: 2,
+        maxRecommendations: 3,
+        isActive: true,
+      },
+      create: {
+        id: M08_STUDY_RECOMMENDATION_POLICY_ID,
+        code: 'M08_STUDY_REC_V1',
+        name: 'M08 deterministic study recommendation policy',
+        weakThreshold: 60,
+        strongThreshold: 80,
+        minimumTaskQuestions: 2,
+        maxRecommendations: 3,
+        isActive: true,
+      },
+    });
 
     const course = await prisma.course.upsert({
       where: { slug: 'demo-english-foundations' },

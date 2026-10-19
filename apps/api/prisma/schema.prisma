@@ -361,10 +361,10 @@ model Lesson {
   tests                Test[]
   skills               LessonSkill[]
   focusSkills          ToeicSkill[]          @default([])
-  learningObjectives   String[]               @default([])
-  contentMarkdown      String?                @db.Text
+  learningObjectives   String[]              @default([])
+  contentMarkdown      String?               @db.Text
   estimatedMinutes     Int?
-  focusTaskCodes       String[]               @default([])
+  focusTaskCodes       String[]              @default([])
   studyRecommendations StudyRecommendation[]
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
@@ -835,34 +835,58 @@ model CourseRecommendation {
 }
 
 model StudyRecommendation {
-  id              String                    @id @default(uuid()) @db.Uuid
-  learnerId       String                    @db.Uuid
-  enrollmentId    String                    @db.Uuid
-  sourceAttemptId String?                   @db.Uuid
+  id              String                     @id @default(uuid()) @db.Uuid
+  learnerId       String                     @db.Uuid
+  enrollmentId    String                     @db.Uuid
+  sourceAttemptId String?                    @db.Uuid
+  policyId        String?                    @db.Uuid
+  priority        Int                        @default(100)
+  ruleReason      Json                       @default("{}")
   skill           ToeicSkill
-  targetType      StudyRecommendationTarget @default(SKILL)
-  lessonId        String?                   @db.Uuid
-  resourceId      String?                   @db.Uuid
+  targetType      StudyRecommendationTarget  @default(SKILL)
+  lessonId        String?                    @db.Uuid
+  resourceId      String?                    @db.Uuid
   title           String
-  actionText      String                    @db.Text
-  aiExplanation   String?                   @db.Text
-  isActive        Boolean                   @default(true)
-  learner         User                      @relation("LearnerStudyRecommendations", fields: [learnerId], references: [id], onDelete: Restrict)
-  enrollment      Enrollment                @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
-  sourceAttempt   TestAttempt?              @relation(fields: [sourceAttemptId], references: [id], onDelete: Restrict)
-  lesson          Lesson?                   @relation(fields: [lessonId], references: [id], onDelete: Restrict)
-  resource        LearningResource?         @relation(fields: [resourceId], references: [id], onDelete: Restrict)
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
+  actionText      String                     @db.Text
+  aiExplanation   String?                    @db.Text
+  isActive        Boolean                    @default(true)
+  learner         User                       @relation("LearnerStudyRecommendations", fields: [learnerId], references: [id], onDelete: Restrict)
+  enrollment      Enrollment                 @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  sourceAttempt   TestAttempt?               @relation(fields: [sourceAttemptId], references: [id], onDelete: Restrict)
+  policy          StudyRecommendationPolicy? @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  lesson          Lesson?                    @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  resource        LearningResource?          @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
 
+  @@unique([enrollmentId, sourceAttemptId, priority])
   @@index([learnerId])
   @@index([enrollmentId])
   @@index([sourceAttemptId])
+  @@index([policyId])
+  @@index([priority])
   @@index([skill])
   @@index([lessonId])
   @@index([resourceId])
   @@index([isActive])
   @@map("study_recommendations")
+}
+
+model StudyRecommendationPolicy {
+  id                   String                @id @default(uuid()) @db.Uuid
+  code                 String                @unique
+  name                 String
+  weakThreshold        Decimal               @db.Decimal(5, 2)
+  strongThreshold      Decimal               @db.Decimal(5, 2)
+  minimumTaskQuestions Int
+  maxRecommendations   Int
+  isActive             Boolean               @default(true)
+  recommendations      StudyRecommendation[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([isActive])
+  @@map("study_recommendation_policies")
 }
 
 /// LEGACY/FROZEN BKT micro-skill model. ToeicSkill is the new assessment classification.
