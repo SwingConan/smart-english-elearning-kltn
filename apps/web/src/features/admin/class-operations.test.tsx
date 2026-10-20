@@ -181,6 +181,24 @@ describe('AdminClassOfferingOperationsPage', () => {
     await waitFor(() => expect(remove).toHaveBeenCalledWith(classId, offering.scheduleSlots[0].id));
   });
 
+  it('preserves schedule input and edit state when the API mutation fails', async () => {
+    mockApis();
+    vi.spyOn(adminApi.offerings, 'createScheduleSlot').mockRejectedValue(new ApiError(400, null));
+    renderOperations();
+    await screen.findByRole('heading', { name: 'Lịch học' });
+    fireEvent.change(screen.getByLabelText('Giờ bắt đầu'), { target: { value: '13:30' } });
+    fireEvent.change(screen.getByLabelText('Giờ kết thúc'), { target: { value: '15:00' } });
+    fireEvent.change(screen.getByLabelText('Phòng / địa điểm'), {
+      target: { value: 'Phòng cần sửa' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm lịch' }));
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByLabelText('Giờ bắt đầu')).toHaveValue('13:30');
+    expect(screen.getByLabelText('Giờ kết thúc')).toHaveValue('15:00');
+    expect(screen.getByLabelText('Phòng / địa điểm')).toHaveValue('Phòng cần sửa');
+  });
+
   it('filters roster and exposes only allowed status actions with confirmation', async () => {
     mockApis();
     vi.stubGlobal(
@@ -188,12 +206,10 @@ describe('AdminClassOfferingOperationsPage', () => {
       vi.fn(() => true),
     );
     const list = vi.spyOn(adminApi.offerings, 'roster').mockResolvedValue(roster);
-    const update = vi
-      .spyOn(adminApi.offerings, 'updateRosterStatus')
-      .mockResolvedValue({
-        enrollment: { ...roster.data[0], status: 'DROPPED' },
-        classOffering: offering,
-      });
+    const update = vi.spyOn(adminApi.offerings, 'updateRosterStatus').mockResolvedValue({
+      enrollment: { ...roster.data[0], status: 'DROPPED' },
+      classOffering: offering,
+    });
     renderOperations();
     await screen.findAllByText('Nguyễn Minh An');
     fireEvent.change(screen.getByLabelText('Tìm học viên'), { target: { value: 'Minh An' } });
@@ -225,6 +241,18 @@ describe('AdminClassOfferingOperationsPage', () => {
     vi.spyOn(adminApi.offerings, 'get').mockRejectedValueOnce(new ApiError(401, null));
     const refresh = vi.fn().mockResolvedValue(undefined);
     renderOperations(refresh, true);
+    expect(await screen.findByTestId('location')).toHaveTextContent(
+      `/login?returnUrl=%2Fadmin%2Fclass-offerings%2F${classId}%2Foperations`,
+    );
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it('redirects through the admin session-expiry flow when instructor options return 401', async () => {
+    mockApis();
+    vi.spyOn(adminApi.offerings, 'instructorOptions').mockRejectedValue(new ApiError(401, null));
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    renderOperations(refresh, true);
+
     expect(await screen.findByTestId('location')).toHaveTextContent(
       `/login?returnUrl=%2Fadmin%2Fclass-offerings%2F${classId}%2Foperations`,
     );

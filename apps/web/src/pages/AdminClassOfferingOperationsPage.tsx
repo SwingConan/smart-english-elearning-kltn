@@ -73,7 +73,7 @@ export function AdminClassOfferingOperationsPage() {
     return () => controller.abort();
   }, [classOfferingId, redirectExpiredSession, reloadKey]);
 
-  const mutate = async (work: () => Promise<unknown>, success: string) => {
+  const mutate = async (work: () => Promise<unknown>, success: string): Promise<boolean> => {
     setBusy(true);
     setActionError('');
     setNotice('');
@@ -81,8 +81,10 @@ export function AdminClassOfferingOperationsPage() {
       await work();
       setNotice(success);
       reload();
+      return true;
     } catch (error) {
       if (!(await redirectExpiredSession(error))) setActionError(adminErrorMessage(error));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -176,6 +178,7 @@ export function AdminClassOfferingOperationsPage() {
           key={offering.instructorId ?? 'unassigned'}
           offering={offering}
           onMutate={mutate}
+          redirectExpiredSession={redirectExpiredSession}
         />
         <ScheduleCard busy={busy} offering={offering} onMutate={mutate} />
       </div>
@@ -269,10 +272,12 @@ function InstructorCard({
   offering,
   busy,
   onMutate,
+  redirectExpiredSession,
 }: {
   offering: AdminClassOffering;
   busy: boolean;
-  onMutate: (work: () => Promise<unknown>, success: string) => Promise<void>;
+  onMutate: (work: () => Promise<unknown>, success: string) => Promise<boolean>;
+  redirectExpiredSession: (error: unknown) => Promise<boolean>;
 }) {
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
@@ -288,14 +293,15 @@ function InstructorCard({
         setOptions(result.data);
         setError(false);
       })
-      .catch((cause: unknown) => {
-        if (!(cause instanceof DOMException && cause.name === 'AbortError')) setError(true);
+      .catch(async (cause: unknown) => {
+        if (cause instanceof DOMException && cause.name === 'AbortError') return;
+        if (!(await redirectExpiredSession(cause))) setError(true);
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [query]);
+  }, [query, redirectExpiredSession]);
   const locked = offering.status === 'COMPLETED' || offering.status === 'CANCELLED';
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
@@ -413,7 +419,7 @@ function ScheduleCard({
 }: {
   offering: AdminClassOffering;
   busy: boolean;
-  onMutate: (work: () => Promise<unknown>, success: string) => Promise<void>;
+  onMutate: (work: () => Promise<unknown>, success: string) => Promise<boolean>;
 }) {
   const [form, setForm] = useState<ScheduleSlotInput>(emptySchedule);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -423,10 +429,14 @@ function ScheduleCard({
     const work = editingId
       ? () => adminApi.offerings.updateScheduleSlot(offering.id, editingId, form)
       : () => adminApi.offerings.createScheduleSlot(offering.id, form);
-    void onMutate(work, editingId ? 'Đã cập nhật lịch học.' : 'Đã thêm lịch học.').then(() => {
-      setEditingId(null);
-      setForm(emptySchedule);
-    });
+    void onMutate(work, editingId ? 'Đã cập nhật lịch học.' : 'Đã thêm lịch học.').then(
+      (succeeded) => {
+        if (succeeded) {
+          setEditingId(null);
+          setForm(emptySchedule);
+        }
+      },
+    );
   };
   return (
     <section className={cardClass} aria-labelledby="schedule-heading">

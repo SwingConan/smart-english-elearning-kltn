@@ -12,13 +12,20 @@ import { modalityLabel, statusLabel } from '@/features/admin/labels';
 import { useAdminSessionExpiry } from '@/features/admin/use-admin-session-expiry';
 import {
   CLASS_MODALITIES,
-  OFFERING_STATUSES,
   type AdminClassOffering,
   type AdminCourse,
+  type OfferingStatus,
 } from '@/features/admin/types';
 
 const controlClass =
   'mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200';
+const statusTransitions: Record<OfferingStatus, OfferingStatus[]> = {
+  DRAFT: ['DRAFT', 'OPEN', 'CANCELLED'],
+  OPEN: ['OPEN', 'IN_PROGRESS', 'CANCELLED'],
+  IN_PROGRESS: ['IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
+  COMPLETED: ['COMPLETED'],
+  CANCELLED: ['CANCELLED'],
+};
 
 export function AdminClassOfferingEditorPage() {
   const { classOfferingId } = useParams();
@@ -179,20 +186,26 @@ export function AdminClassOfferingEditorPage() {
             />
           </Field>
           <Field id="offering-status" label="Trạng thái">
-            <select
-              className={controlClass}
-              id="offering-status"
-              onChange={(event) =>
-                update('status', event.target.value as OfferingFormValues['status'])
-              }
-              value={values.status}
-            >
-              {OFFERING_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {statusLabel(status)}
-                </option>
-              ))}
-            </select>
+            {editing && offering ? (
+              <select
+                className={controlClass}
+                id="offering-status"
+                onChange={(event) =>
+                  update('status', event.target.value as OfferingFormValues['status'])
+                }
+                value={values.status}
+              >
+                {statusTransitions[offering.status].map((status) => (
+                  <option key={status} value={status}>
+                    {statusLabel(status)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className={`${controlClass} bg-slate-50 text-slate-700`} id="offering-status">
+                {statusLabel('DRAFT')} (trạng thái khởi tạo)
+              </p>
+            )}
           </Field>
           <Field id="offering-modality" label="Hình thức">
             <select

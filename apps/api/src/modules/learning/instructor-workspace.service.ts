@@ -38,7 +38,7 @@ export class InstructorWorkspaceService {
         course: { select: { id: true, title: true, level: true } },
         scheduleSlots: {
           orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
-          select: { dayOfWeek: true, startTime: true, endTime: true, locationText: true },
+          select: { dayOfWeek: true, startTime: true, endTime: true, locationText: true, meetingUrl: true },
         },
         _count: { select: { enrollments: { where: { status: EnrollmentStatus.ACTIVE } } } },
       },
@@ -926,7 +926,7 @@ export class InstructorWorkspaceService {
         course: { select: { id: true, title: true, level: true } },
         scheduleSlots: {
           orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
-          select: { dayOfWeek: true, startTime: true, endTime: true, locationText: true },
+          select: { dayOfWeek: true, startTime: true, endTime: true, locationText: true, meetingUrl: true },
         },
       },
     });
@@ -944,6 +944,7 @@ function projectScheduleSlot(slot: {
   startTime: Date;
   endTime: Date;
   locationText: string | null;
+  meetingUrl: string | null;
 }) {
   return {
     ...slot,

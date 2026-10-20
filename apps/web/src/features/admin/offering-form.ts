@@ -122,7 +122,7 @@ export function buildOfferingInput(
       courseId: values.courseId,
       ...(values.code.trim() ? { code: values.code.trim() } : {}),
       name: values.name.trim(),
-      status: values.status,
+      ...(isEdit ? { status: values.status } : {}),
       modality: values.modality,
       pricingType: values.pricingType,
       tuitionFeeVnd: values.pricingType === 'FREE' ? 0 : tuitionFeeVnd,

@@ -32,6 +32,7 @@ describe('M09-B admin class operations (e2e)', () => {
   const userIds: string[] = [];
   const sessionIds = new Set<string>();
   const unique = `${Date.now()}-${process.pid}`;
+  const courseSlug = `m09b-course-${unique}`;
   const password = 'M09bOperations!2026';
   const emails = {
     admin: `m09b-admin-${unique}@example.com`,
@@ -74,7 +75,7 @@ describe('M09-B admin class operations (e2e)', () => {
     const course = await prisma.course.create({
       data: {
         title: `M09B Course ${unique}`,
-        slug: `m09b-course-${unique}`,
+        slug: courseSlug,
         description: 'Disposable M09-B operations fixture',
         level: 'FOUNDATION',
         skillScope: 'LR',
@@ -184,6 +185,18 @@ describe('M09-B admin class operations (e2e)', () => {
 
   it('guards readiness, supports Sunday schedule CRUD, and preserves instructor/public truth', async () => {
     const detailPath = `/api/admin/class-offerings/${classOfferingId}`;
+    await admin
+      .post('/api/admin/class-offerings')
+      .send({ courseId, name: 'Invalid operational create', status: ClassOfferingStatus.OPEN })
+      .expect(400);
+    await admin.patch(detailPath).send({ instructorId: instructorOneId }).expect(400);
+    await admin
+      .patch(detailPath)
+      .send({ status: ClassOfferingStatus.IN_PROGRESS })
+      .expect(400)
+      .expect((response) => {
+        expect(response.body).toMatchObject({ code: 'CLASS_STATUS_TRANSITION_NOT_ALLOWED' });
+      });
     const initial = await admin.get(detailPath).expect(200);
     expect(initial.body.operationalReadiness).toEqual({
       isReady: false,
@@ -207,6 +220,7 @@ describe('M09-B admin class operations (e2e)', () => {
         startTime: '08:15',
         endTime: '10:00',
         locationText: 'Phòng Chủ nhật',
+        meetingUrl: 'https://meet.example.com/m09b-private',
       })
       .expect(201);
     expect(sunday.body).toMatchObject({ dayOfWeek: 7, startTime: '08:15', endTime: '10:00' });
@@ -250,7 +264,12 @@ describe('M09-B admin class operations (e2e)', () => {
           id: classOfferingId,
           activeLearnerCount: 1,
           scheduleSlots: [
-            expect.objectContaining({ dayOfWeek: 7, startTime: '08:15', endTime: '10:00' }),
+            expect.objectContaining({
+              dayOfWeek: 7,
+              startTime: '08:15',
+              endTime: '10:00',
+              meetingUrl: 'https://meet.example.com/m09b-private',
+            }),
           ],
         }),
       ]),
@@ -261,12 +280,29 @@ describe('M09-B admin class operations (e2e)', () => {
     expect(publicDetail.body.scheduleSlots).toEqual([
       expect.objectContaining({ id: sunday.body.id, dayOfWeek: 7 }),
     ]);
+    expect(publicDetail.body.scheduleSlots[0]).not.toHaveProperty('meetingUrl');
+    const publicCourse = await request(app.getHttpServer())
+      .get(`/api/courses/${courseSlug}`)
+      .expect(200);
+    const publicOffering = publicCourse.body.classOfferings.find(
+      (item: { id: string }) => item.id === classOfferingId,
+    );
+    expect(publicOffering.scheduleSlots[0]).not.toHaveProperty('meetingUrl');
 
     await admin.put(`${detailPath}/instructor`).send({ instructorId: instructorTwoId }).expect(200);
     const oldOwner = await instructorOne.get('/api/instructor/classes').expect(200);
     expect(oldOwner.body.some((item: { id: string }) => item.id === classOfferingId)).toBe(false);
     const newOwner = await instructorTwo.get('/api/instructor/classes').expect(200);
-    expect(newOwner.body.some((item: { id: string }) => item.id === classOfferingId)).toBe(true);
+    expect(newOwner.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: classOfferingId,
+          scheduleSlots: [
+            expect.objectContaining({ meetingUrl: 'https://meet.example.com/m09b-private' }),
+          ],
+        }),
+      ]),
+    );
   });
 
   it('filters the real roster and permits only safe capacity-affecting transitions', async () => {

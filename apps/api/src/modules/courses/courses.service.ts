@@ -43,7 +43,6 @@ const publicOfferingSelect = {
       startTime: true,
       endTime: true,
       locationText: true,
-      meetingUrl: true,
     },
   },
   _count: {
@@ -360,6 +359,13 @@ function mapPublicOffering(offering: PublicOfferingRow) {
 
   return {
     ...publicFields,
+    scheduleSlots: offering.scheduleSlots.map((slot) => ({
+      id: slot.id,
+      dayOfWeek: slot.dayOfWeek,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      locationText: slot.locationText,
+    })),
     registeredCount: availability.registeredCount,
     remainingSeats: availability.remainingSeats,
     isFull: availability.isFull,

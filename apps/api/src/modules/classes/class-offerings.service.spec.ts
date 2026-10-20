@@ -182,15 +182,31 @@ describe('ClassOfferingsService', () => {
     );
   });
 
-  it('rejects assigning a user who is not an instructor', async () => {
-    prisma.user.findUnique.mockResolvedValue({ role: UserRole.STUDENT, status: UserStatus.ACTIVE });
+  it.each([
+    [ClassOfferingStatus.DRAFT, ClassOfferingStatus.IN_PROGRESS],
+    [ClassOfferingStatus.DRAFT, ClassOfferingStatus.COMPLETED],
+    [ClassOfferingStatus.COMPLETED, ClassOfferingStatus.OPEN],
+    [ClassOfferingStatus.CANCELLED, ClassOfferingStatus.OPEN],
+  ])('rejects the class status transition %s -> %s', async (currentStatus, targetStatus) => {
+    prisma.classOffering.findUnique.mockResolvedValue(adminOfferingRow({ status: currentStatus }));
 
-    await expect(
-      service.create({
-        ...baseInput,
-        instructorId: '35962015-26c6-48a7-a7c3-46052a3ad6dc',
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.update('offering-id', { status: targetStatus })).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'CLASS_STATUS_TRANSITION_NOT_ALLOWED' }),
+    });
+    expect(prisma.classOffering.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [ClassOfferingStatus.DRAFT, ClassOfferingStatus.CANCELLED],
+    [ClassOfferingStatus.OPEN, ClassOfferingStatus.IN_PROGRESS],
+    [ClassOfferingStatus.IN_PROGRESS, ClassOfferingStatus.COMPLETED],
+  ])('allows the class status transition %s -> %s', async (currentStatus, targetStatus) => {
+    prisma.classOffering.findUnique.mockResolvedValue(adminOfferingRow({ status: currentStatus }));
+    prisma.classOffering.update.mockResolvedValue(adminOfferingRow({ status: targetStatus }));
+
+    await expect(service.update('offering-id', { status: targetStatus })).resolves.toMatchObject({
+      status: targetStatus,
+    });
   });
 
   it('returns a published public offering with ACTIVE capacity and schedule', async () => {
@@ -226,12 +242,13 @@ describe('ClassOfferingsService', () => {
           startTime: new Date('1970-01-01T18:00:00Z'),
           endTime: new Date('1970-01-01T20:00:00Z'),
           locationText: 'Online',
-          meetingUrl: null,
+          meetingUrl: 'https://meet.example.com/private',
         },
       ],
       _count: { enrollments: 4 },
     });
-    await expect(service.getPublicById('offering-id')).resolves.toMatchObject({
+    const result = await service.getPublicById('offering-id');
+    expect(result).toMatchObject({
       registeredCount: 4,
       remainingSeats: 6,
       isFull: false,
@@ -239,6 +256,7 @@ describe('ClassOfferingsService', () => {
       course: { modules: [{ lessonCount: 2 }] },
       scheduleSlots: [{ dayOfWeek: 2 }],
     });
+    expect(result.scheduleSlots[0]).not.toHaveProperty('meetingUrl');
     expect(prisma.classOffering.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: 'offering-id', course: { isPublished: true } }),

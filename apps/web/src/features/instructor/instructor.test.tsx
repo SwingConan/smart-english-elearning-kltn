@@ -57,12 +57,17 @@ describe('InstructorTeachingPage', () => {
       course: { id: courseId, title: 'Assigned English', level: 'A1' },
       scheduleSlots: [
         { dayOfWeek: 1, startTime: '08:00', endTime: '09:00', locationText: 'Room 1' },
-        { dayOfWeek: 7, startTime: '10:00', endTime: '11:00', locationText: 'Online' },
+        { dayOfWeek: 7, startTime: '10:00', endTime: '11:00', locationText: 'Online', meetingUrl: 'https://meet.example.com/protected' },
       ],
     }]);
     renderInstructor(<InstructorTeachingPage />);
     expect((await screen.findAllByText(/T2 · 08:00–09:00/)).length).toBe(2);
     expect(screen.getAllByText(/CN · 10:00–11:00/)).toHaveLength(2);
+    for (const link of screen.getAllByRole('link', { name: 'Vào lớp trực tuyến' })) {
+      expect(link).toHaveAttribute('href', 'https://meet.example.com/protected');
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    }
     const filter = screen.getByLabelText('Lọc ngày học');
     expect(within(filter).getByRole('option', { name: 'T2' })).toHaveValue('1');
     expect(within(filter).getByRole('option', { name: 'CN' })).toHaveValue('7');

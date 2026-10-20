@@ -218,9 +218,7 @@ describe('Course catalog and admin APIs (e2e)', () => {
       .post('/api/admin/class-offerings')
       .send({
         courseId: createdCourse.body.id,
-        instructorId: userIds[2],
         name: 'Open cohort',
-        status: 'DRAFT',
         pricingType: 'FREE',
         tuitionFeeVnd: 0,
         maxStudents: 20,
@@ -235,13 +233,16 @@ describe('Course catalog and admin APIs (e2e)', () => {
       }),
     );
     expect(openCandidate.body).not.toHaveProperty('_count');
+    await adminAgent
+      .put(`/api/admin/class-offerings/${openCandidate.body.id}/instructor`)
+      .send({ instructorId: userIds[2] })
+      .expect(200);
 
     await adminAgent
       .post('/api/admin/class-offerings')
       .send({
         courseId: createdCourse.body.id,
         name: 'N'.repeat(301),
-        status: 'DRAFT',
         pricingType: 'FREE',
       })
       .expect(400);
@@ -251,7 +252,6 @@ describe('Course catalog and admin APIs (e2e)', () => {
       .send({
         courseId: createdCourse.body.id,
         name: 'Draft cohort',
-        status: 'DRAFT',
         pricingType: 'PAID',
         tuitionFeeVnd: 500_000,
       })

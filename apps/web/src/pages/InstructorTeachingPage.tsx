@@ -241,7 +241,7 @@ function Schedule({ item }: { item: InstructorClass }) {
   const slots = [
     ...new Map(
       (item.scheduleSlots ?? []).map((slot) => [
-        `${slot.dayOfWeek}|${slot.startTime}|${slot.endTime}|${slot.locationText ?? ''}`,
+        `${slot.dayOfWeek}|${slot.startTime}|${slot.endTime}|${slot.locationText ?? ''}|${slot.meetingUrl ?? ''}`,
         slot,
       ]),
     ).values(),
@@ -251,11 +251,23 @@ function Schedule({ item }: { item: InstructorClass }) {
     <span className="flex flex-wrap gap-1.5">
       {slots.map((slot) => (
         <span
-          className="whitespace-nowrap rounded-full bg-slate-100 px-2 py-1 text-xs font-medium"
+          className="inline-flex flex-wrap items-center gap-1 whitespace-nowrap rounded-full bg-slate-100 px-2 py-1 text-xs font-medium"
           key={`${slot.dayOfWeek}-${slot.startTime}-${slot.endTime}-${slot.locationText}`}
         >
-          {weekdayLabel(slot.dayOfWeek)} · {slot.startTime}–{slot.endTime}
-          {slot.locationText ? ` · ${slot.locationText}` : ''}
+          <span>
+            {weekdayLabel(slot.dayOfWeek)} · {slot.startTime}–{slot.endTime}
+            {slot.locationText ? ` · ${slot.locationText}` : ''}
+          </span>
+          {slot.meetingUrl ? (
+            <a
+              className="font-semibold text-indigo-700 underline"
+              href={slot.meetingUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Vào lớp trực tuyến
+            </a>
+          ) : null}
         </span>
       ))}
     </span>

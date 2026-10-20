@@ -411,7 +411,8 @@ describe('class-offering administration', () => {
     fireEvent.change(screen.getByLabelText('Khóa học'), { target: { value: course.id } });
     fireEvent.change(screen.getByLabelText('Tên lớp'), { target: { value: offering.name } });
     fireEvent.change(screen.getByLabelText('Mã lớp'), { target: { value: offering.code } });
-    fireEvent.change(screen.getByLabelText('Trạng thái'), { target: { value: 'OPEN' } });
+    expect(screen.queryByRole('combobox', { name: 'Trạng thái' })).not.toBeInTheDocument();
+    expect(screen.getByText('Bản nháp (trạng thái khởi tạo)')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Hình thức'), { target: { value: 'HYBRID' } });
     fireEvent.change(screen.getByLabelText('Loại học phí'), { target: { value: 'PAID' } });
     fireEvent.change(screen.getByLabelText('Học phí (VND)'), { target: { value: '1500000' } });
@@ -428,7 +429,6 @@ describe('class-offering administration', () => {
       expect.objectContaining({
         courseId: course.id,
         code: offering.code,
-        status: 'OPEN',
         modality: 'HYBRID',
         totalSessions: 12,
         totalPeriods: 24,
@@ -442,6 +442,7 @@ describe('class-offering administration', () => {
       }),
     );
     expect(create.mock.calls[0][0]).not.toHaveProperty('instructorId');
+    expect(create.mock.calls[0][0]).not.toHaveProperty('status');
   });
 
   it('supports class empty, failure, retry, and pagination states', async () => {

@@ -12,6 +12,7 @@ export interface InstructorClassOffering {
     startTime: string;
     endTime: string;
     locationText: string | null;
+    meetingUrl?: string | null;
   }>;
   course?: { id: string; title: string; level: string };
 }

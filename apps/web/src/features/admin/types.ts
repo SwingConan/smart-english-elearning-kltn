@@ -166,7 +166,7 @@ export interface ClassOfferingInput {
   courseId: string;
   code?: string;
   name: string;
-  status: OfferingStatus;
+  status?: OfferingStatus;
   modality: ClassModality;
   pricingType: PricingType;
   tuitionFeeVnd?: number | null;
