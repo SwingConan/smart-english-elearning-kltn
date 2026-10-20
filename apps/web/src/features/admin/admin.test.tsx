@@ -166,6 +166,8 @@ describe('course administration', () => {
     const create = vi.spyOn(adminApi.courses, 'create').mockResolvedValue(course);
     renderAdminApp('/admin/courses/new');
     await screen.findByRole('heading', { name: 'Tạo khóa học' });
+    expect(screen.getByRole('option', { name: 'Đọc' })).toHaveValue('READING');
+    expect(screen.queryByRole('option', { name: 'READING' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Tạo khóa học' }));
     expect(screen.getByText('Vui lòng nhập tên khóa học.')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Tên khóa học'), { target: { value: course.title } });

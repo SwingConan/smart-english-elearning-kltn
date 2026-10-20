@@ -197,7 +197,7 @@ export class ClassOfferingsService {
     const pricingType = input.pricingType ?? PricingType.FREE;
     this.validateRules({ ...input, pricingType });
 
-    return this.prisma.classOffering.create({
+    const created = await this.prisma.classOffering.create({
       data: {
         courseId: input.courseId,
         instructorId: input.instructorId,
@@ -217,6 +217,7 @@ export class ClassOfferingsService {
       },
       include: adminOfferingInclude,
     });
+    return this.mapAdminOffering(created);
   }
 
   async update(id: string, input: UpdateClassOfferingDto) {
@@ -247,7 +248,7 @@ export class ClassOfferingsService {
       classEnd: input.classEnd !== undefined ? input.classEnd : current.classEnd,
     });
 
-    return this.prisma.classOffering.update({
+    const updated = await this.prisma.classOffering.update({
       where: { id },
       data: {
         ...(input.courseId !== undefined ? { courseId: input.courseId } : {}),
@@ -268,6 +269,7 @@ export class ClassOfferingsService {
       },
       include: adminOfferingInclude,
     });
+    return this.mapAdminOffering(updated);
   }
 
   private async validateCourse(courseId: string): Promise<void> {

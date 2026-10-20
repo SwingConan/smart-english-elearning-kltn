@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { adminApi } from '@/features/admin/api';
 import { adminErrorMessage } from '@/features/admin/errors';
+import { courseSkillScopeLabel } from '@/features/admin/labels';
 import { useAdminSessionExpiry } from '@/features/admin/use-admin-session-expiry';
 import {
   COURSE_SKILL_SCOPES,
@@ -195,7 +196,7 @@ export function AdminCourseEditorPage() {
             >
               {COURSE_SKILL_SCOPES.map((scope) => (
                 <option key={scope} value={scope}>
-                  {scope}
+                  {courseSkillScopeLabel(scope)}
                 </option>
               ))}
             </select>

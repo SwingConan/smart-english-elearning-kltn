@@ -1,4 +1,15 @@
-import type { AdminClassOffering } from './types';
+import type { AdminClassOffering, CourseSkillScope } from './types';
+
+export function courseSkillScopeLabel(scope: CourseSkillScope): string {
+  return {
+    LISTENING: 'Nghe',
+    READING: 'Đọc',
+    LR: 'Nghe & Đọc',
+    SPEAKING: 'Nói',
+    WRITING: 'Viết',
+    FOUR_SKILLS: 'Bốn kỹ năng',
+  }[scope];
+}
 
 export function statusLabel(status: AdminClassOffering['status']): string {
   return {

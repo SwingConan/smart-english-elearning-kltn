@@ -168,6 +168,61 @@ describe('CoursesService', () => {
     );
   });
 
+  it('projects UPCOMING registration truth in the public course list', async () => {
+    prisma.$transaction.mockResolvedValue([
+      [
+        {
+          id: 'course-id',
+          title: 'TOEIC',
+          slug: 'toeic',
+          description: '',
+          level: 'A1',
+          skillScope: CourseSkillScope.LR,
+          thumbnailUrl: null,
+          isPublished: true,
+          classOfferings: [
+            publicOffering({ enrollmentStart: new Date('2099-01-01T00:00:00.000Z') }),
+          ],
+        },
+      ],
+      1,
+    ]);
+
+    const result = await service.listPublic({ page: 1, limit: 12 });
+
+    expect(result.data[0].classOfferings[0]).toMatchObject({
+      registeredCount: 4,
+      remainingSeats: 6,
+      isFull: false,
+      registrationState: 'UPCOMING',
+    });
+    expect(result.data[0].classOfferings[0]).not.toHaveProperty('_count');
+  });
+
+  it('projects CLOSED registration truth in public course detail', async () => {
+    prisma.course.findFirst.mockResolvedValue({
+      id: 'course-id',
+      title: 'TOEIC',
+      slug: 'toeic',
+      description: '',
+      level: 'A1',
+      skillScope: CourseSkillScope.LR,
+      thumbnailUrl: null,
+      isPublished: true,
+      classOfferings: [publicOffering({ enrollmentEnd: new Date('2000-01-01T00:00:00.000Z') })],
+      modules: [],
+    });
+
+    const result = await service.getPublicBySlug('toeic');
+
+    expect(result.classOfferings[0]).toMatchObject({
+      registeredCount: 4,
+      remainingSeats: 6,
+      isFull: false,
+      registrationState: 'CLOSED',
+    });
+  });
+
   it('filters and paginates admin courses with stable ordering', async () => {
     prisma.$transaction.mockResolvedValue([[{ id: 'course-id' }], 21]);
 
@@ -215,4 +270,27 @@ function slugCollisionError(): Prisma.PrismaClientKnownRequestError {
     clientVersion: '7.10.0',
     meta: { modelName: 'Course', target: ['slug'] },
   });
+}
+
+function publicOffering(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'offering-id',
+    code: 'TOEIC-01',
+    name: 'Evening',
+    status: ClassOfferingStatus.OPEN,
+    modality: 'ONLINE',
+    pricingType: 'FREE',
+    tuitionFeeVnd: 0,
+    maxStudents: 10,
+    totalSessions: null,
+    totalPeriods: null,
+    enrollmentStart: null,
+    enrollmentEnd: null,
+    classStart: null,
+    classEnd: null,
+    instructor: null,
+    scheduleSlots: [],
+    _count: { enrollments: 4 },
+    ...overrides,
+  };
 }

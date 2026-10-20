@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ClassOfferingStatus, CourseSkillScope, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { computeRegistrationState } from '../classes/registration-state';
 import { CatalogQueryDto } from './dto/catalog-query.dto';
 import { AdminCourseQueryDto } from './dto/admin-course-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -301,18 +302,23 @@ export class CoursesService {
 }
 
 function mapPublicOffering(offering: PublicOfferingRow) {
-  const registeredCount = offering._count.enrollments;
-  const remainingSeats =
-    offering.maxStudents === null ? null : Math.max(0, offering.maxStudents - registeredCount);
-  const isFull = remainingSeats === 0;
+  const { _count, ...publicFields } = offering;
+  const availability = computeRegistrationState({
+    status: offering.status,
+    courseIsPublished: true,
+    enrollmentStart: offering.enrollmentStart,
+    enrollmentEnd: offering.enrollmentEnd,
+    maxStudents: offering.maxStudents,
+    registeredCount: _count.enrollments,
+    now: new Date(),
+  });
 
   return {
-    ...offering,
-    registeredCount,
-    remainingSeats,
-    isFull,
-    registrationState: isFull ? ('FULL' as const) : ('AVAILABLE' as const),
-    _count: undefined,
+    ...publicFields,
+    registeredCount: availability.registeredCount,
+    remainingSeats: availability.remainingSeats,
+    isFull: availability.isFull,
+    registrationState: availability.registrationState,
   };
 }
 

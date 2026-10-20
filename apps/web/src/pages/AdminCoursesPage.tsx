@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 import { adminApi } from '@/features/admin/api';
+import { courseSkillScopeLabel } from '@/features/admin/labels';
 import { useAdminSessionExpiry } from '@/features/admin/use-admin-session-expiry';
 import {
   COURSE_SKILL_SCOPES,
@@ -143,7 +144,7 @@ export function AdminCoursesPage() {
             <option value="">Tất cả</option>
             {COURSE_SKILL_SCOPES.map((scope) => (
               <option key={scope} value={scope}>
-                {skillLabel(scope)}
+                {courseSkillScopeLabel(scope)}
               </option>
             ))}
           </select>
@@ -215,7 +216,7 @@ function CourseResults({ courses }: { courses: AdminCourse[] }) {
                   <p className="font-semibold">{course.title}</p>
                   <p className="mt-1 text-xs text-slate-500">/{course.slug}</p>
                 </td>
-                <td className="px-5 py-4">{skillLabel(course.skillScope)}</td>
+                <td className="px-5 py-4">{courseSkillScopeLabel(course.skillScope)}</td>
                 <td className="px-5 py-4">{course.level}</td>
                 <td className="px-5 py-4">{course._count?.classOfferings ?? 0}</td>
                 <td className="px-5 py-4">
@@ -251,7 +252,7 @@ function CourseResults({ courses }: { courses: AdminCourse[] }) {
             <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div>
                 <dt className="text-slate-500">Kỹ năng</dt>
-                <dd className="font-medium">{skillLabel(course.skillScope)}</dd>
+                <dd className="font-medium">{courseSkillScopeLabel(course.skillScope)}</dd>
               </div>
               <div>
                 <dt className="text-slate-500">Trình độ</dt>
@@ -353,16 +354,6 @@ function Pagination({ meta, onPage }: { meta: PageMeta; onPage: (page: number) =
       </div>
     </nav>
   );
-}
-function skillLabel(scope: AdminCourse['skillScope']): string {
-  return {
-    LISTENING: 'Nghe',
-    READING: 'Đọc',
-    LR: 'Nghe & Đọc',
-    SPEAKING: 'Nói',
-    WRITING: 'Viết',
-    FOUR_SKILLS: 'Bốn kỹ năng',
-  }[scope];
 }
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short' }).format(new Date(value));

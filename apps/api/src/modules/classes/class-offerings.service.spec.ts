@@ -31,7 +31,7 @@ describe('ClassOfferingsService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.course.findUnique.mockResolvedValue({ id: baseInput.courseId });
-    prisma.classOffering.create.mockResolvedValue({ id: 'offering-id' });
+    prisma.classOffering.create.mockResolvedValue(adminOfferingRow());
   });
 
   it('creates a valid free offering', async () => {
@@ -42,7 +42,13 @@ describe('ClassOfferingsService', () => {
         tuitionFeeVnd: 0,
         maxStudents: 20,
       }),
-    ).resolves.toEqual({ id: 'offering-id' });
+    ).resolves.toMatchObject({
+      id: 'offering-id',
+      registeredCount: 0,
+      remainingSeats: 20,
+      isFull: false,
+      registrationState: 'CLOSED',
+    });
 
     expect(prisma.classOffering.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -52,6 +58,38 @@ describe('ClassOfferingsService', () => {
         }),
       }),
     );
+  });
+
+  it('maps create and update responses to the shared admin projection', async () => {
+    const created = await service.create({ ...baseInput, maxStudents: 20 });
+    expect(created).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: 20,
+        isFull: false,
+        registrationState: 'CLOSED',
+      }),
+    );
+    expect(created).not.toHaveProperty('_count');
+
+    prisma.classOffering.findUnique.mockResolvedValue({
+      ...adminOfferingRow(),
+      pricingType: PricingType.FREE,
+      tuitionFeeVnd: 0,
+    });
+    prisma.classOffering.update.mockResolvedValue(
+      adminOfferingRow({ status: ClassOfferingStatus.OPEN }),
+    );
+    const updated = await service.update('offering-id', { status: ClassOfferingStatus.OPEN });
+    expect(updated).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: 20,
+        isFull: false,
+        registrationState: 'AVAILABLE',
+      }),
+    );
+    expect(updated).not.toHaveProperty('_count');
   });
 
   it('rejects an offering for a course that does not exist', async () => {
@@ -253,3 +291,29 @@ describe('ClassOfferingsService', () => {
     await expect(service.getAdminById('missing')).rejects.toBeInstanceOf(NotFoundException);
   });
 });
+
+function adminOfferingRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'offering-id',
+    courseId: '9ef6f40c-0524-4bd5-9bf1-7b3d6e01ca57',
+    instructorId: null,
+    code: 'TOEIC-01',
+    name: 'September Cohort',
+    status: ClassOfferingStatus.DRAFT,
+    modality: ClassModality.ONLINE,
+    pricingType: PricingType.FREE,
+    tuitionFeeVnd: 0,
+    maxStudents: 20,
+    totalSessions: null,
+    totalPeriods: null,
+    enrollmentStart: null,
+    enrollmentEnd: null,
+    classStart: null,
+    classEnd: null,
+    course: { id: 'course-id', title: 'TOEIC', slug: 'toeic', isPublished: true },
+    instructor: null,
+    scheduleSlots: [],
+    _count: { enrollments: 0 },
+    ...overrides,
+  };
+}

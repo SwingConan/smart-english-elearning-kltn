@@ -218,6 +218,15 @@ describe('Course catalog and admin APIs (e2e)', () => {
         maxStudents: 20,
       })
       .expect(201);
+    expect(openCandidate.body).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: 20,
+        isFull: false,
+        registrationState: 'CLOSED',
+      }),
+    );
+    expect(openCandidate.body).not.toHaveProperty('_count');
 
     await adminAgent
       .post('/api/admin/class-offerings')
@@ -239,6 +248,15 @@ describe('Course catalog and admin APIs (e2e)', () => {
         tuitionFeeVnd: 500_000,
       })
       .expect(201);
+    expect(draftOffering.body).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: null,
+        isFull: false,
+        registrationState: 'CLOSED',
+      }),
+    );
+    expect(draftOffering.body).not.toHaveProperty('_count');
 
     await adminAgent
       .post('/api/admin/class-offerings')
@@ -289,10 +307,42 @@ describe('Course catalog and admin APIs (e2e)', () => {
       .expect(200);
     expect(publishedCourse.body.slug).toBe(originalSlug);
 
-    await adminAgent
+    const upcomingStart = new Date(Date.now() + 86_400_000).toISOString();
+    const upcomingEnd = new Date(Date.now() + 172_800_000).toISOString();
+    const upcomingOffering = await adminAgent
       .patch(`/api/admin/class-offerings/${openCandidate.body.id}`)
-      .send({ status: 'OPEN' })
+      .send({ status: 'OPEN', enrollmentStart: upcomingStart, enrollmentEnd: upcomingEnd })
       .expect(200);
+    expect(upcomingOffering.body).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: 20,
+        isFull: false,
+        registrationState: 'UPCOMING',
+      }),
+    );
+    expect(upcomingOffering.body).not.toHaveProperty('_count');
+
+    const upcomingPublicDetail = await request(app.getHttpServer())
+      .get(`/api/courses/${originalSlug}`)
+      .expect(200);
+    expect(upcomingPublicDetail.body.classOfferings[0].registrationState).toBe('UPCOMING');
+
+    const closedStart = new Date(Date.now() - 172_800_000).toISOString();
+    const closedEnd = new Date(Date.now() - 86_400_000).toISOString();
+    const closedOffering = await adminAgent
+      .patch(`/api/admin/class-offerings/${openCandidate.body.id}`)
+      .send({ enrollmentStart: closedStart, enrollmentEnd: closedEnd })
+      .expect(200);
+    expect(closedOffering.body).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: 20,
+        isFull: false,
+        registrationState: 'CLOSED',
+      }),
+    );
+    expect(closedOffering.body).not.toHaveProperty('_count');
     await prisma.classScheduleSlot.create({
       data: {
         classOfferingId: openCandidate.body.id,
@@ -321,6 +371,7 @@ describe('Course catalog and admin APIs (e2e)', () => {
     expect(publicCourse).toBeDefined();
     expect(publicCourse.classOfferings).toHaveLength(1);
     expect(publicCourse.classOfferings[0].id).toBe(openCandidate.body.id);
+    expect(publicCourse.classOfferings[0].registrationState).toBe('CLOSED');
     expect(publicCourse.classOfferings[0].instructor).toEqual({
       id: userIds[2],
       fullName: 'VS01 Instructor',
@@ -349,7 +400,7 @@ describe('Course catalog and admin APIs (e2e)', () => {
       registeredCount: 0,
       remainingSeats: 20,
       isFull: false,
-      registrationState: 'AVAILABLE',
+      registrationState: 'CLOSED',
       course: { id: createdCourse.body.id, title: updatedTitle },
       scheduleSlots: [expect.objectContaining({ dayOfWeek: 2 })],
     });
@@ -363,6 +414,7 @@ describe('Course catalog and admin APIs (e2e)', () => {
       .expect(200);
     expect(publicDetail.body.classOfferings).toHaveLength(1);
     expect(publicDetail.body.classOfferings[0].status).toBe('OPEN');
+    expect(publicDetail.body.classOfferings[0].registrationState).toBe('CLOSED');
     expect(publicDetail.body.classOfferings[0].id).not.toBe(draftOffering.body.id);
 
     await request(app.getHttpServer()).get('/api/courses?page=0').expect(400);

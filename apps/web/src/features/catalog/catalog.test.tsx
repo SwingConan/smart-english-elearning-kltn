@@ -169,11 +169,34 @@ describe('course detail', () => {
     expect(await screen.findByRole('heading', { name: course.title })).toBeInTheDocument();
     expect(screen.getByText(/Listening basics/)).toBeInTheDocument();
     expect(screen.getByText('Nguyễn Giảng Viên')).toBeInTheDocument();
+    expect(screen.getByText('Còn nhận đăng ký')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Xem chi tiết/i })).toHaveAttribute(
       'href',
       '/classes/offering-1',
     );
     expect(screen.queryByRole('button', { name: /Đăng ký/i })).not.toBeInTheDocument();
+  });
+
+  it('renders upcoming and closed registration truth independently of remaining seats', async () => {
+    const baseOffering = course.classOfferings[0];
+    vi.spyOn(catalogApi, 'detail').mockResolvedValue({
+      ...course,
+      classOfferings: [
+        { ...baseOffering, id: 'upcoming', code: 'UPCOMING', registrationState: 'UPCOMING' },
+        { ...baseOffering, id: 'closed', code: 'CLOSED', registrationState: 'CLOSED' },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={['/catalog/toeic-foundation']}>
+        <Routes>
+          <Route path="/catalog/:slug" element={<CourseDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Chưa mở đăng ký')).toBeInTheDocument();
+    expect(screen.getByText('Đã đóng đăng ký')).toBeInTheDocument();
+    expect(screen.queryByText('Còn nhận đăng ký')).not.toBeInTheDocument();
   });
 
   it('maps a missing unpublished Course to a safe 404 state', async () => {
