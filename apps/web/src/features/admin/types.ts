@@ -63,3 +63,23 @@ export interface ClassOfferingInput {
   classStart?: string | null;
   classEnd?: string | null;
 }
+
+export interface StudyRecommendationPolicy {
+  id: string;
+  code: string;
+  name: string;
+  weakThreshold: number;
+  strongThreshold: number;
+  minimumTaskQuestions: number;
+  maxRecommendations: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudyRecommendationPolicyInput {
+  weakThreshold: number;
+  strongThreshold: number;
+  minimumTaskQuestions: number;
+  maxRecommendations: number;
+}

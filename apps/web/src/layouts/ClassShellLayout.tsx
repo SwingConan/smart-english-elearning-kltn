@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BarChart3, BookOpen, ClipboardList, Home, Menu, Trophy } from 'lucide-react';
+import { BarChart3, BookOpen, ClipboardList, Home, Lightbulb, Menu, Trophy } from 'lucide-react';
 import { Link, NavLink, Outlet, useMatch, useParams } from 'react-router';
 import { OverlayDrawer } from '@/components/ui/OverlayDrawer';
 import { enrollmentApi } from '@/features/enrollments/api';
@@ -75,6 +75,7 @@ export function ClassShellLayout() {
     [BookOpen, `${base}/learn`, 'Nội dung học tập', false],
     [ClipboardList, `${base}/tests`, 'Bài kiểm tra', false],
     [Trophy, `${base}/results`, 'Kết quả', false],
+    [Lightbulb, `${base}/recommendations`, 'Gợi ý tự học', false],
     [BarChart3, `${base}/progress`, 'Tiến độ', false],
   ] as const;
   const navigation = (
