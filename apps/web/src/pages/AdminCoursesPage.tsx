@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router';
 import { adminApi } from '@/features/admin/api';
 import { courseSkillScopeLabel } from '@/features/admin/labels';
 import { useAdminSessionExpiry } from '@/features/admin/use-admin-session-expiry';
+import { courseLevelLabel, courseLevelValue } from '@/features/catalog/display';
 import {
   COURSE_SKILL_SCOPES,
   type AdminCourse,
@@ -23,6 +24,7 @@ export function AdminCoursesPage() {
   const location = useLocation();
   const [query, setQuery] = useState<CourseQuery>({ page: 1, limit: 20 });
   const [draft, setDraft] = useState('');
+  const [levelDraft, setLevelDraft] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const redirectExpiredSession = useAdminSessionExpiry();
@@ -43,7 +45,12 @@ export function AdminCoursesPage() {
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
     setState({ status: 'loading' });
-    setQuery((current) => ({ ...current, search: draft.trim() || undefined, page: 1 }));
+    setQuery((current) => ({
+      ...current,
+      search: draft.trim() || undefined,
+      level: courseLevelValue(levelDraft) || undefined,
+      page: 1,
+    }));
   };
   const updateFilter = (key: keyof CourseQuery, value: string | boolean | undefined) => {
     setState({ status: 'loading' });
@@ -55,6 +62,7 @@ export function AdminCoursesPage() {
   };
   const reset = () => {
     setDraft('');
+    setLevelDraft('');
     setState({ status: 'loading' });
     setQuery({ page: 1, limit: 20 });
   };
@@ -67,7 +75,11 @@ export function AdminCoursesPage() {
     setQuery((current) => ({ ...current, page }));
   };
   const hasFilters = Boolean(
-    query.search || query.isPublished !== undefined || query.skillScope || query.level,
+    query.search ||
+    query.isPublished !== undefined ||
+    query.skillScope ||
+    query.level ||
+    levelDraft,
   );
   const message = (location.state as { message?: string } | null)?.message;
 
@@ -153,9 +165,9 @@ export function AdminCoursesPage() {
           <span className="text-sm font-semibold">Trình độ</span>
           <input
             className={controlClass}
-            onChange={(event) => updateFilter('level', event.target.value.trim())}
-            placeholder="Ví dụ: BEGINNER"
-            value={query.level ?? ''}
+            onChange={(event) => setLevelDraft(event.target.value)}
+            placeholder="Ví dụ: Nền tảng"
+            value={levelDraft}
           />
         </label>
         <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-5">
@@ -217,7 +229,7 @@ function CourseResults({ courses }: { courses: AdminCourse[] }) {
                   <p className="mt-1 text-xs text-slate-500">/{course.slug}</p>
                 </td>
                 <td className="px-5 py-4">{courseSkillScopeLabel(course.skillScope)}</td>
-                <td className="px-5 py-4">{course.level}</td>
+                <td className="px-5 py-4">{courseLevelLabel(course.level)}</td>
                 <td className="px-5 py-4">{course._count?.classOfferings ?? 0}</td>
                 <td className="px-5 py-4">
                   <Status published={course.isPublished} />
@@ -256,7 +268,7 @@ function CourseResults({ courses }: { courses: AdminCourse[] }) {
               </div>
               <div>
                 <dt className="text-slate-500">Trình độ</dt>
-                <dd className="font-medium">{course.level}</dd>
+                <dd className="font-medium">{courseLevelLabel(course.level)}</dd>
               </div>
               <div>
                 <dt className="text-slate-500">Số lớp</dt>

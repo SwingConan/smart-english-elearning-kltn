@@ -1,14 +1,26 @@
 import type { PublicCourse } from './types';
 
+const COURSE_LEVEL_LABELS: Record<string, string> = {
+  FOUNDATION: 'Nền tảng',
+  BASIC: 'Cơ bản',
+  INTERMEDIATE: 'Trung cấp',
+  ADVANCING: 'Nâng cao',
+};
+
 export function courseLevelLabel(level: string): string {
-  return (
-    {
-      FOUNDATION: 'Nền tảng',
-      BASIC: 'Cơ bản',
-      INTERMEDIATE: 'Trung cấp',
-      ADVANCING: 'Nâng cao',
-    }[level.toUpperCase()] ?? level
+  return COURSE_LEVEL_LABELS[level.toUpperCase()] ?? level;
+}
+
+export function courseLevelValue(value: string): string {
+  const trimmedValue = value.trim();
+  const normalizedValue = trimmedValue.toLocaleLowerCase('vi-VN');
+  const knownLevel = Object.entries(COURSE_LEVEL_LABELS).find(
+    ([code, label]) =>
+      code.toLocaleLowerCase('vi-VN') === normalizedValue ||
+      label.toLocaleLowerCase('vi-VN') === normalizedValue,
   );
+
+  return knownLevel?.[0] ?? trimmedValue;
 }
 
 export function modalityLabel(modality: string): string {

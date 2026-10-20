@@ -117,6 +117,39 @@ describe('course administration', () => {
     );
   });
 
+  it('shows known course levels in Vietnamese and filters with the stored backend value', async () => {
+    const knownLevels = [
+      { code: 'FOUNDATION', label: 'Nền tảng' },
+      { code: 'BASIC', label: 'Cơ bản' },
+      { code: 'INTERMEDIATE', label: 'Trung cấp' },
+      { code: 'ADVANCING', label: 'Nâng cao' },
+    ];
+    const courses = knownLevels.map(({ code }, index) => ({
+      ...course,
+      id: `${course.id.slice(0, -1)}${index + 1}`,
+      title: `${course.title} ${index + 1}`,
+      level: code,
+    }));
+    const list = vi.spyOn(adminApi.courses, 'list').mockResolvedValue(page(courses));
+
+    renderAdminApp('/admin/courses');
+
+    await screen.findAllByText(courses[0].title);
+    for (const { code, label } of knownLevels) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+      expect(screen.queryByText(code)).not.toBeInTheDocument();
+    }
+
+    fireEvent.change(screen.getByLabelText('Trình độ'), { target: { value: 'Nền tảng' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Áp dụng' }));
+    await waitFor(() =>
+      expect(list).toHaveBeenLastCalledWith(
+        expect.objectContaining({ level: 'FOUNDATION', page: 1, limit: 20 }),
+        expect.any(AbortSignal),
+      ),
+    );
+  });
+
   it('retries a friendly list failure', async () => {
     vi.spyOn(adminApi.courses, 'list')
       .mockRejectedValueOnce(new Error('secret'))
@@ -198,18 +231,20 @@ describe('course administration', () => {
   });
 
   it('loads and updates a course on the dedicated edit route', async () => {
-    vi.spyOn(adminApi.courses, 'get').mockResolvedValue(course);
+    const foundationCourse = { ...course, level: 'FOUNDATION' };
+    vi.spyOn(adminApi.courses, 'get').mockResolvedValue(foundationCourse);
     const update = vi
       .spyOn(adminApi.courses, 'update')
-      .mockResolvedValue({ ...course, isPublished: true });
+      .mockResolvedValue({ ...foundationCourse, isPublished: true });
     renderAdminApp(`/admin/courses/${course.id}/edit`);
     expect(await screen.findByText(/Slug do hệ thống quản lý/)).toHaveTextContent(course.slug);
+    expect(screen.getByLabelText('Trình độ')).toHaveValue('Nền tảng');
     fireEvent.click(screen.getByLabelText(/Xuất bản khóa học/));
     fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith(
         course.id,
-        expect.objectContaining({ isPublished: true, skillScope: 'LR' }),
+        expect.objectContaining({ level: 'FOUNDATION', isPublished: true, skillScope: 'LR' }),
       ),
     );
   });

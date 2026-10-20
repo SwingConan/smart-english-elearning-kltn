@@ -5,6 +5,7 @@ import { adminApi } from '@/features/admin/api';
 import { adminErrorMessage } from '@/features/admin/errors';
 import { courseSkillScopeLabel } from '@/features/admin/labels';
 import { useAdminSessionExpiry } from '@/features/admin/use-admin-session-expiry';
+import { courseLevelLabel, courseLevelValue } from '@/features/catalog/display';
 import {
   COURSE_SKILL_SCOPES,
   type AdminCourse,
@@ -54,7 +55,7 @@ export function AdminCourseEditorPage() {
         setCourse(item);
         setValues({
           title: item.title,
-          level: item.level,
+          level: courseLevelLabel(item.level),
           skillScope: item.skillScope,
           description: item.description,
           thumbnailUrl: item.thumbnailUrl ?? '',
@@ -90,7 +91,7 @@ export function AdminCourseEditorPage() {
     if (Object.keys(nextErrors).length) return;
     const input: CourseInput = {
       title: values.title.trim(),
-      level: values.level.trim(),
+      level: courseLevelValue(values.level),
       skillScope: values.skillScope,
       description: values.description.trim(),
       ...(values.thumbnailUrl.trim()

@@ -8,6 +8,7 @@ import { CourseDetailPage } from '@/pages/CourseDetailPage';
 import { catalogApi } from './api';
 import { readCatalogUrlState, writeCatalogUrlState } from './catalog-query';
 import { CourseCard } from './CourseCard';
+import { courseLevelLabel, courseLevelValue } from './display';
 import type { CatalogResponse, PublicCourse } from './types';
 
 const course: PublicCourse = {
@@ -71,6 +72,23 @@ const response = (data: PublicCourse[]): CatalogResponse => ({
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+});
+
+describe('course level display', () => {
+  it.each([
+    ['FOUNDATION', 'Nền tảng'],
+    ['BASIC', 'Cơ bản'],
+    ['INTERMEDIATE', 'Trung cấp'],
+    ['ADVANCING', 'Nâng cao'],
+  ])('maps %s to %s and back to the stored value', (value, label) => {
+    expect(courseLevelLabel(value)).toBe(label);
+    expect(courseLevelValue(label)).toBe(value);
+  });
+
+  it('preserves arbitrary levels', () => {
+    expect(courseLevelLabel('BEGINNER')).toBe('BEGINNER');
+    expect(courseLevelValue('Custom level')).toBe('Custom level');
+  });
 });
 
 describe('catalog query mapping', () => {
