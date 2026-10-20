@@ -317,9 +317,26 @@ describe('Course catalog and admin APIs (e2e)', () => {
 
     const upcomingStart = new Date(Date.now() + 86_400_000).toISOString();
     const upcomingEnd = new Date(Date.now() + 172_800_000).toISOString();
+    const classStart = new Date(Date.now() + 259_200_000).toISOString();
+    const classEnd = new Date(Date.now() + 2_592_000_000).toISOString();
+    await prisma.classScheduleSlot.create({
+      data: {
+        classOfferingId: openCandidate.body.id,
+        dayOfWeek: 2,
+        startTime: new Date('1970-01-01T18:00:00.000Z'),
+        endTime: new Date('1970-01-01T20:00:00.000Z'),
+        locationText: 'Online',
+      },
+    });
     const upcomingOffering = await adminAgent
       .patch(`/api/admin/class-offerings/${openCandidate.body.id}`)
-      .send({ status: 'OPEN', enrollmentStart: upcomingStart, enrollmentEnd: upcomingEnd })
+      .send({
+        status: 'OPEN',
+        enrollmentStart: upcomingStart,
+        enrollmentEnd: upcomingEnd,
+        classStart,
+        classEnd,
+      })
       .expect(200);
     expect(upcomingOffering.body).toEqual(
       expect.objectContaining({
@@ -351,16 +368,6 @@ describe('Course catalog and admin APIs (e2e)', () => {
       }),
     );
     expect(closedOffering.body).not.toHaveProperty('_count');
-    await prisma.classScheduleSlot.create({
-      data: {
-        classOfferingId: openCandidate.body.id,
-        dayOfWeek: 2,
-        startTime: new Date('1970-01-01T18:00:00.000Z'),
-        endTime: new Date('1970-01-01T20:00:00.000Z'),
-        locationText: 'Online',
-      },
-    });
-
     await instructorAgent
       .patch(`/api/admin/courses/${createdCourse.body.id}`)
       .send({ title: 'Forbidden edit' })

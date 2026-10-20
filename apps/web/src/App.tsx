@@ -11,6 +11,7 @@ import { AboutPage } from '@/pages/AboutPage';
 import { AdaptivePolicyPage } from '@/pages/AdaptivePolicyPage';
 import { AdminClassOfferingsPage } from '@/pages/AdminClassOfferingsPage';
 import { AdminClassOfferingEditorPage } from '@/pages/AdminClassOfferingEditorPage';
+import { AdminClassOfferingOperationsPage } from '@/pages/AdminClassOfferingOperationsPage';
 import { AdminCourseEditorPage } from '@/pages/AdminCourseEditorPage';
 import { AdminCoursesPage } from '@/pages/AdminCoursesPage';
 import { AdminStudyRecommendationPolicyPage } from '@/pages/AdminStudyRecommendationPolicyPage';
@@ -143,6 +144,10 @@ export function App() {
         <Route
           path="class-offerings/:classOfferingId/edit"
           element={<AdminClassOfferingEditorPage />}
+        />
+        <Route
+          path="class-offerings/:classOfferingId/operations"
+          element={<AdminClassOfferingOperationsPage />}
         />
         <Route path="study-recommendations" element={<AdminStudyRecommendationPolicyPage />} />
       </Route>

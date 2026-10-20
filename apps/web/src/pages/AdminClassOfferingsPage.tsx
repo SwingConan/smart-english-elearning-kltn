@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, GraduationCap, Plus, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Plus, Search, Wrench } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 import { adminApi } from '@/features/admin/api';
 import { modalityLabel, statusLabel } from '@/features/admin/labels';
@@ -255,6 +255,7 @@ function OfferingResults({ offerings }: { offerings: AdminClassOffering[] }) {
                 <td className="px-4 py-4">{item.course.title}</td>
                 <td className="px-4 py-4">
                   <Badge>{statusLabel(item.status)}</Badge>
+                  <ReadinessSummary offering={item} />
                 </td>
                 <td className="px-4 py-4">{modalityLabel(item.modality)}</td>
                 <td className="px-4 py-4">
@@ -267,12 +268,20 @@ function OfferingResults({ offerings }: { offerings: AdminClassOffering[] }) {
                 </td>
                 <td className="px-4 py-4">{item.instructor?.fullName ?? 'Chưa phân công'}</td>
                 <td className="px-4 py-4 text-right">
-                  <Link
-                    className="font-semibold text-indigo-700"
-                    to={`/admin/class-offerings/${item.id}/edit`}
-                  >
-                    Chỉnh sửa
-                  </Link>
+                  <div className="flex justify-end gap-3">
+                    <Link
+                      className="inline-flex items-center gap-1 font-semibold text-indigo-700"
+                      to={`/admin/class-offerings/${item.id}/operations`}
+                    >
+                      <Wrench size={15} /> Vận hành
+                    </Link>
+                    <Link
+                      className="font-semibold text-slate-600"
+                      to={`/admin/class-offerings/${item.id}/edit`}
+                    >
+                      Chỉnh sửa
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -291,6 +300,7 @@ function OfferingResults({ offerings }: { offerings: AdminClassOffering[] }) {
               </div>
               <Badge>{statusLabel(item.status)}</Badge>
             </div>
+            <ReadinessSummary offering={item} />
             <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div>
                 <dt className="text-slate-500">Hình thức</dt>
@@ -308,16 +318,41 @@ function OfferingResults({ offerings }: { offerings: AdminClassOffering[] }) {
                 <dd>{item.instructor?.fullName ?? 'Chưa phân công'}</dd>
               </div>
             </dl>
-            <Link
-              className="mt-4 inline-block font-semibold text-indigo-700"
-              to={`/admin/class-offerings/${item.id}/edit`}
-            >
-              Chỉnh sửa
-            </Link>
+            <div className="mt-4 flex gap-4">
+              <Link
+                className="inline-flex items-center gap-1 font-semibold text-indigo-700"
+                to={`/admin/class-offerings/${item.id}/operations`}
+              >
+                <Wrench size={15} /> Vận hành
+              </Link>
+              <Link
+                className="font-semibold text-slate-600"
+                to={`/admin/class-offerings/${item.id}/edit`}
+              >
+                Chỉnh sửa
+              </Link>
+            </div>
           </article>
         ))}
       </div>
     </>
+  );
+}
+
+function ReadinessSummary({ offering }: { offering: AdminClassOffering }) {
+  if (offering.status !== 'DRAFT') {
+    return <p className="mt-1 text-xs text-slate-500">{statusLabel(offering.status)}</p>;
+  }
+  return (
+    <p
+      className={`mt-1 text-xs font-semibold ${
+        offering.operationalReadiness.isReady ? 'text-emerald-700' : 'text-amber-700'
+      }`}
+    >
+      {offering.operationalReadiness.isReady
+        ? 'Sẵn sàng vận hành'
+        : `Cần hoàn thiện ${offering.operationalReadiness.missing.length} mục`}
+    </p>
   );
 }
 function Empty({ filtered, onReset }: { filtered: boolean; onReset: () => void }) {

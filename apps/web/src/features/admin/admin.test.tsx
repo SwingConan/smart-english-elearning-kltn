@@ -48,12 +48,22 @@ const offering: AdminClassOffering = {
   createdAt: '2026-09-19T00:00:00.000Z',
   updatedAt: '2026-09-19T00:00:00.000Z',
   course: { id: course.id, title: course.title, slug: course.slug },
-  instructor: { id: '20000000-0000-4000-8000-000000000002', fullName: 'Instructor One' },
+  instructor: {
+    id: '20000000-0000-4000-8000-000000000002',
+    fullName: 'Instructor One',
+    email: 'instructor@example.com',
+    role: 'INSTRUCTOR',
+    status: 'ACTIVE',
+  },
   scheduleSlots: [],
   registeredCount: 5,
   remainingSeats: 15,
   isFull: false,
   registrationState: 'AVAILABLE',
+  operationalReadiness: {
+    isReady: false,
+    missing: ['SCHEDULE_MISSING', 'CLASS_DATES_MISSING'],
+  },
 };
 
 afterEach(() => {

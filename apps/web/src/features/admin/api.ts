@@ -7,6 +7,11 @@ import type {
   CourseQuery,
   OfferingQuery,
   Paginated,
+  InstructorOption,
+  ScheduleSlotInput,
+  AdminRoster,
+  RosterQuery,
+  EnrollmentStatus,
   StudyRecommendationPolicy,
   StudyRecommendationPolicyInput,
 } from './types';
@@ -63,6 +68,44 @@ export const adminApi = {
         method: 'PATCH',
         body: JSON.stringify(input),
       }),
+    instructorOptions: (
+      query: { search?: string; page?: number; limit?: number } = {},
+      signal?: AbortSignal,
+    ) =>
+      apiFetch<Paginated<InstructorOption>>(
+        `/admin/class-offerings/instructor-options${queryString(query)}`,
+        { signal },
+      ),
+    assignInstructor: (id: string, instructorId: string | null) =>
+      apiFetch<AdminClassOffering>(`/admin/class-offerings/${encodeURIComponent(id)}/instructor`, {
+        method: 'PUT',
+        body: JSON.stringify({ instructorId }),
+      }),
+    createScheduleSlot: (id: string, input: ScheduleSlotInput) =>
+      apiFetch<AdminClassOffering['scheduleSlots'][number]>(
+        `/admin/class-offerings/${encodeURIComponent(id)}/schedule-slots`,
+        { method: 'POST', body: JSON.stringify(input) },
+      ),
+    updateScheduleSlot: (id: string, slotId: string, input: Partial<ScheduleSlotInput>) =>
+      apiFetch<AdminClassOffering['scheduleSlots'][number]>(
+        `/admin/class-offerings/${encodeURIComponent(id)}/schedule-slots/${encodeURIComponent(slotId)}`,
+        { method: 'PATCH', body: JSON.stringify(input) },
+      ),
+    deleteScheduleSlot: (id: string, slotId: string) =>
+      apiFetch<{ deleted: true; id: string }>(
+        `/admin/class-offerings/${encodeURIComponent(id)}/schedule-slots/${encodeURIComponent(slotId)}`,
+        { method: 'DELETE' },
+      ),
+    roster: (id: string, query: RosterQuery = {}, signal?: AbortSignal) =>
+      apiFetch<AdminRoster>(
+        `/admin/class-offerings/${encodeURIComponent(id)}/roster${queryString(query)}`,
+        { signal },
+      ),
+    updateRosterStatus: (id: string, enrollmentId: string, status: EnrollmentStatus) =>
+      apiFetch<{ enrollment: import('./types').AdminRosterRow; classOffering: AdminClassOffering }>(
+        `/admin/class-offerings/${encodeURIComponent(id)}/roster/${encodeURIComponent(enrollmentId)}/status`,
+        { method: 'PATCH', body: JSON.stringify({ status }) },
+      ),
   },
   studyRecommendationPolicy: {
     get: (signal?: AbortSignal) =>

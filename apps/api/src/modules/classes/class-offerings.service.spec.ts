@@ -4,6 +4,7 @@ import {
   ClassOfferingStatus,
   PricingType,
   UserRole,
+  UserStatus,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { ClassOfferingsService } from './class-offerings.service';
@@ -76,6 +77,26 @@ describe('ClassOfferingsService', () => {
       ...adminOfferingRow(),
       pricingType: PricingType.FREE,
       tuitionFeeVnd: 0,
+      classStart: new Date('2026-11-01T00:00:00Z'),
+      classEnd: new Date('2026-12-01T00:00:00Z'),
+      instructorId: 'teacher-id',
+      instructor: {
+        id: 'teacher-id',
+        fullName: 'Teacher',
+        email: 'teacher@example.com',
+        role: UserRole.INSTRUCTOR,
+        status: UserStatus.ACTIVE,
+      },
+      scheduleSlots: [
+        {
+          id: 'slot-id',
+          dayOfWeek: 1,
+          startTime: new Date('1970-01-01T08:00:00Z'),
+          endTime: new Date('1970-01-01T10:00:00Z'),
+          locationText: 'Room 1',
+          meetingUrl: null,
+        },
+      ],
     });
     prisma.classOffering.update.mockResolvedValue(
       adminOfferingRow({ status: ClassOfferingStatus.OPEN }),
@@ -90,6 +111,23 @@ describe('ClassOfferingsService', () => {
       }),
     );
     expect(updated).not.toHaveProperty('_count');
+  });
+
+  it('rejects a DRAFT to OPEN transition with stable readiness reasons', async () => {
+    prisma.classOffering.findUnique.mockResolvedValue(adminOfferingRow());
+    await expect(
+      service.update('offering-id', { status: ClassOfferingStatus.OPEN }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'CLASS_NOT_READY',
+        missing: expect.arrayContaining([
+          'INSTRUCTOR_MISSING',
+          'SCHEDULE_MISSING',
+          'CLASS_DATES_MISSING',
+        ]),
+      }),
+    });
+    expect(prisma.classOffering.update).not.toHaveBeenCalled();
   });
 
   it('rejects an offering for a course that does not exist', async () => {
@@ -145,7 +183,7 @@ describe('ClassOfferingsService', () => {
   });
 
   it('rejects assigning a user who is not an instructor', async () => {
-    prisma.user.findUnique.mockResolvedValue({ role: UserRole.STUDENT });
+    prisma.user.findUnique.mockResolvedValue({ role: UserRole.STUDENT, status: UserStatus.ACTIVE });
 
     await expect(
       service.create({

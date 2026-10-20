@@ -6,12 +6,14 @@ import {
   Prisma,
   PricingType,
   UserRole,
+  UserStatus,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateClassOfferingDto } from './dto/create-class-offering.dto';
 import { AdminClassOfferingQueryDto } from './dto/admin-class-offering-query.dto';
 import { UpdateClassOfferingDto } from './dto/update-class-offering.dto';
 import { computeRegistrationState } from './registration-state';
+import { computeOperationalReadiness, projectScheduleSlot } from './class-operations';
 
 interface OfferingRules {
   pricingType: PricingType;
@@ -25,7 +27,9 @@ interface OfferingRules {
 
 const adminOfferingInclude = {
   course: { select: { id: true, title: true, slug: true, isPublished: true } },
-  instructor: { select: { id: true, fullName: true } },
+  instructor: {
+    select: { id: true, fullName: true, email: true, role: true, status: true },
+  },
   scheduleSlots: {
     orderBy: [{ dayOfWeek: 'asc' as const }, { startTime: 'asc' as const }],
     select: {
@@ -223,6 +227,7 @@ export class ClassOfferingsService {
   async update(id: string, input: UpdateClassOfferingDto) {
     const current = await this.prisma.classOffering.findUnique({
       where: { id },
+      include: adminOfferingInclude,
     });
     if (!current) {
       throw new NotFoundException('Class offering not found');
@@ -233,6 +238,39 @@ export class ClassOfferingsService {
     }
     if (input.instructorId !== undefined) {
       await this.validateInstructor(input.instructorId);
+    }
+
+    if (input.status === ClassOfferingStatus.OPEN && current.status !== ClassOfferingStatus.OPEN) {
+      const course =
+        input.courseId && input.courseId !== current.courseId
+          ? await this.prisma.course.findUnique({
+              where: { id: input.courseId },
+              select: { isPublished: true },
+            })
+          : current.course;
+      const instructor =
+        input.instructorId !== undefined && input.instructorId !== current.instructorId
+          ? input.instructorId
+            ? await this.prisma.user.findUnique({
+                where: { id: input.instructorId },
+                select: { role: true, status: true },
+              })
+            : null
+          : current.instructor;
+      const readiness = computeOperationalReadiness({
+        courseIsPublished: Boolean(course?.isPublished),
+        instructor,
+        classStart: input.classStart !== undefined ? input.classStart : current.classStart,
+        classEnd: input.classEnd !== undefined ? input.classEnd : current.classEnd,
+        scheduleSlots: current.scheduleSlots,
+      });
+      if (!readiness.isReady) {
+        throw new BadRequestException({
+          code: 'CLASS_NOT_READY',
+          message: 'Class offering is not ready to open',
+          missing: readiness.missing,
+        });
+      }
     }
 
     this.validateRules({
@@ -293,12 +331,21 @@ export class ClassOfferingsService {
       registeredCount: _count.enrollments,
       now: new Date(),
     });
+    const operationalReadiness = computeOperationalReadiness({
+      courseIsPublished: offering.course.isPublished,
+      instructor: offering.instructor,
+      classStart: offering.classStart,
+      classEnd: offering.classEnd,
+      scheduleSlots: offering.scheduleSlots,
+    });
     return {
       ...publicFields,
+      scheduleSlots: offering.scheduleSlots.map(projectScheduleSlot),
       registeredCount: availability.registeredCount,
       remainingSeats: availability.remainingSeats,
       isFull: availability.isFull,
       registrationState: availability.registrationState,
+      operationalReadiness,
     };
   }
 
@@ -309,10 +356,14 @@ export class ClassOfferingsService {
 
     const instructor = await this.prisma.user.findUnique({
       where: { id: instructorId },
-      select: { role: true },
+      select: { role: true, status: true },
     });
-    if (!instructor || instructor.role !== UserRole.INSTRUCTOR) {
-      throw new BadRequestException('Assigned user must be an instructor');
+    if (
+      !instructor ||
+      instructor.role !== UserRole.INSTRUCTOR ||
+      instructor.status !== UserStatus.ACTIVE
+    ) {
+      throw new BadRequestException('Assigned user must be an active instructor');
     }
   }
 

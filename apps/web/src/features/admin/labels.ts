@@ -1,4 +1,9 @@
-import type { AdminClassOffering, CourseSkillScope } from './types';
+import type {
+  AdminClassOffering,
+  CourseSkillScope,
+  EnrollmentStatus,
+  OperationalReadinessReason,
+} from './types';
 
 export function courseSkillScopeLabel(scope: CourseSkillScope): string {
   return {
@@ -27,4 +32,25 @@ export function modalityLabel(modality: AdminClassOffering['modality']): string 
     OFFLINE: 'Trực tiếp',
     HYBRID: 'Kết hợp',
   }[modality];
+}
+
+export function enrollmentStatusLabel(status: EnrollmentStatus): string {
+  return {
+    ACTIVE: 'Đang học',
+    PENDING_PAYMENT: 'Chờ thanh toán',
+    COMPLETED: 'Đã hoàn thành',
+    DROPPED: 'Đã thôi học',
+    CANCELLED: 'Đã hủy',
+  }[status];
+}
+
+export function readinessReasonLabel(reason: OperationalReadinessReason): string {
+  return {
+    COURSE_UNPUBLISHED: 'Khóa học đã xuất bản',
+    INSTRUCTOR_MISSING: 'Đã phân công giảng viên',
+    INSTRUCTOR_INACTIVE: 'Giảng viên đang hoạt động',
+    SCHEDULE_MISSING: 'Đã có ít nhất một lịch học',
+    SCHEDULE_DESTINATION_MISSING: 'Mỗi lịch học có địa điểm hoặc đường dẫn trực tuyến',
+    CLASS_DATES_MISSING: 'Ngày bắt đầu và kết thúc lớp hợp lệ',
+  }[reason];
 }

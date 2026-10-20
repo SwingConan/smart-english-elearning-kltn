@@ -49,6 +49,26 @@ describe('InstructorTeachingPage', () => {
     await waitFor(() => expect(document.querySelector('.text-red-600')).toBeInTheDocument());
     expect(screen.queryByText('raw internal')).not.toBeInTheDocument();
   });
+
+  it('uses canonical weekday values 1=T2 through 7=CN for display and filtering', async () => {
+    vi.spyOn(instructorApi.classes, 'list').mockResolvedValue([{
+      id: 'canonical-weekdays', code: 'ISO-17', name: 'Canonical schedule', status: 'OPEN',
+      modality: 'ONLINE', classStart: null, classEnd: null, activeLearnerCount: 2,
+      course: { id: courseId, title: 'Assigned English', level: 'A1' },
+      scheduleSlots: [
+        { dayOfWeek: 1, startTime: '08:00', endTime: '09:00', locationText: 'Room 1' },
+        { dayOfWeek: 7, startTime: '10:00', endTime: '11:00', locationText: 'Online' },
+      ],
+    }]);
+    renderInstructor(<InstructorTeachingPage />);
+    expect((await screen.findAllByText(/T2 · 08:00–09:00/)).length).toBe(2);
+    expect(screen.getAllByText(/CN · 10:00–11:00/)).toHaveLength(2);
+    const filter = screen.getByLabelText('Lọc ngày học');
+    expect(within(filter).getByRole('option', { name: 'T2' })).toHaveValue('1');
+    expect(within(filter).getByRole('option', { name: 'CN' })).toHaveValue('7');
+    fireEvent.change(filter, { target: { value: '7' } });
+    expect(screen.getAllByText('Canonical schedule').length).toBeGreaterThan(0);
+  });
 });
 
 describe('CourseContentManagementPage', () => {
