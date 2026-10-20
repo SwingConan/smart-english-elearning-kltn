@@ -1,17 +1,16 @@
-import type {
-  AdminClassOffering,
-  ClassOfferingInput,
-  OfferingStatus,
-  PricingType,
-} from './types';
+import type { AdminClassOffering, ClassOfferingInput, OfferingStatus, PricingType } from './types';
 
 export interface OfferingFormValues {
   courseId: string;
+  code: string;
   name: string;
   status: OfferingStatus;
+  modality: AdminClassOffering['modality'];
   pricingType: PricingType;
   tuitionFeeVnd: string;
   maxStudents: string;
+  totalSessions: string;
+  totalPeriods: string;
   enrollmentStart: string;
   enrollmentEnd: string;
   classStart: string;
@@ -26,11 +25,15 @@ export interface OfferingFormResult {
 export function initialOfferingValues(offering: AdminClassOffering | null): OfferingFormValues {
   return {
     courseId: offering?.courseId ?? '',
+    code: offering?.code ?? '',
     name: offering?.name ?? '',
     status: offering?.status ?? 'DRAFT',
+    modality: offering?.modality ?? 'ONLINE',
     pricingType: offering?.pricingType ?? 'FREE',
     tuitionFeeVnd: offering?.tuitionFeeVnd?.toString() ?? '',
     maxStudents: offering?.maxStudents?.toString() ?? '',
+    totalSessions: offering?.totalSessions?.toString() ?? '',
+    totalPeriods: offering?.totalPeriods?.toString() ?? '',
     enrollmentStart: toLocalDateTime(offering?.enrollmentStart),
     enrollmentEnd: toLocalDateTime(offering?.enrollmentEnd),
     classStart: toLocalDateTime(offering?.classStart),
@@ -45,6 +48,7 @@ export function buildOfferingInput(
   const errors: Record<string, string> = {};
   if (!values.courseId) errors.courseId = 'Vui lòng chọn khóa học.';
   if (!values.name.trim()) errors.name = 'Vui lòng nhập tên lớp.';
+  if (values.code.trim().length > 100) errors.code = 'Mã lớp không được vượt quá 100 ký tự.';
 
   let tuitionFeeVnd: number | undefined;
   if (values.pricingType === 'PAID') {
@@ -64,6 +68,14 @@ export function buildOfferingInput(
     maxStudents = null;
   }
 
+  const totalSessions = optionalPositiveInteger(
+    values.totalSessions,
+    'totalSessions',
+    errors,
+    isEdit,
+  );
+  const totalPeriods = optionalPositiveInteger(values.totalPeriods, 'totalPeriods', errors, isEdit);
+
   const enrollmentStart = parseDate(values.enrollmentStart, 'enrollmentStart', errors);
   const enrollmentEnd = parseDate(values.enrollmentEnd, 'enrollmentEnd', errors);
   const classStart = parseDate(values.classStart, 'classStart', errors);
@@ -81,17 +93,35 @@ export function buildOfferingInput(
     errors,
     input: {
       courseId: values.courseId,
+      ...(values.code.trim() ? { code: values.code.trim() } : {}),
       name: values.name.trim(),
       status: values.status,
+      modality: values.modality,
       pricingType: values.pricingType,
       tuitionFeeVnd: values.pricingType === 'FREE' ? 0 : tuitionFeeVnd,
       ...(maxStudents !== undefined ? { maxStudents } : {}),
+      ...(totalSessions !== undefined ? { totalSessions } : {}),
+      ...(totalPeriods !== undefined ? { totalPeriods } : {}),
       ...optionalDate('enrollmentStart', enrollmentStart, values.enrollmentStart, isEdit),
       ...optionalDate('enrollmentEnd', enrollmentEnd, values.enrollmentEnd, isEdit),
       ...optionalDate('classStart', classStart, values.classStart, isEdit),
       ...optionalDate('classEnd', classEnd, values.classEnd, isEdit),
     },
   };
+}
+
+function optionalPositiveInteger(
+  value: string,
+  field: 'totalSessions' | 'totalPeriods',
+  errors: Record<string, string>,
+  isEdit: boolean,
+): number | null | undefined {
+  if (!value) return isEdit ? null : undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    errors[field] = 'Vui lòng nhập số nguyên dương.';
+  }
+  return parsed;
 }
 
 function parseDate(value: string, field: string, errors: Record<string, string>): Date | null {

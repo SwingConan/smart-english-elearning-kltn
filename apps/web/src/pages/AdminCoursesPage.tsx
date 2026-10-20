@@ -1,186 +1,369 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { BookOpen, ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
+import { Link, useLocation } from 'react-router';
 import { adminApi } from '@/features/admin/api';
-import { adminErrorMessage } from '@/features/admin/errors';
 import { useAdminSessionExpiry } from '@/features/admin/use-admin-session-expiry';
-import type { AdminCourse, CourseInput } from '@/features/admin/types';
+import {
+  COURSE_SKILL_SCOPES,
+  type AdminCourse,
+  type CourseQuery,
+  type PageMeta,
+} from '@/features/admin/types';
 
-type CoursesLoadState =
-  | { key: number; status: 'loading' }
-  | { key: number; status: 'success'; courses: AdminCourse[] }
-  | { key: number; status: 'error' };
+const controlClass =
+  'mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200';
+
+type LoadState =
+  | { status: 'loading' }
+  | { status: 'success'; courses: AdminCourse[]; meta: PageMeta }
+  | { status: 'error' };
 
 export function AdminCoursesPage() {
+  const location = useLocation();
+  const [query, setQuery] = useState<CourseQuery>({ page: 1, limit: 20 });
+  const [draft, setDraft] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
-  const [loadState, setLoadState] = useState<CoursesLoadState>({ key: -1, status: 'loading' });
-  const [editing, setEditing] = useState<AdminCourse | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [state, setState] = useState<LoadState>({ status: 'loading' });
   const redirectExpiredSession = useAdminSessionExpiry();
 
   useEffect(() => {
     const controller = new AbortController();
-    void adminApi.courses.list(controller.signal)
-      .then((courses) => setLoadState({ key: reloadKey, status: 'success', courses }))
+    void adminApi.courses
+      .list(query, controller.signal)
+      .then(({ data, meta }) => setState({ status: 'success', courses: data, meta }))
       .catch(async (error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         if (await redirectExpiredSession(error)) return;
-        setLoadState({ key: reloadKey, status: 'error' });
+        setState({ status: 'error' });
       });
     return () => controller.abort();
-  }, [redirectExpiredSession, reloadKey]);
+  }, [query, reloadKey, redirectExpiredSession]);
 
-  const isCurrent = loadState.key === reloadKey;
-  const courses = isCurrent && loadState.status === 'success' ? loadState.courses : null;
-  const handleSaved = (mode: 'created' | 'updated') => {
-    setEditing(null);
-    setSuccess(mode === 'created' ? 'Đã tạo khóa học.' : 'Đã cập nhật khóa học.');
-    setReloadKey((current) => current + 1);
+  const submitSearch = (event: FormEvent) => {
+    event.preventDefault();
+    setState({ status: 'loading' });
+    setQuery((current) => ({ ...current, search: draft.trim() || undefined, page: 1 }));
   };
+  const updateFilter = (key: keyof CourseQuery, value: string | boolean | undefined) => {
+    setState({ status: 'loading' });
+    setQuery((current) => ({
+      ...current,
+      [key]: value === '' || value === undefined ? undefined : value,
+      page: 1,
+    }));
+  };
+  const reset = () => {
+    setDraft('');
+    setState({ status: 'loading' });
+    setQuery({ page: 1, limit: 20 });
+  };
+  const retry = () => {
+    setState({ status: 'loading' });
+    setReloadKey((value) => value + 1);
+  };
+  const changePage = (page: number) => {
+    setState({ status: 'loading' });
+    setQuery((current) => ({ ...current, page }));
+  };
+  const hasFilters = Boolean(
+    query.search || query.isPublished !== undefined || query.skillScope || query.level,
+  );
+  const message = (location.state as { message?: string } | null)?.message;
 
   return (
     <section>
-      <h1 className="text-3xl font-bold">Quản lý khóa học</h1>
-      <p className="mt-2 text-slate-600">Tạo, chỉnh sửa và xuất bản khóa học.</p>
-      {success ? <p className="mt-4 rounded-md bg-emerald-50 p-3 text-emerald-800" role="status">{success}</p> : null}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-indigo-600">
+            Quản trị học vụ
+          </p>
+          <h1 className="mt-1 text-3xl font-black tracking-tight">Khóa học TOEIC</h1>
+          <p className="mt-2 text-slate-600">
+            Quản lý thông tin, phạm vi kỹ năng và trạng thái xuất bản.
+          </p>
+        </div>
+        <Link
+          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700"
+          to="/admin/courses/new"
+        >
+          <Plus size={18} />
+          Tạo khóa học
+        </Link>
+      </div>
 
-      <CourseForm
-        course={editing}
-        key={editing?.id ?? 'create'}
-        onCancel={editing ? () => setEditing(null) : undefined}
-        onSaved={handleSaved}
-      />
+      {message ? (
+        <p
+          className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-800"
+          role="status"
+        >
+          {message}
+        </p>
+      ) : null}
 
-      <section className="mt-10" aria-labelledby="course-list-heading">
-        <h2 className="text-2xl font-semibold" id="course-list-heading">Danh sách khóa học</h2>
-        {!isCurrent || loadState.status === 'loading' ? <p className="mt-4" role="status">Đang tải khóa học...</p> : null}
-        {isCurrent && loadState.status === 'error' ? (
-          <p className="mt-4 rounded-md bg-red-50 p-4 text-red-700" role="alert">Không thể tải danh sách khóa học. Vui lòng thử lại.</p>
-        ) : null}
-        {courses?.length === 0 ? <p className="mt-4 rounded-md border bg-white p-5">Chưa có khóa học nào.</p> : null}
-        {courses && courses.length > 0 ? (
-          <div className="mt-5 space-y-4">
-            {courses.map((course) => (
-              <article className="rounded-xl border bg-white p-5" key={course.id}>
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">{course.title}</h3>
-                    <p className="mt-1 text-sm text-slate-500">/{course.slug} · {course.level}</p>
-                    <p className="mt-2 text-sm">{course.isPublished ? 'Đã xuất bản' : 'Bản nháp'}</p>
-                    {course._count ? <p className="text-sm text-slate-500">{course._count.classOfferings} lớp học</p> : null}
-                  </div>
-                  <button className="rounded-md border px-4 py-2" onClick={() => { setEditing(course); setSuccess(null); }} type="button">
-                    Chỉnh sửa
-                  </button>
-                </div>
-              </article>
+      <form
+        className="mt-6 grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-5"
+        onSubmit={submitSearch}
+      >
+        <label className="xl:col-span-2">
+          <span className="text-sm font-semibold">Tìm kiếm</span>
+          <span className="relative block">
+            <Search className="absolute left-3 top-4 text-slate-400" size={17} />
+            <input
+              className={`${controlClass} pl-10`}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="Tên hoặc slug khóa học"
+              value={draft}
+            />
+          </span>
+        </label>
+        <label>
+          <span className="text-sm font-semibold">Xuất bản</span>
+          <select
+            className={controlClass}
+            onChange={(event) =>
+              updateFilter(
+                'isPublished',
+                event.target.value === '' ? undefined : event.target.value === 'true',
+              )
+            }
+            value={query.isPublished === undefined ? '' : String(query.isPublished)}
+          >
+            <option value="">Tất cả</option>
+            <option value="true">Đã xuất bản</option>
+            <option value="false">Bản nháp</option>
+          </select>
+        </label>
+        <label>
+          <span className="text-sm font-semibold">Kỹ năng</span>
+          <select
+            className={controlClass}
+            onChange={(event) => updateFilter('skillScope', event.target.value)}
+            value={query.skillScope ?? ''}
+          >
+            <option value="">Tất cả</option>
+            {COURSE_SKILL_SCOPES.map((scope) => (
+              <option key={scope} value={scope}>
+                {skillLabel(scope)}
+              </option>
             ))}
-          </div>
+          </select>
+        </label>
+        <label>
+          <span className="text-sm font-semibold">Trình độ</span>
+          <input
+            className={controlClass}
+            onChange={(event) => updateFilter('level', event.target.value.trim())}
+            placeholder="Ví dụ: BEGINNER"
+            value={query.level ?? ''}
+          />
+        </label>
+        <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-5">
+          <button
+            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+            type="submit"
+          >
+            Áp dụng
+          </button>
+          <button
+            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-50"
+            disabled={!hasFilters && !draft}
+            onClick={reset}
+            type="button"
+          >
+            Đặt lại
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-6">
+        {state.status === 'loading' ? <Loading label="Đang tải khóa học..." /> : null}
+        {state.status === 'error' ? <ErrorState onRetry={retry} /> : null}
+        {state.status === 'success' && state.courses.length === 0 ? (
+          <EmptyState filtered={hasFilters} onReset={reset} />
         ) : null}
-      </section>
+        {state.status === 'success' && state.courses.length > 0 ? (
+          <CourseResults courses={state.courses} />
+        ) : null}
+        {state.status === 'success' ? <Pagination meta={state.meta} onPage={changePage} /> : null}
+      </div>
     </section>
   );
 }
 
-interface CourseFormProps {
-  course: AdminCourse | null;
-  onCancel?: () => void;
-  onSaved: (mode: 'created' | 'updated') => void;
-}
-
-function CourseForm({ course, onCancel, onSaved }: CourseFormProps) {
-  const [title, setTitle] = useState(course?.title ?? '');
-  const [description, setDescription] = useState(course?.description ?? '');
-  const [level, setLevel] = useState(course?.level ?? '');
-  const [thumbnailUrl, setThumbnailUrl] = useState(course?.thumbnailUrl ?? '');
-  const [isPublished, setIsPublished] = useState(course?.isPublished ?? false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const redirectExpiredSession = useAdminSessionExpiry();
-
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const nextErrors: Record<string, string> = {};
-    if (!title.trim()) nextErrors.title = 'Vui lòng nhập tên khóa học.';
-    if (!level.trim()) nextErrors.level = 'Vui lòng nhập trình độ.';
-    if (thumbnailUrl.trim() && !isValidUrl(thumbnailUrl.trim())) {
-      nextErrors.thumbnailUrl = 'URL ảnh không hợp lệ.';
-    }
-    setErrors(nextErrors);
-    setApiError(null);
-    if (Object.keys(nextErrors).length > 0) return;
-
-    const input: CourseInput = {
-      title: title.trim(),
-      ...(description.trim() || course ? { description: description.trim() } : {}),
-      level: level.trim(),
-      ...(thumbnailUrl.trim() ? { thumbnailUrl: thumbnailUrl.trim() } : {}),
-      isPublished,
-    };
-    setIsSubmitting(true);
-    try {
-      if (course) {
-        await adminApi.courses.update(course.id, input);
-        onSaved('updated');
-      } else {
-        await adminApi.courses.create(input);
-        onSaved('created');
-        setTitle('');
-        setDescription('');
-        setLevel('');
-        setThumbnailUrl('');
-        setIsPublished(false);
-      }
-    } catch (error: unknown) {
-      if (await redirectExpiredSession(error)) return;
-      setApiError(adminErrorMessage(error));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+function CourseResults({ courses }: { courses: AdminCourse[] }) {
   return (
-    <form className="mt-6 rounded-xl border bg-white p-5" onSubmit={(event) => void submit(event)}>
-      <h2 className="text-xl font-semibold">{course ? 'Chỉnh sửa khóa học' : 'Tạo khóa học'}</h2>
-      {course ? <p className="mt-1 text-sm text-slate-500">Slug được backend quản lý: /{course.slug}</p> : null}
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <Field label="Tên khóa học" error={errors.title}>
-          <input className="mt-1 w-full rounded-md border px-3 py-2" onChange={(event) => setTitle(event.target.value)} value={title} />
-        </Field>
-        <Field label="Trình độ" error={errors.level}>
-          <input className="mt-1 w-full rounded-md border px-3 py-2" onChange={(event) => setLevel(event.target.value)} value={level} />
-        </Field>
-        <Field label="URL ảnh đại diện" error={errors.thumbnailUrl}>
-          <input className="mt-1 w-full rounded-md border px-3 py-2" onChange={(event) => setThumbnailUrl(event.target.value)} type="url" value={thumbnailUrl} />
-        </Field>
-        <label className="flex items-center gap-2 self-end py-2">
-          <input checked={isPublished} onChange={(event) => setIsPublished(event.target.checked)} type="checkbox" />
-          Đã xuất bản
-        </label>
+    <>
+      <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:block">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-5 py-4">Khóa học</th>
+              <th className="px-5 py-4">Phạm vi</th>
+              <th className="px-5 py-4">Trình độ</th>
+              <th className="px-5 py-4">Lớp</th>
+              <th className="px-5 py-4">Trạng thái</th>
+              <th className="px-5 py-4">Cập nhật</th>
+              <th className="px-5 py-4">
+                <span className="sr-only">Thao tác</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {courses.map((course) => (
+              <tr key={course.id}>
+                <td className="px-5 py-4">
+                  <p className="font-semibold">{course.title}</p>
+                  <p className="mt-1 text-xs text-slate-500">/{course.slug}</p>
+                </td>
+                <td className="px-5 py-4">{skillLabel(course.skillScope)}</td>
+                <td className="px-5 py-4">{course.level}</td>
+                <td className="px-5 py-4">{course._count?.classOfferings ?? 0}</td>
+                <td className="px-5 py-4">
+                  <Status published={course.isPublished} />
+                </td>
+                <td className="px-5 py-4">{formatDate(course.updatedAt)}</td>
+                <td className="px-5 py-4 text-right">
+                  <Link
+                    className="font-semibold text-indigo-700 hover:underline"
+                    to={`/admin/courses/${course.id}/edit`}
+                  >
+                    Chỉnh sửa
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <label className="mt-4 block">
-        <span className="text-sm font-medium">Mô tả</span>
-        <textarea className="mt-1 min-h-28 w-full rounded-md border px-3 py-2" onChange={(event) => setDescription(event.target.value)} value={description} />
-      </label>
-      {apiError ? <p className="mt-4 text-sm text-red-700" role="alert">{apiError}</p> : null}
-      <div className="mt-5 flex gap-3">
-        <button className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-50" disabled={isSubmitting} type="submit">
-          {isSubmitting ? 'Đang lưu...' : course ? 'Lưu thay đổi' : 'Tạo khóa học'}
-        </button>
-        {onCancel ? <button className="rounded-md border px-4 py-2" disabled={isSubmitting} onClick={onCancel} type="button">Hủy chỉnh sửa</button> : null}
+      <div className="space-y-3 md:hidden">
+        {courses.map((course) => (
+          <article
+            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            key={course.id}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-bold">{course.title}</h2>
+                <p className="text-xs text-slate-500">/{course.slug}</p>
+              </div>
+              <Status published={course.isPublished} />
+            </div>
+            <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <dt className="text-slate-500">Kỹ năng</dt>
+                <dd className="font-medium">{skillLabel(course.skillScope)}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Trình độ</dt>
+                <dd className="font-medium">{course.level}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Số lớp</dt>
+                <dd className="font-medium">{course._count?.classOfferings ?? 0}</dd>
+              </div>
+            </dl>
+            <Link
+              className="mt-4 inline-block font-semibold text-indigo-700"
+              to={`/admin/courses/${course.id}/edit`}
+            >
+              Chỉnh sửa
+            </Link>
+          </article>
+        ))}
       </div>
-    </form>
+    </>
   );
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
-  return <label><span className="text-sm font-medium">{label}</span>{children}{error ? <span className="mt-1 block text-sm text-red-700">{error}</span> : null}</label>;
+function Status({ published }: { published: boolean }) {
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${published ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}
+    >
+      {published ? 'Đã xuất bản' : 'Bản nháp'}
+    </span>
+  );
 }
-
-function isValidUrl(value: string): boolean {
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
+function Loading({ label }: { label: string }) {
+  return (
+    <div className="rounded-2xl border bg-white p-8 text-center text-slate-600" role="status">
+      {label}
+    </div>
+  );
+}
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="rounded-2xl border border-red-200 bg-red-50 p-6" role="alert">
+      <p className="font-semibold text-red-800">Không thể tải danh sách khóa học.</p>
+      <button
+        className="mt-3 rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-800"
+        onClick={onRetry}
+        type="button"
+      >
+        Thử lại
+      </button>
+    </div>
+  );
+}
+function EmptyState({ filtered, onReset }: { filtered: boolean; onReset: () => void }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+      <BookOpen className="mx-auto text-slate-400" />
+      <h2 className="mt-3 font-bold">
+        {filtered ? 'Không có khóa học phù hợp' : 'Chưa có khóa học nào'}
+      </h2>
+      {filtered ? (
+        <button className="mt-3 font-semibold text-indigo-700" onClick={onReset} type="button">
+          Xóa bộ lọc
+        </button>
+      ) : (
+        <Link className="mt-3 inline-block font-semibold text-indigo-700" to="/admin/courses/new">
+          Tạo khóa học đầu tiên
+        </Link>
+      )}
+    </div>
+  );
+}
+function Pagination({ meta, onPage }: { meta: PageMeta; onPage: (page: number) => void }) {
+  if (meta.totalPages <= 1) return null;
+  return (
+    <nav aria-label="Phân trang khóa học" className="mt-4 flex items-center justify-between">
+      <p className="text-sm text-slate-600">
+        Trang {meta.page}/{meta.totalPages} · {meta.total} kết quả
+      </p>
+      <div className="flex gap-2">
+        <button
+          aria-label="Trang trước"
+          className="rounded-lg border bg-white p-2 disabled:opacity-40"
+          disabled={meta.page <= 1}
+          onClick={() => onPage(meta.page - 1)}
+          type="button"
+        >
+          <ChevronLeft />
+        </button>
+        <button
+          aria-label="Trang sau"
+          className="rounded-lg border bg-white p-2 disabled:opacity-40"
+          disabled={meta.page >= meta.totalPages}
+          onClick={() => onPage(meta.page + 1)}
+          type="button"
+        >
+          <ChevronRight />
+        </button>
+      </div>
+    </nav>
+  );
+}
+function skillLabel(scope: AdminCourse['skillScope']): string {
+  return {
+    LISTENING: 'Nghe',
+    READING: 'Đọc',
+    LR: 'Nghe & Đọc',
+    SPEAKING: 'Nói',
+    WRITING: 'Viết',
+    FOUR_SKILLS: 'Bốn kỹ năng',
+  }[scope];
+}
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short' }).format(new Date(value));
 }

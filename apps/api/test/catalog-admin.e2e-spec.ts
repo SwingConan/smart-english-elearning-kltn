@@ -125,8 +125,10 @@ describe('Course catalog and admin APIs (e2e)', () => {
 
     await login(studentAgent, studentEmail);
     await studentAgent.get('/api/admin/courses').expect(403);
+    await studentAgent.get('/api/admin/class-offerings').expect(403);
 
     await login(instructorAgent, instructorEmail);
+    await instructorAgent.get('/api/admin/class-offerings').expect(403);
     await instructorAgent
       .post('/api/admin/courses')
       .send({
@@ -177,10 +179,24 @@ describe('Course catalog and admin APIs (e2e)', () => {
     expect(createdCourse.body.createdById).toBe(userIds[0]);
     expect(createdCourse.body).not.toHaveProperty('passwordHash');
 
-    const adminCourses = await adminAgent.get('/api/admin/courses').expect(200);
+    const adminCourses = await adminAgent
+      .get('/api/admin/courses')
+      .query({ search: unique, isPublished: false, skillScope: 'LR', level, page: 1, limit: 5 })
+      .expect(200);
     expect(
-      adminCourses.body.some((course: { id: string }) => course.id === createdCourse.body.id),
+      adminCourses.body.data.some((course: { id: string }) => course.id === createdCourse.body.id),
     ).toBe(true);
+    expect(adminCourses.body.meta).toEqual(expect.objectContaining({ page: 1, limit: 5 }));
+    await adminAgent.get('/api/admin/courses?limit=51').expect(400);
+    await adminAgent.get('/api/admin/courses?isPublished=not-boolean').expect(400);
+    const courseDetail = await adminAgent
+      .get(`/api/admin/courses/${createdCourse.body.id}`)
+      .expect(200);
+    expect(courseDetail.body).toMatchObject({
+      id: createdCourse.body.id,
+      skillScope: 'LR',
+      _count: { classOfferings: 0 },
+    });
 
     await request(app.getHttpServer())
       .get(isolatedCatalogUrl)
@@ -233,10 +249,39 @@ describe('Course catalog and admin APIs (e2e)', () => {
       })
       .expect(400);
 
-    const adminOfferings = await adminAgent.get('/api/admin/class-offerings').expect(200);
+    const adminOfferings = await adminAgent
+      .get('/api/admin/class-offerings')
+      .query({
+        search: 'Draft cohort',
+        courseId: createdCourse.body.id,
+        status: 'DRAFT',
+        modality: 'ONLINE',
+        pricingType: 'PAID',
+        page: 1,
+        limit: 5,
+      })
+      .expect(200);
     expect(
-      adminOfferings.body.some((offering: { id: string }) => offering.id === draftOffering.body.id),
+      adminOfferings.body.data.some(
+        (offering: { id: string }) => offering.id === draftOffering.body.id,
+      ),
     ).toBe(true);
+    expect(adminOfferings.body.data[0]).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: null,
+        isFull: false,
+        registrationState: 'CLOSED',
+      }),
+    );
+    const offeringDetail = await adminAgent
+      .get(`/api/admin/class-offerings/${draftOffering.body.id}`)
+      .expect(200);
+    expect(offeringDetail.body).toEqual(
+      expect.objectContaining({ id: draftOffering.body.id, registeredCount: 0 }),
+    );
+    await adminAgent.get('/api/admin/class-offerings?status=UNKNOWN').expect(400);
+    await adminAgent.get('/api/admin/class-offerings?courseId=not-a-uuid').expect(400);
 
     const publishedCourse = await adminAgent
       .patch(`/api/admin/courses/${createdCourse.body.id}`)

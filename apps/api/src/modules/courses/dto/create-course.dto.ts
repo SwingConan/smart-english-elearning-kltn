@@ -35,7 +35,7 @@ export class CreateCourseDto {
   @IsOptional()
   @MaxLength(2048)
   @IsUrl({ require_tld: false })
-  thumbnailUrl?: string;
+  thumbnailUrl?: string | null;
 
   @IsOptional()
   @IsBoolean()

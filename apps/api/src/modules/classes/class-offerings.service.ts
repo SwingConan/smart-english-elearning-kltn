@@ -9,6 +9,7 @@ import {
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateClassOfferingDto } from './dto/create-class-offering.dto';
+import { AdminClassOfferingQueryDto } from './dto/admin-class-offering-query.dto';
 import { UpdateClassOfferingDto } from './dto/update-class-offering.dto';
 import { computeRegistrationState } from './registration-state';
 
@@ -23,9 +24,25 @@ interface OfferingRules {
 }
 
 const adminOfferingInclude = {
-  course: { select: { id: true, title: true, slug: true } },
+  course: { select: { id: true, title: true, slug: true, isPublished: true } },
   instructor: { select: { id: true, fullName: true } },
-} as const;
+  scheduleSlots: {
+    orderBy: [{ dayOfWeek: 'asc' as const }, { startTime: 'asc' as const }],
+    select: {
+      id: true,
+      dayOfWeek: true,
+      startTime: true,
+      endTime: true,
+      locationText: true,
+      meetingUrl: true,
+    },
+  },
+  _count: {
+    select: { enrollments: { where: { status: EnrollmentStatus.ACTIVE } } },
+  },
+} satisfies Prisma.ClassOfferingInclude;
+
+type AdminOfferingRow = Prisma.ClassOfferingGetPayload<{ include: typeof adminOfferingInclude }>;
 
 const publicOfferingDetailSelect = {
   id: true,
@@ -84,11 +101,51 @@ const publicOfferingDetailSelect = {
 export class ClassOfferingsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  listAdmin() {
-    return this.prisma.classOffering.findMany({
+  async listAdmin(query: AdminClassOfferingQueryDto) {
+    const where: Prisma.ClassOfferingWhereInput = {
+      ...(query.search
+        ? {
+            OR: [
+              { code: { contains: query.search, mode: 'insensitive' } },
+              { name: { contains: query.search, mode: 'insensitive' } },
+              { course: { title: { contains: query.search, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
+      ...(query.courseId ? { courseId: query.courseId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.modality ? { modality: query.modality } : {}),
+      ...(query.pricingType ? { pricingType: query.pricingType } : {}),
+    };
+    const skip = (query.page - 1) * query.limit;
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.classOffering.findMany({
+        where,
+        include: adminOfferingInclude,
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        skip,
+        take: query.limit,
+      }),
+      this.prisma.classOffering.count({ where }),
+    ]);
+    return {
+      data: rows.map((row) => this.mapAdminOffering(row)),
+      meta: {
+        total,
+        page: query.page,
+        limit: query.limit,
+        totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
+      },
+    };
+  }
+
+  async getAdminById(id: string) {
+    const offering = await this.prisma.classOffering.findUnique({
+      where: { id },
       include: adminOfferingInclude,
-      orderBy: { createdAt: 'desc' },
     });
+    if (!offering) throw new NotFoundException('Class offering not found');
+    return this.mapAdminOffering(offering);
   }
 
   async getPublicById(id: string) {
@@ -221,6 +278,26 @@ export class ClassOfferingsService {
     if (!course) {
       throw new BadRequestException('Course does not exist');
     }
+  }
+
+  private mapAdminOffering(offering: AdminOfferingRow) {
+    const { _count, ...publicFields } = offering;
+    const availability = computeRegistrationState({
+      status: offering.status,
+      courseIsPublished: offering.course.isPublished,
+      enrollmentStart: offering.enrollmentStart,
+      enrollmentEnd: offering.enrollmentEnd,
+      maxStudents: offering.maxStudents,
+      registeredCount: _count.enrollments,
+      now: new Date(),
+    });
+    return {
+      ...publicFields,
+      registeredCount: availability.registeredCount,
+      remainingSeats: availability.remainingSeats,
+      isFull: availability.isFull,
+      registrationState: availability.registrationState,
+    };
   }
 
   private async validateInstructor(instructorId: string | null | undefined): Promise<void> {

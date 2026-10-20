@@ -1,5 +1,10 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { ClassOfferingStatus, PricingType, UserRole } from '../../generated/prisma/client';
+import {
+  ClassModality,
+  ClassOfferingStatus,
+  PricingType,
+  UserRole,
+} from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { ClassOfferingsService } from './class-offerings.service';
 
@@ -9,11 +14,13 @@ describe('ClassOfferingsService', () => {
     user: { findUnique: jest.fn() },
     classOffering: {
       findMany: jest.fn(),
+      count: jest.fn(),
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
   const service = new ClassOfferingsService(prisma as unknown as PrismaService);
   const baseInput = {
@@ -166,5 +173,83 @@ describe('ClassOfferingsService', () => {
   it('does not expose missing, draft or unpublished offerings publicly', async () => {
     prisma.classOffering.findFirst.mockResolvedValue(null);
     await expect(service.getPublicById('private-id')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('filters, paginates and projects admin offering availability', async () => {
+    prisma.$transaction.mockResolvedValue([
+      [
+        {
+          id: 'offering-id',
+          code: 'TOEIC-01',
+          name: 'Evening',
+          status: ClassOfferingStatus.OPEN,
+          modality: ClassModality.HYBRID,
+          pricingType: PricingType.PAID,
+          tuitionFeeVnd: 500_000,
+          maxStudents: 10,
+          enrollmentStart: null,
+          enrollmentEnd: null,
+          course: { id: 'course-id', title: 'TOEIC', slug: 'toeic', isPublished: true },
+          instructor: null,
+          scheduleSlots: [],
+          _count: { enrollments: 4 },
+        },
+      ],
+      11,
+    ]);
+
+    const result = await service.listAdmin({
+      search: 'evening',
+      courseId: baseInput.courseId,
+      status: ClassOfferingStatus.OPEN,
+      modality: ClassModality.HYBRID,
+      pricingType: PricingType.PAID,
+      page: 2,
+      limit: 5,
+    });
+
+    expect(prisma.classOffering.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([{ name: { contains: 'evening', mode: 'insensitive' } }]),
+          courseId: baseInput.courseId,
+          status: ClassOfferingStatus.OPEN,
+          modality: ClassModality.HYBRID,
+          pricingType: PricingType.PAID,
+        }),
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        skip: 5,
+        take: 5,
+      }),
+    );
+    expect(result.data[0]).toMatchObject({
+      registeredCount: 4,
+      remainingSeats: 6,
+      isFull: false,
+      registrationState: 'AVAILABLE',
+    });
+    expect(result.data[0]).not.toHaveProperty('_count');
+    expect(result.meta).toEqual({ total: 11, page: 2, limit: 5, totalPages: 3 });
+  });
+
+  it('returns admin offering detail or a domain 404', async () => {
+    const row = {
+      id: 'offering-id',
+      status: ClassOfferingStatus.DRAFT,
+      maxStudents: null,
+      enrollmentStart: null,
+      enrollmentEnd: null,
+      course: { isPublished: false },
+      scheduleSlots: [],
+      instructor: null,
+      _count: { enrollments: 0 },
+    };
+    prisma.classOffering.findUnique.mockResolvedValueOnce(row);
+    await expect(service.getAdminById('offering-id')).resolves.toMatchObject({
+      id: 'offering-id',
+      registeredCount: 0,
+    });
+    prisma.classOffering.findUnique.mockResolvedValueOnce(null);
+    await expect(service.getAdminById('missing')).rejects.toBeInstanceOf(NotFoundException);
   });
 });

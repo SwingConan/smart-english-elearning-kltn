@@ -1,18 +1,11 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CoursesService } from '../courses/courses.service';
 import { CreateCourseDto } from '../courses/dto/create-course.dto';
+import { AdminCourseQueryDto } from '../courses/dto/admin-course-query.dto';
 import { UpdateCourseDto } from '../courses/dto/update-course.dto';
 import { PublicUser } from '../users/user.types';
 
@@ -24,25 +17,25 @@ export class AdminCoursesController {
 
   @Get()
   @ApiOperation({ summary: 'List all courses for administration' })
-  list() {
-    return this.coursesService.listAdmin();
+  list(@Query() query: AdminCourseQueryDto) {
+    return this.coursesService.listAdmin(query);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get one course for administration' })
+  detail(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.coursesService.getAdminById(id);
   }
 
   @Post()
   @ApiOperation({ summary: 'Create a course' })
-  create(
-    @Body() input: CreateCourseDto,
-    @CurrentUser() user: PublicUser,
-  ) {
+  create(@Body() input: CreateCourseDto, @CurrentUser() user: PublicUser) {
     return this.coursesService.create(input, user.id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update an allowed set of course fields' })
-  update(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() input: UpdateCourseDto,
-  ) {
+  update(@Param('id', new ParseUUIDPipe()) id: string, @Body() input: UpdateCourseDto) {
     return this.coursesService.update(id, input);
   }
 }

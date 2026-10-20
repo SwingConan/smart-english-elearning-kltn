@@ -167,6 +167,46 @@ describe('CoursesService', () => {
       }),
     );
   });
+
+  it('filters and paginates admin courses with stable ordering', async () => {
+    prisma.$transaction.mockResolvedValue([[{ id: 'course-id' }], 21]);
+
+    const result = await service.listAdmin({
+      search: 'toeic',
+      isPublished: false,
+      skillScope: CourseSkillScope.LR,
+      level: 'Intermediate',
+      page: 2,
+      limit: 10,
+    });
+
+    expect(prisma.course.findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { title: { contains: 'toeic', mode: 'insensitive' } },
+          { slug: { contains: 'toeic', mode: 'insensitive' } },
+        ],
+        isPublished: false,
+        skillScope: CourseSkillScope.LR,
+        level: { equals: 'Intermediate', mode: 'insensitive' },
+      },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+      skip: 10,
+      take: 10,
+      include: expect.objectContaining({
+        createdBy: expect.any(Object),
+        _count: expect.any(Object),
+      }),
+    });
+    expect(result.meta).toEqual({ total: 21, page: 2, limit: 10, totalPages: 3 });
+  });
+
+  it('returns admin detail or a domain 404', async () => {
+    prisma.course.findUnique.mockResolvedValueOnce({ id: 'course-id', title: 'TOEIC' });
+    await expect(service.getAdminById('course-id')).resolves.toMatchObject({ id: 'course-id' });
+    prisma.course.findUnique.mockResolvedValueOnce(null);
+    await expect(service.getAdminById('missing')).rejects.toBeInstanceOf(NotFoundException);
+  });
 });
 
 function slugCollisionError(): Prisma.PrismaClientKnownRequestError {

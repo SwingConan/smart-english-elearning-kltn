@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { ClassOfferingStatus, CourseSkillScope, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CatalogQueryDto } from './dto/catalog-query.dto';
+import { AdminCourseQueryDto } from './dto/admin-course-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 
@@ -144,14 +145,55 @@ export class CoursesService {
     return this.mapPublicCourseDetail(course);
   }
 
-  listAdmin() {
-    return this.prisma.course.findMany({
-      orderBy: { createdAt: 'desc' },
+  async listAdmin(query: AdminCourseQueryDto) {
+    const where: Prisma.CourseWhereInput = {
+      ...(query.search
+        ? {
+            OR: [
+              { title: { contains: query.search, mode: 'insensitive' } },
+              { slug: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+      ...(query.isPublished !== undefined ? { isPublished: query.isPublished } : {}),
+      ...(query.skillScope ? { skillScope: query.skillScope } : {}),
+      ...(query.level ? { level: { equals: query.level, mode: 'insensitive' } } : {}),
+    };
+    const skip = (query.page - 1) * query.limit;
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.course.findMany({
+        where,
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        skip,
+        take: query.limit,
+        include: {
+          createdBy: { select: { id: true, fullName: true } },
+          _count: { select: { classOfferings: true } },
+        },
+      }),
+      this.prisma.course.count({ where }),
+    ]);
+    return {
+      data,
+      meta: {
+        total,
+        page: query.page,
+        limit: query.limit,
+        totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
+      },
+    };
+  }
+
+  async getAdminById(id: string) {
+    const course = await this.prisma.course.findUnique({
+      where: { id },
       include: {
         createdBy: { select: { id: true, fullName: true } },
         _count: { select: { classOfferings: true } },
       },
     });
+    if (!course) throw new NotFoundException('Course not found');
+    return course;
   }
 
   async create(input: CreateCourseDto, createdById: string) {
