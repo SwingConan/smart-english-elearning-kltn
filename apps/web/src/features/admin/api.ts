@@ -33,6 +33,18 @@ export const adminApi = {
         method: 'PATCH',
         body: JSON.stringify(input),
       }),
+    uploadThumbnail: (id: string, file: File) => {
+      const body = new FormData();
+      body.set('file', file);
+      return apiFetch<AdminCourse>(`/admin/courses/${encodeURIComponent(id)}/thumbnail`, {
+        method: 'POST',
+        body,
+      });
+    },
+    removeThumbnail: (id: string) =>
+      apiFetch<AdminCourse>(`/admin/courses/${encodeURIComponent(id)}/thumbnail`, {
+        method: 'DELETE',
+      }),
   },
   offerings: {
     list: (query: OfferingQuery = {}, signal?: AbortSignal) =>

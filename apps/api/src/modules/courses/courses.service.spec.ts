@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ClassOfferingStatus, CourseSkillScope, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CoursesService, slugify } from './courses.service';
+import { CourseThumbnailStorage } from './course-thumbnail.storage';
 
 describe('CoursesService', () => {
   const prisma = {
@@ -15,10 +16,19 @@ describe('CoursesService', () => {
     },
     $transaction: jest.fn(),
   };
-  const service = new CoursesService(prisma as unknown as PrismaService);
+  const thumbnailStorage = {
+    put: jest.fn(),
+    open: jest.fn(),
+    delete: jest.fn(),
+  };
+  const service = new CoursesService(
+    prisma as unknown as PrismaService,
+    thumbnailStorage as unknown as CourseThumbnailStorage,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    thumbnailStorage.delete.mockResolvedValue(undefined);
   });
 
   it('normalizes a title into a URL-safe lowercase slug', () => {
@@ -261,6 +271,91 @@ describe('CoursesService', () => {
     await expect(service.getAdminById('course-id')).resolves.toMatchObject({ id: 'course-id' });
     prisma.course.findUnique.mockResolvedValueOnce(null);
     await expect(service.getAdminById('missing')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('uploads first, commits the managed URL, and then removes the replaced local image', async () => {
+    prisma.course.findUnique.mockResolvedValue({
+      id: 'course-id',
+      thumbnailUrl: '/api/course-assets/11111111-1111-4111-8111-111111111111.png',
+    });
+    thumbnailStorage.put.mockResolvedValue({
+      key: '22222222-2222-4222-8222-222222222222.webp',
+      mimeType: 'image/webp',
+      bytes: 12,
+    });
+    prisma.course.update.mockResolvedValue({
+      id: 'course-id',
+      thumbnailUrl: '/api/course-assets/22222222-2222-4222-8222-222222222222.webp',
+    });
+
+    await service.uploadThumbnail('course-id', {
+      buffer: Buffer.from('RIFF1234WEBP'),
+      mimetype: 'image/webp',
+      originalname: 'cover.webp',
+      size: 12,
+    });
+
+    expect(prisma.course.update).toHaveBeenCalledWith({
+      where: { id: 'course-id' },
+      data: { thumbnailUrl: '/api/course-assets/22222222-2222-4222-8222-222222222222.webp' },
+    });
+    expect(thumbnailStorage.delete).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111.png',
+    );
+    expect(thumbnailStorage.delete.mock.invocationCallOrder[0]).toBeGreaterThan(
+      prisma.course.update.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('cleans the new image after a failed DB update without deleting the old image', async () => {
+    prisma.course.findUnique.mockResolvedValue({
+      id: 'course-id',
+      thumbnailUrl: 'https://images.example.com/legacy.jpg',
+    });
+    thumbnailStorage.put.mockResolvedValue({
+      key: '22222222-2222-4222-8222-222222222222.png',
+      mimeType: 'image/png',
+      bytes: 8,
+    });
+    prisma.course.update.mockRejectedValue(new Error('db failure'));
+
+    await expect(
+      service.uploadThumbnail('course-id', {
+        buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
+        mimetype: 'image/png',
+        originalname: 'cover.png',
+        size: 8,
+      }),
+    ).rejects.toThrow('db failure');
+    expect(thumbnailStorage.delete).toHaveBeenCalledTimes(1);
+    expect(thumbnailStorage.delete).toHaveBeenCalledWith(
+      '22222222-2222-4222-8222-222222222222.png',
+    );
+  });
+
+  it('clears the DB before deleting a managed image and never deletes an external URL', async () => {
+    prisma.course.findUnique
+      .mockResolvedValueOnce({
+        id: 'course-id',
+        thumbnailUrl: '/api/course-assets/11111111-1111-4111-8111-111111111111.jpg',
+      })
+      .mockResolvedValueOnce({
+        id: 'course-id',
+        thumbnailUrl: 'https://images.example.com/legacy.jpg',
+      });
+    prisma.course.update.mockResolvedValue({ id: 'course-id', thumbnailUrl: null });
+
+    await service.removeThumbnail('course-id');
+    expect(thumbnailStorage.delete).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111.jpg',
+    );
+    expect(thumbnailStorage.delete.mock.invocationCallOrder[0]).toBeGreaterThan(
+      prisma.course.update.mock.invocationCallOrder[0],
+    );
+
+    thumbnailStorage.delete.mockClear();
+    await service.removeThumbnail('course-id');
+    expect(thumbnailStorage.delete).not.toHaveBeenCalled();
   });
 });
 

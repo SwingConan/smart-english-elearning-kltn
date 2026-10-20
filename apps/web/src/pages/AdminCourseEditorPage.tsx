@@ -1,11 +1,12 @@
-import { FormEvent, useEffect, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, ImagePlus, Trash2 } from 'lucide-react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { adminApi } from '@/features/admin/api';
 import { adminErrorMessage } from '@/features/admin/errors';
 import { courseSkillScopeLabel } from '@/features/admin/labels';
 import { useAdminSessionExpiry } from '@/features/admin/use-admin-session-expiry';
 import { courseLevelLabel, courseLevelValue } from '@/features/catalog/display';
+import { courseCoverUrl } from '@/features/catalog/course-assets';
 import {
   COURSE_SKILL_SCOPES,
   type AdminCourse,
@@ -20,7 +21,6 @@ type Values = {
   level: string;
   skillScope: CourseSkillScope;
   description: string;
-  thumbnailUrl: string;
   isPublished: boolean;
 };
 const emptyValues: Values = {
@@ -28,14 +28,17 @@ const emptyValues: Values = {
   level: '',
   skillScope: 'LR',
   description: '',
-  thumbnailUrl: '',
   isPublished: false,
 };
+
+const thumbnailTypes = ['image/jpeg', 'image/png', 'image/webp'];
+const thumbnailMaxBytes = 5 * 1024 * 1024;
 
 export function AdminCourseEditorPage() {
   const { courseId } = useParams();
   const editing = Boolean(courseId);
   const navigate = useNavigate();
+  const location = useLocation();
   const redirectExpiredSession = useAdminSessionExpiry();
   const [course, setCourse] = useState<AdminCourse | null>(null);
   const [values, setValues] = useState<Values>(emptyValues);
@@ -44,7 +47,21 @@ export function AdminCourseEditorPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [selectedThumbnail, setSelectedThumbnail] = useState<File | null>(null);
+  const [thumbnailError, setThumbnailError] = useState<string | null>(null);
+  const [thumbnailSaving, setThumbnailSaving] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const selectedThumbnailUrl = useMemo(
+    () => (selectedThumbnail ? URL.createObjectURL(selectedThumbnail) : null),
+    [selectedThumbnail],
+  );
+
+  useEffect(
+    () => () => {
+      if (selectedThumbnailUrl) URL.revokeObjectURL(selectedThumbnailUrl);
+    },
+    [selectedThumbnailUrl],
+  );
 
   useEffect(() => {
     if (!courseId) return;
@@ -58,7 +75,6 @@ export function AdminCourseEditorPage() {
           level: courseLevelLabel(item.level),
           skillScope: item.skillScope,
           description: item.description,
-          thumbnailUrl: item.thumbnailUrl ?? '',
           isPublished: item.isPublished,
         });
         setLoading(false);
@@ -84,8 +100,6 @@ export function AdminCourseEditorPage() {
     const nextErrors: Record<string, string> = {};
     if (!values.title.trim()) nextErrors.title = 'Vui lòng nhập tên khóa học.';
     if (!values.level.trim()) nextErrors.level = 'Vui lòng nhập trình độ.';
-    if (values.thumbnailUrl.trim() && !isValidUrl(values.thumbnailUrl.trim()))
-      nextErrors.thumbnailUrl = 'URL ảnh không hợp lệ.';
     setErrors(nextErrors);
     setApiError(null);
     if (Object.keys(nextErrors).length) return;
@@ -94,17 +108,31 @@ export function AdminCourseEditorPage() {
       level: courseLevelValue(values.level),
       skillScope: values.skillScope,
       description: values.description.trim(),
-      ...(values.thumbnailUrl.trim()
-        ? { thumbnailUrl: values.thumbnailUrl.trim() }
-        : courseId
-          ? { thumbnailUrl: null }
-          : {}),
       isPublished: values.isPublished,
     };
     setSaving(true);
     try {
-      if (courseId) await adminApi.courses.update(courseId, input);
-      else await adminApi.courses.create(input);
+      if (courseId) {
+        await adminApi.courses.update(courseId, input);
+      } else {
+        const created = await adminApi.courses.create(input);
+        if (selectedThumbnail) {
+          try {
+            await adminApi.courses.uploadThumbnail(created.id, selectedThumbnail);
+          } catch (error: unknown) {
+            if (await redirectExpiredSession(error)) return;
+            setSelectedThumbnail(null);
+            navigate(`/admin/courses/${created.id}/edit`, {
+              replace: true,
+              state: {
+                thumbnailUploadFailed:
+                  'Khóa học đã được tạo nhưng ảnh đại diện chưa tải lên. Vui lòng thử lại.',
+              },
+            });
+            return;
+          }
+        }
+      }
       navigate('/admin/courses', {
         state: { message: courseId ? 'Đã cập nhật khóa học.' : 'Đã tạo khóa học.' },
       });
@@ -113,6 +141,52 @@ export function AdminCourseEditorPage() {
       setApiError(adminErrorMessage(error));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const selectThumbnail = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const validationError = validateThumbnail(file);
+    if (validationError) {
+      setThumbnailError(validationError);
+      setSelectedThumbnail(null);
+      return;
+    }
+    setThumbnailError(null);
+    if (!courseId) {
+      setSelectedThumbnail(file);
+      return;
+    }
+    setThumbnailSaving(true);
+    try {
+      const updated = await adminApi.courses.uploadThumbnail(courseId, file);
+      setCourse((current) => (current ? { ...current, ...updated } : updated));
+    } catch (error: unknown) {
+      if (await redirectExpiredSession(error)) return;
+      setThumbnailError(adminErrorMessage(error));
+    } finally {
+      setThumbnailSaving(false);
+    }
+  };
+
+  const removeThumbnail = async () => {
+    if (!courseId) {
+      setSelectedThumbnail(null);
+      setThumbnailError(null);
+      return;
+    }
+    setThumbnailSaving(true);
+    setThumbnailError(null);
+    try {
+      const updated = await adminApi.courses.removeThumbnail(courseId);
+      setCourse((current) => (current ? { ...current, ...updated } : updated));
+    } catch (error: unknown) {
+      if (await redirectExpiredSession(error)) return;
+      setThumbnailError(adminErrorMessage(error));
+    } finally {
+      setThumbnailSaving(false);
     }
   };
 
@@ -165,6 +239,14 @@ export function AdminCourseEditorPage() {
         onSubmit={(event) => void submit(event)}
         noValidate
       >
+        {(location.state as { thumbnailUploadFailed?: string } | null)?.thumbnailUploadFailed ? (
+          <p
+            className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900"
+            role="alert"
+          >
+            {(location.state as { thumbnailUploadFailed: string }).thumbnailUploadFailed}
+          </p>
+        ) : null}
         <div className="grid gap-5 md:grid-cols-2">
           <Field error={errors.title} id="course-title" label="Tên khóa học">
             <input
@@ -202,17 +284,6 @@ export function AdminCourseEditorPage() {
               ))}
             </select>
           </Field>
-          <Field error={errors.thumbnailUrl} id="course-thumbnail" label="URL ảnh đại diện">
-            <input
-              aria-describedby={errors.thumbnailUrl ? 'course-thumbnail-error' : undefined}
-              aria-invalid={Boolean(errors.thumbnailUrl)}
-              className={controlClass}
-              id="course-thumbnail"
-              onChange={(event) => update('thumbnailUrl', event.target.value)}
-              type="url"
-              value={values.thumbnailUrl}
-            />
-          </Field>
           <Field id="course-description" label="Mô tả" wide>
             <textarea
               className={`${controlClass} min-h-32`}
@@ -223,6 +294,72 @@ export function AdminCourseEditorPage() {
             />
           </Field>
         </div>
+        <section
+          className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4"
+          aria-labelledby="course-thumbnail-label"
+        >
+          <h2 className="font-semibold" id="course-thumbnail-label">
+            Ảnh đại diện khóa học
+          </h2>
+          <div className="mt-3 grid gap-4 sm:grid-cols-[220px_1fr] sm:items-center">
+            <img
+              alt="Xem trước ảnh đại diện khóa học"
+              className="aspect-[16/10] w-full rounded-xl border border-slate-200 object-cover"
+              src={
+                selectedThumbnailUrl ??
+                courseCoverUrl({
+                  skillScope: values.skillScope,
+                  thumbnailUrl: course?.thumbnailUrl ?? null,
+                })
+              }
+            />
+            <div>
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                disabled={thumbnailSaving}
+                id="course-thumbnail"
+                onChange={(event) => void selectThumbnail(event)}
+                type="file"
+              />
+              <div className="flex flex-wrap gap-2">
+                <label
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white focus-within:ring-2 focus-within:ring-indigo-300"
+                  htmlFor="course-thumbnail"
+                >
+                  <ImagePlus size={17} />
+                  {course?.thumbnailUrl || selectedThumbnail ? 'Thay ảnh' : 'Chọn ảnh'}
+                </label>
+                {course?.thumbnailUrl || selectedThumbnail ? (
+                  <button
+                    className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
+                    disabled={thumbnailSaving}
+                    onClick={() => void removeThumbnail()}
+                    type="button"
+                  >
+                    <Trash2 size={17} /> Xóa ảnh
+                  </button>
+                ) : null}
+              </div>
+              <p className="mt-2 text-sm text-slate-600">JPEG, PNG hoặc WebP · tối đa 5 MB</p>
+              {!course?.thumbnailUrl && !selectedThumbnail ? (
+                <p className="mt-1 text-sm text-slate-600">
+                  Hệ thống đang dùng ảnh mặc định theo phạm vi kỹ năng.
+                </p>
+              ) : null}
+              {thumbnailSaving ? (
+                <p className="mt-2 text-sm text-indigo-700" role="status">
+                  Đang cập nhật ảnh...
+                </p>
+              ) : null}
+              {thumbnailError ? (
+                <p className="mt-2 text-sm text-red-700" role="alert">
+                  {thumbnailError}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
         <label className="mt-5 flex items-center gap-3 rounded-xl bg-slate-50 p-4">
           <input
             checked={values.isPublished}
@@ -244,7 +381,7 @@ export function AdminCourseEditorPage() {
         <div className="mt-6 flex flex-wrap gap-3">
           <button
             className="rounded-xl bg-indigo-600 px-5 py-2.5 font-semibold text-white disabled:opacity-50"
-            disabled={saving}
+            disabled={saving || thumbnailSaving}
             type="submit"
           >
             {saving ? 'Đang lưu...' : editing ? 'Lưu thay đổi' : 'Tạo khóa học'}
@@ -289,11 +426,9 @@ function Field({
     </div>
   );
 }
-function isValidUrl(value: string) {
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
+function validateThumbnail(file: File): string | null {
+  if (!thumbnailTypes.includes(file.type)) return 'Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP.';
+  if (file.size <= 0) return 'Ảnh đại diện không được để trống.';
+  if (file.size > thumbnailMaxBytes) return 'Ảnh đại diện không được vượt quá 5 MB.';
+  return null;
 }

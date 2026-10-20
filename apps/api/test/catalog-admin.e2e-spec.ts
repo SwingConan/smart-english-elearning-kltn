@@ -2,6 +2,9 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as argon2 from 'argon2';
 import * as request from 'supertest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { AppModule } from '../src/app.module';
 import { UserRole, UserStatus } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
@@ -12,6 +15,7 @@ describe('Course catalog and admin APIs (e2e)', () => {
   let adminAgent: ReturnType<typeof request.agent>;
   let studentAgent: ReturnType<typeof request.agent>;
   let instructorAgent: ReturnType<typeof request.agent>;
+  let thumbnailRoot: string;
   const userIds: string[] = [];
   const courseIds: string[] = [];
   const sessionIds = new Set<string>();
@@ -25,6 +29,8 @@ describe('Course catalog and admin APIs (e2e)', () => {
   const level = `Level-${unique}`;
 
   beforeAll(async () => {
+    thumbnailRoot = await mkdtemp(join(tmpdir(), 'course-thumbnail-e2e-'));
+    process.env.COURSE_THUMBNAIL_STORAGE_ROOT = thumbnailRoot;
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -114,6 +120,8 @@ describe('Course catalog and admin APIs (e2e)', () => {
     if (app) {
       await app.close();
     }
+    delete process.env.COURSE_THUMBNAIL_STORAGE_ROOT;
+    if (thumbnailRoot) await rm(thumbnailRoot, { recursive: true, force: true });
   });
 
   it('enforces admin roles and exposes only published catalog data', async () => {
@@ -446,6 +454,99 @@ describe('Course catalog and admin APIs (e2e)', () => {
       [`concurrent-course-${unique}`, `concurrent-course-${unique}-2`].sort(),
     );
     courseIds.push(first.body.id, second.body.id);
+  });
+
+  it('secures, validates, replaces, serves, and removes course thumbnails', async () => {
+    await login(adminAgent, adminEmail);
+    await login(studentAgent, studentEmail);
+    await login(instructorAgent, instructorEmail);
+    const created = await adminAgent
+      .post('/api/admin/courses')
+      .send({
+        title: `VS01 Thumbnail ${unique}`,
+        description: 'Phase 3 E2E course',
+        level,
+        thumbnailUrl: 'https://images.example.com/legacy.jpg',
+      })
+      .expect(201);
+    courseIds.push(created.body.id);
+    const endpoint = `/api/admin/courses/${created.body.id}/thumbnail`;
+    const png = Buffer.from('89504e470d0a1a0a', 'hex');
+
+    await request(app.getHttpServer()).post(endpoint).attach('file', png, 'cover.png').expect(401);
+    await studentAgent.post(endpoint).attach('file', png, 'cover.png').expect(403);
+    await instructorAgent.post(endpoint).attach('file', png, 'cover.png').expect(403);
+    await request(app.getHttpServer()).delete(endpoint).expect(401);
+    await studentAgent.delete(endpoint).expect(403);
+    await instructorAgent.delete(endpoint).expect(403);
+    await adminAgent
+      .post('/api/admin/courses/not-a-uuid/thumbnail')
+      .attach('file', png, 'cover.png')
+      .expect(400);
+    await adminAgent
+      .post('/api/admin/courses/11111111-1111-4111-8111-111111111111/thumbnail')
+      .attach('file', png, 'cover.png')
+      .expect(404);
+
+    await adminAgent
+      .post(endpoint)
+      .attach('file', Buffer.from('<svg/>'), {
+        filename: 'cover.svg',
+        contentType: 'image/svg+xml',
+      })
+      .expect(400);
+    await adminAgent
+      .post(endpoint)
+      .attach('file', Buffer.from('not a png'), {
+        filename: 'cover.png',
+        contentType: 'image/png',
+      })
+      .expect(400);
+    await adminAgent
+      .post(endpoint)
+      .attach('file', png, { filename: 'cover.jpg', contentType: 'image/png' })
+      .expect(400);
+    await adminAgent.post(endpoint).attach('file', Buffer.alloc(0), 'empty.png').expect(400);
+    const oversized = await adminAgent
+      .post(endpoint)
+      .attach('file', Buffer.alloc(5 * 1024 * 1024 + 1), 'large.png')
+      .expect(413);
+    expect(oversized.body.message).toBe('Ảnh đại diện không được vượt quá 5 MB.');
+
+    const firstUpload = await adminAgent
+      .post(endpoint)
+      .attach('file', png, { filename: 'cover.png', contentType: 'image/png' })
+      .expect(201);
+    expect(firstUpload.body.thumbnailUrl).toMatch(/^\/api\/course-assets\/[\w-]+\.png$/);
+    expect(firstUpload.body.thumbnailUrl).not.toContain(thumbnailRoot);
+    const firstUrl = firstUpload.body.thumbnailUrl as string;
+    await request(app.getHttpServer())
+      .get(firstUrl)
+      .expect(200)
+      .expect('Content-Type', /image\/png/)
+      .expect('Cache-Control', /public/)
+      .expect(png);
+
+    const webp = Buffer.from('RIFF1234WEBP');
+    const replacement = await adminAgent
+      .post(endpoint)
+      .attach('file', webp, { filename: 'cover.webp', contentType: 'image/webp' })
+      .expect(201);
+    expect(replacement.body.thumbnailUrl).toMatch(/\.webp$/);
+    await request(app.getHttpServer()).get(firstUrl).expect(404);
+    await request(app.getHttpServer())
+      .get(replacement.body.thumbnailUrl)
+      .expect(200)
+      .expect('Content-Type', /image\/webp/)
+      .expect(webp);
+    await request(app.getHttpServer()).get('/api/course-assets/not-a-key.png').expect(400);
+    await request(app.getHttpServer())
+      .get('/api/course-assets/11111111-1111-4111-8111-111111111111.png')
+      .expect(404);
+
+    const removed = await adminAgent.delete(endpoint).expect(200);
+    expect(removed.body.thumbnailUrl).toBeNull();
+    await request(app.getHttpServer()).get(replacement.body.thumbnailUrl).expect(404);
   });
 
   async function login(agent: ReturnType<typeof request.agent>, email: string): Promise<void> {

@@ -95,6 +95,7 @@ export function CourseDetailPage() {
               alt={`Không gian học cho khóa ${course.title}`}
               className="aspect-[16/10] w-full rounded-3xl"
               skillScope={course.skillScope}
+              thumbnailUrl={course.thumbnailUrl}
             />
           </div>
         </div>

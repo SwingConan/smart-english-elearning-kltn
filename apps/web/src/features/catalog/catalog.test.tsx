@@ -129,6 +129,20 @@ describe('public catalog', () => {
       'href',
       '/catalog/toeic-foundation',
     );
+    expect(screen.getByAltText(`Không gian học cho khóa ${course.title}`)).toHaveAttribute('src');
+  });
+
+  it('uses an uploaded or legacy thumbnail on a product card', () => {
+    const thumbnailUrl = 'https://images.example.com/course.webp';
+    render(
+      <MemoryRouter>
+        <CourseCard course={{ ...course, thumbnailUrl }} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByAltText(`Không gian học cho khóa ${course.title}`)).toHaveAttribute(
+      'src',
+      thumbnailUrl,
+    );
   });
 
   it('synchronizes skill and availability filters to the URL', async () => {
@@ -175,6 +189,22 @@ describe('public catalog', () => {
 });
 
 describe('course detail', () => {
+  it('uses the same course thumbnail in the detail hero', async () => {
+    const thumbnailUrl = '/api/course-assets/course-thumbnail.webp';
+    vi.spyOn(catalogApi, 'detail').mockResolvedValue({ ...course, thumbnailUrl });
+    render(
+      <MemoryRouter initialEntries={['/catalog/toeic-foundation']}>
+        <Routes>
+          <Route path="/catalog/:slug" element={<CourseDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByAltText(`Không gian học cho khóa ${course.title}`)).toHaveAttribute(
+      'src',
+      thumbnailUrl,
+    );
+  });
+
   it('separates Course curriculum from ClassOffering enrollment', async () => {
     vi.spyOn(catalogApi, 'detail').mockResolvedValue(course);
     render(

@@ -59,6 +59,7 @@ const offering: AdminClassOffering = {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('admin authorization and shell', () => {
@@ -217,6 +218,78 @@ describe('course administration', () => {
       }),
     );
     expect(create.mock.calls[0][0]).not.toHaveProperty('slug');
+    expect(create.mock.calls[0][0]).not.toHaveProperty('thumbnailUrl');
+    expect(screen.queryByLabelText('URL ảnh đại diện')).not.toBeInTheDocument();
+  });
+
+  it('shows a fallback preview and validates selected thumbnail type and size', async () => {
+    renderAdminApp('/admin/courses/new');
+    await screen.findByRole('heading', { name: 'Tạo khóa học' });
+    const chooser = screen.getByLabelText('Chọn ảnh');
+    expect(chooser).toHaveAttribute('accept', 'image/jpeg,image/png,image/webp');
+    expect(screen.getByAltText('Xem trước ảnh đại diện khóa học')).toHaveAttribute('src');
+    expect(screen.getByText(/ảnh mặc định theo phạm vi kỹ năng/i)).toBeInTheDocument();
+
+    fireEvent.change(chooser, {
+      target: { files: [new File(['svg'], 'cover.svg', { type: 'image/svg+xml' })] },
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('JPEG, PNG hoặc WebP');
+    fireEvent.change(chooser, {
+      target: {
+        files: [
+          new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'large.png', { type: 'image/png' }),
+        ],
+      },
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('không được vượt quá 5 MB');
+  });
+
+  it('previews a valid image and creates before uploading it', async () => {
+    mockObjectUrls();
+    const created = { ...course, id: 'created-course-id' };
+    const create = vi.spyOn(adminApi.courses, 'create').mockResolvedValue(created);
+    const upload = vi.spyOn(adminApi.courses, 'uploadThumbnail').mockResolvedValue({
+      ...created,
+      thumbnailUrl: '/api/course-assets/thumbnail.png',
+    });
+    renderAdminApp('/admin/courses/new');
+    await screen.findByRole('heading', { name: 'Tạo khóa học' });
+    const file = new File(['png'], 'cover.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('Chọn ảnh'), { target: { files: [file] } });
+    expect(screen.getByAltText('Xem trước ảnh đại diện khóa học')).toHaveAttribute(
+      'src',
+      'blob:course-thumbnail-preview',
+    );
+    fireEvent.change(screen.getByLabelText('Tên khóa học'), { target: { value: course.title } });
+    fireEvent.change(screen.getByLabelText('Trình độ'), { target: { value: course.level } });
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo khóa học' }));
+
+    await waitFor(() => expect(upload).toHaveBeenCalledWith(created.id, file));
+    expect(create).toHaveBeenCalledOnce();
+    expect(create.mock.invocationCallOrder[0]).toBeLessThan(upload.mock.invocationCallOrder[0]);
+    expect(screen.getByTestId('location')).toHaveTextContent('/admin/courses');
+  });
+
+  it('moves a partially created course to recoverable edit state after upload failure', async () => {
+    mockObjectUrls();
+    const created = { ...course, id: '10000000-0000-4000-8000-000000000009' };
+    const create = vi.spyOn(adminApi.courses, 'create').mockResolvedValue(created);
+    vi.spyOn(adminApi.courses, 'uploadThumbnail').mockRejectedValue(new Error('network'));
+    vi.spyOn(adminApi.courses, 'get').mockResolvedValue(created);
+    renderAdminApp('/admin/courses/new');
+    await screen.findByRole('heading', { name: 'Tạo khóa học' });
+    fireEvent.change(screen.getByLabelText('Chọn ảnh'), {
+      target: { files: [new File(['png'], 'cover.png', { type: 'image/png' })] },
+    });
+    fireEvent.change(screen.getByLabelText('Tên khóa học'), { target: { value: course.title } });
+    fireEvent.change(screen.getByLabelText('Trình độ'), { target: { value: course.level } });
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo khóa học' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Khóa học đã được tạo nhưng ảnh đại diện chưa tải lên',
+    );
+    expect(screen.getByTestId('location')).toHaveTextContent(`/admin/courses/${created.id}/edit`);
+    expect(create).toHaveBeenCalledOnce();
   });
 
   it('associates course validation messages with invalid fields', async () => {
@@ -247,6 +320,35 @@ describe('course administration', () => {
         expect.objectContaining({ level: 'FOUNDATION', isPublished: true, skillScope: 'LR' }),
       ),
     );
+  });
+
+  it('replaces and removes an existing thumbnail without discarding unsaved fields', async () => {
+    const withThumbnail = { ...course, thumbnailUrl: 'https://images.example.com/current.jpg' };
+    vi.spyOn(adminApi.courses, 'get').mockResolvedValue(withThumbnail);
+    const upload = vi.spyOn(adminApi.courses, 'uploadThumbnail').mockResolvedValue({
+      ...withThumbnail,
+      thumbnailUrl: '/api/course-assets/replacement.webp',
+    });
+    const remove = vi
+      .spyOn(adminApi.courses, 'removeThumbnail')
+      .mockResolvedValue({ ...withThumbnail, thumbnailUrl: null });
+    renderAdminApp(`/admin/courses/${course.id}/edit`);
+    const title = await screen.findByLabelText('Tên khóa học');
+    const preview = screen.getByAltText('Xem trước ảnh đại diện khóa học');
+    expect(preview).toHaveAttribute('src', withThumbnail.thumbnailUrl);
+    fireEvent.change(title, { target: { value: 'Unsaved title' } });
+
+    const replacement = new File(['RIFF1234WEBP'], 'replacement.webp', { type: 'image/webp' });
+    fireEvent.change(screen.getByLabelText('Thay ảnh'), { target: { files: [replacement] } });
+    await waitFor(() => expect(upload).toHaveBeenCalledWith(course.id, replacement));
+    expect(title).toHaveValue('Unsaved title');
+    expect(preview).toHaveAttribute('src', '/api/course-assets/replacement.webp');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Xóa ảnh' }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(course.id));
+    expect(title).toHaveValue('Unsaved title');
+    expect(preview).not.toHaveAttribute('src', '/api/course-assets/replacement.webp');
+    expect(screen.getByText(/ảnh mặc định theo phạm vi kỹ năng/i)).toBeInTheDocument();
   });
 });
 
@@ -428,6 +530,13 @@ describe('expired admin sessions', () => {
 
 function page<T>(data: T[], total = data.length): Paginated<T> {
   return { data, meta: { ...meta, total } };
+}
+function mockObjectUrls() {
+  const NativeUrl = URL;
+  class TestUrl extends NativeUrl {}
+  TestUrl.createObjectURL = vi.fn(() => 'blob:course-thumbnail-preview');
+  TestUrl.revokeObjectURL = vi.fn();
+  vi.stubGlobal('URL', TestUrl);
 }
 function mockCourses(data: AdminCourse[]) {
   vi.spyOn(adminApi.courses, 'list').mockResolvedValue(page(data));

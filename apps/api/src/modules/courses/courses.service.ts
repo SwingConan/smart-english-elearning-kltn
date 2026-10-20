@@ -6,6 +6,11 @@ import { CatalogQueryDto } from './dto/catalog-query.dto';
 import { AdminCourseQueryDto } from './dto/admin-course-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
+import {
+  COURSE_THUMBNAIL_URL_PREFIX,
+  CourseThumbnailStorage,
+  managedCourseThumbnailKey,
+} from './course-thumbnail.storage';
 
 const MAX_SLUG_CREATE_ATTEMPTS = 10;
 
@@ -98,7 +103,10 @@ type PublicCourseDetailRow = Prisma.CourseGetPayload<{
 
 @Injectable()
 export class CoursesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly thumbnailStorage: CourseThumbnailStorage,
+  ) {}
 
   async listPublic(query: CatalogQueryDto) {
     const where: Prisma.CourseWhereInput = {
@@ -249,14 +257,51 @@ export class CoursesService {
     });
   }
 
-  private async requireCourse(id: string): Promise<void> {
+  async uploadThumbnail(
+    id: string,
+    file: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+  ) {
+    const course = await this.requireCourse(id);
+    const stored = await this.thumbnailStorage.put(file);
+    const thumbnailUrl = `${COURSE_THUMBNAIL_URL_PREFIX}${stored.key}`;
+    try {
+      const updated = await this.prisma.course.update({
+        where: { id },
+        data: { thumbnailUrl },
+      });
+      const oldKey = managedCourseThumbnailKey(course.thumbnailUrl);
+      if (oldKey) await this.thumbnailStorage.delete(oldKey).catch(() => undefined);
+      return updated;
+    } catch (error: unknown) {
+      await this.thumbnailStorage.delete(stored.key).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async removeThumbnail(id: string) {
+    const course = await this.requireCourse(id);
+    const updated = await this.prisma.course.update({
+      where: { id },
+      data: { thumbnailUrl: null },
+    });
+    const oldKey = managedCourseThumbnailKey(course.thumbnailUrl);
+    if (oldKey) await this.thumbnailStorage.delete(oldKey).catch(() => undefined);
+    return updated;
+  }
+
+  openThumbnail(key: string) {
+    return this.thumbnailStorage.open(key);
+  }
+
+  private async requireCourse(id: string): Promise<{ id: string; thumbnailUrl: string | null }> {
     const course = await this.prisma.course.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, thumbnailUrl: true },
     });
     if (!course) {
       throw new NotFoundException('Course not found');
     }
+    return course;
   }
 
   private isCourseSlugCollision(error: unknown): boolean {
