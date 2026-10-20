@@ -547,6 +547,7 @@ async function resetM06AssessmentAttempts(prisma: PrismaClient) {
     await prisma.answerEvaluation.deleteMany({ where: { id: { in: evaluationIds } } });
   }
   if (attemptIds.length) {
+    await prisma.studyRecommendation.deleteMany({ where: { sourceAttemptId: { in: attemptIds } } });
     await prisma.attemptSkillScore.deleteMany({ where: { attemptId: { in: attemptIds } } });
     await prisma.attemptEvaluation.deleteMany({ where: { attemptId: { in: attemptIds } } });
   }
