@@ -1,5 +1,10 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { ClassOfferingStatus, PricingType, UserRole } from '../../generated/prisma/client';
+import {
+  ClassModality,
+  ClassOfferingStatus,
+  PricingType,
+  UserRole,
+} from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { ClassOfferingsService } from './class-offerings.service';
 
@@ -9,11 +14,13 @@ describe('ClassOfferingsService', () => {
     user: { findUnique: jest.fn() },
     classOffering: {
       findMany: jest.fn(),
+      count: jest.fn(),
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
   const service = new ClassOfferingsService(prisma as unknown as PrismaService);
   const baseInput = {
@@ -24,7 +31,7 @@ describe('ClassOfferingsService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.course.findUnique.mockResolvedValue({ id: baseInput.courseId });
-    prisma.classOffering.create.mockResolvedValue({ id: 'offering-id' });
+    prisma.classOffering.create.mockResolvedValue(adminOfferingRow());
   });
 
   it('creates a valid free offering', async () => {
@@ -35,7 +42,13 @@ describe('ClassOfferingsService', () => {
         tuitionFeeVnd: 0,
         maxStudents: 20,
       }),
-    ).resolves.toEqual({ id: 'offering-id' });
+    ).resolves.toMatchObject({
+      id: 'offering-id',
+      registeredCount: 0,
+      remainingSeats: 20,
+      isFull: false,
+      registrationState: 'CLOSED',
+    });
 
     expect(prisma.classOffering.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -45,6 +58,38 @@ describe('ClassOfferingsService', () => {
         }),
       }),
     );
+  });
+
+  it('maps create and update responses to the shared admin projection', async () => {
+    const created = await service.create({ ...baseInput, maxStudents: 20 });
+    expect(created).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: 20,
+        isFull: false,
+        registrationState: 'CLOSED',
+      }),
+    );
+    expect(created).not.toHaveProperty('_count');
+
+    prisma.classOffering.findUnique.mockResolvedValue({
+      ...adminOfferingRow(),
+      pricingType: PricingType.FREE,
+      tuitionFeeVnd: 0,
+    });
+    prisma.classOffering.update.mockResolvedValue(
+      adminOfferingRow({ status: ClassOfferingStatus.OPEN }),
+    );
+    const updated = await service.update('offering-id', { status: ClassOfferingStatus.OPEN });
+    expect(updated).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: 20,
+        isFull: false,
+        registrationState: 'AVAILABLE',
+      }),
+    );
+    expect(updated).not.toHaveProperty('_count');
   });
 
   it('rejects an offering for a course that does not exist', async () => {
@@ -167,4 +212,108 @@ describe('ClassOfferingsService', () => {
     prisma.classOffering.findFirst.mockResolvedValue(null);
     await expect(service.getPublicById('private-id')).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('filters, paginates and projects admin offering availability', async () => {
+    prisma.$transaction.mockResolvedValue([
+      [
+        {
+          id: 'offering-id',
+          code: 'TOEIC-01',
+          name: 'Evening',
+          status: ClassOfferingStatus.OPEN,
+          modality: ClassModality.HYBRID,
+          pricingType: PricingType.PAID,
+          tuitionFeeVnd: 500_000,
+          maxStudents: 10,
+          enrollmentStart: null,
+          enrollmentEnd: null,
+          course: { id: 'course-id', title: 'TOEIC', slug: 'toeic', isPublished: true },
+          instructor: null,
+          scheduleSlots: [],
+          _count: { enrollments: 4 },
+        },
+      ],
+      11,
+    ]);
+
+    const result = await service.listAdmin({
+      search: 'evening',
+      courseId: baseInput.courseId,
+      status: ClassOfferingStatus.OPEN,
+      modality: ClassModality.HYBRID,
+      pricingType: PricingType.PAID,
+      page: 2,
+      limit: 5,
+    });
+
+    expect(prisma.classOffering.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([{ name: { contains: 'evening', mode: 'insensitive' } }]),
+          courseId: baseInput.courseId,
+          status: ClassOfferingStatus.OPEN,
+          modality: ClassModality.HYBRID,
+          pricingType: PricingType.PAID,
+        }),
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        skip: 5,
+        take: 5,
+      }),
+    );
+    expect(result.data[0]).toMatchObject({
+      registeredCount: 4,
+      remainingSeats: 6,
+      isFull: false,
+      registrationState: 'AVAILABLE',
+    });
+    expect(result.data[0]).not.toHaveProperty('_count');
+    expect(result.meta).toEqual({ total: 11, page: 2, limit: 5, totalPages: 3 });
+  });
+
+  it('returns admin offering detail or a domain 404', async () => {
+    const row = {
+      id: 'offering-id',
+      status: ClassOfferingStatus.DRAFT,
+      maxStudents: null,
+      enrollmentStart: null,
+      enrollmentEnd: null,
+      course: { isPublished: false },
+      scheduleSlots: [],
+      instructor: null,
+      _count: { enrollments: 0 },
+    };
+    prisma.classOffering.findUnique.mockResolvedValueOnce(row);
+    await expect(service.getAdminById('offering-id')).resolves.toMatchObject({
+      id: 'offering-id',
+      registeredCount: 0,
+    });
+    prisma.classOffering.findUnique.mockResolvedValueOnce(null);
+    await expect(service.getAdminById('missing')).rejects.toBeInstanceOf(NotFoundException);
+  });
 });
+
+function adminOfferingRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'offering-id',
+    courseId: '9ef6f40c-0524-4bd5-9bf1-7b3d6e01ca57',
+    instructorId: null,
+    code: 'TOEIC-01',
+    name: 'September Cohort',
+    status: ClassOfferingStatus.DRAFT,
+    modality: ClassModality.ONLINE,
+    pricingType: PricingType.FREE,
+    tuitionFeeVnd: 0,
+    maxStudents: 20,
+    totalSessions: null,
+    totalPeriods: null,
+    enrollmentStart: null,
+    enrollmentEnd: null,
+    classStart: null,
+    classEnd: null,
+    course: { id: 'course-id', title: 'TOEIC', slug: 'toeic', isPublished: true },
+    instructor: null,
+    scheduleSlots: [],
+    _count: { enrollments: 0 },
+    ...overrides,
+  };
+}

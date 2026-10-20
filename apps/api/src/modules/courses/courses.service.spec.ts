@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ClassOfferingStatus, CourseSkillScope, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CoursesService, slugify } from './courses.service';
+import { CourseThumbnailStorage } from './course-thumbnail.storage';
 
 describe('CoursesService', () => {
   const prisma = {
@@ -15,10 +16,19 @@ describe('CoursesService', () => {
     },
     $transaction: jest.fn(),
   };
-  const service = new CoursesService(prisma as unknown as PrismaService);
+  const thumbnailStorage = {
+    put: jest.fn(),
+    open: jest.fn(),
+    delete: jest.fn(),
+  };
+  const service = new CoursesService(
+    prisma as unknown as PrismaService,
+    thumbnailStorage as unknown as CourseThumbnailStorage,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    thumbnailStorage.delete.mockResolvedValue(undefined);
   });
 
   it('normalizes a title into a URL-safe lowercase slug', () => {
@@ -167,6 +177,186 @@ describe('CoursesService', () => {
       }),
     );
   });
+
+  it('projects UPCOMING registration truth in the public course list', async () => {
+    prisma.$transaction.mockResolvedValue([
+      [
+        {
+          id: 'course-id',
+          title: 'TOEIC',
+          slug: 'toeic',
+          description: '',
+          level: 'A1',
+          skillScope: CourseSkillScope.LR,
+          thumbnailUrl: null,
+          isPublished: true,
+          classOfferings: [
+            publicOffering({ enrollmentStart: new Date('2099-01-01T00:00:00.000Z') }),
+          ],
+        },
+      ],
+      1,
+    ]);
+
+    const result = await service.listPublic({ page: 1, limit: 12 });
+
+    expect(result.data[0].classOfferings[0]).toMatchObject({
+      registeredCount: 4,
+      remainingSeats: 6,
+      isFull: false,
+      registrationState: 'UPCOMING',
+    });
+    expect(result.data[0].classOfferings[0]).not.toHaveProperty('_count');
+  });
+
+  it('projects CLOSED registration truth in public course detail', async () => {
+    prisma.course.findFirst.mockResolvedValue({
+      id: 'course-id',
+      title: 'TOEIC',
+      slug: 'toeic',
+      description: '',
+      level: 'A1',
+      skillScope: CourseSkillScope.LR,
+      thumbnailUrl: null,
+      isPublished: true,
+      classOfferings: [publicOffering({ enrollmentEnd: new Date('2000-01-01T00:00:00.000Z') })],
+      modules: [],
+    });
+
+    const result = await service.getPublicBySlug('toeic');
+
+    expect(result.classOfferings[0]).toMatchObject({
+      registeredCount: 4,
+      remainingSeats: 6,
+      isFull: false,
+      registrationState: 'CLOSED',
+    });
+  });
+
+  it('filters and paginates admin courses with stable ordering', async () => {
+    prisma.$transaction.mockResolvedValue([[{ id: 'course-id' }], 21]);
+
+    const result = await service.listAdmin({
+      search: 'toeic',
+      isPublished: false,
+      skillScope: CourseSkillScope.LR,
+      level: 'Intermediate',
+      page: 2,
+      limit: 10,
+    });
+
+    expect(prisma.course.findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { title: { contains: 'toeic', mode: 'insensitive' } },
+          { slug: { contains: 'toeic', mode: 'insensitive' } },
+        ],
+        isPublished: false,
+        skillScope: CourseSkillScope.LR,
+        level: { equals: 'Intermediate', mode: 'insensitive' },
+      },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+      skip: 10,
+      take: 10,
+      include: expect.objectContaining({
+        createdBy: expect.any(Object),
+        _count: expect.any(Object),
+      }),
+    });
+    expect(result.meta).toEqual({ total: 21, page: 2, limit: 10, totalPages: 3 });
+  });
+
+  it('returns admin detail or a domain 404', async () => {
+    prisma.course.findUnique.mockResolvedValueOnce({ id: 'course-id', title: 'TOEIC' });
+    await expect(service.getAdminById('course-id')).resolves.toMatchObject({ id: 'course-id' });
+    prisma.course.findUnique.mockResolvedValueOnce(null);
+    await expect(service.getAdminById('missing')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('uploads first, commits the managed URL, and then removes the replaced local image', async () => {
+    prisma.course.findUnique.mockResolvedValue({
+      id: 'course-id',
+      thumbnailUrl: '/api/course-assets/11111111-1111-4111-8111-111111111111.png',
+    });
+    thumbnailStorage.put.mockResolvedValue({
+      key: '22222222-2222-4222-8222-222222222222.webp',
+      mimeType: 'image/webp',
+      bytes: 12,
+    });
+    prisma.course.update.mockResolvedValue({
+      id: 'course-id',
+      thumbnailUrl: '/api/course-assets/22222222-2222-4222-8222-222222222222.webp',
+    });
+
+    await service.uploadThumbnail('course-id', {
+      buffer: Buffer.from('RIFF1234WEBP'),
+      mimetype: 'image/webp',
+      originalname: 'cover.webp',
+      size: 12,
+    });
+
+    expect(prisma.course.update).toHaveBeenCalledWith({
+      where: { id: 'course-id' },
+      data: { thumbnailUrl: '/api/course-assets/22222222-2222-4222-8222-222222222222.webp' },
+    });
+    expect(thumbnailStorage.delete).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111.png',
+    );
+    expect(thumbnailStorage.delete.mock.invocationCallOrder[0]).toBeGreaterThan(
+      prisma.course.update.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('cleans the new image after a failed DB update without deleting the old image', async () => {
+    prisma.course.findUnique.mockResolvedValue({
+      id: 'course-id',
+      thumbnailUrl: 'https://images.example.com/legacy.jpg',
+    });
+    thumbnailStorage.put.mockResolvedValue({
+      key: '22222222-2222-4222-8222-222222222222.png',
+      mimeType: 'image/png',
+      bytes: 8,
+    });
+    prisma.course.update.mockRejectedValue(new Error('db failure'));
+
+    await expect(
+      service.uploadThumbnail('course-id', {
+        buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
+        mimetype: 'image/png',
+        originalname: 'cover.png',
+        size: 8,
+      }),
+    ).rejects.toThrow('db failure');
+    expect(thumbnailStorage.delete).toHaveBeenCalledTimes(1);
+    expect(thumbnailStorage.delete).toHaveBeenCalledWith(
+      '22222222-2222-4222-8222-222222222222.png',
+    );
+  });
+
+  it('clears the DB before deleting a managed image and never deletes an external URL', async () => {
+    prisma.course.findUnique
+      .mockResolvedValueOnce({
+        id: 'course-id',
+        thumbnailUrl: '/api/course-assets/11111111-1111-4111-8111-111111111111.jpg',
+      })
+      .mockResolvedValueOnce({
+        id: 'course-id',
+        thumbnailUrl: 'https://images.example.com/legacy.jpg',
+      });
+    prisma.course.update.mockResolvedValue({ id: 'course-id', thumbnailUrl: null });
+
+    await service.removeThumbnail('course-id');
+    expect(thumbnailStorage.delete).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111.jpg',
+    );
+    expect(thumbnailStorage.delete.mock.invocationCallOrder[0]).toBeGreaterThan(
+      prisma.course.update.mock.invocationCallOrder[0],
+    );
+
+    thumbnailStorage.delete.mockClear();
+    await service.removeThumbnail('course-id');
+    expect(thumbnailStorage.delete).not.toHaveBeenCalled();
+  });
 });
 
 function slugCollisionError(): Prisma.PrismaClientKnownRequestError {
@@ -175,4 +365,27 @@ function slugCollisionError(): Prisma.PrismaClientKnownRequestError {
     clientVersion: '7.10.0',
     meta: { modelName: 'Course', target: ['slug'] },
   });
+}
+
+function publicOffering(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'offering-id',
+    code: 'TOEIC-01',
+    name: 'Evening',
+    status: ClassOfferingStatus.OPEN,
+    modality: 'ONLINE',
+    pricingType: 'FREE',
+    tuitionFeeVnd: 0,
+    maxStudents: 10,
+    totalSessions: null,
+    totalPeriods: null,
+    enrollmentStart: null,
+    enrollmentEnd: null,
+    classStart: null,
+    classEnd: null,
+    instructor: null,
+    scheduleSlots: [],
+    _count: { enrollments: 4 },
+    ...overrides,
+  };
 }

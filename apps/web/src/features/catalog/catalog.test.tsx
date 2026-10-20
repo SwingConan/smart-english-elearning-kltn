@@ -8,6 +8,7 @@ import { CourseDetailPage } from '@/pages/CourseDetailPage';
 import { catalogApi } from './api';
 import { readCatalogUrlState, writeCatalogUrlState } from './catalog-query';
 import { CourseCard } from './CourseCard';
+import { courseLevelLabel, courseLevelValue } from './display';
 import type { CatalogResponse, PublicCourse } from './types';
 
 const course: PublicCourse = {
@@ -73,6 +74,23 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe('course level display', () => {
+  it.each([
+    ['FOUNDATION', 'Nền tảng'],
+    ['BASIC', 'Cơ bản'],
+    ['INTERMEDIATE', 'Trung cấp'],
+    ['ADVANCING', 'Nâng cao'],
+  ])('maps %s to %s and back to the stored value', (value, label) => {
+    expect(courseLevelLabel(value)).toBe(label);
+    expect(courseLevelValue(label)).toBe(value);
+  });
+
+  it('preserves arbitrary levels', () => {
+    expect(courseLevelLabel('BEGINNER')).toBe('BEGINNER');
+    expect(courseLevelValue('Custom level')).toBe('Custom level');
+  });
+});
+
 describe('catalog query mapping', () => {
   it('round-trips all M02 filters', () => {
     expect(
@@ -110,6 +128,20 @@ describe('public catalog', () => {
     expect(screen.getByRole('link', { name: /Xem khóa học/i })).toHaveAttribute(
       'href',
       '/catalog/toeic-foundation',
+    );
+    expect(screen.getByAltText(`Không gian học cho khóa ${course.title}`)).toHaveAttribute('src');
+  });
+
+  it('uses an uploaded or legacy thumbnail on a product card', () => {
+    const thumbnailUrl = 'https://images.example.com/course.webp';
+    render(
+      <MemoryRouter>
+        <CourseCard course={{ ...course, thumbnailUrl }} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByAltText(`Không gian học cho khóa ${course.title}`)).toHaveAttribute(
+      'src',
+      thumbnailUrl,
     );
   });
 
@@ -157,6 +189,22 @@ describe('public catalog', () => {
 });
 
 describe('course detail', () => {
+  it('uses the same course thumbnail in the detail hero', async () => {
+    const thumbnailUrl = '/api/course-assets/course-thumbnail.webp';
+    vi.spyOn(catalogApi, 'detail').mockResolvedValue({ ...course, thumbnailUrl });
+    render(
+      <MemoryRouter initialEntries={['/catalog/toeic-foundation']}>
+        <Routes>
+          <Route path="/catalog/:slug" element={<CourseDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByAltText(`Không gian học cho khóa ${course.title}`)).toHaveAttribute(
+      'src',
+      thumbnailUrl,
+    );
+  });
+
   it('separates Course curriculum from ClassOffering enrollment', async () => {
     vi.spyOn(catalogApi, 'detail').mockResolvedValue(course);
     render(
@@ -169,11 +217,34 @@ describe('course detail', () => {
     expect(await screen.findByRole('heading', { name: course.title })).toBeInTheDocument();
     expect(screen.getByText(/Listening basics/)).toBeInTheDocument();
     expect(screen.getByText('Nguyễn Giảng Viên')).toBeInTheDocument();
+    expect(screen.getByText('Còn nhận đăng ký')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Xem chi tiết/i })).toHaveAttribute(
       'href',
       '/classes/offering-1',
     );
     expect(screen.queryByRole('button', { name: /Đăng ký/i })).not.toBeInTheDocument();
+  });
+
+  it('renders upcoming and closed registration truth independently of remaining seats', async () => {
+    const baseOffering = course.classOfferings[0];
+    vi.spyOn(catalogApi, 'detail').mockResolvedValue({
+      ...course,
+      classOfferings: [
+        { ...baseOffering, id: 'upcoming', code: 'UPCOMING', registrationState: 'UPCOMING' },
+        { ...baseOffering, id: 'closed', code: 'CLOSED', registrationState: 'CLOSED' },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={['/catalog/toeic-foundation']}>
+        <Routes>
+          <Route path="/catalog/:slug" element={<CourseDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Chưa mở đăng ký')).toBeInTheDocument();
+    expect(screen.getByText('Đã đóng đăng ký')).toBeInTheDocument();
+    expect(screen.queryByText('Còn nhận đăng ký')).not.toBeInTheDocument();
   });
 
   it('maps a missing unpublished Course to a safe 404 state', async () => {

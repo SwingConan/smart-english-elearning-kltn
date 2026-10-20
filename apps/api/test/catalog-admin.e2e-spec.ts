@@ -2,6 +2,9 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as argon2 from 'argon2';
 import * as request from 'supertest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { AppModule } from '../src/app.module';
 import { UserRole, UserStatus } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
@@ -12,6 +15,7 @@ describe('Course catalog and admin APIs (e2e)', () => {
   let adminAgent: ReturnType<typeof request.agent>;
   let studentAgent: ReturnType<typeof request.agent>;
   let instructorAgent: ReturnType<typeof request.agent>;
+  let thumbnailRoot: string;
   const userIds: string[] = [];
   const courseIds: string[] = [];
   const sessionIds = new Set<string>();
@@ -25,6 +29,8 @@ describe('Course catalog and admin APIs (e2e)', () => {
   const level = `Level-${unique}`;
 
   beforeAll(async () => {
+    thumbnailRoot = await mkdtemp(join(tmpdir(), 'course-thumbnail-e2e-'));
+    process.env.COURSE_THUMBNAIL_STORAGE_ROOT = thumbnailRoot;
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -114,6 +120,8 @@ describe('Course catalog and admin APIs (e2e)', () => {
     if (app) {
       await app.close();
     }
+    delete process.env.COURSE_THUMBNAIL_STORAGE_ROOT;
+    if (thumbnailRoot) await rm(thumbnailRoot, { recursive: true, force: true });
   });
 
   it('enforces admin roles and exposes only published catalog data', async () => {
@@ -125,8 +133,10 @@ describe('Course catalog and admin APIs (e2e)', () => {
 
     await login(studentAgent, studentEmail);
     await studentAgent.get('/api/admin/courses').expect(403);
+    await studentAgent.get('/api/admin/class-offerings').expect(403);
 
     await login(instructorAgent, instructorEmail);
+    await instructorAgent.get('/api/admin/class-offerings').expect(403);
     await instructorAgent
       .post('/api/admin/courses')
       .send({
@@ -177,10 +187,24 @@ describe('Course catalog and admin APIs (e2e)', () => {
     expect(createdCourse.body.createdById).toBe(userIds[0]);
     expect(createdCourse.body).not.toHaveProperty('passwordHash');
 
-    const adminCourses = await adminAgent.get('/api/admin/courses').expect(200);
+    const adminCourses = await adminAgent
+      .get('/api/admin/courses')
+      .query({ search: unique, isPublished: false, skillScope: 'LR', level, page: 1, limit: 5 })
+      .expect(200);
     expect(
-      adminCourses.body.some((course: { id: string }) => course.id === createdCourse.body.id),
+      adminCourses.body.data.some((course: { id: string }) => course.id === createdCourse.body.id),
     ).toBe(true);
+    expect(adminCourses.body.meta).toEqual(expect.objectContaining({ page: 1, limit: 5 }));
+    await adminAgent.get('/api/admin/courses?limit=51').expect(400);
+    await adminAgent.get('/api/admin/courses?isPublished=not-boolean').expect(400);
+    const courseDetail = await adminAgent
+      .get(`/api/admin/courses/${createdCourse.body.id}`)
+      .expect(200);
+    expect(courseDetail.body).toMatchObject({
+      id: createdCourse.body.id,
+      skillScope: 'LR',
+      _count: { classOfferings: 0 },
+    });
 
     await request(app.getHttpServer())
       .get(isolatedCatalogUrl)
@@ -202,6 +226,15 @@ describe('Course catalog and admin APIs (e2e)', () => {
         maxStudents: 20,
       })
       .expect(201);
+    expect(openCandidate.body).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: 20,
+        isFull: false,
+        registrationState: 'CLOSED',
+      }),
+    );
+    expect(openCandidate.body).not.toHaveProperty('_count');
 
     await adminAgent
       .post('/api/admin/class-offerings')
@@ -223,6 +256,15 @@ describe('Course catalog and admin APIs (e2e)', () => {
         tuitionFeeVnd: 500_000,
       })
       .expect(201);
+    expect(draftOffering.body).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: null,
+        isFull: false,
+        registrationState: 'CLOSED',
+      }),
+    );
+    expect(draftOffering.body).not.toHaveProperty('_count');
 
     await adminAgent
       .post('/api/admin/class-offerings')
@@ -233,10 +275,39 @@ describe('Course catalog and admin APIs (e2e)', () => {
       })
       .expect(400);
 
-    const adminOfferings = await adminAgent.get('/api/admin/class-offerings').expect(200);
+    const adminOfferings = await adminAgent
+      .get('/api/admin/class-offerings')
+      .query({
+        search: 'Draft cohort',
+        courseId: createdCourse.body.id,
+        status: 'DRAFT',
+        modality: 'ONLINE',
+        pricingType: 'PAID',
+        page: 1,
+        limit: 5,
+      })
+      .expect(200);
     expect(
-      adminOfferings.body.some((offering: { id: string }) => offering.id === draftOffering.body.id),
+      adminOfferings.body.data.some(
+        (offering: { id: string }) => offering.id === draftOffering.body.id,
+      ),
     ).toBe(true);
+    expect(adminOfferings.body.data[0]).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: null,
+        isFull: false,
+        registrationState: 'CLOSED',
+      }),
+    );
+    const offeringDetail = await adminAgent
+      .get(`/api/admin/class-offerings/${draftOffering.body.id}`)
+      .expect(200);
+    expect(offeringDetail.body).toEqual(
+      expect.objectContaining({ id: draftOffering.body.id, registeredCount: 0 }),
+    );
+    await adminAgent.get('/api/admin/class-offerings?status=UNKNOWN').expect(400);
+    await adminAgent.get('/api/admin/class-offerings?courseId=not-a-uuid').expect(400);
 
     const publishedCourse = await adminAgent
       .patch(`/api/admin/courses/${createdCourse.body.id}`)
@@ -244,10 +315,42 @@ describe('Course catalog and admin APIs (e2e)', () => {
       .expect(200);
     expect(publishedCourse.body.slug).toBe(originalSlug);
 
-    await adminAgent
+    const upcomingStart = new Date(Date.now() + 86_400_000).toISOString();
+    const upcomingEnd = new Date(Date.now() + 172_800_000).toISOString();
+    const upcomingOffering = await adminAgent
       .patch(`/api/admin/class-offerings/${openCandidate.body.id}`)
-      .send({ status: 'OPEN' })
+      .send({ status: 'OPEN', enrollmentStart: upcomingStart, enrollmentEnd: upcomingEnd })
       .expect(200);
+    expect(upcomingOffering.body).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: 20,
+        isFull: false,
+        registrationState: 'UPCOMING',
+      }),
+    );
+    expect(upcomingOffering.body).not.toHaveProperty('_count');
+
+    const upcomingPublicDetail = await request(app.getHttpServer())
+      .get(`/api/courses/${originalSlug}`)
+      .expect(200);
+    expect(upcomingPublicDetail.body.classOfferings[0].registrationState).toBe('UPCOMING');
+
+    const closedStart = new Date(Date.now() - 172_800_000).toISOString();
+    const closedEnd = new Date(Date.now() - 86_400_000).toISOString();
+    const closedOffering = await adminAgent
+      .patch(`/api/admin/class-offerings/${openCandidate.body.id}`)
+      .send({ enrollmentStart: closedStart, enrollmentEnd: closedEnd })
+      .expect(200);
+    expect(closedOffering.body).toEqual(
+      expect.objectContaining({
+        registeredCount: 0,
+        remainingSeats: 20,
+        isFull: false,
+        registrationState: 'CLOSED',
+      }),
+    );
+    expect(closedOffering.body).not.toHaveProperty('_count');
     await prisma.classScheduleSlot.create({
       data: {
         classOfferingId: openCandidate.body.id,
@@ -276,6 +379,7 @@ describe('Course catalog and admin APIs (e2e)', () => {
     expect(publicCourse).toBeDefined();
     expect(publicCourse.classOfferings).toHaveLength(1);
     expect(publicCourse.classOfferings[0].id).toBe(openCandidate.body.id);
+    expect(publicCourse.classOfferings[0].registrationState).toBe('CLOSED');
     expect(publicCourse.classOfferings[0].instructor).toEqual({
       id: userIds[2],
       fullName: 'VS01 Instructor',
@@ -304,7 +408,7 @@ describe('Course catalog and admin APIs (e2e)', () => {
       registeredCount: 0,
       remainingSeats: 20,
       isFull: false,
-      registrationState: 'AVAILABLE',
+      registrationState: 'CLOSED',
       course: { id: createdCourse.body.id, title: updatedTitle },
       scheduleSlots: [expect.objectContaining({ dayOfWeek: 2 })],
     });
@@ -318,6 +422,7 @@ describe('Course catalog and admin APIs (e2e)', () => {
       .expect(200);
     expect(publicDetail.body.classOfferings).toHaveLength(1);
     expect(publicDetail.body.classOfferings[0].status).toBe('OPEN');
+    expect(publicDetail.body.classOfferings[0].registrationState).toBe('CLOSED');
     expect(publicDetail.body.classOfferings[0].id).not.toBe(draftOffering.body.id);
 
     await request(app.getHttpServer()).get('/api/courses?page=0').expect(400);
@@ -349,6 +454,99 @@ describe('Course catalog and admin APIs (e2e)', () => {
       [`concurrent-course-${unique}`, `concurrent-course-${unique}-2`].sort(),
     );
     courseIds.push(first.body.id, second.body.id);
+  });
+
+  it('secures, validates, replaces, serves, and removes course thumbnails', async () => {
+    await login(adminAgent, adminEmail);
+    await login(studentAgent, studentEmail);
+    await login(instructorAgent, instructorEmail);
+    const created = await adminAgent
+      .post('/api/admin/courses')
+      .send({
+        title: `VS01 Thumbnail ${unique}`,
+        description: 'Phase 3 E2E course',
+        level,
+        thumbnailUrl: 'https://images.example.com/legacy.jpg',
+      })
+      .expect(201);
+    courseIds.push(created.body.id);
+    const endpoint = `/api/admin/courses/${created.body.id}/thumbnail`;
+    const png = Buffer.from('89504e470d0a1a0a', 'hex');
+
+    await request(app.getHttpServer()).post(endpoint).attach('file', png, 'cover.png').expect(401);
+    await studentAgent.post(endpoint).attach('file', png, 'cover.png').expect(403);
+    await instructorAgent.post(endpoint).attach('file', png, 'cover.png').expect(403);
+    await request(app.getHttpServer()).delete(endpoint).expect(401);
+    await studentAgent.delete(endpoint).expect(403);
+    await instructorAgent.delete(endpoint).expect(403);
+    await adminAgent
+      .post('/api/admin/courses/not-a-uuid/thumbnail')
+      .attach('file', png, 'cover.png')
+      .expect(400);
+    await adminAgent
+      .post('/api/admin/courses/11111111-1111-4111-8111-111111111111/thumbnail')
+      .attach('file', png, 'cover.png')
+      .expect(404);
+
+    await adminAgent
+      .post(endpoint)
+      .attach('file', Buffer.from('<svg/>'), {
+        filename: 'cover.svg',
+        contentType: 'image/svg+xml',
+      })
+      .expect(400);
+    await adminAgent
+      .post(endpoint)
+      .attach('file', Buffer.from('not a png'), {
+        filename: 'cover.png',
+        contentType: 'image/png',
+      })
+      .expect(400);
+    await adminAgent
+      .post(endpoint)
+      .attach('file', png, { filename: 'cover.jpg', contentType: 'image/png' })
+      .expect(400);
+    await adminAgent.post(endpoint).attach('file', Buffer.alloc(0), 'empty.png').expect(400);
+    const oversized = await adminAgent
+      .post(endpoint)
+      .attach('file', Buffer.alloc(5 * 1024 * 1024 + 1), 'large.png')
+      .expect(413);
+    expect(oversized.body.message).toBe('Ảnh đại diện không được vượt quá 5 MB.');
+
+    const firstUpload = await adminAgent
+      .post(endpoint)
+      .attach('file', png, { filename: 'cover.png', contentType: 'image/png' })
+      .expect(201);
+    expect(firstUpload.body.thumbnailUrl).toMatch(/^\/api\/course-assets\/[\w-]+\.png$/);
+    expect(firstUpload.body.thumbnailUrl).not.toContain(thumbnailRoot);
+    const firstUrl = firstUpload.body.thumbnailUrl as string;
+    await request(app.getHttpServer())
+      .get(firstUrl)
+      .expect(200)
+      .expect('Content-Type', /image\/png/)
+      .expect('Cache-Control', /public/)
+      .expect(png);
+
+    const webp = Buffer.from('RIFF1234WEBP');
+    const replacement = await adminAgent
+      .post(endpoint)
+      .attach('file', webp, { filename: 'cover.webp', contentType: 'image/webp' })
+      .expect(201);
+    expect(replacement.body.thumbnailUrl).toMatch(/\.webp$/);
+    await request(app.getHttpServer()).get(firstUrl).expect(404);
+    await request(app.getHttpServer())
+      .get(replacement.body.thumbnailUrl)
+      .expect(200)
+      .expect('Content-Type', /image\/webp/)
+      .expect(webp);
+    await request(app.getHttpServer()).get('/api/course-assets/not-a-key.png').expect(400);
+    await request(app.getHttpServer())
+      .get('/api/course-assets/11111111-1111-4111-8111-111111111111.png')
+      .expect(404);
+
+    const removed = await adminAgent.delete(endpoint).expect(200);
+    expect(removed.body.thumbnailUrl).toBeNull();
+    await request(app.getHttpServer()).get(replacement.body.thumbnailUrl).expect(404);
   });
 
   async function login(agent: ReturnType<typeof request.agent>, email: string): Promise<void> {

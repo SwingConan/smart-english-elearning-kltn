@@ -1,9 +1,16 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ClassOfferingStatus, CourseSkillScope, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { computeRegistrationState } from '../classes/registration-state';
 import { CatalogQueryDto } from './dto/catalog-query.dto';
+import { AdminCourseQueryDto } from './dto/admin-course-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
+import {
+  COURSE_THUMBNAIL_URL_PREFIX,
+  CourseThumbnailStorage,
+  managedCourseThumbnailKey,
+} from './course-thumbnail.storage';
 
 const MAX_SLUG_CREATE_ATTEMPTS = 10;
 
@@ -96,7 +103,10 @@ type PublicCourseDetailRow = Prisma.CourseGetPayload<{
 
 @Injectable()
 export class CoursesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly thumbnailStorage: CourseThumbnailStorage,
+  ) {}
 
   async listPublic(query: CatalogQueryDto) {
     const where: Prisma.CourseWhereInput = {
@@ -144,14 +154,55 @@ export class CoursesService {
     return this.mapPublicCourseDetail(course);
   }
 
-  listAdmin() {
-    return this.prisma.course.findMany({
-      orderBy: { createdAt: 'desc' },
+  async listAdmin(query: AdminCourseQueryDto) {
+    const where: Prisma.CourseWhereInput = {
+      ...(query.search
+        ? {
+            OR: [
+              { title: { contains: query.search, mode: 'insensitive' } },
+              { slug: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+      ...(query.isPublished !== undefined ? { isPublished: query.isPublished } : {}),
+      ...(query.skillScope ? { skillScope: query.skillScope } : {}),
+      ...(query.level ? { level: { equals: query.level, mode: 'insensitive' } } : {}),
+    };
+    const skip = (query.page - 1) * query.limit;
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.course.findMany({
+        where,
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        skip,
+        take: query.limit,
+        include: {
+          createdBy: { select: { id: true, fullName: true } },
+          _count: { select: { classOfferings: true } },
+        },
+      }),
+      this.prisma.course.count({ where }),
+    ]);
+    return {
+      data,
+      meta: {
+        total,
+        page: query.page,
+        limit: query.limit,
+        totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
+      },
+    };
+  }
+
+  async getAdminById(id: string) {
+    const course = await this.prisma.course.findUnique({
+      where: { id },
       include: {
         createdBy: { select: { id: true, fullName: true } },
         _count: { select: { classOfferings: true } },
       },
     });
+    if (!course) throw new NotFoundException('Course not found');
+    return course;
   }
 
   async create(input: CreateCourseDto, createdById: string) {
@@ -206,14 +257,51 @@ export class CoursesService {
     });
   }
 
-  private async requireCourse(id: string): Promise<void> {
+  async uploadThumbnail(
+    id: string,
+    file: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+  ) {
+    const course = await this.requireCourse(id);
+    const stored = await this.thumbnailStorage.put(file);
+    const thumbnailUrl = `${COURSE_THUMBNAIL_URL_PREFIX}${stored.key}`;
+    try {
+      const updated = await this.prisma.course.update({
+        where: { id },
+        data: { thumbnailUrl },
+      });
+      const oldKey = managedCourseThumbnailKey(course.thumbnailUrl);
+      if (oldKey) await this.thumbnailStorage.delete(oldKey).catch(() => undefined);
+      return updated;
+    } catch (error: unknown) {
+      await this.thumbnailStorage.delete(stored.key).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async removeThumbnail(id: string) {
+    const course = await this.requireCourse(id);
+    const updated = await this.prisma.course.update({
+      where: { id },
+      data: { thumbnailUrl: null },
+    });
+    const oldKey = managedCourseThumbnailKey(course.thumbnailUrl);
+    if (oldKey) await this.thumbnailStorage.delete(oldKey).catch(() => undefined);
+    return updated;
+  }
+
+  openThumbnail(key: string) {
+    return this.thumbnailStorage.open(key);
+  }
+
+  private async requireCourse(id: string): Promise<{ id: string; thumbnailUrl: string | null }> {
     const course = await this.prisma.course.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, thumbnailUrl: true },
     });
     if (!course) {
       throw new NotFoundException('Course not found');
     }
+    return course;
   }
 
   private isCourseSlugCollision(error: unknown): boolean {
@@ -259,18 +347,23 @@ export class CoursesService {
 }
 
 function mapPublicOffering(offering: PublicOfferingRow) {
-  const registeredCount = offering._count.enrollments;
-  const remainingSeats =
-    offering.maxStudents === null ? null : Math.max(0, offering.maxStudents - registeredCount);
-  const isFull = remainingSeats === 0;
+  const { _count, ...publicFields } = offering;
+  const availability = computeRegistrationState({
+    status: offering.status,
+    courseIsPublished: true,
+    enrollmentStart: offering.enrollmentStart,
+    enrollmentEnd: offering.enrollmentEnd,
+    maxStudents: offering.maxStudents,
+    registeredCount: _count.enrollments,
+    now: new Date(),
+  });
 
   return {
-    ...offering,
-    registeredCount,
-    remainingSeats,
-    isFull,
-    registrationState: isFull ? ('FULL' as const) : ('AVAILABLE' as const),
-    _count: undefined,
+    ...publicFields,
+    registeredCount: availability.registeredCount,
+    remainingSeats: availability.remainingSeats,
+    isFull: availability.isFull,
+    registrationState: availability.registrationState,
   };
 }
 

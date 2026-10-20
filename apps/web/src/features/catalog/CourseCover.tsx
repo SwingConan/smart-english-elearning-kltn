@@ -3,11 +3,13 @@ import { courseCoverUrl } from './course-assets';
 
 export function CourseCover({
   skillScope,
+  thumbnailUrl = null,
   className = '',
   alt = '',
   loading = 'lazy',
 }: {
   skillScope: PublicCourse['skillScope'];
+  thumbnailUrl?: string | null;
   className?: string;
   alt?: string;
   loading?: 'eager' | 'lazy';
@@ -18,7 +20,7 @@ export function CourseCover({
       className={`block object-cover ${className}`}
       decoding="async"
       loading={loading}
-      src={courseCoverUrl({ skillScope, thumbnailUrl: null })}
+      src={courseCoverUrl({ skillScope, thumbnailUrl })}
     />
   );
 }

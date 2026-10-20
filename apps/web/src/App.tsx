@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { Route, Routes } from 'react-router';
+import { Navigate, Route, Routes } from 'react-router';
 import { RoleRoute } from '@/features/auth/RoleRoute';
 import { ClassShellLayout } from '@/layouts/ClassShellLayout';
+import { AdminLayout } from '@/layouts/AdminLayout';
 import { InstructorClassWorkspaceLayout } from '@/layouts/InstructorClassWorkspaceLayout';
 import { PublicLayout } from '@/layouts/PublicLayout';
 import { PlacementExamLayout } from '@/layouts/PlacementExamLayout';
@@ -9,6 +10,8 @@ import { StudentLayout } from '@/layouts/StudentLayout';
 import { AboutPage } from '@/pages/AboutPage';
 import { AdaptivePolicyPage } from '@/pages/AdaptivePolicyPage';
 import { AdminClassOfferingsPage } from '@/pages/AdminClassOfferingsPage';
+import { AdminClassOfferingEditorPage } from '@/pages/AdminClassOfferingEditorPage';
+import { AdminCourseEditorPage } from '@/pages/AdminCourseEditorPage';
 import { AdminCoursesPage } from '@/pages/AdminCoursesPage';
 import { AdminStudyRecommendationPolicyPage } from '@/pages/AdminStudyRecommendationPolicyPage';
 import { ClassOfferingDetailPage } from '@/pages/ClassOfferingDetailPage';
@@ -127,13 +130,21 @@ export function App() {
             element={<AssessmentGradingDetailPage />}
           />
         </Route>
-        <Route path="admin/courses" element={admin(<AdminCoursesPage />)} />
-        <Route path="admin/class-offerings" element={admin(<AdminClassOfferingsPage />)} />
-        <Route
-          path="admin/study-recommendations"
-          element={admin(<AdminStudyRecommendationPolicyPage />)}
-        />
         <Route path="*" element={<NotFoundPage />} />
+      </Route>
+
+      <Route path="admin" element={admin(<AdminLayout />)}>
+        <Route index element={<Navigate replace to="courses" />} />
+        <Route path="courses" element={<AdminCoursesPage />} />
+        <Route path="courses/new" element={<AdminCourseEditorPage />} />
+        <Route path="courses/:courseId/edit" element={<AdminCourseEditorPage />} />
+        <Route path="class-offerings" element={<AdminClassOfferingsPage />} />
+        <Route path="class-offerings/new" element={<AdminClassOfferingEditorPage />} />
+        <Route
+          path="class-offerings/:classOfferingId/edit"
+          element={<AdminClassOfferingEditorPage />}
+        />
+        <Route path="study-recommendations" element={<AdminStudyRecommendationPolicyPage />} />
       </Route>
 
       <Route element={student(<StudentLayout />)}>

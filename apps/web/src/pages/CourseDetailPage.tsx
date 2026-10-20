@@ -95,6 +95,7 @@ export function CourseDetailPage() {
               alt={`Không gian học cho khóa ${course.title}`}
               className="aspect-[16/10] w-full rounded-3xl"
               skillScope={course.skillScope}
+              thumbnailUrl={course.thumbnailUrl}
             />
           </div>
         </div>
@@ -216,6 +217,7 @@ export function CourseDetailPage() {
 }
 
 function OfferingRow({ offering }: { offering: PublicClassOffering }) {
+  const registration = registrationDisplay(offering.registrationState);
   return (
     <tr>
       <td className="px-4 py-4 font-semibold">{offering.code}</td>
@@ -241,9 +243,9 @@ function OfferingRow({ offering }: { offering: PublicClassOffering }) {
       </td>
       <td className="px-4 py-4">
         <span
-          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${offering.isFull ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}
+          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${registration.className}`}
         >
-          {offering.isFull ? 'Đã đầy' : 'Còn chỗ'}
+          {registration.label}
         </span>
       </td>
       <td className="px-4 py-4">
@@ -253,6 +255,17 @@ function OfferingRow({ offering }: { offering: PublicClassOffering }) {
       </td>
     </tr>
   );
+}
+function registrationDisplay(state: PublicClassOffering['registrationState']): {
+  label: string;
+  className: string;
+} {
+  return {
+    AVAILABLE: { label: 'Còn nhận đăng ký', className: 'bg-emerald-100 text-emerald-700' },
+    FULL: { label: 'Đã đầy', className: 'bg-rose-100 text-rose-700' },
+    UPCOMING: { label: 'Chưa mở đăng ký', className: 'bg-amber-100 text-amber-800' },
+    CLOSED: { label: 'Đã đóng đăng ký', className: 'bg-slate-200 text-slate-700' },
+  }[state];
 }
 function Row({ label, value }: { label: string; value: string }) {
   return (
