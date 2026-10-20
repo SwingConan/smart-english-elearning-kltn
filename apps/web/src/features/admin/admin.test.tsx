@@ -384,6 +384,17 @@ describe('class-offering administration', () => {
     const create = vi.spyOn(adminApi.offerings, 'create').mockResolvedValue(offering);
     renderAdminApp('/admin/class-offerings/new');
     await screen.findByRole('heading', { name: 'Tạo lớp học' });
+    expect(
+      screen.getByText(
+        'Giảng viên: Chưa phân công. Việc phân công giảng viên và thiết lập lịch học sẽ được thực hiện ở bước vận hành lớp.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/ngoài phạm vi/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Thời gian đăng ký' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Thời gian lớp học' })).toBeInTheDocument();
+    for (const label of ['Mở đăng ký', 'Đóng đăng ký', 'Bắt đầu lớp', 'Kết thúc lớp']) {
+      expect(screen.getByLabelText(label)).toHaveAttribute('type', 'datetime-local');
+    }
     fireEvent.change(screen.getByLabelText('Khóa học'), { target: { value: course.id } });
     fireEvent.change(screen.getByLabelText('Tên lớp'), { target: { value: offering.name } });
     fireEvent.change(screen.getByLabelText('Mã lớp'), { target: { value: offering.code } });
@@ -468,7 +479,12 @@ describe('class-offering administration', () => {
       .spyOn(adminApi.offerings, 'update')
       .mockResolvedValue({ ...offering, status: 'OPEN' });
     renderAdminApp(`/admin/class-offerings/${offering.id}/edit`);
-    expect(await screen.findByText(/Instructor One/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Giảng viên: Instructor One. Việc phân công giảng viên và thiết lập lịch học sẽ được thực hiện ở bước vận hành lớp.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/ngoài phạm vi/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/giảng viên/i)).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Trạng thái'), { target: { value: 'OPEN' } });
     fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));

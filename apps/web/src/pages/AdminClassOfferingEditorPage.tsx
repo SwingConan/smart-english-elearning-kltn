@@ -121,8 +121,8 @@ export function AdminClassOfferingEditorPage() {
           {editing ? 'Chỉnh sửa lớp học' : 'Tạo lớp học'}
         </h1>
         <p className="mt-2 text-slate-600">
-          Giảng viên: {offering?.instructor?.fullName ?? 'Chưa phân công'} (chỉ đọc). Phân công và
-          lịch học nằm ngoài phạm vi này.
+          Giảng viên: {offering?.instructor?.fullName ?? 'Chưa phân công'}. Việc phân công giảng
+          viên và thiết lập lịch học sẽ được thực hiện ở bước vận hành lớp.
         </p>
       </div>
       {courses.length === 0 ? (
@@ -253,35 +253,55 @@ export function AdminClassOfferingEditorPage() {
             onChange={(value) => update('totalPeriods', value)}
             value={values.totalPeriods}
           />
-          <DateField
-            error={errors.enrollmentStart}
-            id="enrollment-start"
-            label="Mở đăng ký"
-            onChange={(value) => update('enrollmentStart', value)}
-            value={values.enrollmentStart}
-          />
-          <DateField
-            error={errors.enrollmentEnd}
-            id="enrollment-end"
-            label="Đóng đăng ký"
-            onChange={(value) => update('enrollmentEnd', value)}
-            value={values.enrollmentEnd}
-          />
-          <DateField
-            error={errors.classStart}
-            id="class-start"
-            label="Bắt đầu lớp"
-            onChange={(value) => update('classStart', value)}
-            value={values.classStart}
-          />
-          <DateField
-            error={errors.classEnd}
-            id="class-end"
-            label="Kết thúc lớp"
-            onChange={(value) => update('classEnd', value)}
-            value={values.classEnd}
-          />
         </div>
+        <section
+          className="mt-6 border-t border-slate-200 pt-5"
+          aria-labelledby="enrollment-time-heading"
+        >
+          <h2 className="text-sm font-semibold text-slate-800" id="enrollment-time-heading">
+            Thời gian đăng ký
+          </h2>
+          <div className="mt-3 grid gap-5 md:grid-cols-2">
+            <DateField
+              error={errors.enrollmentStart}
+              id="enrollment-start"
+              label="Mở đăng ký"
+              onChange={(value) => update('enrollmentStart', value)}
+              value={values.enrollmentStart}
+            />
+            <DateField
+              error={errors.enrollmentEnd}
+              id="enrollment-end"
+              label="Đóng đăng ký"
+              onChange={(value) => update('enrollmentEnd', value)}
+              value={values.enrollmentEnd}
+            />
+          </div>
+        </section>
+        <section
+          className="mt-6 border-t border-slate-200 pt-5"
+          aria-labelledby="class-time-heading"
+        >
+          <h2 className="text-sm font-semibold text-slate-800" id="class-time-heading">
+            Thời gian lớp học
+          </h2>
+          <div className="mt-3 grid gap-5 md:grid-cols-2">
+            <DateField
+              error={errors.classStart}
+              id="class-start"
+              label="Bắt đầu lớp"
+              onChange={(value) => update('classStart', value)}
+              value={values.classStart}
+            />
+            <DateField
+              error={errors.classEnd}
+              id="class-end"
+              label="Kết thúc lớp"
+              onChange={(value) => update('classEnd', value)}
+              value={values.classEnd}
+            />
+          </div>
+        </section>
         {apiError ? (
           <p className="mt-5 rounded-xl bg-red-50 p-3 text-red-800" role="alert">
             {apiError}
