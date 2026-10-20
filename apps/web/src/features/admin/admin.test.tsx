@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useCallback, useState } from 'react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -393,8 +393,11 @@ describe('class-offering administration', () => {
     expect(screen.getByRole('heading', { name: 'Thời gian đăng ký' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Thời gian lớp học' })).toBeInTheDocument();
     for (const label of ['Mở đăng ký', 'Đóng đăng ký', 'Bắt đầu lớp', 'Kết thúc lớp']) {
-      expect(screen.getByLabelText(label)).toHaveAttribute('type', 'datetime-local');
+      const group = screen.getByRole('group', { name: label });
+      expect(within(group).getByLabelText('Ngày')).toHaveAttribute('type', 'date');
+      expect(within(group).getByLabelText('Giờ')).toHaveAttribute('type', 'time');
     }
+    expect(document.querySelector('input[type="datetime-local"]')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Khóa học'), { target: { value: course.id } });
     fireEvent.change(screen.getByLabelText('Tên lớp'), { target: { value: offering.name } });
     fireEvent.change(screen.getByLabelText('Mã lớp'), { target: { value: offering.code } });
@@ -405,18 +408,10 @@ describe('class-offering administration', () => {
     fireEvent.change(screen.getByLabelText('Sĩ số tối đa'), { target: { value: '20' } });
     fireEvent.change(screen.getByLabelText('Tổng số buổi'), { target: { value: '12' } });
     fireEvent.change(screen.getByLabelText('Tổng số tiết'), { target: { value: '24' } });
-    fireEvent.change(screen.getByLabelText('Mở đăng ký'), {
-      target: { value: '2026-10-01T08:00' },
-    });
-    fireEvent.change(screen.getByLabelText('Đóng đăng ký'), {
-      target: { value: '2026-10-15T08:00' },
-    });
-    fireEvent.change(screen.getByLabelText('Bắt đầu lớp'), {
-      target: { value: '2026-10-20T08:00' },
-    });
-    fireEvent.change(screen.getByLabelText('Kết thúc lớp'), {
-      target: { value: '2026-12-20T08:00' },
-    });
+    setDateTime('Mở đăng ký', '2026-10-01', '08:00');
+    setDateTime('Đóng đăng ký', '2026-10-15', '08:00');
+    setDateTime('Bắt đầu lớp', '2026-10-20', '08:00');
+    setDateTime('Kết thúc lớp', '2026-12-20', '08:00');
     fireEvent.click(screen.getByRole('button', { name: 'Tạo lớp học' }));
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
     expect(create.mock.calls[0][0]).toEqual(
@@ -430,10 +425,10 @@ describe('class-offering administration', () => {
         maxStudents: 20,
         pricingType: 'PAID',
         tuitionFeeVnd: 1_500_000,
-        enrollmentStart: expect.any(String),
-        enrollmentEnd: expect.any(String),
-        classStart: expect.any(String),
-        classEnd: expect.any(String),
+        enrollmentStart: new Date('2026-10-01T08:00').toISOString(),
+        enrollmentEnd: new Date('2026-10-15T08:00').toISOString(),
+        classStart: new Date('2026-10-20T08:00').toISOString(),
+        classEnd: new Date('2026-12-20T08:00').toISOString(),
       }),
     );
     expect(create.mock.calls[0][0]).not.toHaveProperty('instructorId');
@@ -492,6 +487,54 @@ describe('class-offering administration', () => {
     expect(update.mock.calls[0][1]).not.toHaveProperty('instructorId');
   });
 
+  it('populates local date/time parts and round-trips unchanged edit instants', async () => {
+    const timedOffering = {
+      ...offering,
+      enrollmentStart: '2026-11-01T11:00:00.000Z',
+      enrollmentEnd: '2026-11-10T11:00:00.000Z',
+      classStart: '2026-11-15T11:00:00.000Z',
+      classEnd: '2026-12-15T11:00:00.000Z',
+    };
+    vi.spyOn(adminApi.offerings, 'get').mockResolvedValue(timedOffering);
+    mockCourses([course]);
+    const update = vi.spyOn(adminApi.offerings, 'update').mockResolvedValue(timedOffering);
+    renderAdminApp(`/admin/class-offerings/${offering.id}/edit`);
+
+    const expectedStart = localDateTimeParts(timedOffering.enrollmentStart);
+    const registrationStart = await screen.findByRole('group', { name: 'Mở đăng ký' });
+    expect(within(registrationStart).getByLabelText('Ngày')).toHaveValue(expectedStart.date);
+    expect(within(registrationStart).getByLabelText('Giờ')).toHaveValue(expectedStart.time);
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+
+    await waitFor(() => expect(update).toHaveBeenCalledOnce());
+    expect(update.mock.calls[0][1]).toEqual(
+      expect.objectContaining({
+        enrollmentStart: timedOffering.enrollmentStart,
+        enrollmentEnd: timedOffering.enrollmentEnd,
+        classStart: timedOffering.classStart,
+        classEnd: timedOffering.classEnd,
+      }),
+    );
+  });
+
+  it('sends null when both local date/time parts are cleared in edit mode', async () => {
+    const timedOffering = {
+      ...offering,
+      enrollmentStart: '2026-11-01T11:00:00.000Z',
+    };
+    vi.spyOn(adminApi.offerings, 'get').mockResolvedValue(timedOffering);
+    mockCourses([course]);
+    const update = vi.spyOn(adminApi.offerings, 'update').mockResolvedValue(timedOffering);
+    renderAdminApp(`/admin/class-offerings/${offering.id}/edit`);
+    const registrationStart = await screen.findByRole('group', { name: 'Mở đăng ký' });
+    fireEvent.change(within(registrationStart).getByLabelText('Ngày'), { target: { value: '' } });
+    fireEvent.change(within(registrationStart).getByLabelText('Giờ'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+
+    await waitFor(() => expect(update).toHaveBeenCalledOnce());
+    expect(update.mock.calls[0][1]).toEqual(expect.objectContaining({ enrollmentStart: null }));
+  });
+
   it('validates paid pricing, capacity, totals, and date ordering', () => {
     const base = { ...initialOfferingValues(null), courseId: course.id, name: 'Class' };
     expect(
@@ -506,16 +549,39 @@ describe('class-offering administration', () => {
     ).toBeDefined();
     expect(
       buildOfferingInput(
-        { ...base, enrollmentStart: '2026-10-02T10:00', enrollmentEnd: '2026-10-01T10:00' },
+        {
+          ...base,
+          enrollmentStartDate: '2026-10-02',
+          enrollmentStartTime: '10:00',
+          enrollmentEndDate: '2026-10-01',
+          enrollmentEndTime: '10:00',
+        },
         false,
       ).errors.enrollmentEnd,
     ).toBeDefined();
     expect(
       buildOfferingInput(
-        { ...base, classStart: '2026-10-02T10:00', classEnd: '2026-10-02T10:00' },
+        {
+          ...base,
+          classStartDate: '2026-10-02',
+          classStartTime: '10:00',
+          classEndDate: '2026-10-02',
+          classEndTime: '10:00',
+        },
         false,
       ).errors.classEnd,
     ).toBeDefined();
+  });
+
+  it('requires both date and time for each optional business datetime', () => {
+    const base = { ...initialOfferingValues(null), courseId: course.id, name: 'Class' };
+    expect(
+      buildOfferingInput({ ...base, enrollmentStartDate: '2026-11-01' }, false).errors
+        .enrollmentStart,
+    ).toBe('Vui lòng nhập cả ngày và giờ.');
+    expect(buildOfferingInput({ ...base, classEndTime: '18:00' }, false).errors.classEnd).toBe(
+      'Vui lòng nhập cả ngày và giờ.',
+    );
   });
 
   it('normalizes FREE tuition without inventing optional values', () => {
@@ -528,6 +594,10 @@ describe('class-offering administration', () => {
     );
     expect(result.input).not.toHaveProperty('instructorId');
     expect(result.input).not.toHaveProperty('maxStudents');
+    expect(result.input).not.toHaveProperty('enrollmentStart');
+    expect(result.input).not.toHaveProperty('enrollmentEnd');
+    expect(result.input).not.toHaveProperty('classStart');
+    expect(result.input).not.toHaveProperty('classEnd');
   });
 });
 
@@ -546,6 +616,19 @@ describe('expired admin sessions', () => {
 
 function page<T>(data: T[], total = data.length): Paginated<T> {
   return { data, meta: { ...meta, total } };
+}
+function setDateTime(label: string, date: string, time: string) {
+  const group = screen.getByRole('group', { name: label });
+  fireEvent.change(within(group).getByLabelText('Ngày'), { target: { value: date } });
+  fireEvent.change(within(group).getByLabelText('Giờ'), { target: { value: time } });
+}
+function localDateTimeParts(value: string) {
+  const date = new Date(value);
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return {
+    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+  };
 }
 function mockObjectUrls() {
   const NativeUrl = URL;

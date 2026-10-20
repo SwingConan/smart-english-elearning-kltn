@@ -262,19 +262,23 @@ export function AdminClassOfferingEditorPage() {
             Thời gian đăng ký
           </h2>
           <div className="mt-3 grid gap-5 md:grid-cols-2">
-            <DateField
+            <DateTimeField
               error={errors.enrollmentStart}
               id="enrollment-start"
               label="Mở đăng ký"
-              onChange={(value) => update('enrollmentStart', value)}
-              value={values.enrollmentStart}
+              dateValue={values.enrollmentStartDate}
+              timeValue={values.enrollmentStartTime}
+              onDateChange={(value) => update('enrollmentStartDate', value)}
+              onTimeChange={(value) => update('enrollmentStartTime', value)}
             />
-            <DateField
+            <DateTimeField
               error={errors.enrollmentEnd}
               id="enrollment-end"
               label="Đóng đăng ký"
-              onChange={(value) => update('enrollmentEnd', value)}
-              value={values.enrollmentEnd}
+              dateValue={values.enrollmentEndDate}
+              timeValue={values.enrollmentEndTime}
+              onDateChange={(value) => update('enrollmentEndDate', value)}
+              onTimeChange={(value) => update('enrollmentEndTime', value)}
             />
           </div>
         </section>
@@ -286,19 +290,23 @@ export function AdminClassOfferingEditorPage() {
             Thời gian lớp học
           </h2>
           <div className="mt-3 grid gap-5 md:grid-cols-2">
-            <DateField
+            <DateTimeField
               error={errors.classStart}
               id="class-start"
               label="Bắt đầu lớp"
-              onChange={(value) => update('classStart', value)}
-              value={values.classStart}
+              dateValue={values.classStartDate}
+              timeValue={values.classStartTime}
+              onDateChange={(value) => update('classStartDate', value)}
+              onTimeChange={(value) => update('classStartTime', value)}
             />
-            <DateField
+            <DateTimeField
               error={errors.classEnd}
               id="class-end"
               label="Kết thúc lớp"
-              onChange={(value) => update('classEnd', value)}
-              value={values.classEnd}
+              dateValue={values.classEndDate}
+              timeValue={values.classEndTime}
+              onDateChange={(value) => update('classEndDate', value)}
+              onTimeChange={(value) => update('classEndTime', value)}
             />
           </div>
         </section>
@@ -381,30 +389,57 @@ function NumberField({
     </Field>
   );
 }
-function DateField({
+function DateTimeField({
   id,
   label,
-  value,
+  dateValue,
+  timeValue,
   error,
-  onChange,
+  onDateChange,
+  onTimeChange,
 }: {
   id: string;
   label: string;
-  value: string;
+  dateValue: string;
+  timeValue: string;
   error?: string;
-  onChange: (value: string) => void;
+  onDateChange: (value: string) => void;
+  onTimeChange: (value: string) => void;
 }) {
   return (
-    <Field error={error} id={id} label={label}>
-      <input
-        aria-describedby={error ? `${id}-error` : undefined}
-        aria-invalid={Boolean(error)}
-        className={controlClass}
-        id={id}
-        onChange={(event) => onChange(event.target.value)}
-        type="datetime-local"
-        value={value}
-      />
-    </Field>
+    <fieldset aria-describedby={error ? `${id}-error` : undefined} className="min-w-0">
+      <legend className="text-sm font-semibold">{label}</legend>
+      <div className="mt-1 grid gap-3 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
+        <label className="text-xs font-medium text-slate-600" htmlFor={`${id}-date`}>
+          Ngày
+          <input
+            aria-describedby={error ? `${id}-error` : undefined}
+            aria-invalid={Boolean(error)}
+            className={controlClass}
+            id={`${id}-date`}
+            onChange={(event) => onDateChange(event.target.value)}
+            type="date"
+            value={dateValue}
+          />
+        </label>
+        <label className="text-xs font-medium text-slate-600" htmlFor={`${id}-time`}>
+          Giờ
+          <input
+            aria-describedby={error ? `${id}-error` : undefined}
+            aria-invalid={Boolean(error)}
+            className={controlClass}
+            id={`${id}-time`}
+            onChange={(event) => onTimeChange(event.target.value)}
+            type="time"
+            value={timeValue}
+          />
+        </label>
+      </div>
+      {error ? (
+        <p className="mt-1 text-sm text-red-700" id={`${id}-error`}>
+          {error}
+        </p>
+      ) : null}
+    </fieldset>
   );
 }

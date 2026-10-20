@@ -11,10 +11,14 @@ export interface OfferingFormValues {
   maxStudents: string;
   totalSessions: string;
   totalPeriods: string;
-  enrollmentStart: string;
-  enrollmentEnd: string;
-  classStart: string;
-  classEnd: string;
+  enrollmentStartDate: string;
+  enrollmentStartTime: string;
+  enrollmentEndDate: string;
+  enrollmentEndTime: string;
+  classStartDate: string;
+  classStartTime: string;
+  classEndDate: string;
+  classEndTime: string;
 }
 
 export interface OfferingFormResult {
@@ -23,6 +27,10 @@ export interface OfferingFormResult {
 }
 
 export function initialOfferingValues(offering: AdminClassOffering | null): OfferingFormValues {
+  const enrollmentStart = toLocalDateTimeParts(offering?.enrollmentStart);
+  const enrollmentEnd = toLocalDateTimeParts(offering?.enrollmentEnd);
+  const classStart = toLocalDateTimeParts(offering?.classStart);
+  const classEnd = toLocalDateTimeParts(offering?.classEnd);
   return {
     courseId: offering?.courseId ?? '',
     code: offering?.code ?? '',
@@ -34,10 +42,14 @@ export function initialOfferingValues(offering: AdminClassOffering | null): Offe
     maxStudents: offering?.maxStudents?.toString() ?? '',
     totalSessions: offering?.totalSessions?.toString() ?? '',
     totalPeriods: offering?.totalPeriods?.toString() ?? '',
-    enrollmentStart: toLocalDateTime(offering?.enrollmentStart),
-    enrollmentEnd: toLocalDateTime(offering?.enrollmentEnd),
-    classStart: toLocalDateTime(offering?.classStart),
-    classEnd: toLocalDateTime(offering?.classEnd),
+    enrollmentStartDate: enrollmentStart.date,
+    enrollmentStartTime: enrollmentStart.time,
+    enrollmentEndDate: enrollmentEnd.date,
+    enrollmentEndTime: enrollmentEnd.time,
+    classStartDate: classStart.date,
+    classStartTime: classStart.time,
+    classEndDate: classEnd.date,
+    classEndTime: classEnd.time,
   };
 }
 
@@ -76,10 +88,25 @@ export function buildOfferingInput(
   );
   const totalPeriods = optionalPositiveInteger(values.totalPeriods, 'totalPeriods', errors, isEdit);
 
-  const enrollmentStart = parseDate(values.enrollmentStart, 'enrollmentStart', errors);
-  const enrollmentEnd = parseDate(values.enrollmentEnd, 'enrollmentEnd', errors);
-  const classStart = parseDate(values.classStart, 'classStart', errors);
-  const classEnd = parseDate(values.classEnd, 'classEnd', errors);
+  const enrollmentStart = parseLocalDateTime(
+    values.enrollmentStartDate,
+    values.enrollmentStartTime,
+    'enrollmentStart',
+    errors,
+  );
+  const enrollmentEnd = parseLocalDateTime(
+    values.enrollmentEndDate,
+    values.enrollmentEndTime,
+    'enrollmentEnd',
+    errors,
+  );
+  const classStart = parseLocalDateTime(
+    values.classStartDate,
+    values.classStartTime,
+    'classStart',
+    errors,
+  );
+  const classEnd = parseLocalDateTime(values.classEndDate, values.classEndTime, 'classEnd', errors);
 
   if (enrollmentStart && enrollmentEnd && enrollmentStart > enrollmentEnd) {
     errors.enrollmentEnd = 'Ngày đóng đăng ký phải sau hoặc bằng ngày mở.';
@@ -102,10 +129,28 @@ export function buildOfferingInput(
       ...(maxStudents !== undefined ? { maxStudents } : {}),
       ...(totalSessions !== undefined ? { totalSessions } : {}),
       ...(totalPeriods !== undefined ? { totalPeriods } : {}),
-      ...optionalDate('enrollmentStart', enrollmentStart, values.enrollmentStart, isEdit),
-      ...optionalDate('enrollmentEnd', enrollmentEnd, values.enrollmentEnd, isEdit),
-      ...optionalDate('classStart', classStart, values.classStart, isEdit),
-      ...optionalDate('classEnd', classEnd, values.classEnd, isEdit),
+      ...optionalDate(
+        'enrollmentStart',
+        enrollmentStart,
+        values.enrollmentStartDate,
+        values.enrollmentStartTime,
+        isEdit,
+      ),
+      ...optionalDate(
+        'enrollmentEnd',
+        enrollmentEnd,
+        values.enrollmentEndDate,
+        values.enrollmentEndTime,
+        isEdit,
+      ),
+      ...optionalDate(
+        'classStart',
+        classStart,
+        values.classStartDate,
+        values.classStartTime,
+        isEdit,
+      ),
+      ...optionalDate('classEnd', classEnd, values.classEndDate, values.classEndTime, isEdit),
     },
   };
 }
@@ -124,11 +169,20 @@ function optionalPositiveInteger(
   return parsed;
 }
 
-function parseDate(value: string, field: string, errors: Record<string, string>): Date | null {
-  if (!value) return null;
-  const date = new Date(value);
+function parseLocalDateTime(
+  dateValue: string,
+  timeValue: string,
+  field: string,
+  errors: Record<string, string>,
+): Date | null {
+  if (!dateValue && !timeValue) return null;
+  if (!dateValue || !timeValue) {
+    errors[field] = 'Vui lòng nhập cả ngày và giờ.';
+    return null;
+  }
+  const date = new Date(`${dateValue}T${timeValue}`);
   if (Number.isNaN(date.getTime())) {
-    errors[field] = 'Ngày giờ không hợp lệ.';
+    errors[field] = 'Ngày và giờ không hợp lệ.';
     return null;
   }
   return date;
@@ -137,17 +191,27 @@ function parseDate(value: string, field: string, errors: Record<string, string>)
 function optionalDate(
   key: 'enrollmentStart' | 'enrollmentEnd' | 'classStart' | 'classEnd',
   date: Date | null,
-  rawValue: string,
+  dateValue: string,
+  timeValue: string,
   isEdit: boolean,
 ): Partial<ClassOfferingInput> {
   if (date) return { [key]: date.toISOString() };
-  return !rawValue && isEdit ? { [key]: null } : {};
+  return !dateValue && !timeValue && isEdit ? { [key]: null } : {};
 }
 
-function toLocalDateTime(value: string | null | undefined): string {
-  if (!value) return '';
+function toLocalDateTimeParts(value: string | null | undefined): { date: string; time: string } {
+  if (!value) return { date: '', time: '' };
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  if (Number.isNaN(date.getTime())) return { date: '', time: '' };
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  return {
+    date: `${year}-${month}-${day}`,
+    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+  };
+}
+
+function pad(value: number): string {
+  return String(value).padStart(2, '0');
 }
