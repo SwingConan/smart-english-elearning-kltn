@@ -45,14 +45,14 @@ describe('M09-C admin accounts web', () => {
     ).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Tài khoản' }).length).toBeGreaterThan(0);
     expect(screen.getByText('Tổng tài khoản').parentElement).toHaveTextContent('30');
-    expect(
-      screen.getAllByText('Giảng viên').find((node) => node.classList.contains('bg-violet-100')),
-    ).toBeDefined();
-    expect(
-      screen
-        .getAllByText('Đang hoạt động')
-        .find((node) => node.classList.contains('bg-emerald-100')),
-    ).toBeDefined();
+    const roleBadge = screen
+      .getAllByText('Giảng viên')
+      .find((node) => node.classList.contains('bg-violet-100'));
+    const statusBadge = screen
+      .getAllByText('Đang hoạt động')
+      .find((node) => node.classList.contains('bg-emerald-100'));
+    expect(roleBadge).toHaveClass('bg-violet-100', 'whitespace-nowrap');
+    expect(statusBadge).toHaveClass('bg-emerald-100', 'whitespace-nowrap');
     expect(screen.getAllByText('Nguyễn Thu Hà')).toHaveLength(2);
     expect(screen.getAllByRole('link', { name: 'Xem chi tiết' })).toHaveLength(2);
   });
@@ -108,6 +108,11 @@ describe('M09-C admin accounts web', () => {
       context: { ...account.context, operationalClassAssignments: 0 },
     });
     renderRoutes('/admin/accounts/new');
+    expect(
+      screen.getByText(
+        'Email được dùng để đăng nhập và không thể chỉnh sửa trong M09-C. Mật khẩu sẽ không được hiển thị lại sau khi gửi.',
+      ),
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Họ và tên'), { target: { value: 'New Staff' } });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new@example.com' } });
     fireEvent.change(screen.getByLabelText('Mật khẩu ban đầu'), {
@@ -144,6 +149,10 @@ describe('M09-C admin accounts web', () => {
     });
     const student = renderRoutes(`/admin/accounts/${accountId}`);
     expect(await screen.findByText(/Vai trò học viên không được chuyển/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Thông tin tài khoản' })).toBeInTheDocument();
+    expect(screen.getByText('Lớp đã ghi danh')).toBeInTheDocument();
+    expect(screen.queryByText('Lớp đang vận hành')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tổng lớp phân công')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Lưu vai trò' })).not.toBeInTheDocument();
     student.unmount();
     vi.spyOn(adminApi.accounts, 'get').mockResolvedValueOnce({
@@ -153,6 +162,7 @@ describe('M09-C admin accounts web', () => {
     });
     renderRoutes('/admin/accounts/admin-id');
     expect(await screen.findByText('Tài khoản hiện tại')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Ngữ cảnh quản trị' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Lưu vai trò' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Lưu trạng thái' })).toBeDisabled();
   });
@@ -168,6 +178,9 @@ describe('M09-C admin accounts web', () => {
     );
     renderRoutes(`/admin/accounts/${accountId}`);
     expect(await screen.findByText(/INACTIVE bị chặn/)).toBeInTheDocument();
+    expect(screen.getByText('Lớp đang vận hành')).toBeInTheDocument();
+    expect(screen.getByText('Tổng lớp phân công')).toBeInTheDocument();
+    expect(screen.getByText('Lớp đã ghi danh')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Trạng thái'), { target: { value: 'INACTIVE' } });
     expect(screen.getByRole('button', { name: 'Lưu trạng thái' })).toBeDisabled();
     fireEvent.change(screen.getByLabelText('Trạng thái'), { target: { value: 'LOCKED' } });

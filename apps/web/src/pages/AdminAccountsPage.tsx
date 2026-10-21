@@ -306,7 +306,9 @@ function AccountResults({ accounts }: { accounts: AdminAccount[] }) {
 
 function Badge({ text, className }: { text: string; className: string }) {
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${className}`}>
+    <span
+      className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${className}`}
+    >
       {text}
     </span>
   );

@@ -126,7 +126,7 @@ export function AdminAccountDetailPage() {
       ) : null}
       <div className="grid gap-5 lg:grid-cols-2">
         <section className={card}>
-          <h2 className="text-lg font-bold">Danh tính</h2>
+          <h2 className="text-lg font-bold">Thông tin tài khoản</h2>
           <dl className="mt-4 grid gap-3 text-sm">
             <Row label="Họ và tên" value={account.fullName} />
             <Row label="Email" value={account.email} />
@@ -135,20 +135,38 @@ export function AdminAccountDetailPage() {
           </dl>
         </section>
         <section className={card}>
-          <h2 className="text-lg font-bold">Phụ thuộc vận hành</h2>
-          <dl className="mt-4 grid grid-cols-3 gap-3">
-            <Count label="Lớp đang vận hành" value={operational} />
-            <Count label="Tổng lớp phân công" value={account.context.totalClassAssignments} />
-            <Count label="Lớp đã ghi danh" value={account.context.enrollmentCount} />
-          </dl>
-          {operational > 0 ? (
-            <Link
-              className="mt-4 inline-block text-sm font-semibold text-indigo-700"
-              to="/admin/class-offerings"
-            >
-              Mở quản lý lớp học
-            </Link>
-          ) : null}
+          {account.role === 'STUDENT' ? (
+            <>
+              <h2 className="text-lg font-bold">Tham gia học tập</h2>
+              <dl className="mt-4 max-w-xs">
+                <Count label="Lớp đã ghi danh" value={account.context.enrollmentCount} />
+              </dl>
+            </>
+          ) : account.role === 'INSTRUCTOR' ? (
+            <>
+              <h2 className="text-lg font-bold">Phụ thuộc vận hành</h2>
+              <dl className="mt-4 grid grid-cols-3 gap-3">
+                <Count label="Lớp đang vận hành" value={operational} />
+                <Count label="Tổng lớp phân công" value={account.context.totalClassAssignments} />
+                <Count label="Lớp đã ghi danh" value={account.context.enrollmentCount} />
+              </dl>
+              {operational > 0 ? (
+                <Link
+                  className="mt-4 inline-block text-sm font-semibold text-indigo-700"
+                  to="/admin/class-offerings"
+                >
+                  Mở quản lý lớp học
+                </Link>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <h2 className="text-lg font-bold">Ngữ cảnh quản trị</h2>
+              <p className="mt-3 text-sm text-slate-600">
+                Tài khoản điều phối hệ thống, không áp dụng chỉ số phân công giảng dạy.
+              </p>
+            </>
+          )}
         </section>
         <RoleControl
           account={account}
@@ -322,7 +340,11 @@ function StatusControl({
 }
 
 function Badge({ label, className }: { label: string; className: string }) {
-  return <span className={`rounded-full px-3 py-1 text-xs font-bold ${className}`}>{label}</span>;
+  return (
+    <span className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${className}`}>
+      {label}
+    </span>
+  );
 }
 function Row({ label, value }: { label: string; value: string }) {
   return (
