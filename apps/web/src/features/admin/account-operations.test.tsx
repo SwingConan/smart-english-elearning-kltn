@@ -176,6 +176,67 @@ describe('M09-C admin accounts web', () => {
     expect(await screen.findByText(/thu hồi các phiên đăng nhập cũ/)).toBeInTheDocument();
   });
 
+  it('confirms and applies a safe instructor role change', async () => {
+    const safeInstructor = {
+      ...account,
+      context: { ...account.context, operationalClassAssignments: 0 },
+    };
+    vi.spyOn(adminApi.accounts, 'get').mockResolvedValue(safeInstructor);
+    const updateRole = vi.spyOn(adminApi.accounts, 'updateRole').mockResolvedValue({
+      ...safeInstructor,
+      role: 'ADMIN_COORDINATOR',
+    });
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal('confirm', confirm);
+
+    renderRoutes(`/admin/accounts/${accountId}`);
+    await screen.findByRole('heading', { name: account.fullName });
+    fireEvent.change(screen.getByLabelText('Vai trò'), {
+      target: { value: 'ADMIN_COORDINATOR' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu vai trò' }));
+
+    expect(confirm).toHaveBeenCalledOnce();
+    await waitFor(() => expect(updateRole).toHaveBeenCalledWith(accountId, 'ADMIN_COORDINATOR'));
+    expect(
+      screen
+        .getAllByText('Điều phối viên')
+        .some((node) => node.tagName === 'SPAN' && node.classList.contains('bg-indigo-100')),
+    ).toBe(true);
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Đã cập nhật vai trò và thu hồi các phiên đăng nhập cũ.',
+    );
+  });
+
+  it('uses the standard session-expiry flow when a role mutation returns 401', async () => {
+    const safeInstructor = {
+      ...account,
+      context: { ...account.context, operationalClassAssignments: 0 },
+    };
+    vi.spyOn(adminApi.accounts, 'get').mockResolvedValue(safeInstructor);
+    vi.spyOn(adminApi.accounts, 'updateRole').mockRejectedValue(
+      new ApiError(401, { message: 'raw mutation detail' }),
+    );
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => true),
+    );
+    const refresh = vi.fn().mockResolvedValue(undefined);
+
+    renderRoutes(`/admin/accounts/${accountId}`, false, refresh);
+    await screen.findByRole('heading', { name: account.fullName });
+    fireEvent.change(screen.getByLabelText('Vai trò'), {
+      target: { value: 'ADMIN_COORDINATOR' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu vai trò' }));
+
+    expect(await screen.findByTestId('location')).toHaveTextContent(
+      `/login?returnUrl=%2Fadmin%2Faccounts%2F${accountId}`,
+    );
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(screen.queryByText(/raw mutation detail/)).not.toBeInTheDocument();
+  });
+
   it('uses the standard 401 redirect flow on account reads', async () => {
     vi.spyOn(adminApi.accounts, 'get').mockRejectedValue(new ApiError(401, null));
     const refresh = vi.fn().mockResolvedValue(undefined);

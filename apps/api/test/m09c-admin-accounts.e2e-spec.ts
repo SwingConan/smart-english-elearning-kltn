@@ -10,6 +10,7 @@ import {
   UserStatus,
 } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import { UsersService } from '../src/modules/users/users.service';
 import { loginAgent } from './assessment-e2e-helpers';
 
 describe('M09-C admin account operations (e2e)', () => {
@@ -274,6 +275,30 @@ describe('M09-C admin account operations (e2e)', () => {
     expect(options.body.data).toEqual([]);
   });
 
+  it('protects the last active administrator from a role change', async () => {
+    await withOnlyActiveAdmin('role', async (targetId) => {
+      await admin
+        .patch(`/api/admin/accounts/${targetId}/role`)
+        .send({ role: UserRole.INSTRUCTOR })
+        .expect(409)
+        .expect((response) => expect(response.body.code).toBe('LAST_ACTIVE_ADMIN_PROTECTED'));
+
+      await expectLastActiveAdminUnchanged(targetId);
+    });
+  });
+
+  it('protects the last active administrator from a status change', async () => {
+    await withOnlyActiveAdmin('status', async (targetId) => {
+      await admin
+        .patch(`/api/admin/accounts/${targetId}/status`)
+        .send({ status: UserStatus.LOCKED })
+        .expect(409)
+        .expect((response) => expect(response.body.code).toBe('LAST_ACTIVE_ADMIN_PROTECTED'));
+
+      await expectLastActiveAdminUnchanged(targetId);
+    });
+  });
+
   it('validates malformed requests and returns 404 for unknown ids', async () => {
     const missing = '00000000-0000-4000-8000-000000000099';
     await admin.get(`/api/admin/accounts/${missing}`).expect(404);
@@ -291,4 +316,70 @@ describe('M09-C admin account operations (e2e)', () => {
       .expect(400);
     await admin.get('/api/admin/accounts?page=0&limit=101').expect(400);
   });
+
+  async function withOnlyActiveAdmin(
+    suffix: string,
+    assertion: (targetId: string) => Promise<void>,
+  ) {
+    const target = await prisma.user.create({
+      data: {
+        email: `m09c-last-admin-${suffix}-${unique}@example.com`,
+        fullName: `M09C Last Admin ${suffix}`,
+        passwordHash: await argon2.hash(password, { type: argon2.argon2id }),
+        role: UserRole.ADMIN_COORDINATOR,
+        status: UserStatus.ACTIVE,
+      },
+    });
+    const administrators = await prisma.user.findMany({
+      where: { role: UserRole.ADMIN_COORDINATOR, id: { not: target.id } },
+      select: { id: true, status: true },
+    });
+    await prisma.user.updateMany({
+      where: { role: UserRole.ADMIN_COORDINATOR, id: { not: target.id } },
+      data: { status: UserStatus.INACTIVE },
+    });
+
+    const usersService = app.get(UsersService);
+    const findById = usersService.findById.bind(usersService);
+    const authIdentity = await findById(adminId);
+    if (!authIdentity) throw new Error('M09-C admin actor fixture is missing');
+    const authSpy = jest.spyOn(usersService, 'findById').mockImplementation(async (id) =>
+      id === adminId
+        ? {
+            ...authIdentity,
+            role: UserRole.ADMIN_COORDINATOR,
+            status: UserStatus.ACTIVE,
+          }
+        : findById(id),
+    );
+
+    try {
+      await expect(
+        prisma.user.count({
+          where: { role: UserRole.ADMIN_COORDINATOR, status: UserStatus.ACTIVE },
+        }),
+      ).resolves.toBe(1);
+      await assertion(target.id);
+    } finally {
+      authSpy.mockRestore();
+      await Promise.all(
+        administrators.map(({ id, status }) =>
+          prisma.user.update({ where: { id }, data: { status } }),
+        ),
+      );
+      await prisma.userSession.deleteMany({
+        where: { sess: { path: ['userId'], equals: target.id } },
+      });
+      await prisma.user.delete({ where: { id: target.id } });
+    }
+  }
+
+  async function expectLastActiveAdminUnchanged(targetId: string) {
+    await expect(prisma.user.findUniqueOrThrow({ where: { id: targetId } })).resolves.toMatchObject(
+      {
+        role: UserRole.ADMIN_COORDINATOR,
+        status: UserStatus.ACTIVE,
+      },
+    );
+  }
 });
