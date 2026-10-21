@@ -64,11 +64,11 @@ const offering: AdminClassOffering = {
 const roster: AdminRoster = {
   classOffering: offering,
   summary: {
-    total: 2,
+    total: 5,
     active: 1,
     pendingPayment: 1,
-    completed: 0,
-    droppedOrCancelled: 0,
+    completed: 1,
+    droppedOrCancelled: 2,
     maxStudents: 20,
   },
   data: [
@@ -84,8 +84,26 @@ const roster: AdminRoster = {
       enrolledAt: '2026-10-20T00:00:00.000Z',
       learner: { id: 'learner-2', fullName: 'Lê Bình', email: 'binh@example.com' },
     },
+    {
+      id: '40000000-0000-4000-8000-000000000003',
+      status: 'COMPLETED',
+      enrolledAt: '2026-10-19T00:00:00.000Z',
+      learner: { id: 'learner-3', fullName: 'Trần Chi', email: 'chi@example.com' },
+    },
+    {
+      id: '40000000-0000-4000-8000-000000000004',
+      status: 'DROPPED',
+      enrolledAt: '2026-10-18T00:00:00.000Z',
+      learner: { id: 'learner-4', fullName: 'Phạm Dũng', email: 'dung@example.com' },
+    },
+    {
+      id: '40000000-0000-4000-8000-000000000005',
+      status: 'CANCELLED',
+      enrolledAt: '2026-10-17T00:00:00.000Z',
+      learner: { id: 'learner-5', fullName: 'Vũ Em', email: 'em@example.com' },
+    },
   ],
-  meta: { total: 2, page: 1, limit: 20, totalPages: 1 },
+  meta: { total: 5, page: 1, limit: 20, totalPages: 1 },
 };
 
 afterEach(() => {
@@ -106,6 +124,23 @@ describe('AdminClassOfferingOperationsPage', () => {
     expect(document.querySelector('.md\\:hidden')).toBeInTheDocument();
     expect(screen.queryByText('DRAFT')).not.toBeInTheDocument();
     expect(screen.queryByText('PENDING_PAYMENT')).not.toBeInTheDocument();
+    expect(screen.getByText('Rời lớp / Đã hủy')).toBeInTheDocument();
+    expect(screen.queryByText('Đã thôi học')).not.toBeInTheDocument();
+    const badgeExpectations = {
+      ACTIVE: ['Đang học', 'bg-emerald-50'],
+      PENDING_PAYMENT: ['Chờ thanh toán', 'bg-amber-50'],
+      COMPLETED: ['Hoàn thành', 'bg-blue-50'],
+      DROPPED: ['Đã rời lớp', 'bg-slate-100'],
+      CANCELLED: ['Đã hủy', 'bg-rose-50'],
+    } as const;
+    for (const [status, [label, semanticClass]] of Object.entries(badgeExpectations)) {
+      const badges = screen.getAllByTestId(`enrollment-status-${status}`);
+      expect(badges).toHaveLength(2);
+      for (const badge of badges) {
+        expect(badge).toHaveTextContent(label);
+        expect(badge).toHaveClass(semanticClass, 'rounded-full', 'font-semibold');
+      }
+    }
     expect(screen.queryByText(/Xác nhận thanh toán/i)).not.toBeInTheDocument();
   });
 
@@ -212,6 +247,9 @@ describe('AdminClassOfferingOperationsPage', () => {
     });
     renderOperations();
     await screen.findAllByText('Nguyễn Minh An');
+    expect(screen.getAllByRole('button', { name: 'Cho thôi học' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Hủy ghi danh' })).toHaveLength(4);
+    expect(screen.getAllByText('Không có thao tác')).toHaveLength(6);
     fireEvent.change(screen.getByLabelText('Tìm học viên'), { target: { value: 'Minh An' } });
     fireEvent.change(screen.getByLabelText('Trạng thái ghi danh'), { target: { value: 'ACTIVE' } });
     fireEvent.click(screen.getAllByRole('button', { name: /^Tìm$/ }).at(-1)!);

@@ -1,20 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { instructorApi } from '@/features/instructor/api';
-import type { EnrollmentStatus, InstructorRoster } from '@/features/instructor/types';
-
-const statusPresentation: Record<EnrollmentStatus, { label: string; className: string }> = {
-  ACTIVE: { label: 'Đang học', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
-  PENDING_PAYMENT: { label: 'Chờ thanh toán', className: 'bg-amber-50 text-amber-700 ring-amber-200' },
-  COMPLETED: { label: 'Hoàn thành', className: 'bg-blue-50 text-blue-700 ring-blue-200' },
-  DROPPED: { label: 'Đã rời lớp', className: 'bg-slate-100 text-slate-700 ring-slate-200' },
-  CANCELLED: { label: 'Đã hủy', className: 'bg-rose-50 text-rose-700 ring-rose-200' },
-};
-
-function RosterStatusBadge({ status }: { status: EnrollmentStatus }) {
-  const presentation = statusPresentation[status];
-  return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${presentation.className}`}>{presentation.label}</span>;
-}
+import { EnrollmentStatusBadge as RosterStatusBadge } from '@/features/enrollments/EnrollmentStatusBadge';
+import type { InstructorRoster } from '@/features/instructor/types';
 
 export function InstructorRosterPage() {
   const { classOfferingId = '' } = useParams();

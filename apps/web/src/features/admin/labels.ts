@@ -1,7 +1,6 @@
 import type {
   AdminClassOffering,
   CourseSkillScope,
-  EnrollmentStatus,
   OperationalReadinessReason,
 } from './types';
 
@@ -32,16 +31,6 @@ export function modalityLabel(modality: AdminClassOffering['modality']): string 
     OFFLINE: 'Trực tiếp',
     HYBRID: 'Kết hợp',
   }[modality];
-}
-
-export function enrollmentStatusLabel(status: EnrollmentStatus): string {
-  return {
-    ACTIVE: 'Đang học',
-    PENDING_PAYMENT: 'Chờ thanh toán',
-    COMPLETED: 'Đã hoàn thành',
-    DROPPED: 'Đã thôi học',
-    CANCELLED: 'Đã hủy',
-  }[status];
 }
 
 export function readinessReasonLabel(reason: OperationalReadinessReason): string {

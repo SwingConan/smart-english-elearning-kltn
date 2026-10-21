@@ -3,12 +3,7 @@ import { ArrowLeft, Check, CircleAlert, Search, Users } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { adminApi } from '@/features/admin/api';
 import { adminErrorMessage } from '@/features/admin/errors';
-import {
-  enrollmentStatusLabel,
-  modalityLabel,
-  readinessReasonLabel,
-  statusLabel,
-} from '@/features/admin/labels';
+import { modalityLabel, readinessReasonLabel, statusLabel } from '@/features/admin/labels';
 import type {
   AdminClassOffering,
   AdminRoster,
@@ -21,6 +16,8 @@ import type {
 } from '@/features/admin/types';
 import { useAdminSessionExpiry } from '@/features/admin/use-admin-session-expiry';
 import { WEEKDAY_OPTIONS, weekdayLabel } from '@/features/classes/schedule';
+import { EnrollmentStatusBadge } from '@/features/enrollments/EnrollmentStatusBadge';
+import { enrollmentStatusLabel } from '@/features/enrollments/display';
 
 const controlClass =
   'mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200';
@@ -687,7 +684,7 @@ function RosterCard({
           <SummaryTile label="Đang học" value={data.summary.active} />
           <SummaryTile label="Chờ thanh toán" value={data.summary.pendingPayment} />
           <SummaryTile label="Hoàn thành" value={data.summary.completed} />
-          <SummaryTile label="Đã rời lớp" value={data.summary.droppedOrCancelled} />
+          <SummaryTile label="Rời lớp / Đã hủy" value={data.summary.droppedOrCancelled} />
         </dl>
       ) : null}
       <form
@@ -766,7 +763,7 @@ function RosterCard({
                       <p className="font-semibold">{row.learner.fullName}</p>
                       <p className="text-xs text-slate-500">{row.learner.email}</p>
                     </td>
-                    <td className="px-3 py-3">{enrollmentStatusLabel(row.status)}</td>
+                    <td className="px-3 py-3"><EnrollmentStatusBadge status={row.status} /></td>
                     <td className="px-3 py-3">
                       {new Date(row.enrolledAt).toLocaleDateString('vi-VN')}
                     </td>
@@ -781,10 +778,11 @@ function RosterCard({
               <article className="rounded-xl border p-4" key={row.id}>
                 <p className="font-semibold">{row.learner.fullName}</p>
                 <p className="text-sm text-slate-500">{row.learner.email}</p>
-                <p className="mt-2 text-sm">
-                  {enrollmentStatusLabel(row.status)} ·{' '}
-                  {new Date(row.enrolledAt).toLocaleDateString('vi-VN')}
-                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                  <EnrollmentStatusBadge status={row.status} />
+                  <span aria-hidden="true">·</span>
+                  <span>{new Date(row.enrolledAt).toLocaleDateString('vi-VN')}</span>
+                </div>
                 <div className="mt-3 text-sm">{actions(row)}</div>
               </article>
             ))}
