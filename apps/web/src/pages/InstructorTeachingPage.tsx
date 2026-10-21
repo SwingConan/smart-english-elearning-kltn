@@ -3,8 +3,7 @@ import { Link } from 'react-router';
 import { instructorApi } from '@/features/instructor/api';
 import { classStatus } from '@/features/instructor/class-status';
 import type { InstructorClass } from '@/features/instructor/types';
-
-const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+import { WEEKDAY_OPTIONS, weekdayLabel } from '@/features/classes/schedule';
 
 export function InstructorTeachingPage() {
   const [classes, setClasses] = useState<InstructorClass[]>([]);
@@ -24,7 +23,14 @@ export function InstructorTeachingPage() {
         } catch (cause) {
           if (cause instanceof Error && cause.name === 'AbortError') return;
           const entries = await instructorApi.teaching.list(controller.signal);
-          loaded = entries.flatMap(({ course, classOfferings }) => classOfferings.map((offering) => ({ ...offering, code: offering.code ?? '—', activeLearnerCount: offering.activeLearnerCount ?? 0, course: { id: course.id, title: course.title, level: course.level } })));
+          loaded = entries.flatMap(({ course, classOfferings }) =>
+            classOfferings.map((offering) => ({
+              ...offering,
+              code: offering.code ?? '—',
+              activeLearnerCount: offering.activeLearnerCount ?? 0,
+              course: { id: course.id, title: course.title, level: course.level },
+            })),
+          );
         }
         setClasses(loaded);
         setError(false);
@@ -60,7 +66,8 @@ export function InstructorTeachingPage() {
         Đang tải danh sách...
       </div>
     );
-  if (error) return <div className="state-error text-red-600">Không thể tải danh sách lớp giảng dạy.</div>;
+  if (error)
+    return <div className="state-error text-red-600">Không thể tải danh sách lớp giảng dạy.</div>;
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header>
@@ -113,8 +120,8 @@ export function InstructorTeachingPage() {
           value={day}
         >
           <option value="ALL">Tất cả ngày học</option>
-          {dayLabels.map((label, index) => (
-            <option key={label} value={index}>
+          {WEEKDAY_OPTIONS.map(({ label, value }) => (
+            <option key={value} value={value}>
               {label}
             </option>
           ))}
@@ -234,7 +241,7 @@ function Schedule({ item }: { item: InstructorClass }) {
   const slots = [
     ...new Map(
       (item.scheduleSlots ?? []).map((slot) => [
-        `${slot.dayOfWeek}|${slot.startTime}|${slot.endTime}|${slot.locationText ?? ''}`,
+        `${slot.dayOfWeek}|${slot.startTime}|${slot.endTime}|${slot.locationText ?? ''}|${slot.meetingUrl ?? ''}`,
         slot,
       ]),
     ).values(),
@@ -244,11 +251,23 @@ function Schedule({ item }: { item: InstructorClass }) {
     <span className="flex flex-wrap gap-1.5">
       {slots.map((slot) => (
         <span
-          className="whitespace-nowrap rounded-full bg-slate-100 px-2 py-1 text-xs font-medium"
+          className="inline-flex flex-wrap items-center gap-1 whitespace-nowrap rounded-full bg-slate-100 px-2 py-1 text-xs font-medium"
           key={`${slot.dayOfWeek}-${slot.startTime}-${slot.endTime}-${slot.locationText}`}
         >
-          {dayLabels[slot.dayOfWeek]} · {slot.startTime}–{slot.endTime}
-          {slot.locationText ? ` · ${slot.locationText}` : ''}
+          <span>
+            {weekdayLabel(slot.dayOfWeek)} · {slot.startTime}–{slot.endTime}
+            {slot.locationText ? ` · ${slot.locationText}` : ''}
+          </span>
+          {slot.meetingUrl ? (
+            <a
+              className="font-semibold text-indigo-700 underline"
+              href={slot.meetingUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Vào lớp trực tuyến
+            </a>
+          ) : null}
         </span>
       ))}
     </span>

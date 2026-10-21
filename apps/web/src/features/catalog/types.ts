@@ -9,7 +9,6 @@ export interface ScheduleSlot {
   startTime: string;
   endTime: string;
   locationText: string | null;
-  meetingUrl: string | null;
 }
 
 export interface PublicInstructor {

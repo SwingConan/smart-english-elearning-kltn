@@ -5,13 +5,13 @@ import {
   EnrollmentStatus,
   Prisma,
   PricingType,
-  UserRole,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateClassOfferingDto } from './dto/create-class-offering.dto';
 import { AdminClassOfferingQueryDto } from './dto/admin-class-offering-query.dto';
 import { UpdateClassOfferingDto } from './dto/update-class-offering.dto';
 import { computeRegistrationState } from './registration-state';
+import { computeOperationalReadiness, projectScheduleSlot } from './class-operations';
 
 interface OfferingRules {
   pricingType: PricingType;
@@ -25,7 +25,9 @@ interface OfferingRules {
 
 const adminOfferingInclude = {
   course: { select: { id: true, title: true, slug: true, isPublished: true } },
-  instructor: { select: { id: true, fullName: true } },
+  instructor: {
+    select: { id: true, fullName: true, email: true, role: true, status: true },
+  },
   scheduleSlots: {
     orderBy: [{ dayOfWeek: 'asc' as const }, { startTime: 'asc' as const }],
     select: {
@@ -87,7 +89,6 @@ const publicOfferingDetailSelect = {
       startTime: true,
       endTime: true,
       locationText: true,
-      meetingUrl: true,
     },
   },
   _count: {
@@ -96,6 +97,26 @@ const publicOfferingDetailSelect = {
     },
   },
 } satisfies Prisma.ClassOfferingSelect;
+
+const allowedStatusTransitions: Record<ClassOfferingStatus, readonly ClassOfferingStatus[]> = {
+  [ClassOfferingStatus.DRAFT]: [
+    ClassOfferingStatus.DRAFT,
+    ClassOfferingStatus.OPEN,
+    ClassOfferingStatus.CANCELLED,
+  ],
+  [ClassOfferingStatus.OPEN]: [
+    ClassOfferingStatus.OPEN,
+    ClassOfferingStatus.IN_PROGRESS,
+    ClassOfferingStatus.CANCELLED,
+  ],
+  [ClassOfferingStatus.IN_PROGRESS]: [
+    ClassOfferingStatus.IN_PROGRESS,
+    ClassOfferingStatus.COMPLETED,
+    ClassOfferingStatus.CANCELLED,
+  ],
+  [ClassOfferingStatus.COMPLETED]: [ClassOfferingStatus.COMPLETED],
+  [ClassOfferingStatus.CANCELLED]: [ClassOfferingStatus.CANCELLED],
+};
 
 @Injectable()
 export class ClassOfferingsService {
@@ -173,6 +194,13 @@ export class ClassOfferingsService {
 
     return {
       ...offering,
+      scheduleSlots: offering.scheduleSlots.map((slot) => ({
+        id: slot.id,
+        dayOfWeek: slot.dayOfWeek,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        locationText: slot.locationText,
+      })),
       course: {
         ...offering.course,
         modules: offering.course.modules.map((module) => ({
@@ -192,7 +220,6 @@ export class ClassOfferingsService {
 
   async create(input: CreateClassOfferingDto) {
     await this.validateCourse(input.courseId);
-    await this.validateInstructor(input.instructorId);
 
     const pricingType = input.pricingType ?? PricingType.FREE;
     this.validateRules({ ...input, pricingType });
@@ -200,10 +227,9 @@ export class ClassOfferingsService {
     const created = await this.prisma.classOffering.create({
       data: {
         courseId: input.courseId,
-        instructorId: input.instructorId,
         code: input.code?.trim() || this.createCompatibilityCode(),
         name: input.name.trim(),
-        status: input.status ?? ClassOfferingStatus.DRAFT,
+        status: ClassOfferingStatus.DRAFT,
         modality: input.modality ?? ClassModality.ONLINE,
         pricingType,
         tuitionFeeVnd: input.tuitionFeeVnd,
@@ -223,6 +249,7 @@ export class ClassOfferingsService {
   async update(id: string, input: UpdateClassOfferingDto) {
     const current = await this.prisma.classOffering.findUnique({
       where: { id },
+      include: adminOfferingInclude,
     });
     if (!current) {
       throw new NotFoundException('Class offering not found');
@@ -231,8 +258,30 @@ export class ClassOfferingsService {
     if (input.courseId !== undefined) {
       await this.validateCourse(input.courseId);
     }
-    if (input.instructorId !== undefined) {
-      await this.validateInstructor(input.instructorId);
+    if (input.status !== undefined) this.validateStatusTransition(current.status, input.status);
+
+    if (input.status === ClassOfferingStatus.OPEN && current.status !== ClassOfferingStatus.OPEN) {
+      const course =
+        input.courseId && input.courseId !== current.courseId
+          ? await this.prisma.course.findUnique({
+              where: { id: input.courseId },
+              select: { isPublished: true },
+            })
+          : current.course;
+      const readiness = computeOperationalReadiness({
+        courseIsPublished: Boolean(course?.isPublished),
+        instructor: current.instructor,
+        classStart: input.classStart !== undefined ? input.classStart : current.classStart,
+        classEnd: input.classEnd !== undefined ? input.classEnd : current.classEnd,
+        scheduleSlots: current.scheduleSlots,
+      });
+      if (!readiness.isReady) {
+        throw new BadRequestException({
+          code: 'CLASS_NOT_READY',
+          message: 'Class offering is not ready to open',
+          missing: readiness.missing,
+        });
+      }
     }
 
     this.validateRules({
@@ -252,7 +301,6 @@ export class ClassOfferingsService {
       where: { id },
       data: {
         ...(input.courseId !== undefined ? { courseId: input.courseId } : {}),
-        ...(input.instructorId !== undefined ? { instructorId: input.instructorId } : {}),
         ...(input.name !== undefined ? { name: input.name.trim() } : {}),
         ...(input.code !== undefined ? { code: input.code.trim() } : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
@@ -293,27 +341,33 @@ export class ClassOfferingsService {
       registeredCount: _count.enrollments,
       now: new Date(),
     });
+    const operationalReadiness = computeOperationalReadiness({
+      courseIsPublished: offering.course.isPublished,
+      instructor: offering.instructor,
+      classStart: offering.classStart,
+      classEnd: offering.classEnd,
+      scheduleSlots: offering.scheduleSlots,
+    });
     return {
       ...publicFields,
+      scheduleSlots: offering.scheduleSlots.map(projectScheduleSlot),
       registeredCount: availability.registeredCount,
       remainingSeats: availability.remainingSeats,
       isFull: availability.isFull,
       registrationState: availability.registrationState,
+      operationalReadiness,
     };
   }
 
-  private async validateInstructor(instructorId: string | null | undefined): Promise<void> {
-    if (!instructorId) {
-      return;
-    }
-
-    const instructor = await this.prisma.user.findUnique({
-      where: { id: instructorId },
-      select: { role: true },
+  private validateStatusTransition(
+    current: ClassOfferingStatus,
+    target: ClassOfferingStatus,
+  ): void {
+    if (allowedStatusTransitions[current].includes(target)) return;
+    throw new BadRequestException({
+      code: 'CLASS_STATUS_TRANSITION_NOT_ALLOWED',
+      message: `Class status cannot transition from ${current} to ${target}`,
     });
-    if (!instructor || instructor.role !== UserRole.INSTRUCTOR) {
-      throw new BadRequestException('Assigned user must be an instructor');
-    }
   }
 
   private validateRules(input: OfferingRules): void {

@@ -10,15 +10,11 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { ClassOfferingStatus, ClassModality, PricingType } from '../../../generated/prisma/client';
+import { ClassModality, PricingType } from '../../../generated/prisma/client';
 
 export class CreateClassOfferingDto {
   @IsUUID()
   courseId: string;
-
-  @IsOptional()
-  @IsUUID()
-  instructorId?: string | null;
 
   @IsOptional()
   @IsString()
@@ -31,10 +27,6 @@ export class CreateClassOfferingDto {
   @IsNotEmpty()
   @MaxLength(300)
   name: string;
-
-  @IsOptional()
-  @IsEnum(ClassOfferingStatus)
-  status?: ClassOfferingStatus;
 
   @IsOptional()
   @IsEnum(ClassModality)

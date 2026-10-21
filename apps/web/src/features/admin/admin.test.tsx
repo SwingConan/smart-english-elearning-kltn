@@ -48,12 +48,22 @@ const offering: AdminClassOffering = {
   createdAt: '2026-09-19T00:00:00.000Z',
   updatedAt: '2026-09-19T00:00:00.000Z',
   course: { id: course.id, title: course.title, slug: course.slug },
-  instructor: { id: '20000000-0000-4000-8000-000000000002', fullName: 'Instructor One' },
+  instructor: {
+    id: '20000000-0000-4000-8000-000000000002',
+    fullName: 'Instructor One',
+    email: 'instructor@example.com',
+    role: 'INSTRUCTOR',
+    status: 'ACTIVE',
+  },
   scheduleSlots: [],
   registeredCount: 5,
   remainingSeats: 15,
   isFull: false,
   registrationState: 'AVAILABLE',
+  operationalReadiness: {
+    isReady: false,
+    missing: ['SCHEDULE_MISSING', 'CLASS_DATES_MISSING'],
+  },
 };
 
 afterEach(() => {
@@ -379,6 +389,28 @@ describe('class-offering administration', () => {
     );
   });
 
+  it('shows readiness only for drafts and keeps desktop actions available', async () => {
+    const openOffering: AdminClassOffering = {
+      ...offering,
+      id: '20000000-0000-4000-8000-000000000099',
+      code: 'EF-OPEN-01',
+      name: 'Open class',
+      status: 'OPEN',
+      operationalReadiness: { isReady: true, missing: [] },
+    };
+    vi.spyOn(adminApi.offerings, 'list').mockResolvedValue(page([offering, openOffering]));
+    mockCourses([course]);
+    renderAdminApp('/admin/class-offerings');
+
+    const openRow = await screen.findByRole('row', { name: /Open class/ });
+    expect(within(openRow).getAllByText('Đang mở')).toHaveLength(1);
+    expect(within(openRow).queryByText(/Sẵn sàng vận hành|Cần hoàn thiện/)).not.toBeInTheDocument();
+    const draftRow = screen.getByRole('row', { name: /Evening class/ });
+    expect(within(draftRow).getByText('Cần hoàn thiện 2 mục')).toBeInTheDocument();
+    expect(within(draftRow).getByRole('link', { name: 'Vận hành' })).toBeInTheDocument();
+    expect(within(draftRow).getByRole('link', { name: 'Chỉnh sửa' })).toBeInTheDocument();
+  });
+
   it('creates a full offering payload without instructor assignment', async () => {
     mockCourses([course]);
     const create = vi.spyOn(adminApi.offerings, 'create').mockResolvedValue(offering);
@@ -401,7 +433,8 @@ describe('class-offering administration', () => {
     fireEvent.change(screen.getByLabelText('Khóa học'), { target: { value: course.id } });
     fireEvent.change(screen.getByLabelText('Tên lớp'), { target: { value: offering.name } });
     fireEvent.change(screen.getByLabelText('Mã lớp'), { target: { value: offering.code } });
-    fireEvent.change(screen.getByLabelText('Trạng thái'), { target: { value: 'OPEN' } });
+    expect(screen.queryByRole('combobox', { name: 'Trạng thái' })).not.toBeInTheDocument();
+    expect(screen.getByText('Bản nháp (trạng thái khởi tạo)')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Hình thức'), { target: { value: 'HYBRID' } });
     fireEvent.change(screen.getByLabelText('Loại học phí'), { target: { value: 'PAID' } });
     fireEvent.change(screen.getByLabelText('Học phí (VND)'), { target: { value: '1500000' } });
@@ -418,7 +451,6 @@ describe('class-offering administration', () => {
       expect.objectContaining({
         courseId: course.id,
         code: offering.code,
-        status: 'OPEN',
         modality: 'HYBRID',
         totalSessions: 12,
         totalPeriods: 24,
@@ -432,6 +464,7 @@ describe('class-offering administration', () => {
       }),
     );
     expect(create.mock.calls[0][0]).not.toHaveProperty('instructorId');
+    expect(create.mock.calls[0][0]).not.toHaveProperty('status');
   });
 
   it('supports class empty, failure, retry, and pagination states', async () => {

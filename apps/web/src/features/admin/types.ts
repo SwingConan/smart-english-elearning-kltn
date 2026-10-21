@@ -66,6 +66,14 @@ export type OfferingStatus = (typeof OFFERING_STATUSES)[number];
 export type ClassModality = (typeof CLASS_MODALITIES)[number];
 export type PricingType = 'FREE' | 'PAID';
 export type RegistrationState = 'AVAILABLE' | 'FULL' | 'UPCOMING' | 'CLOSED';
+export type OperationalReadinessReason =
+  | 'COURSE_UNPUBLISHED'
+  | 'INSTRUCTOR_MISSING'
+  | 'INSTRUCTOR_INACTIVE'
+  | 'SCHEDULE_MISSING'
+  | 'SCHEDULE_DESTINATION_MISSING'
+  | 'CLASS_DATES_MISSING';
+export type EnrollmentStatus = 'ACTIVE' | 'PENDING_PAYMENT' | 'COMPLETED' | 'DROPPED' | 'CANCELLED';
 
 export interface AdminClassOffering {
   id: string;
@@ -87,7 +95,13 @@ export interface AdminClassOffering {
   createdAt: string;
   updatedAt: string;
   course: { id: string; title: string; slug: string; isPublished?: boolean };
-  instructor: { id: string; fullName: string } | null;
+  instructor: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: 'INSTRUCTOR';
+    status: string;
+  } | null;
   scheduleSlots: Array<{
     id: string;
     dayOfWeek: number;
@@ -100,13 +114,59 @@ export interface AdminClassOffering {
   remainingSeats: number | null;
   isFull: boolean;
   registrationState: RegistrationState;
+  operationalReadiness: {
+    isReady: boolean;
+    missing: OperationalReadinessReason[];
+  };
+}
+
+export interface InstructorOption {
+  id: string;
+  fullName: string;
+  email: string;
+}
+
+export interface ScheduleSlotInput {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  locationText?: string | null;
+  meetingUrl?: string | null;
+}
+
+export interface AdminRosterRow {
+  id: string;
+  status: EnrollmentStatus;
+  enrolledAt: string;
+  learner: { id: string; fullName: string; email: string };
+}
+
+export interface AdminRoster {
+  classOffering: AdminClassOffering;
+  summary: {
+    total: number;
+    active: number;
+    pendingPayment: number;
+    completed: number;
+    droppedOrCancelled: number;
+    maxStudents: number | null;
+  };
+  data: AdminRosterRow[];
+  meta: PageMeta;
+}
+
+export interface RosterQuery {
+  search?: string;
+  status?: EnrollmentStatus;
+  page?: number;
+  limit?: number;
 }
 
 export interface ClassOfferingInput {
   courseId: string;
   code?: string;
   name: string;
-  status: OfferingStatus;
+  status?: OfferingStatus;
   modality: ClassModality;
   pricingType: PricingType;
   tuitionFeeVnd?: number | null;
