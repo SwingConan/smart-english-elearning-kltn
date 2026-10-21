@@ -268,15 +268,15 @@ function OfferingResults({ offerings }: { offerings: AdminClassOffering[] }) {
                 </td>
                 <td className="px-4 py-4">{item.instructor?.fullName ?? 'Chưa phân công'}</td>
                 <td className="px-4 py-4 text-right">
-                  <div className="flex justify-end gap-3">
+                  <div className="flex shrink-0 justify-end gap-3 whitespace-nowrap">
                     <Link
-                      className="inline-flex items-center gap-1 font-semibold text-indigo-700"
+                      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-semibold text-indigo-700"
                       to={`/admin/class-offerings/${item.id}/operations`}
                     >
                       <Wrench size={15} /> Vận hành
                     </Link>
                     <Link
-                      className="font-semibold text-slate-600"
+                      className="shrink-0 whitespace-nowrap font-semibold text-slate-600"
                       to={`/admin/class-offerings/${item.id}/edit`}
                     >
                       Chỉnh sửa
@@ -340,9 +340,7 @@ function OfferingResults({ offerings }: { offerings: AdminClassOffering[] }) {
 }
 
 function ReadinessSummary({ offering }: { offering: AdminClassOffering }) {
-  if (offering.status !== 'DRAFT') {
-    return <p className="mt-1 text-xs text-slate-500">{statusLabel(offering.status)}</p>;
-  }
+  if (offering.status !== 'DRAFT') return null;
   return (
     <p
       className={`mt-1 text-xs font-semibold ${

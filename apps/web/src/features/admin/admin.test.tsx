@@ -389,6 +389,28 @@ describe('class-offering administration', () => {
     );
   });
 
+  it('shows readiness only for drafts and keeps desktop actions available', async () => {
+    const openOffering: AdminClassOffering = {
+      ...offering,
+      id: '20000000-0000-4000-8000-000000000099',
+      code: 'EF-OPEN-01',
+      name: 'Open class',
+      status: 'OPEN',
+      operationalReadiness: { isReady: true, missing: [] },
+    };
+    vi.spyOn(adminApi.offerings, 'list').mockResolvedValue(page([offering, openOffering]));
+    mockCourses([course]);
+    renderAdminApp('/admin/class-offerings');
+
+    const openRow = await screen.findByRole('row', { name: /Open class/ });
+    expect(within(openRow).getAllByText('Đang mở')).toHaveLength(1);
+    expect(within(openRow).queryByText(/Sẵn sàng vận hành|Cần hoàn thiện/)).not.toBeInTheDocument();
+    const draftRow = screen.getByRole('row', { name: /Evening class/ });
+    expect(within(draftRow).getByText('Cần hoàn thiện 2 mục')).toBeInTheDocument();
+    expect(within(draftRow).getByRole('link', { name: 'Vận hành' })).toBeInTheDocument();
+    expect(within(draftRow).getByRole('link', { name: 'Chỉnh sửa' })).toBeInTheDocument();
+  });
+
   it('creates a full offering payload without instructor assignment', async () => {
     mockCourses([course]);
     const create = vi.spyOn(adminApi.offerings, 'create').mockResolvedValue(offering);
