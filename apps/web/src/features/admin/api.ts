@@ -14,6 +14,12 @@ import type {
   EnrollmentStatus,
   StudyRecommendationPolicy,
   StudyRecommendationPolicyInput,
+  AccountQuery,
+  AdminAccount,
+  AdminAccountDirectory,
+  AccountRole,
+  AccountStatus,
+  CreateStaffAccountInput,
 } from './types';
 
 function queryString<T extends object>(input: T): string {
@@ -26,6 +32,27 @@ function queryString<T extends object>(input: T): string {
 }
 
 export const adminApi = {
+  accounts: {
+    list: (query: AccountQuery = {}, signal?: AbortSignal) =>
+      apiFetch<AdminAccountDirectory>(`/admin/accounts${queryString(query)}`, { signal }),
+    get: (id: string, signal?: AbortSignal) =>
+      apiFetch<AdminAccount>(`/admin/accounts/${encodeURIComponent(id)}`, { signal }),
+    create: (input: CreateStaffAccountInput) =>
+      apiFetch<AdminAccount>('/admin/accounts', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    updateRole: (id: string, role: Extract<AccountRole, 'INSTRUCTOR' | 'ADMIN_COORDINATOR'>) =>
+      apiFetch<AdminAccount>(`/admin/accounts/${encodeURIComponent(id)}/role`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role }),
+      }),
+    updateStatus: (id: string, status: AccountStatus) =>
+      apiFetch<AdminAccount>(`/admin/accounts/${encodeURIComponent(id)}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+  },
   courses: {
     list: (query: CourseQuery = {}, signal?: AbortSignal) =>
       apiFetch<Paginated<AdminCourse>>(`/admin/courses${queryString(query)}`, { signal }),
