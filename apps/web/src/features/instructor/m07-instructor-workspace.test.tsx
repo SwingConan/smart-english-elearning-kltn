@@ -110,7 +110,7 @@ describe('M07 Instructor class workspace', () => {
         },
         {
           id: 'enrollment-b',
-          status: 'ACTIVE',
+          status: 'DROPPED',
           enrolledAt: '',
           learner: { id: 'learner-b', fullName: 'Trần Gia Bảo', email: 'gia.bao@test.local' },
           completedLessons: 1,
@@ -119,6 +119,24 @@ describe('M07 Instructor class workspace', () => {
           submittedAssessmentCount: 1,
           pendingGradingCount: 0,
           latestGradedAssessmentAt: null,
+        },
+        {
+          id: 'enrollment-c', status: 'PENDING_PAYMENT', enrolledAt: '',
+          learner: { id: 'learner-c', fullName: 'Lê Thanh Chi', email: 'chi@test.local' },
+          completedLessons: 0, totalLessons: 3, progressPercentage: 0,
+          submittedAssessmentCount: 0, pendingGradingCount: 0, latestGradedAssessmentAt: null,
+        },
+        {
+          id: 'enrollment-d', status: 'COMPLETED', enrolledAt: '',
+          learner: { id: 'learner-d', fullName: 'Phạm Minh Dũng', email: 'dung@test.local' },
+          completedLessons: 3, totalLessons: 3, progressPercentage: 100,
+          submittedAssessmentCount: 3, pendingGradingCount: 0, latestGradedAssessmentAt: null,
+        },
+        {
+          id: 'enrollment-e', status: 'CANCELLED', enrolledAt: '',
+          learner: { id: 'learner-e', fullName: 'Vũ Hoàng Em', email: 'em@test.local' },
+          completedLessons: 0, totalLessons: 3, progressPercentage: 0,
+          submittedAssessmentCount: 0, pendingGradingCount: 0, latestGradedAssessmentAt: null,
         },
       ],
     });
@@ -133,6 +151,9 @@ describe('M07 Instructor class workspace', () => {
       </MemoryRouter>,
     );
     expect((await screen.findAllByText('Nguyễn Minh Anh')).length).toBeGreaterThan(0);
+    for (const label of ['Đang học', 'Chờ thanh toán', 'Hoàn thành', 'Đã rời lớp', 'Đã hủy'])
+      expect(screen.getAllByText(label)).toHaveLength(2);
+    expect(screen.queryByText('Chưa xác định')).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox', { name: 'Tìm học viên' }), {
       target: { value: 'bảo' },
     });

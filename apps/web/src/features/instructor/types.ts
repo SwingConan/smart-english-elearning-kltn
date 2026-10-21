@@ -77,11 +77,18 @@ export interface OverviewLearner {
   state?: 'SUBMITTED' | 'IN_PROGRESS' | 'NOT_SUBMITTED';
 }
 
+export type EnrollmentStatus =
+  | 'ACTIVE'
+  | 'PENDING_PAYMENT'
+  | 'COMPLETED'
+  | 'DROPPED'
+  | 'CANCELLED';
+
 export interface InstructorRoster {
   classOffering: InstructorClass;
   learners: Array<{
     id: string;
-    status: string;
+    status: EnrollmentStatus;
     enrolledAt: string;
     learner: { id: string; fullName: string; email: string };
     completedLessons: number;
