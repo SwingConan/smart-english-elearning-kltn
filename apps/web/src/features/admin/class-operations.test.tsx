@@ -265,6 +265,70 @@ describe('AdminClassOfferingOperationsPage', () => {
     expect(screen.queryByRole('button', { name: /Hoàn thành/i })).not.toBeInTheDocument();
   });
 
+  it('refreshes roster and parent capacity projection after dropping an active learner', async () => {
+    mockApis();
+    vi.stubGlobal(
+      'confirm',
+      vi.fn(() => true),
+    );
+    const initialOffering = {
+      ...offering,
+      registeredCount: 11,
+      remainingSeats: 14,
+      maxStudents: 25,
+      registrationState: 'CLOSED' as const,
+    };
+    const refreshedOffering = {
+      ...initialOffering,
+      registeredCount: 10,
+      remainingSeats: 15,
+      registrationState: 'AVAILABLE' as const,
+    };
+    const initialRoster = {
+      ...roster,
+      summary: { ...roster.summary, total: 14, active: 11, droppedOrCancelled: 1 },
+    };
+    const refreshedRoster = {
+      ...initialRoster,
+      summary: { ...initialRoster.summary, active: 10, droppedOrCancelled: 2 },
+      data: initialRoster.data.map((row, index) =>
+        index === 0 ? { ...row, status: 'DROPPED' as const } : row,
+      ),
+    };
+    const getOffering = vi.mocked(adminApi.offerings.get);
+    getOffering.mockReset();
+    getOffering.mockResolvedValueOnce(initialOffering).mockResolvedValue(refreshedOffering);
+    const listRoster = vi.mocked(adminApi.offerings.roster);
+    listRoster.mockReset();
+    listRoster
+      .mockResolvedValueOnce(initialRoster)
+      .mockResolvedValueOnce(initialRoster)
+      .mockResolvedValue(refreshedRoster);
+    vi.spyOn(adminApi.offerings, 'updateRosterStatus').mockResolvedValue({
+      enrollment: refreshedRoster.data[0],
+      classOffering: refreshedOffering,
+    });
+
+    renderOperations();
+    expect(await screen.findByText('11/25')).toBeInTheDocument();
+    expect(screen.getByText('Đã đóng đăng ký')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Trạng thái ghi danh'), {
+      target: { value: 'ACTIVE' },
+    });
+    await waitFor(() => expect(listRoster).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Cho thôi học' })[0]);
+
+    expect(await screen.findByText('10/25')).toBeInTheDocument();
+    expect(screen.getByText('Đang nhận đăng ký')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText('Đang học', { selector: 'dt' }).parentElement).toHaveTextContent('10'),
+    );
+    expect(screen.getByText('Rời lớp / Đã hủy').parentElement).toHaveTextContent('2');
+    expect(getOffering).toHaveBeenCalledTimes(2);
+    expect(listRoster).toHaveBeenCalledTimes(3);
+    expect(screen.getByLabelText('Trạng thái ghi danh')).toHaveValue('ACTIVE');
+  });
+
   it('shows controlled errors, empty states, retry, and redirects expired sessions', async () => {
     mockApis();
     vi.spyOn(adminApi.offerings, 'get').mockRejectedValueOnce(new Error('raw stack'));

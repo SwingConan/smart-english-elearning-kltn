@@ -53,22 +53,37 @@ export function AdminClassOfferingOperationsPage() {
   const [actionError, setActionError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const fetchOffering = useCallback(
+    (signal?: AbortSignal) => adminApi.offerings.get(classOfferingId, signal),
+    [classOfferingId],
+  );
+  const handleOfferingError = useCallback(
+    async (error: unknown) => {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (await redirectExpiredSession(error)) return;
+      setState({ status: 'error', message: adminErrorMessage(error) });
+    },
+    [redirectExpiredSession],
+  );
+  const refreshOffering = useCallback(async () => {
+    try {
+      const offering = await fetchOffering();
+      setState({ status: 'ready', offering });
+    } catch (error: unknown) {
+      await handleOfferingError(error);
+    }
+  }, [fetchOffering, handleOfferingError]);
   const reload = useCallback(() => {
     setState({ status: 'loading' });
     setReloadKey((value) => value + 1);
   }, []);
   useEffect(() => {
     const controller = new AbortController();
-    void adminApi.offerings
-      .get(classOfferingId, controller.signal)
+    void fetchOffering(controller.signal)
       .then((offering) => setState({ status: 'ready', offering }))
-      .catch(async (error: unknown) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        if (await redirectExpiredSession(error)) return;
-        setState({ status: 'error', message: adminErrorMessage(error) });
-      });
+      .catch(handleOfferingError);
     return () => controller.abort();
-  }, [classOfferingId, redirectExpiredSession, reloadKey]);
+  }, [fetchOffering, handleOfferingError, reloadKey]);
 
   const mutate = async (work: () => Promise<unknown>, success: string): Promise<boolean> => {
     setBusy(true);
@@ -179,7 +194,11 @@ export function AdminClassOfferingOperationsPage() {
         />
         <ScheduleCard busy={busy} offering={offering} onMutate={mutate} />
       </div>
-      <RosterCard classOfferingId={offering.id} redirectExpiredSession={redirectExpiredSession} />
+      <RosterCard
+        classOfferingId={offering.id}
+        onOfferingMutated={refreshOffering}
+        redirectExpiredSession={redirectExpiredSession}
+      />
     </section>
   );
 }
@@ -590,9 +609,11 @@ function ScheduleCard({
 
 function RosterCard({
   classOfferingId,
+  onOfferingMutated,
   redirectExpiredSession,
 }: {
   classOfferingId: string;
+  onOfferingMutated: () => Promise<void>;
   redirectExpiredSession: (error: unknown) => Promise<boolean>;
 }) {
   const [query, setQuery] = useState<RosterQuery>({ page: 1, limit: 20 });
@@ -637,6 +658,7 @@ function RosterCard({
     try {
       await adminApi.offerings.updateRosterStatus(classOfferingId, row.id, status);
       reloadRoster();
+      await onOfferingMutated();
     } catch (cause) {
       if (!(await redirectExpiredSession(cause))) setError(adminErrorMessage(cause));
     }
