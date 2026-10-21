@@ -15,6 +15,9 @@ import { AdminClassOfferingOperationsPage } from '@/pages/AdminClassOfferingOper
 import { AdminCourseEditorPage } from '@/pages/AdminCourseEditorPage';
 import { AdminCoursesPage } from '@/pages/AdminCoursesPage';
 import { AdminStudyRecommendationPolicyPage } from '@/pages/AdminStudyRecommendationPolicyPage';
+import { AdminAccountsPage } from '@/pages/AdminAccountsPage';
+import { AdminAccountCreatePage } from '@/pages/AdminAccountCreatePage';
+import { AdminAccountDetailPage } from '@/pages/AdminAccountDetailPage';
 import { ClassOfferingDetailPage } from '@/pages/ClassOfferingDetailPage';
 import { ClassOverviewPage } from '@/pages/ClassOverviewPage';
 import { ClassResultsPage } from '@/pages/ClassResultsPage';
@@ -140,6 +143,9 @@ export function App() {
         <Route path="courses/new" element={<AdminCourseEditorPage />} />
         <Route path="courses/:courseId/edit" element={<AdminCourseEditorPage />} />
         <Route path="class-offerings" element={<AdminClassOfferingsPage />} />
+        <Route path="accounts" element={<AdminAccountsPage />} />
+        <Route path="accounts/new" element={<AdminAccountCreatePage />} />
+        <Route path="accounts/:userId" element={<AdminAccountDetailPage />} />
         <Route path="class-offerings/new" element={<AdminClassOfferingEditorPage />} />
         <Route
           path="class-offerings/:classOfferingId/edit"

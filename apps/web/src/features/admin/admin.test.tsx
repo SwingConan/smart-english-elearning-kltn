@@ -90,6 +90,7 @@ describe('admin authorization and shell', () => {
     expect(await screen.findByRole('heading', { name: 'Khóa học TOEIC' })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Khóa học' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: 'Lớp học' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'Tài khoản' }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('link', { name: /báo cáo/i })).not.toBeInTheDocument();
     const openDrawer = screen.getByRole('button', { name: 'Mở điều hướng quản trị' });
     fireEvent.click(openDrawer);

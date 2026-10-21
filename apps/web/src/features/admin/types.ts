@@ -207,3 +207,44 @@ export interface StudyRecommendationPolicyInput {
   minimumTaskQuestions: number;
   maxRecommendations: number;
 }
+
+export const ACCOUNT_ROLES = ['STUDENT', 'INSTRUCTOR', 'ADMIN_COORDINATOR'] as const;
+export const ACCOUNT_STATUSES = ['ACTIVE', 'INACTIVE', 'LOCKED'] as const;
+export type AccountRole = (typeof ACCOUNT_ROLES)[number];
+export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
+
+export interface AccountContext {
+  operationalClassAssignments: number;
+  totalClassAssignments: number;
+  enrollmentCount: number;
+}
+
+export interface AdminAccount {
+  id: string;
+  email: string;
+  fullName: string;
+  role: AccountRole;
+  status: AccountStatus;
+  createdAt: string;
+  updatedAt: string;
+  context: AccountContext;
+}
+
+export interface AdminAccountDirectory extends Paginated<AdminAccount> {
+  summary: { total: number; active: number; inactive: number; locked: number };
+}
+
+export interface AccountQuery {
+  search?: string;
+  role?: AccountRole;
+  status?: AccountStatus;
+  page?: number;
+  limit?: number;
+}
+
+export interface CreateStaffAccountInput {
+  fullName: string;
+  email: string;
+  password: string;
+  role: Extract<AccountRole, 'INSTRUCTOR' | 'ADMIN_COORDINATOR'>;
+}

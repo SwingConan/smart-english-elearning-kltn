@@ -1,11 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, ExternalLink, GraduationCap, Lightbulb, LogOut, Menu, X } from 'lucide-react';
+import {
+  BookOpen,
+  ExternalLink,
+  GraduationCap,
+  Lightbulb,
+  LogOut,
+  Menu,
+  UserCog,
+  X,
+} from 'lucide-react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { useAuth } from '@/features/auth/auth-context';
 
 const links = [
   [BookOpen, '/admin/courses', 'Khóa học'],
   [GraduationCap, '/admin/class-offerings', 'Lớp học'],
+  [UserCog, '/admin/accounts', 'Tài khoản'],
   [Lightbulb, '/admin/study-recommendations', 'Tiêu chí gợi ý tự học'],
 ] as const;
 

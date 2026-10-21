@@ -2,6 +2,22 @@ import { ApiError } from '@/lib/api-client';
 
 export function adminErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
+    const code =
+      typeof error.body === 'object' && error.body !== null && 'code' in error.body
+        ? String((error.body as { code?: unknown }).code ?? '')
+        : '';
+    const businessMessages: Record<string, string> = {
+      ACCOUNT_SELF_ROLE_CHANGE_FORBIDDEN: 'Bạn không thể thay đổi vai trò của chính mình.',
+      ACCOUNT_SELF_STATUS_CHANGE_FORBIDDEN: 'Bạn không thể thay đổi trạng thái của chính mình.',
+      LAST_ACTIVE_ADMIN_PROTECTED: 'Không thể thay đổi điều phối viên đang hoạt động cuối cùng.',
+      STUDENT_ROLE_IMMUTABLE: 'Vai trò học viên không thể chuyển đổi tại đây.',
+      INSTRUCTOR_OPERATIONAL_ASSIGNMENTS_BLOCK_ROLE:
+        'Hãy điều phối lại các lớp đang vận hành trước khi đổi vai trò giảng viên.',
+      INSTRUCTOR_OPERATIONAL_ASSIGNMENTS_BLOCK_INACTIVE:
+        'Hãy điều phối lại các lớp đang vận hành trước khi ngưng hoạt động giảng viên.',
+      ACCOUNT_EMAIL_EXISTS: 'Email này đã được sử dụng cho một tài khoản khác.',
+    };
+    if (code && businessMessages[code]) return businessMessages[code];
     switch (error.status) {
       case 400:
         return 'Dữ liệu chưa hợp lệ. Kiểm tra lại thông tin.';
