@@ -93,9 +93,9 @@ describe('AuthNavigation', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('link', { name: 'Tiêu chí gợi ý tự học' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'Tiêu chí & quy tắc' })).toHaveAttribute(
       'href',
-      '/admin/study-recommendations',
+      '/admin/criteria/evaluation',
     );
     expect(screen.getByRole('link', { name: 'Quản lý khóa học' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Quản lý lớp học' })).toBeInTheDocument();

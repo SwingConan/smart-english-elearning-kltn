@@ -7,6 +7,17 @@ export function adminErrorMessage(error: unknown): string {
         ? String((error.body as { code?: unknown }).code ?? '')
         : '';
     const businessMessages: Record<string, string> = {
+      PLACEMENT_EVALUATION_CONFIG_INVALID:
+        'Cấu hình đánh giá hiện tại không hợp lệ. Vui lòng kiểm tra lại các khoảng điểm.',
+      PLACEMENT_BOUNDARIES_INVALID: 'Ngưỡng Nền tảng phải nhỏ hơn ngưỡng bắt đầu Nâng cao.',
+      ACTIVE_PROFILE_REQUIRES_CRITERION:
+        'Cần ít nhất một điều kiện kỹ năng khi bật gợi ý cho khóa học.',
+      COURSE_CRITERION_SKILL_DUPLICATED: 'Mỗi kỹ năng chỉ được cấu hình một lần.',
+      COURSE_CRITERION_BOUND_REQUIRED: 'Mỗi điều kiện kỹ năng phải có ít nhất một ngưỡng.',
+      COURSE_CRITERION_RANGE_INVALID: 'Khoảng điểm kỹ năng không hợp lệ.',
+      COURSE_CRITERION_SKILL_INVALID: 'Chỉ hỗ trợ điều kiện Listening và Reading.',
+      COURSE_PROFILE_INVALID: 'Cấu hình hồ sơ gợi ý khóa học không hợp lệ.',
+      COURSE_NOT_FOUND: 'Không tìm thấy khóa học.',
       ACCOUNT_SELF_ROLE_CHANGE_FORBIDDEN: 'Bạn không thể thay đổi vai trò của chính mình.',
       ACCOUNT_SELF_STATUS_CHANGE_FORBIDDEN: 'Bạn không thể thay đổi trạng thái của chính mình.',
       LAST_ACTIVE_ADMIN_PROTECTED: 'Không thể thay đổi điều phối viên đang hoạt động cuối cùng.',
