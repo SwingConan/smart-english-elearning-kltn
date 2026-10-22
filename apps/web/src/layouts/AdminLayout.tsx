@@ -16,7 +16,7 @@ const links = [
   [BookOpen, '/admin/courses', 'Khóa học'],
   [GraduationCap, '/admin/class-offerings', 'Lớp học'],
   [UserCog, '/admin/accounts', 'Tài khoản'],
-  [Lightbulb, '/admin/criteria/evaluation', 'Tiêu chí & quy tắc'],
+  [Lightbulb, '/admin/criteria', 'Tiêu chí & quy tắc'],
 ] as const;
 
 export function AdminLayout() {

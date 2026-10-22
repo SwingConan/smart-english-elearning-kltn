@@ -43,6 +43,7 @@ describe('M09-D deterministic criteria administration (e2e)', () => {
   let policyId: string;
   let historicalAttemptId: string;
   let futureAttemptId: string;
+  let originalPolicyUpdatedAt: Date | null = null;
   let originalBands: Array<{ id: string; minValue: Prisma.Decimal; maxValue: Prisma.Decimal }> = [];
   const historicalReason = {
     schemaVersion: 1,
@@ -72,6 +73,7 @@ describe('M09-D deterministic criteria administration (e2e)', () => {
       },
     });
     policyId = policy.id;
+    originalPolicyUpdatedAt = policy.updatedAt;
     originalBands = policy.bands.map(({ id, minValue, maxValue }) => ({ id, minValue, maxValue }));
 
     const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
@@ -148,6 +150,12 @@ describe('M09-D deterministic criteria administration (e2e)', () => {
           ),
         );
       }
+      if (originalPolicyUpdatedAt) {
+        await prisma.evaluationPolicy.update({
+          where: { id: policyId },
+          data: { updatedAt: originalPolicyUpdatedAt },
+        });
+      }
       await prisma.userSession.deleteMany({ where: { sid: { in: [...sessionIds] } } });
       await prisma.courseRecommendation.deleteMany({ where: { attemptId: { in: attemptIds } } });
       await prisma.attemptEvaluation.deleteMany({ where: { attemptId: { in: attemptIds } } });
@@ -215,6 +223,10 @@ describe('M09-D deterministic criteria administration (e2e)', () => {
   });
 
   it('updates both criteria families while preserving historical snapshots', async () => {
+    const beforePolicy = await prisma.evaluationPolicy.findUniqueOrThrow({
+      where: { id: policyId },
+      select: { updatedAt: true },
+    });
     const beforeEvaluation = await prisma.attemptEvaluation.findUniqueOrThrow({
       where: { attemptId: historicalAttemptId },
     });
@@ -226,15 +238,18 @@ describe('M09-D deterministic criteria administration (e2e)', () => {
       .put('/api/admin/criteria/placement-evaluation')
       .send({ foundationUpperBoundary: 66, advancingLowerBoundary: 80 })
       .expect(200)
-      .expect((response) =>
+      .expect((response) => {
         expect(response.body.bands).toEqual(
           expect.arrayContaining([
             expect.objectContaining({ code: 'FOUNDATION', minValue: 0, maxValue: 66 }),
             expect.objectContaining({ code: 'DEVELOPING', minValue: 66, maxValue: 80 }),
             expect.objectContaining({ code: 'ADVANCING', minValue: 80, maxValue: 100 }),
           ]),
-        ),
-      );
+        );
+        expect(new Date(response.body.policy.updatedAt).getTime()).toBeGreaterThan(
+          beforePolicy.updatedAt.getTime(),
+        );
+      });
     await admin
       .put(`/api/admin/criteria/course-recommendations/${courseId}`)
       .send(validProfile())

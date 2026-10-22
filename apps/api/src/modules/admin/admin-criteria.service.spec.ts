@@ -61,7 +61,7 @@ describe('AdminCriteriaService', () => {
     ...overrides,
   });
   const prisma = {
-    evaluationPolicy: { findMany: jest.fn() },
+    evaluationPolicy: { findMany: jest.fn(), update: jest.fn() },
     evaluationBand: { update: jest.fn() },
     course: { findMany: jest.fn(), count: jest.fn(), findUnique: jest.fn() },
     courseRecommendationProfile: {
@@ -76,6 +76,7 @@ describe('AdminCriteriaService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.evaluationPolicy.findMany.mockResolvedValue([policy()]);
+    prisma.evaluationPolicy.update.mockResolvedValue({});
     prisma.evaluationBand.update.mockResolvedValue({});
     prisma.course.findUnique.mockResolvedValue(course);
     prisma.courseRecommendationProfile.upsert.mockResolvedValue({ id: 'profile-id' });
@@ -121,6 +122,24 @@ describe('AdminCriteriaService', () => {
       { minValue: 72.25, maxValue: 100 },
     ]);
     expect(prisma).not.toHaveProperty('attemptEvaluation');
+  });
+
+  it('touches and returns the placement aggregate timestamp after updating its bands', async () => {
+    const updatedAt = new Date('2026-10-22T01:00:00.000Z');
+    prisma.evaluationPolicy.findMany
+      .mockResolvedValueOnce([policy()])
+      .mockResolvedValueOnce([{ ...policy(), updatedAt }]);
+
+    const result = await service.updatePlacementEvaluation({
+      foundationUpperBoundary: 42.5,
+      advancingLowerBoundary: 72.25,
+    });
+
+    expect(prisma.evaluationPolicy.update).toHaveBeenCalledWith({
+      where: { id: 'policy-id' },
+      data: { updatedAt: expect.any(Date) },
+    });
+    expect(result.policy.updatedAt).toEqual(updatedAt);
   });
 
   it.each([

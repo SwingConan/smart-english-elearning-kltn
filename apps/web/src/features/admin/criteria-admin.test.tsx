@@ -83,8 +83,10 @@ describe('M09-D deterministic criteria administration', () => {
 
   it('loads, validates, confirms, and saves shared placement boundaries', async () => {
     vi.spyOn(adminApi.criteria.placement, 'get').mockResolvedValue(placement);
+    const savedUpdatedAt = '2026-10-23T12:34:56.000Z';
     const update = vi.spyOn(adminApi.criteria.placement, 'update').mockResolvedValue({
       ...placement,
+      policy: { ...placement.policy, updatedAt: savedUpdatedAt },
       bands: placement.bands.map((band) =>
         band.code === 'FOUNDATION'
           ? { ...band, maxValue: 42.5 }
@@ -95,6 +97,7 @@ describe('M09-D deterministic criteria administration', () => {
     });
     renderAdmin('/admin/criteria/evaluation');
     await screen.findByText('Placement L&R normalized');
+    expect(screen.getByText(formatDate(placement.policy.updatedAt))).toBeInTheDocument();
     expect(screen.getByText(/không phải thang điểm TOEIC chính thức/i)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/Ngưỡng kết thúc Nền tảng/), {
       target: { value: '80' },
@@ -117,6 +120,8 @@ describe('M09-D deterministic criteria administration', () => {
       }),
     );
     expect(await screen.findByText(/Kết quả đã có được giữ nguyên/)).toBeInTheDocument();
+    expect(screen.getByText(formatDate(savedUpdatedAt))).toBeInTheDocument();
+    expect(screen.queryByText(formatDate(placement.policy.updatedAt))).not.toBeInTheDocument();
   });
 
   it('shows configured/unconfigured directory states, filters, and truthful unpublished messaging', async () => {
@@ -137,6 +142,10 @@ describe('M09-D deterministic criteria administration', () => {
     });
     renderAdmin('/admin/criteria/course-recommendations');
     expect((await screen.findAllByText('TOEIC Foundation')).length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: 'Tiêu chí & quy tắc' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     expect(screen.getAllByText('Đang áp dụng').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Chưa cấu hình').length).toBeGreaterThan(0);
     expect(
@@ -209,6 +218,33 @@ describe('M09-D deterministic criteria administration', () => {
       'aria-current',
       'page',
     );
+    expect(screen.getByRole('link', { name: 'Tiêu chí & quy tắc' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  it('uses established session-expiry behavior when a criteria mutation returns 401', async () => {
+    vi.spyOn(adminApi.criteria.placement, 'get').mockResolvedValue(placement);
+    vi.spyOn(adminApi.criteria.placement, 'update').mockRejectedValue(
+      new ApiError(401, { message: 'raw criteria mutation detail' }),
+    );
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    renderAdmin('/admin/criteria/evaluation', refresh);
+    await screen.findByText('Placement L&R normalized');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu tiêu chí đánh giá' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Lưu ngưỡng mới' }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        '/login?returnUrl=%2Fadmin%2Fcriteria%2Fevaluation',
+      ),
+    );
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(screen.queryByText(/raw criteria mutation detail/)).not.toBeInTheDocument();
   });
 
   it('uses established session-expiry behavior on criteria reads', async () => {
@@ -270,5 +306,11 @@ function LocationProbe() {
       {location.pathname}
       {location.search}
     </output>
+  );
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(
+    new Date(value),
   );
 }

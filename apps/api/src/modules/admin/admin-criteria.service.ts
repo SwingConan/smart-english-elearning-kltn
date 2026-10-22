@@ -83,6 +83,11 @@ export class AdminCriteriaService {
         }),
       );
 
+      await transaction.evaluationPolicy.update({
+        where: { id: policy.id },
+        data: { updatedAt: new Date(Math.max(Date.now(), policy.updatedAt.getTime() + 1)) },
+      });
+
       return this.projectPlacementPolicy(await this.requireValidPlacementPolicy(transaction));
     });
   }
