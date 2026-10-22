@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import {
+  ClassOfferingStatus,
   PlacementMode,
   PlacementSelfLevel,
   QuestionDifficulty,
@@ -472,13 +473,62 @@ describe('Placement L&R APIs (e2e)', () => {
         classOfferings: expect.any(Array),
       }),
     );
-    expect(JSON.stringify(first.body.recommendations)).not.toContain('meetingUrl');
-    for (const recommendation of first.body.recommendations) {
-      for (const offering of recommendation.classOfferings) {
-        for (const scheduleSlot of offering.scheduleSlots) {
-          expect(scheduleSlot).not.toHaveProperty('meetingUrl');
-        }
-      }
+    const expectedCourseId = first.body.recommendations[0].course.id as string;
+    const privateMeetingUrl = `https://meet.example.test/placement-private-${unique}`;
+    const fixtureOffering = await prisma.classOffering.create({
+      data: {
+        courseId: expectedCourseId,
+        code: `PLACEMENT-PRIVACY-${unique}`,
+        name: 'Placement privacy proof class',
+        status: ClassOfferingStatus.OPEN,
+        maxStudents: 20,
+        enrollmentStart: new Date(Date.now() - 86_400_000),
+        enrollmentEnd: new Date(Date.now() + 86_400_000),
+        classStart: new Date(Date.now() + 172_800_000),
+        classEnd: new Date(Date.now() + 2_592_000_000),
+        scheduleSlots: {
+          create: {
+            dayOfWeek: 3,
+            startTime: new Date('1970-01-01T18:00:00.000Z'),
+            endTime: new Date('1970-01-01T20:00:00.000Z'),
+            locationText: 'Placement privacy room',
+            meetingUrl: privateMeetingUrl,
+          },
+        },
+      },
+      include: { scheduleSlots: { select: { id: true } } },
+    });
+    try {
+      const result = await learner
+        .get(`/api/placement/attempts/${activeAttemptId}/result`)
+        .expect(200);
+      const recommendation = result.body.recommendations.find(
+        (item: { course: { id: string } }) => item.course.id === expectedCourseId,
+      );
+      expect(recommendation).toBeDefined();
+      const returnedOffering = recommendation.classOfferings.find(
+        (item: { id: string }) => item.id === fixtureOffering.id,
+      );
+      expect(returnedOffering).toBeDefined();
+      const returnedSlot = returnedOffering.scheduleSlots.find(
+        (item: { id: string }) => item.id === fixtureOffering.scheduleSlots[0].id,
+      );
+      expect(returnedSlot).toEqual(
+        expect.objectContaining({
+          id: fixtureOffering.scheduleSlots[0].id,
+          dayOfWeek: 3,
+          startTime: expect.any(String),
+          endTime: expect.any(String),
+          locationText: 'Placement privacy room',
+        }),
+      );
+      expect(returnedSlot).not.toHaveProperty('meetingUrl');
+      const serializedRecommendations = JSON.stringify(result.body.recommendations);
+      expect(serializedRecommendations).not.toContain('meetingUrl');
+      expect(serializedRecommendations).not.toContain(privateMeetingUrl);
+    } finally {
+      await prisma.classScheduleSlot.deleteMany({ where: { classOfferingId: fixtureOffering.id } });
+      await prisma.classOffering.delete({ where: { id: fixtureOffering.id } });
     }
     expect(await prisma.attemptEvaluation.count({ where: { attemptId: activeAttemptId } })).toBe(1);
     expect(await prisma.courseRecommendation.count({ where: { attemptId: activeAttemptId } })).toBe(
