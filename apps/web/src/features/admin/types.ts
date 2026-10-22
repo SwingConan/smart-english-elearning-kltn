@@ -208,6 +208,79 @@ export interface StudyRecommendationPolicyInput {
   maxRecommendations: number;
 }
 
+export type CriterionRuleMode = 'ALL' | 'ANY';
+export type RecommendationSkill = 'LISTENING' | 'READING';
+export type CourseRecommendationProfileState = 'ACTIVE' | 'INACTIVE' | 'UNCONFIGURED';
+
+export interface PlacementEvaluationCriteria {
+  policy: {
+    id: string;
+    code: string;
+    name: string;
+    placementMode: 'LR';
+    isActive: boolean;
+    updatedAt: string;
+  };
+  bands: Array<{
+    id: string;
+    code: 'FOUNDATION' | 'DEVELOPING' | 'ADVANCING';
+    label: string;
+    orderIndex: number;
+    minValue: number;
+    maxValue: number;
+  }>;
+  intervalConvention: 'MIN_INCLUSIVE_MAX_EXCLUSIVE_TERMINAL_INCLUSIVE';
+}
+
+export interface PlacementEvaluationCriteriaInput {
+  foundationUpperBoundary: number;
+  advancingLowerBoundary: number;
+}
+
+export interface CourseRecommendationCriterion {
+  skill: RecommendationSkill;
+  minNormalizedScore: number | null;
+  maxNormalizedScore: number | null;
+}
+
+export interface CourseRecommendationProfile {
+  id: string;
+  ruleMode: CriterionRuleMode;
+  priority: number;
+  isActive: boolean;
+  updatedAt: string;
+  criteria: CourseRecommendationCriterion[];
+}
+
+export interface CourseRecommendationCourse {
+  id: string;
+  title: string;
+  slug: string;
+  level: string;
+  skillScope: CourseSkillScope;
+  isPublished: boolean;
+}
+
+export interface CourseRecommendationRow {
+  course: CourseRecommendationCourse;
+  profile: CourseRecommendationProfile | null;
+}
+
+export interface CourseRecommendationDirectoryQuery {
+  search?: string;
+  isPublished?: boolean;
+  profileState?: CourseRecommendationProfileState;
+  page?: number;
+  limit?: number;
+}
+
+export interface CourseRecommendationProfileInput {
+  isActive: boolean;
+  ruleMode: CriterionRuleMode;
+  priority: number;
+  criteria: CourseRecommendationCriterion[];
+}
+
 export const ACCOUNT_ROLES = ['STUDENT', 'INSTRUCTOR', 'ADMIN_COORDINATOR'] as const;
 export const ACCOUNT_STATUSES = ['ACTIVE', 'INACTIVE', 'LOCKED'] as const;
 export type AccountRole = (typeof ACCOUNT_ROLES)[number];

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router';
 import { RoleRoute } from '@/features/auth/RoleRoute';
 import { ClassShellLayout } from '@/layouts/ClassShellLayout';
 import { AdminLayout } from '@/layouts/AdminLayout';
+import { AdminCriteriaLayout } from '@/layouts/AdminCriteriaLayout';
 import { InstructorClassWorkspaceLayout } from '@/layouts/InstructorClassWorkspaceLayout';
 import { PublicLayout } from '@/layouts/PublicLayout';
 import { PlacementExamLayout } from '@/layouts/PlacementExamLayout';
@@ -15,6 +16,9 @@ import { AdminClassOfferingOperationsPage } from '@/pages/AdminClassOfferingOper
 import { AdminCourseEditorPage } from '@/pages/AdminCourseEditorPage';
 import { AdminCoursesPage } from '@/pages/AdminCoursesPage';
 import { AdminStudyRecommendationPolicyPage } from '@/pages/AdminStudyRecommendationPolicyPage';
+import { AdminEvaluationCriteriaPage } from '@/pages/AdminEvaluationCriteriaPage';
+import { AdminCourseRecommendationProfilesPage } from '@/pages/AdminCourseRecommendationProfilesPage';
+import { AdminCourseRecommendationProfilePage } from '@/pages/AdminCourseRecommendationProfilePage';
 import { AdminAccountsPage } from '@/pages/AdminAccountsPage';
 import { AdminAccountCreatePage } from '@/pages/AdminAccountCreatePage';
 import { AdminAccountDetailPage } from '@/pages/AdminAccountDetailPage';
@@ -155,7 +159,23 @@ export function App() {
           path="class-offerings/:classOfferingId/operations"
           element={<AdminClassOfferingOperationsPage />}
         />
-        <Route path="study-recommendations" element={<AdminStudyRecommendationPolicyPage />} />
+        <Route path="criteria" element={<AdminCriteriaLayout />}>
+          <Route index element={<Navigate replace to="evaluation" />} />
+          <Route path="evaluation" element={<AdminEvaluationCriteriaPage />} />
+          <Route
+            path="course-recommendations"
+            element={<AdminCourseRecommendationProfilesPage />}
+          />
+          <Route
+            path="course-recommendations/:courseId"
+            element={<AdminCourseRecommendationProfilePage />}
+          />
+          <Route path="study-recommendations" element={<AdminStudyRecommendationPolicyPage />} />
+        </Route>
+        <Route
+          path="study-recommendations"
+          element={<Navigate replace to="/admin/criteria/study-recommendations" />}
+        />
       </Route>
 
       <Route element={student(<StudentLayout />)}>

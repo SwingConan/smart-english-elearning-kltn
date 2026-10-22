@@ -20,6 +20,11 @@ import type {
   AccountRole,
   AccountStatus,
   CreateStaffAccountInput,
+  PlacementEvaluationCriteria,
+  PlacementEvaluationCriteriaInput,
+  CourseRecommendationDirectoryQuery,
+  CourseRecommendationRow,
+  CourseRecommendationProfileInput,
 } from './types';
 
 function queryString<T extends object>(input: T): string {
@@ -32,6 +37,34 @@ function queryString<T extends object>(input: T): string {
 }
 
 export const adminApi = {
+  criteria: {
+    placement: {
+      get: (signal?: AbortSignal) =>
+        apiFetch<PlacementEvaluationCriteria>('/admin/criteria/placement-evaluation', { signal }),
+      update: (input: PlacementEvaluationCriteriaInput) =>
+        apiFetch<PlacementEvaluationCriteria>('/admin/criteria/placement-evaluation', {
+          method: 'PUT',
+          body: JSON.stringify(input),
+        }),
+    },
+    courseRecommendations: {
+      list: (query: CourseRecommendationDirectoryQuery = {}, signal?: AbortSignal) =>
+        apiFetch<Paginated<CourseRecommendationRow>>(
+          `/admin/criteria/course-recommendations${queryString(query)}`,
+          { signal },
+        ),
+      get: (courseId: string, signal?: AbortSignal) =>
+        apiFetch<CourseRecommendationRow>(
+          `/admin/criteria/course-recommendations/${encodeURIComponent(courseId)}`,
+          { signal },
+        ),
+      update: (courseId: string, input: CourseRecommendationProfileInput) =>
+        apiFetch<CourseRecommendationRow>(
+          `/admin/criteria/course-recommendations/${encodeURIComponent(courseId)}`,
+          { method: 'PUT', body: JSON.stringify(input) },
+        ),
+    },
+  },
   accounts: {
     list: (query: AccountQuery = {}, signal?: AbortSignal) =>
       apiFetch<AdminAccountDirectory>(`/admin/accounts${queryString(query)}`, { signal }),
