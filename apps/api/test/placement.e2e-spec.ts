@@ -472,6 +472,14 @@ describe('Placement L&R APIs (e2e)', () => {
         classOfferings: expect.any(Array),
       }),
     );
+    expect(JSON.stringify(first.body.recommendations)).not.toContain('meetingUrl');
+    for (const recommendation of first.body.recommendations) {
+      for (const offering of recommendation.classOfferings) {
+        for (const scheduleSlot of offering.scheduleSlots) {
+          expect(scheduleSlot).not.toHaveProperty('meetingUrl');
+        }
+      }
+    }
     expect(await prisma.attemptEvaluation.count({ where: { attemptId: activeAttemptId } })).toBe(1);
     expect(await prisma.courseRecommendation.count({ where: { attemptId: activeAttemptId } })).toBe(
       first.body.recommendations.length,

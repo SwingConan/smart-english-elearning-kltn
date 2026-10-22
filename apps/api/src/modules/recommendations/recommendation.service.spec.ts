@@ -1,4 +1,4 @@
-import { Prisma } from '../../generated/prisma/client';
+import { ClassOfferingStatus, Prisma } from '../../generated/prisma/client';
 import { RecommendationService } from './recommendation.service';
 
 const evaluation = {
@@ -117,6 +117,27 @@ describe('RecommendationService concurrency and snapshot behavior', () => {
     ]);
   });
 
+  it('requests only public-safe offerings without protected meeting URLs', async () => {
+    const prisma = {
+      $transaction: jest.fn().mockResolvedValue(evaluation),
+      courseRecommendation: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new RecommendationService(prisma as never, {} as never);
+
+    await service.ensureAndProject('attempt-1', 'learner-1');
+
+    const query = prisma.courseRecommendation.findMany.mock.calls[0][0];
+    const classOfferings = query.include.course.include.classOfferings;
+    expect(classOfferings.where.status.in).toEqual([
+      ClassOfferingStatus.OPEN,
+      ClassOfferingStatus.IN_PROGRESS,
+    ]);
+    expect(classOfferings.where.status.in).not.toContain(ClassOfferingStatus.DRAFT);
+    expect(classOfferings.where.status.in).not.toContain(ClassOfferingStatus.CANCELLED);
+    expect(classOfferings.where.status.in).not.toContain(ClassOfferingStatus.COMPLETED);
+    expect(classOfferings.include.scheduleSlots.select).not.toHaveProperty('meetingUrl');
+  });
+
   it('projects an actionable AVAILABLE class before an earlier non-actionable class', async () => {
     const rows = [{
       kind: 'PRIMARY',
@@ -153,6 +174,11 @@ describe('RecommendationService concurrency and snapshot behavior', () => {
     expect(projected.recommendations[0].classOfferings[0]).toMatchObject({
       registrationState: 'AVAILABLE',
       actionable: true,
+    });
+    expect(projected.recommendations[0].classOfferings[1]).toMatchObject({
+      id: 'closed-earlier',
+      registrationState: 'CLOSED',
+      actionable: false,
     });
   });
 });
