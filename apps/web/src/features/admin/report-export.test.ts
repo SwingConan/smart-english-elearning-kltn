@@ -39,13 +39,15 @@ describe('admin report CSV export', () => {
     const csv = serializeAdminReportCsv(report);
 
     expect(csv.startsWith('\uFEFF')).toBe(true);
-    expect(csv).toContain('generatedAt,2026-10-23T05:00:00.000Z');
-    expect(csv).toContain('from,2026-10-21');
-    expect(csv).toContain('timezone,Asia/Ho_Chi_Minh');
+    expect(csv).toContain('Thời điểm tạo báo cáo,2026-10-23T05:00:00.000Z');
+    expect(csv).toContain('Từ ngày,2026-10-21');
+    expect(csv).toContain('Múi giờ,Giờ Việt Nam (UTC+7)');
     expect(csv).toContain('Tài khoản,Học viên,2');
-    expect(csv).toContain('Vòng đời lớp học,DRAFT,1');
-    expect(csv).toContain('Trạng thái ghi danh,PENDING_PAYMENT,1');
-    expect(csv).toContain('Cần chú ý,DRAFT chưa sẵn sàng,1');
+    expect(csv).toContain('Tài khoản,Đang hoạt động,2');
+    expect(csv).toContain('Lớp học theo trạng thái,Lớp nháp,1');
+    expect(csv).toContain('Ghi danh theo trạng thái,Chờ xử lý đăng ký có phí,1');
+    expect(csv).toContain('Cần chú ý,Lớp nháp chưa sẵn sàng,1');
+    expect(csv).toContain('Ngày,Ghi danh mới,Bài đánh giá đã nộp,Bài học đã hoàn tất');
     expect(csv).toContain('2026-10-21,0,0,0');
     expect(csv).toContain('2026-10-22,1,0,1');
     expect(csv).toContain('2026-10-23,0,2,2');
@@ -62,6 +64,12 @@ describe('admin report CSV export', () => {
       'session',
       'revenue',
       'paymentSuccess',
+      'generatedAt',
+      'newEnrollments',
+      'submittedAssessments',
+      'lessonCompletions',
+      'PENDING_PAYMENT',
+      'DRAFT chưa sẵn sàng',
     ]) {
       expect(csv).not.toContain(forbidden);
     }

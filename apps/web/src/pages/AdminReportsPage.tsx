@@ -112,23 +112,23 @@ export function AdminReportsPage() {
 
   const { snapshot } = report;
   const classLifecycle: ChartDatum[] = [
-    { label: 'Nháp', value: snapshot.classes.byStatus.DRAFT, color: '#94a3b8' },
+    { label: 'Lớp nháp', value: snapshot.classes.byStatus.DRAFT, color: '#94a3b8' },
     { label: 'Đang mở', value: snapshot.classes.byStatus.OPEN, color: '#4f46e5' },
     { label: 'Đang diễn ra', value: snapshot.classes.byStatus.IN_PROGRESS, color: '#0284c7' },
-    { label: 'Hoàn tất', value: snapshot.classes.byStatus.COMPLETED, color: '#059669' },
+    { label: 'Đã hoàn thành', value: snapshot.classes.byStatus.COMPLETED, color: '#059669' },
     { label: 'Đã hủy', value: snapshot.classes.byStatus.CANCELLED, color: '#dc2626' },
   ];
   const enrollmentComposition: ChartDatum[] = [
-    { label: 'ACTIVE', value: snapshot.enrollments.byStatus.ACTIVE, color: '#059669' },
+    { label: 'Đang hiệu lực', value: snapshot.enrollments.byStatus.ACTIVE, color: '#059669' },
     {
-      label: 'PENDING_PAYMENT',
+      label: 'Chờ xử lý đăng ký có phí',
       value: snapshot.enrollments.byStatus.PENDING_PAYMENT,
       color: '#d97706',
-      note: 'Hàng đợi vận hành, không giữ chỗ',
+      note: 'Chưa tính vào sĩ số đang học',
     },
-    { label: 'COMPLETED', value: snapshot.enrollments.byStatus.COMPLETED, color: '#4f46e5' },
-    { label: 'DROPPED', value: snapshot.enrollments.byStatus.DROPPED, color: '#64748b' },
-    { label: 'CANCELLED', value: snapshot.enrollments.byStatus.CANCELLED, color: '#dc2626' },
+    { label: 'Đã hoàn tất', value: snapshot.enrollments.byStatus.COMPLETED, color: '#4f46e5' },
+    { label: 'Đã ngừng học', value: snapshot.enrollments.byStatus.DROPPED, color: '#64748b' },
+    { label: 'Đã hủy', value: snapshot.enrollments.byStatus.CANCELLED, color: '#dc2626' },
   ];
   const coursePublication: ChartDatum[] = [
     { label: 'Đã xuất bản', value: snapshot.courses.published, color: '#4f46e5' },
@@ -140,8 +140,8 @@ export function AdminReportsPage() {
       <header className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="grid gap-6 p-6 lg:grid-cols-[1fr_auto] lg:items-start lg:p-8">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-600">
-              UC43 · Báo cáo vận hành
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-indigo-600">
+              Báo cáo quản trị
             </p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
               Báo cáo hệ thống
@@ -163,61 +163,72 @@ export function AdminReportsPage() {
             <CalendarDays aria-hidden="true" className="mt-0.5 shrink-0" size={18} />
             <p>
               <strong>Tổng quan hiện tại</strong> phản ánh trạng thái tại thời điểm tải báo cáo. Bộ
-              lọc ngày chỉ ảnh hưởng đến <strong>Hoạt động trong kỳ</strong>.
+              lọc ngày chỉ ảnh hưởng đến <strong>hoạt động trong khoảng thời gian đã chọn</strong>.
             </p>
           </div>
-          <div className="report-no-print grid gap-4 xl:grid-cols-[auto_minmax(340px,1fr)_auto] xl:items-end">
-            <div className="flex flex-wrap gap-2" aria-label="Khoảng thời gian nhanh">
-              {[7, 30, 90].map((days) => (
+          <div className="report-toolbar report-no-print grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="mb-3 text-sm font-bold text-slate-700">Chọn nhanh khoảng thời gian</p>
+              <div className="flex flex-wrap gap-2" aria-label="Khoảng thời gian nhanh">
+                {[7, 30, 90].map((days) => (
+                  <button
+                    className="min-w-20 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-400 hover:text-indigo-700"
+                    key={days}
+                    onClick={() => selectPreset(days as 7 | 30 | 90)}
+                    type="button"
+                  >
+                    {days} ngày
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="mb-3 text-sm font-bold text-slate-700">Thao tác báo cáo</p>
+              <div className="report-toolbar-actions flex flex-wrap gap-2">
+                <ToolbarButton icon={RefreshCw} label="Làm mới" onClick={retry} />
+                <ToolbarButton
+                  icon={Download}
+                  label="Xuất CSV"
+                  onClick={() => downloadAdminReportCsv(report)}
+                />
+                <ToolbarButton icon={Printer} label="In / Lưu PDF" onClick={() => window.print()} />
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
+              <p className="mb-3 text-sm font-bold text-slate-700">Khoảng ngày tùy chỉnh</p>
+              <div className="grid max-w-3xl gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+                <label className="text-sm font-semibold text-slate-700">
+                  Từ ngày
+                  <input
+                    className="mt-1 block w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2.5"
+                    max={draft.to}
+                    onChange={(event) =>
+                      setDraft((value) => ({ ...value, from: event.target.value }))
+                    }
+                    type="date"
+                    value={draft.from}
+                  />
+                </label>
+                <label className="text-sm font-semibold text-slate-700">
+                  Đến ngày
+                  <input
+                    className="mt-1 block w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2.5"
+                    min={draft.from}
+                    onChange={(event) =>
+                      setDraft((value) => ({ ...value, to: event.target.value }))
+                    }
+                    type="date"
+                    value={draft.to}
+                  />
+                </label>
                 <button
-                  className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-400 hover:text-indigo-700"
-                  key={days}
-                  onClick={() => selectPreset(days as 7 | 30 | 90)}
+                  className="min-w-28 whitespace-nowrap rounded-xl bg-indigo-600 px-5 py-2.5 font-bold text-white"
+                  onClick={apply}
                   type="button"
                 >
-                  {days} ngày
+                  Áp dụng
                 </button>
-              ))}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-              <label className="text-sm font-semibold text-slate-700">
-                Từ ngày
-                <input
-                  className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5"
-                  max={draft.to}
-                  onChange={(event) =>
-                    setDraft((value) => ({ ...value, from: event.target.value }))
-                  }
-                  type="date"
-                  value={draft.from}
-                />
-              </label>
-              <label className="text-sm font-semibold text-slate-700">
-                Đến ngày
-                <input
-                  className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5"
-                  min={draft.from}
-                  onChange={(event) => setDraft((value) => ({ ...value, to: event.target.value }))}
-                  type="date"
-                  value={draft.to}
-                />
-              </label>
-              <button
-                className="rounded-xl bg-indigo-600 px-4 py-2.5 font-bold text-white"
-                onClick={apply}
-                type="button"
-              >
-                Áp dụng
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <ToolbarButton icon={RefreshCw} label="Làm mới" onClick={retry} />
-              <ToolbarButton
-                icon={Download}
-                label="Xuất CSV"
-                onClick={() => downloadAdminReportCsv(report)}
-              />
-              <ToolbarButton icon={Printer} label="In / Lưu PDF" onClick={() => window.print()} />
+              </div>
             </div>
           </div>
           {validation ? (
@@ -256,7 +267,7 @@ export function AdminReportsPage() {
         />
         <div
           aria-label="Chỉ số tổng quan hiện tại"
-          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5"
+          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
         >
           <Metric
             action="Xem tài khoản"
@@ -287,10 +298,10 @@ export function AdminReportsPage() {
           />
           <Metric
             action="Xem vận hành lớp"
-            detail="Chỉ Enrollment trạng thái ACTIVE."
+            detail="Chỉ tính các ghi danh đang có hiệu lực."
             href="/admin/class-offerings"
             icon={UserCheck}
-            title="Ghi danh đang hoạt động"
+            title="Ghi danh đang hiệu lực"
             tone="emerald"
             value={snapshot.enrollments.byStatus.ACTIVE}
           />
@@ -323,20 +334,20 @@ export function AdminReportsPage() {
             </p>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
           <Attention
-            label="DRAFT chưa sẵn sàng"
+            label="Lớp nháp chưa sẵn sàng"
             meaning="Thiếu một hoặc nhiều điều kiện để mở lớp."
             value={report.attention.draftNotReady}
           />
           <Attention
-            label="OPEN đã đầy"
-            meaning="Sĩ số ACTIVE đã đạt giới hạn lớp."
+            label="Lớp đang mở đã đủ sĩ số"
+            meaning="Số học viên đang học đã đạt giới hạn của lớp."
             value={report.attention.openFull}
           />
           <Attention
-            label="PENDING_PAYMENT"
-            meaning="Yêu cầu có phí đang chờ xử lý vận hành."
+            label="Đăng ký có phí đang chờ xử lý"
+            meaning="Yêu cầu đăng ký có phí đang chờ được xử lý."
             value={report.attention.pendingPayment}
           />
         </div>
@@ -344,26 +355,25 @@ export function AdminReportsPage() {
 
       <section aria-labelledby="snapshot-visuals-heading" className="space-y-5">
         <SectionHeading
-          eyebrow="Phân bổ dữ liệu hiện tại"
           id="snapshot-visuals-heading"
           subtitle="Biểu đồ tóm tắt luôn đi kèm chú giải và số lượng dạng văn bản."
-          title="Bức tranh vận hành"
+          title="Tình hình vận hành"
         />
-        <div className="grid gap-5 xl:grid-cols-2">
+        <div className="grid items-start gap-5 2xl:grid-cols-2">
           <ChartCard
             action="Xem lớp học"
             href="/admin/class-offerings"
             subtitle={`${snapshot.classes.total} lớp trên toàn hệ thống`}
-            title="Vòng đời lớp học"
+            title="Lớp học theo trạng thái"
           >
-            <SegmentedBar ariaLabel="Phân bổ vòng đời lớp học" data={classLifecycle} />
+            <SegmentedBar ariaLabel="Lớp học theo trạng thái" data={classLifecycle} />
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <MiniBreakdown
                 rows={[
                   ['Sẵn sàng mở', snapshot.classes.draftReadiness.ready],
                   ['Chưa sẵn sàng', snapshot.classes.draftReadiness.notReady],
                 ]}
-                title="Sẵn sàng lớp DRAFT"
+                title="Mức độ sẵn sàng của lớp nháp"
               />
               <MiniBreakdown
                 rows={[
@@ -372,7 +382,7 @@ export function AdminReportsPage() {
                   ['Sắp mở', snapshot.classes.openRegistration.UPCOMING],
                   ['Đã đóng', snapshot.classes.openRegistration.CLOSED],
                 ]}
-                title="Đăng ký lớp OPEN"
+                title="Tình trạng đăng ký của lớp đang mở"
               />
             </div>
           </ChartCard>
@@ -380,23 +390,23 @@ export function AdminReportsPage() {
             action="Xem vận hành lớp"
             href="/admin/class-offerings"
             subtitle={`${snapshot.enrollments.total} ghi danh hiện có`}
-            title="Cơ cấu trạng thái ghi danh"
+            title="Ghi danh theo trạng thái"
           >
             <DonutChart
-              ariaLabel="Cơ cấu ghi danh theo trạng thái"
+              ariaLabel="Ghi danh theo trạng thái"
               centerLabel="ghi danh"
               data={enrollmentComposition}
             />
-            <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-              PENDING_PAYMENT không được tính vào sĩ số ACTIVE và không chứng minh giao dịch đã
-              thành công.
+            <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+              Các đăng ký có phí đang chờ xử lý chưa được tính vào sĩ số đang học và chưa được xem
+              là đã thanh toán.
             </p>
           </ChartCard>
           <ChartCard
             action="Xem tài khoản"
             href="/admin/accounts"
             subtitle={`${snapshot.accounts.total} tài khoản theo vai trò và trạng thái`}
-            title="Cơ cấu tài khoản"
+            title="Tài khoản theo vai trò và trạng thái"
           >
             <AccountCompositionChart report={report} />
           </ChartCard>
@@ -404,22 +414,24 @@ export function AdminReportsPage() {
             action="Xem khóa học"
             href="/admin/courses"
             subtitle={`${snapshot.courses.published} trên ${snapshot.courses.total} khóa học đã xuất bản`}
-            title="Xuất bản khóa học"
+            title="Trạng thái khóa học"
           >
             <SegmentedBar
               ariaLabel="Tỷ lệ khóa học đã xuất bản và bản nháp"
               data={coursePublication}
             />
-            <div className="mt-5 flex items-center gap-3 rounded-xl bg-indigo-50 p-4 text-indigo-950">
-              <CheckCircle2 aria-hidden="true" size={22} />
-              <p className="text-sm">
-                <strong>
+            <div className="mt-5 flex items-center gap-4 rounded-2xl bg-indigo-50 p-5 text-indigo-950">
+              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white text-indigo-700 shadow-sm">
+                <CheckCircle2 aria-hidden="true" size={30} />
+              </span>
+              <p className="text-base leading-6">
+                <strong className="block text-3xl font-black">
                   {snapshot.courses.total
                     ? Math.round((snapshot.courses.published / snapshot.courses.total) * 100)
                     : 0}
                   %
-                </strong>{' '}
-                danh mục khóa học đang ở trạng thái xuất bản.
+                </strong>
+                khóa học hiện đã được xuất bản.
               </p>
             </div>
           </ChartCard>
@@ -428,28 +440,28 @@ export function AdminReportsPage() {
 
       <section aria-labelledby="period-activity-heading" className="space-y-5">
         <SectionHeading
-          eyebrow={`${report.activity.period.from} – ${report.activity.period.to} · ${report.activity.period.timeZone}`}
+          eyebrow={`${report.activity.period.from} – ${report.activity.period.to} · Giờ Việt Nam (UTC+7)`}
           id="period-activity-heading"
-          subtitle="Các sự kiện có timestamp thực được ghi nhận trong khoảng ngày đã chọn."
-          title="Hoạt động trong kỳ"
+          subtitle="Các hoạt động được ghi nhận trong khoảng ngày đã chọn."
+          title="Hoạt động trong khoảng thời gian đã chọn"
         />
-        <div aria-label="Tổng hoạt động" className="grid gap-4 sm:grid-cols-3">
+        <div aria-label="Tổng hoạt động" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <ActivityTotal
             icon={GraduationCap}
             label="Ghi danh mới"
-            source="Enrollment.enrolledAt"
+            source="Theo ngày ghi danh"
             value={report.activity.totals.newEnrollments}
           />
           <ActivityTotal
             icon={Activity}
-            label="Bài assessment đã nộp"
-            source="Chỉ trạng thái SUBMITTED"
+            label="Bài đánh giá đã nộp"
+            source="Chỉ tính bài đã nộp"
             value={report.activity.totals.submittedAssessments}
           />
           <ActivityTotal
             icon={CheckCircle2}
             label="Bài học hoàn tất"
-            source="Chỉ trạng thái COMPLETED"
+            source="Chỉ tính bài học đã hoàn tất"
             value={report.activity.totals.lessonCompletions}
           />
         </div>
@@ -462,7 +474,7 @@ export function AdminReportsPage() {
               Xu hướng hoạt động theo ngày
             </h3>
             <p className="text-sm text-slate-500">
-              Dữ liệu từng ngày, không làm mượt, không cộng dồn và không dự báo.
+              Biểu đồ thể hiện số hoạt động phát sinh theo từng ngày trong khoảng thời gian đã chọn.
             </p>
           </div>
           <ActivityTrendChart report={report} />
@@ -491,7 +503,7 @@ export function AdminReportsPage() {
             </p>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-            Bảng dữ liệu gốc
+            Dữ liệu chi tiết
           </span>
         </div>
         <div className="report-daily-scroll max-h-[30rem] overflow-auto">
@@ -500,7 +512,7 @@ export function AdminReportsPage() {
               <tr>
                 <th className="p-3">Ngày</th>
                 <th className="p-3">Ghi danh mới</th>
-                <th className="p-3">Bài assessment đã nộp</th>
+                <th className="p-3">Bài đánh giá đã nộp</th>
                 <th className="p-3">Bài học hoàn tất</th>
               </tr>
             </thead>
@@ -519,9 +531,10 @@ export function AdminReportsPage() {
       </section>
 
       <footer className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-6 text-slate-600">
-        <strong className="text-slate-900">Ngữ nghĩa báo cáo:</strong> Tổng quan là trạng thái hiện
-        tại; hoạt động được giới hạn bởi kỳ đã chọn. PENDING_PAYMENT là hàng đợi vận hành riêng,
-        không giữ chỗ và không được tính vào sĩ số ACTIVE. Báo cáo tạo lúc{' '}
+        <strong className="text-slate-900">Cách đọc báo cáo:</strong> Các số liệu ở phần tình hình
+        hiện tại phản ánh trạng thái mới nhất của hệ thống. Phần hoạt động chỉ tính dữ liệu trong
+        khoảng ngày đã chọn. Các đăng ký có phí đang chờ xử lý chưa được tính vào sĩ số đang học và
+        chưa được xem là đã thanh toán. Báo cáo tạo lúc{' '}
         {new Date(report.generatedAt).toLocaleString('vi-VN')}.
       </footer>
     </div>
@@ -539,7 +552,7 @@ function ToolbarButton({
 }) {
   return (
     <button
-      className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-400 hover:text-indigo-700"
+      className="inline-flex min-w-28 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-400 hover:text-indigo-700"
       onClick={onClick}
       type="button"
     >
@@ -555,15 +568,24 @@ function SectionHeading({
   subtitle,
   title,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   id: string;
   subtitle: string;
   title: string;
 }) {
   return (
     <div>
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-indigo-600">{eyebrow}</p>
-      <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950" id={id}>
+      {eyebrow ? (
+        <p className="text-sm font-black tracking-[0.08em] text-indigo-600">{eyebrow}</p>
+      ) : null}
+      <h2
+        className={
+          eyebrow
+            ? 'mt-1 text-2xl font-black tracking-tight text-slate-950'
+            : 'text-2xl font-black tracking-tight text-slate-950'
+        }
+        id={id}
+      >
         {title}
       </h2>
       <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
@@ -597,13 +619,13 @@ function Metric({
   tone: keyof typeof metricTones;
 }) {
   return (
-    <article className="group flex min-h-52 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+    <article className="group flex min-h-56 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
       <div className={`mb-5 w-fit rounded-xl p-2.5 ${metricTones[tone]}`}>
         <Icon aria-hidden="true" size={21} />
       </div>
-      <h3 className="text-sm font-bold leading-5 text-slate-600">{title}</h3>
+      <h3 className="text-base font-bold leading-6 text-slate-700">{title}</h3>
       <p className="mt-2 text-4xl font-black tracking-tight text-slate-950">{value}</p>
-      <p className="mt-2 flex-1 text-xs leading-5 text-slate-500">{detail}</p>
+      <p className="mt-2 flex-1 text-sm leading-6 text-slate-500">{detail}</p>
       <Link
         className="report-no-print mt-4 text-sm font-bold text-indigo-700 group-hover:underline"
         to={href}
@@ -623,8 +645,8 @@ function Attention({ label, meaning, value }: { label: string; meaning: string; 
       <strong className="text-3xl font-black text-amber-800">{value}</strong>
       <span>
         <span className="block font-bold text-slate-900">{label}</span>
-        <span className="mt-1 block text-xs leading-5 text-slate-600">{meaning}</span>
-        <span className="report-no-print mt-2 block text-xs font-bold text-indigo-700 group-hover:underline">
+        <span className="mt-1 block text-sm leading-5 text-slate-600">{meaning}</span>
+        <span className="report-no-print mt-2 block text-sm font-bold text-indigo-700 group-hover:underline">
           Mở vận hành lớp →
         </span>
       </span>
@@ -646,7 +668,7 @@ function ChartCard({
   children: ReactNode;
 }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    <article className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h3 className="text-xl font-black text-slate-950">{title}</h3>
@@ -667,7 +689,7 @@ function ChartCard({
 function MiniBreakdown({ title, rows }: { title: string; rows: Array<[string, number]> }) {
   return (
     <div className="rounded-xl bg-slate-50 p-4">
-      <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">{title}</h4>
+      <h4 className="text-sm font-black text-slate-600">{title}</h4>
       <dl className="mt-3 space-y-2">
         {rows.map(([label, value]) => (
           <div className="flex justify-between gap-3 text-sm" key={label}>
@@ -699,7 +721,7 @@ function ActivityTotal({
       <div>
         <h3 className="text-sm font-bold text-slate-600">{label}</h3>
         <p className="text-3xl font-black text-slate-950">{value}</p>
-        <p className="text-xs text-slate-500">{source}</p>
+        <p className="text-sm text-slate-500">{source}</p>
       </div>
     </article>
   );

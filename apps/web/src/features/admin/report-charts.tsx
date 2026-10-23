@@ -61,7 +61,7 @@ export function DonutChart({
   let offset = 0;
 
   return (
-    <div className="grid gap-5 sm:grid-cols-[11rem_1fr] sm:items-center">
+    <div className="flex flex-col gap-5">
       <svg aria-label={ariaLabel} className="mx-auto h-44 w-44" role="img" viewBox="0 0 120 120">
         <title>{ariaLabel}</title>
         <circle cx="60" cy="60" fill="none" r={radius} stroke="#e2e8f0" strokeWidth="16" />
@@ -111,9 +111,9 @@ export function AccountCompositionChart({ report }: { report: AdminSystemReport 
     },
   ];
   const statuses: ChartDatum[] = [
-    { label: 'Hoạt động', value: report.snapshot.accounts.byStatus.ACTIVE, color: '#059669' },
+    { label: 'Đang hoạt động', value: report.snapshot.accounts.byStatus.ACTIVE, color: '#059669' },
     {
-      label: 'Không hoạt động',
+      label: 'Tạm ngưng',
       value: report.snapshot.accounts.byStatus.INACTIVE,
       color: '#64748b',
     },
@@ -126,16 +126,17 @@ export function AccountCompositionChart({ report }: { report: AdminSystemReport 
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
           Theo vai trò
         </p>
-        <SegmentedBar ariaLabel="Cơ cấu tài khoản theo vai trò" data={roles} />
+        <SegmentedBar ariaLabel="Tài khoản theo vai trò" data={roles} />
       </div>
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
           Theo trạng thái
         </p>
-        <SegmentedBar ariaLabel="Cơ cấu tài khoản theo trạng thái" data={statuses} />
+        <SegmentedBar ariaLabel="Tài khoản theo trạng thái" data={statuses} />
       </div>
-      <p className="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-600">
-        “Hoạt động” là trạng thái tài khoản, không phải DAU/MAU hay đăng nhập gần đây.
+      <p className="rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+        Trạng thái “Đang hoạt động” cho biết tài khoản đang được phép sử dụng hệ thống; đây không
+        phải số người dùng truy cập gần đây.
       </p>
     </div>
   );
@@ -164,7 +165,7 @@ export function ActivityTrendChart({ report }: { report: AdminSystemReport }) {
     },
     {
       key: 'submittedAssessments' as const,
-      label: 'Bài assessment đã nộp',
+      label: 'Bài đánh giá đã nộp',
       color: '#0284c7',
       total: report.activity.totals.submittedAssessments,
     },
@@ -189,9 +190,7 @@ export function ActivityTrendChart({ report }: { report: AdminSystemReport }) {
           role="img"
           viewBox={`0 0 ${width} ${height}`}
         >
-          <title>
-            Hoạt động theo ngày: ghi danh mới, bài assessment đã nộp và bài học hoàn tất
-          </title>
+          <title>Hoạt động theo ngày: ghi danh mới, bài đánh giá đã nộp và bài học hoàn tất</title>
           {gridValues.map((value) => (
             <g key={value}>
               <line
@@ -271,7 +270,7 @@ export function ActivityTrendChart({ report }: { report: AdminSystemReport }) {
 
 function ChartLegend({ data }: { data: ChartDatum[] }) {
   return (
-    <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2" aria-label="Chú giải biểu đồ">
+    <ul className="mt-3 grid gap-3 text-sm" aria-label="Chú giải biểu đồ">
       {data.map((item) => (
         <li className="flex items-start justify-between gap-3" key={item.label}>
           <span className="flex min-w-0 items-start gap-2">
@@ -283,7 +282,7 @@ function ChartLegend({ data }: { data: ChartDatum[] }) {
             <span>
               {item.label}
               {item.note ? (
-                <small className="block text-xs text-slate-500">{item.note}</small>
+                <small className="mt-0.5 block text-sm leading-5 text-slate-500">{item.note}</small>
               ) : null}
             </span>
           </span>
