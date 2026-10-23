@@ -1,4 +1,5 @@
 import type { EChartsCoreOption } from 'echarts/core';
+import { formatVietnamReportDate } from './report-display-format';
 import type { AdminReportClassRow, AdminSystemReport, OfferingStatus } from './types';
 
 const classStatusLabels: Record<OfferingStatus, string> = {
@@ -251,7 +252,7 @@ function capacityTooltip(params: unknown, items: AdminReportClassRow[]) {
     escapeHtml(item.course.title),
     `Giảng viên: ${escapeHtml(item.instructor?.fullName ?? 'Chưa phân công')}`,
     `Sĩ số: ${capacity}`,
-    `Bắt đầu: ${item.classStart ? escapeHtml(formatReportDate(item.classStart.slice(0, 10))) : 'Chưa cấu hình'}`,
+    `Bắt đầu: ${item.classStart ? escapeHtml(formatVietnamReportDate(item.classStart)) : 'Chưa cấu hình'}`,
   ].join('<br/>');
 }
 

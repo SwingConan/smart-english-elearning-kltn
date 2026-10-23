@@ -79,7 +79,7 @@ const classRow = {
   remainingSeats: 0,
   registrationState: 'FULL' as const,
   operationalReadiness: { isReady: true, missing: [] },
-  classStart: '2026-11-01T00:00:00.000Z',
+  classStart: '2026-10-31T18:00:00.000Z',
 };
 
 const report: AdminSystemReport = {
@@ -689,9 +689,9 @@ describe('report ECharts option builders', () => {
     expect(capacity.tooltip.renderMode).toBe('html');
     expect(capacity.tooltip.extraCssText).toMatch(/max-width/);
     expect(capacity.tooltip.extraCssText).toMatch(/overflow-wrap:\s*anywhere/);
-    expect(capacity.tooltip.formatter([{ data: { classOfferingId: 'class-1' } }])).toContain(
-      'Bắt đầu: 01/11/2026',
-    );
+    const capacityTooltip = capacity.tooltip.formatter([{ data: { classOfferingId: 'class-1' } }]);
+    expect(capacityTooltip).toContain('Bắt đầu: 01/11/2026');
+    expect(capacityTooltip).not.toContain('Bắt đầu: 31/10/2026');
     expect(capacity.xAxis.name).toBe('Học viên đang học');
     expect(capacity.series[0].data[0].classOfferingId).toBe('class-1');
     expect(status.series[0].data.some((item) => item.status === 'OPEN')).toBe(true);
