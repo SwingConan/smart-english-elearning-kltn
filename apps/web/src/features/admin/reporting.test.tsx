@@ -15,7 +15,7 @@ import {
   formatReportDate,
 } from './report-echarts';
 import { reportPreset, validateReportPeriod, vietnamToday } from './reporting-period';
-import type { AdminSystemReport } from './types';
+import type { AdminReportClassRow, AdminSystemReport } from './types';
 
 vi.mock('@/components/charts/ReportEChart', () => ({
   ReportEChart: ({
@@ -185,6 +185,71 @@ describe('admin decision reporting', () => {
     );
     await waitFor(() =>
       expect(backlog).toHaveBeenCalledWith({ page: 1, limit: 10 }, expect.any(AbortSignal)),
+    );
+  });
+
+  it('shows every backend readiness reason only for not-ready draft classes', async () => {
+    vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
+    const draftNotReady: AdminReportClassRow = {
+      ...classRow,
+      status: 'DRAFT' as const,
+      operationalReadiness: {
+        isReady: false,
+        missing: ['INSTRUCTOR_MISSING', 'SCHEDULE_MISSING', 'CLASS_DATES_MISSING'],
+      },
+    };
+    const classes = vi
+      .spyOn(adminApi.reports, 'classes')
+      .mockResolvedValueOnce({
+        data: [draftNotReady],
+        meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            ...draftNotReady,
+            operationalReadiness: { isReady: true, missing: [] },
+          },
+        ],
+        meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
+      })
+      .mockResolvedValueOnce({
+        data: [classRow],
+        meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
+      });
+    renderAdmin('/admin/reports');
+    await screen.findByRole('heading', { name: 'Cần xử lý' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Lớp nháp chưa sẵn sàng/ }));
+    expect(await screen.findByText('Chưa sẵn sàng vì:')).toBeInTheDocument();
+    expect(screen.getByText('Chưa phân công giảng viên')).toBeInTheDocument();
+    expect(screen.getByText('Chưa có lịch học')).toBeInTheDocument();
+    expect(
+      screen.getByText('Ngày bắt đầu/kết thúc lớp chưa được cấu hình đầy đủ hoặc chưa hợp lệ'),
+    ).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('INSTRUCTOR_MISSING');
+    expect(document.body.textContent).not.toContain('SCHEDULE_MISSING');
+    expect(document.body.textContent).not.toContain('CLASS_DATES_MISSING');
+    expect(screen.getByPlaceholderText('Tìm theo tên hoặc mã lớp')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Mở vận hành lớp/ })).toHaveAttribute(
+      'href',
+      '/admin/class-offerings/class-1/operations',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Lớp nháp chưa sẵn sàng/ }));
+    const readyDraftDrawer = screen.getByRole('dialog');
+    await within(readyDraftDrawer).findByText('C1 · Lớp 1');
+    expect(within(readyDraftDrawer).queryByText('Chưa sẵn sàng vì:')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Lớp đang mở đã đủ sĩ số/ }));
+    const openFullDrawer = screen.getByRole('dialog');
+    await within(openFullDrawer).findByText('C1 · Lớp 1');
+    expect(within(openFullDrawer).queryByText('Chưa sẵn sàng vì:')).not.toBeInTheDocument();
+    expect(classes).toHaveBeenLastCalledWith(
+      { status: 'OPEN', registrationState: 'FULL', page: 1, limit: 10 },
+      expect.any(AbortSignal),
     );
   });
 

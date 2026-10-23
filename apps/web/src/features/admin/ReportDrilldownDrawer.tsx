@@ -14,8 +14,18 @@ import type {
   AdminReportGradingBacklogRow,
   CourseQuery,
   EnrollmentStatus,
+  OperationalReadinessReason,
   PageMeta,
 } from './types';
+
+const readinessReasonLabels: Record<OperationalReadinessReason, string> = {
+  COURSE_UNPUBLISHED: 'Khóa học chưa được xuất bản',
+  INSTRUCTOR_MISSING: 'Chưa phân công giảng viên',
+  INSTRUCTOR_INACTIVE: 'Giảng viên được phân công không ở trạng thái hoạt động',
+  SCHEDULE_MISSING: 'Chưa có lịch học',
+  SCHEDULE_DESTINATION_MISSING: 'Có lịch học chưa có địa điểm hoặc đường dẫn học',
+  CLASS_DATES_MISSING: 'Ngày bắt đầu/kết thúc lớp chưa được cấu hình đầy đủ hoặc chưa hợp lệ',
+};
 
 export type ReportDrawerRequest =
   | { kind: 'CLASS_LIST'; title: string; query: AdminReportClassesQuery }
@@ -145,7 +155,11 @@ export function ReportDrilldownDrawer({
                 <input
                   className="w-full rounded-xl border border-slate-300 py-2 pl-10 pr-3"
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Tìm theo tên, mã hoặc email"
+                  placeholder={
+                    request.kind === 'CLASS_LIST'
+                      ? 'Tìm theo tên hoặc mã lớp'
+                      : 'Tìm theo tên, mã hoặc email'
+                  }
                   value={search}
                 />
               </label>
@@ -255,6 +269,18 @@ function ClassRows({ rows }: { rows: AdminReportClassRow[] }) {
               {row.maxStudents === null ? ' · Không giới hạn cấu hình' : `/${row.maxStudents}`}
             </strong>
           </p>
+          {row.status === 'DRAFT' &&
+          !row.operationalReadiness.isReady &&
+          row.operationalReadiness.missing.length > 0 ? (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              <strong>Chưa sẵn sàng vì:</strong>
+              <ul className="mt-1 list-disc space-y-1 pl-5">
+                {row.operationalReadiness.missing.map((reason) => (
+                  <li key={reason}>{readinessReasonLabels[reason]}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <Link
             className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-indigo-700"
             to={`/admin/class-offerings/${row.id}/operations`}
