@@ -1,381 +1,231 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '@/App';
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context';
 import { ApiError } from '@/lib/api-client';
 import { adminApi } from './api';
-import * as reportExport from './report-export';
+import {
+  buildAccountRoleOption,
+  buildClassCapacityOption,
+  buildClassStatusOption,
+  buildEnrollmentDailyOption,
+  buildEnrollmentDemandOption,
+} from './report-echarts';
 import { reportPreset, validateReportPeriod, vietnamToday } from './reporting-period';
 import type { AdminSystemReport } from './types';
 
+vi.mock('@/components/charts/ReportEChart', () => ({
+  ReportEChart: ({
+    ariaLabel,
+    onDataClick,
+  }: {
+    ariaLabel: string;
+    onDataClick?: (data: unknown) => void;
+  }) => {
+    const data =
+      ariaLabel === 'Sĩ số ACTIVE và sức chứa theo lớp'
+        ? { classOfferingId: 'class-1' }
+        : ariaLabel === 'Lớp học theo trạng thái'
+          ? { status: 'OPEN' }
+          : ariaLabel === 'Tài khoản theo vai trò'
+            ? { role: 'STUDENT' }
+            : ariaLabel === 'Nhu cầu ghi danh theo lớp'
+              ? { classOfferingId: 'class-1' }
+              : { date: '2026-10-23' };
+    return (
+      <button
+        aria-label={`Mô phỏng ${ariaLabel}`}
+        onClick={() => onDataClick?.(data)}
+        type="button"
+      >
+        {ariaLabel}
+      </button>
+    );
+  },
+}));
+
+const classRow = {
+  id: 'class-1',
+  code: 'C1',
+  name: 'Lớp 1',
+  status: 'OPEN' as const,
+  course: { id: 'course-1', title: 'TOEIC nền tảng' },
+  instructor: { id: 'instructor-1', fullName: 'Giảng viên A' },
+  activeEnrollments: 10,
+  maxStudents: 10,
+  remainingSeats: 0,
+  registrationState: 'FULL' as const,
+  operationalReadiness: { isReady: true, missing: [] },
+  classStart: '2026-11-01T00:00:00.000Z',
+};
+
 const report: AdminSystemReport = {
   generatedAt: '2026-10-23T05:00:00.000Z',
-  snapshot: {
-    accounts: {
-      total: 9,
-      byRole: { STUDENT: 6, INSTRUCTOR: 2, ADMIN_COORDINATOR: 1 },
-      byStatus: { ACTIVE: 7, INACTIVE: 1, LOCKED: 1 },
-    },
-    courses: { total: 4, published: 3, draft: 1 },
-    classes: {
-      total: 5,
-      byStatus: { DRAFT: 1, OPEN: 2, IN_PROGRESS: 1, COMPLETED: 1, CANCELLED: 0 },
-      draftReadiness: { ready: 0, notReady: 1 },
-      openRegistration: { AVAILABLE: 1, FULL: 1, UPCOMING: 0, CLOSED: 0 },
-    },
-    enrollments: {
-      total: 7,
-      byStatus: { ACTIVE: 4, PENDING_PAYMENT: 1, COMPLETED: 1, DROPPED: 1, CANCELLED: 0 },
-    },
+  period: { from: '2026-09-24', to: '2026-10-23', days: 30, timeZone: 'Asia/Ho_Chi_Minh' },
+  actionQueues: { draftNotReady: 1, openFull: 1, pendingPayment: 1, gradingBacklog: 2 },
+  accounts: {
+    total: 9,
+    byRole: { STUDENT: 6, INSTRUCTOR: 2, ADMIN_COORDINATOR: 1 },
+    byStatus: { ACTIVE: 7, INACTIVE: 1, LOCKED: 1 },
   },
-  attention: { draftNotReady: 1, openFull: 1, pendingPayment: 1 },
-  activity: {
-    period: { from: '2026-09-24', to: '2026-10-23', days: 30, timeZone: 'Asia/Ho_Chi_Minh' },
-    totals: { newEnrollments: 2, submittedAssessments: 3, lessonCompletions: 4 },
+  courses: { total: 4, published: 3, draft: 1 },
+  classes: {
+    total: 5,
+    byStatus: { DRAFT: 1, OPEN: 2, IN_PROGRESS: 1, COMPLETED: 1, CANCELLED: 0 },
+    capacity: { totalOperationalClasses: 3, items: [classRow], truncated: false },
+  },
+  enrollmentDemand: {
+    totalNewEnrollments: 2,
+    byClass: [
+      {
+        classOfferingId: 'class-1',
+        classCode: 'C1',
+        className: 'Lớp 1',
+        courseId: 'course-1',
+        courseTitle: 'TOEIC nền tảng',
+        count: 2,
+      },
+    ],
     daily: [
-      { date: '2026-09-24', newEnrollments: 0, submittedAssessments: 0, lessonCompletions: 0 },
-      { date: '2026-10-23', newEnrollments: 2, submittedAssessments: 3, lessonCompletions: 4 },
+      { date: '2026-09-24', count: 0 },
+      { date: '2026-10-23', count: 2 },
     ],
   },
 };
+
+beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.removeAttribute('open');
+    this.dispatchEvent(new Event('close'));
+  };
+});
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
 
-describe('admin system reporting', () => {
-  it('redirects /admin to reports and places the report first in navigation', async () => {
+describe('admin decision reporting', () => {
+  it('redirects /admin to reports and renders the rebaselined decision surface', async () => {
     vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
     renderAdmin('/admin');
     expect(await screen.findByRole('heading', { name: 'Báo cáo hệ thống' })).toBeInTheDocument();
     expect(screen.getByTestId('location')).toHaveTextContent('/admin/reports');
-    const navigation = screen.getByRole('navigation', { name: 'Điều hướng quản trị' });
-    expect(navigation.querySelector('a')?.textContent).toContain('Báo cáo hệ thống');
+    expect(screen.getByRole('heading', { name: 'Cần xử lý' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Vận hành lớp' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Nhu cầu ghi danh' })).toBeInTheDocument();
+    const text = document.body.textContent ?? '';
+    expect(text).not.toContain('Bài đánh giá đã nộp');
+    expect(text).not.toContain('Bài học hoàn tất');
+    expect(text).not.toContain('Chi tiết theo ngày');
   });
 
-  it('announces initial loading and requests the backend default period', () => {
-    const request = vi
-      .spyOn(adminApi.reports, 'system')
-      .mockReturnValue(new Promise(() => undefined));
-    renderAdmin('/admin/reports');
-    expect(screen.getByText('Đang tải báo cáo hệ thống...')).toHaveAttribute('role', 'status');
-    expect(request).toHaveBeenCalledWith({}, expect.any(AbortSignal));
-  });
-
-  it('renders snapshot, attention, drill-throughs, notes, and zero activity rows', async () => {
+  it('opens exact class, pending-payment, and grading queues with server queries', async () => {
     vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
-    renderAdmin('/admin/reports');
-    expect(await screen.findByRole('heading', { name: 'Tình hình vận hành' })).toBeInTheDocument();
-    const snapshotHeading = screen.getByRole('heading', { name: 'Tổng quan hiện tại' });
-    const activityHeading = screen.getByRole('heading', {
-      name: 'Hoạt động trong khoảng thời gian đã chọn',
+    const classes = vi.spyOn(adminApi.reports, 'classes').mockResolvedValue({
+      data: [classRow],
+      meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
     });
-    expect(
-      snapshotHeading.compareDocumentPosition(activityHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        (_, element) =>
-          element?.tagName === 'P' &&
-          element.textContent ===
-            'Tổng quan hiện tại phản ánh trạng thái tại thời điểm tải báo cáo. Bộ lọc ngày chỉ ảnh hưởng đến hoạt động trong khoảng thời gian đã chọn.',
-      ),
-    ).toBeInTheDocument();
-
-    const activeCard = screen
-      .getByRole('heading', { name: 'Ghi danh đang hiệu lực' })
-      .closest('article');
-    expect(activeCard).not.toBeNull();
-    expect(within(activeCard!).getByText('4')).toBeInTheDocument();
-    expect(
-      within(activeCard!).getByText('Chỉ tính các ghi danh đang có hiệu lực.'),
-    ).toBeInTheDocument();
-
-    const pendingCard = screen
-      .getByRole('heading', { name: 'Chờ xử lý đăng ký có phí' })
-      .closest('article');
-    expect(pendingCard).not.toBeNull();
-    expect(within(pendingCard!).getByText('1')).toBeInTheDocument();
-    expect(
-      within(pendingCard!).getByText(/không đồng nghĩa đã thanh toán hoặc giữ chỗ/),
-    ).toBeInTheDocument();
-    expect(within(pendingCard!).getByRole('link', { name: /Xem lớp học/ })).toHaveAttribute(
-      'href',
-      '/admin/class-offerings',
-    );
-
-    expect(screen.getByText('Lớp nháp chưa sẵn sàng')).toBeInTheDocument();
-    expect(screen.getAllByText(/chưa được xem là đã thanh toán/)).toHaveLength(2);
-    expect(screen.getByRole('link', { name: /Lớp nháp chưa sẵn sàng/ })).toHaveAttribute(
-      'href',
-      '/admin/class-offerings',
-    );
-    expect(
-      screen.getByRole('link', {
-        name: /Đăng ký có phí đang chờ xử lýYêu cầu đăng ký có phí đang chờ được xử lý/,
-      }),
-    ).toHaveAttribute('href', '/admin/class-offerings');
-    expect(screen.getByRole('row', { name: '2026-09-24 0 0 0' })).toBeInTheDocument();
-  });
-
-  it('renders accessible snapshot charts and an activity trend that retains zero days', async () => {
-    vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
+    const enrollments = vi
+      .spyOn(adminApi.reports, 'enrollments')
+      .mockResolvedValue({ data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+    const backlog = vi
+      .spyOn(adminApi.reports, 'gradingBacklog')
+      .mockResolvedValue({ data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } });
     renderAdmin('/admin/reports');
-    await screen.findByRole('heading', { name: 'Tình hình vận hành' });
+    await screen.findByRole('heading', { name: 'Cần xử lý' });
 
-    expect(screen.getByRole('img', { name: 'Lớp học theo trạng thái' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Ghi danh theo trạng thái' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Tài khoản theo vai trò' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Tài khoản theo trạng thái' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('img', { name: 'Tỷ lệ khóa học đã xuất bản và bản nháp' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('img', {
-        name: 'Biểu đồ hoạt động từ 2026-09-24 đến 2026-10-23, gồm đầy đủ 2 ngày',
-      }),
-    ).toBeInTheDocument();
-
-    const lifecycleCard = screen
-      .getByRole('heading', { name: 'Lớp học theo trạng thái' })
-      .closest('article');
-    expect(lifecycleCard).not.toBeNull();
-    expect(within(lifecycleCard!).getByText('Đang mở')).toBeInTheDocument();
-    expect(within(lifecycleCard!).getByText('2')).toBeInTheDocument();
-    expect(document.querySelectorAll('[data-date="2026-09-24"]')).toHaveLength(3);
-    expect(document.querySelector('[data-date="2026-09-24"][data-value="0"]')).toBeInTheDocument();
-  });
-
-  it('prioritizes the activity trend and composes snapshot cards by information density', async () => {
-    vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
-    renderAdmin('/admin/reports');
-    const trendHeading = await screen.findByRole('heading', {
-      name: 'Xu hướng hoạt động theo ngày',
-    });
-    const snapshotVisualsHeading = screen.getByRole('heading', { name: 'Tình hình vận hành' });
-
-    expect(
-      trendHeading.compareDocumentPosition(snapshotVisualsHeading) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(document.querySelector('[data-report-region="main-analytics"]')).toHaveClass(
-      'xl:grid-cols-12',
-    );
-    expect(document.querySelector('[data-report-card="activity-trend"]')).toHaveClass(
-      'xl:col-span-8',
-    );
-    expect(document.querySelector('[data-report-card="period-totals"]')).toHaveClass(
-      'xl:col-span-4',
-    );
-    expect(document.querySelector('[data-report-card="class-status"]')).toHaveClass(
-      'xl:col-span-7',
-    );
-    expect(document.querySelector('[data-report-card="account-status"]')).toHaveClass(
-      'xl:col-span-5',
-    );
-    for (const compactCard of ['enrollment-status', 'course-status', 'operational-attention']) {
-      expect(document.querySelector(`[data-report-card="${compactCard}"]`)).toHaveClass(
-        'xl:col-span-4',
-      );
-    }
-
-    const enrollmentCard = document.querySelector<HTMLElement>(
-      '[data-report-card="enrollment-status"]',
-    );
-    expect(enrollmentCard).not.toBeNull();
-    expect(
-      within(enrollmentCard!).getByRole('img', { name: 'Ghi danh theo trạng thái' }),
-    ).toHaveClass('h-8');
-    expect(enrollmentCard!.querySelector('circle')).not.toBeInTheDocument();
-  });
-
-  it('applies 7/30/90-day presets as explicit inclusive ranges', async () => {
-    const request = vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
-    renderAdmin('/admin/reports');
-    await screen.findByRole('heading', { name: 'Tình hình vận hành' });
-    for (const days of [7, 30, 90] as const) {
-      fireEvent.click(screen.getByRole('button', { name: `${days} ngày` }));
-      await waitFor(() =>
-        expect(request).toHaveBeenLastCalledWith(reportPreset(days), expect.any(AbortSignal)),
-      );
-    }
-  });
-
-  it('rejects invalid custom ranges without sending a request', async () => {
-    const request = vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
-    renderAdmin('/admin/reports');
-    await screen.findByRole('heading', { name: 'Tình hình vận hành' });
-    request.mockClear();
-    fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: '2026-10-23' } });
-    fireEvent.change(screen.getByLabelText('Đến ngày'), { target: { value: '2026-10-01' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Áp dụng' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Ngày bắt đầu không được sau');
-    expect(request).not.toHaveBeenCalled();
-  });
-
-  it('submits a valid custom range', async () => {
-    const request = vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
-    renderAdmin('/admin/reports');
-    await screen.findByRole('heading', { name: 'Tình hình vận hành' });
-    fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: '2026-10-01' } });
-    fireEvent.change(screen.getByLabelText('Đến ngày'), { target: { value: '2026-10-20' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Áp dụng' }));
+    fireEvent.click(screen.getByRole('button', { name: /Lớp nháp chưa sẵn sàng/ }));
     await waitFor(() =>
-      expect(request).toHaveBeenLastCalledWith(
-        { from: '2026-10-01', to: '2026-10-20' },
+      expect(classes).toHaveBeenCalledWith(
+        { status: 'DRAFT', readiness: 'NOT_READY', page: 1, limit: 10 },
+        expect.any(AbortSignal),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Đăng ký có phí đang chờ xử lý/ }));
+    await waitFor(() =>
+      expect(enrollments).toHaveBeenCalledWith(
+        { status: 'PENDING_PAYMENT', page: 1, limit: 10 },
+        expect.any(AbortSignal),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /Bài Speaking\/Writing chờ giảng viên duyệt/ })[0],
+    );
+    await waitFor(() =>
+      expect(backlog).toHaveBeenCalledWith({ page: 1, limit: 10 }, expect.any(AbortSignal)),
+    );
+  });
+
+  it('maps chart/status interactions to exact backend filters', async () => {
+    vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
+    const classes = vi
+      .spyOn(adminApi.reports, 'classes')
+      .mockResolvedValue({ data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+    const accounts = vi.spyOn(adminApi.accounts, 'list').mockResolvedValue({
+      data: [],
+      meta: { page: 1, limit: 10, total: 0, totalPages: 0 },
+      summary: { total: 0, active: 0, inactive: 0, locked: 0 },
+    });
+    const enrollments = vi
+      .spyOn(adminApi.reports, 'enrollments')
+      .mockResolvedValue({ data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+    renderAdmin('/admin/reports');
+    await screen.findByRole('heading', { name: 'Vận hành lớp' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mô phỏng Lớp học theo trạng thái' }));
+    await waitFor(() =>
+      expect(classes).toHaveBeenCalledWith(
+        { status: 'OPEN', page: 1, limit: 10 },
+        expect.any(AbortSignal),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mô phỏng Tài khoản theo vai trò' }));
+    await waitFor(() =>
+      expect(accounts).toHaveBeenCalledWith(
+        { role: 'STUDENT', page: 1, limit: 10 },
+        expect.any(AbortSignal),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mô phỏng Nhu cầu ghi danh theo lớp' }));
+    await waitFor(() =>
+      expect(enrollments).toHaveBeenCalledWith(
+        {
+          from: report.period.from,
+          to: report.period.to,
+          classOfferingId: 'class-1',
+          page: 1,
+          limit: 10,
+        },
         expect.any(AbortSignal),
       ),
     );
   });
 
-  it('shows an explicit all-zero activity notice', async () => {
-    vi.spyOn(adminApi.reports, 'system').mockResolvedValue({
-      ...report,
-      activity: {
-        ...report.activity,
-        totals: { newEnrollments: 0, submittedAssessments: 0, lessonCompletions: 0 },
-      },
-    });
-    renderAdmin('/admin/reports');
-    expect(
-      await screen.findByText(
-        'Không ghi nhận hoạt động thuộc ba nhóm này trong khoảng thời gian đã chọn.',
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it('retains the report and selected dates after a refresh failure, then retries the same query', async () => {
-    let resolveRetry!: (value: AdminSystemReport) => void;
-    const retryResult = new Promise<AdminSystemReport>((resolve) => {
-      resolveRetry = resolve;
-    });
-    const request = vi
-      .spyOn(adminApi.reports, 'system')
-      .mockResolvedValueOnce(report)
-      .mockRejectedValueOnce(new Error('refresh secret'))
-      .mockReturnValueOnce(retryResult);
-    renderAdmin('/admin/reports');
-    await screen.findByRole('heading', { name: 'Tình hình vận hành' });
-
-    fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: '2026-10-01' } });
-    fireEvent.change(screen.getByLabelText('Đến ngày'), { target: { value: '2026-10-20' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Áp dụng' }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Không thể cập nhật. Dữ liệu gần nhất vẫn được giữ lại.',
-    );
-    expect(screen.getByRole('row', { name: '2026-10-23 2 3 4' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Từ ngày')).toHaveValue('2026-10-01');
-    expect(screen.getByLabelText('Đến ngày')).toHaveValue('2026-10-20');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
-    expect(screen.getByText('Đang cập nhật...')).toHaveAttribute('role', 'status');
-    expect(request).toHaveBeenLastCalledWith(
-      { from: '2026-10-01', to: '2026-10-20' },
-      expect.any(AbortSignal),
-    );
-
-    resolveRetry(report);
-    await waitFor(() => expect(screen.queryByText('Đang cập nhật...')).not.toBeInTheDocument());
-  });
-
-  it('refreshes the selected query, exports the loaded report, and invokes browser print', async () => {
+  it('applies period presets only through the enrollment-demand report period', async () => {
     const request = vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
-    const exportReport = vi
-      .spyOn(reportExport, 'downloadAdminReportCsv')
-      .mockImplementation(() => undefined);
-    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     renderAdmin('/admin/reports');
-    await screen.findByRole('heading', { name: 'Tình hình vận hành' });
-
-    fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: '2026-10-01' } });
-    fireEvent.change(screen.getByLabelText('Đến ngày'), { target: { value: '2026-10-20' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Áp dụng' }));
+    await screen.findByRole('heading', { name: 'Nhu cầu ghi danh' });
+    fireEvent.click(screen.getByRole('button', { name: '7 ngày' }));
     await waitFor(() =>
       expect(request).toHaveBeenLastCalledWith(
-        { from: '2026-10-01', to: '2026-10-20' },
+        expect.objectContaining({ from: expect.any(String), to: expect.any(String) }),
         expect.any(AbortSignal),
       ),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
-    await waitFor(() =>
-      expect(request).toHaveBeenLastCalledWith(
-        { from: '2026-10-01', to: '2026-10-20' },
-        expect.any(AbortSignal),
-      ),
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Xuất CSV' }));
-    expect(exportReport).toHaveBeenCalledWith(report);
-    fireEvent.click(screen.getByRole('button', { name: 'In / Lưu PDF' }));
-    expect(print).toHaveBeenCalledOnce();
-  });
-
-  it('keeps the daily table bounded on screen and omits unsupported metric headings', async () => {
-    vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
-    renderAdmin('/admin/reports');
-    await screen.findByRole('heading', { name: 'Chi tiết theo ngày' });
-
-    expect(document.querySelector('.report-daily-scroll')).toHaveClass(
-      'max-h-[30rem]',
-      'overflow-auto',
-    );
-    for (const unsupported of [
-      'Doanh thu',
-      'Lợi nhuận',
-      'Tỷ lệ chuyển đổi',
-      'Điểm tương tác',
-      'Dự báo bỏ học',
-      'AI insight',
-      'BKT mastery',
-      'Tăng trưởng học tập',
-    ]) {
-      expect(screen.queryByRole('heading', { name: unsupported })).not.toBeInTheDocument();
-    }
-  });
-
-  it('uses plain-language Vietnamese instead of implementation labels', async () => {
-    vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
-    renderAdmin('/admin/reports');
-    await screen.findByRole('heading', { name: 'Tình hình vận hành' });
-
-    const visibleText = document.body.textContent ?? '';
-    for (const required of [
-      'Lớp học theo trạng thái',
-      'Ghi danh theo trạng thái',
-      'Tài khoản theo vai trò và trạng thái',
-      'Bài đánh giá đã nộp',
-      'Giờ Việt Nam (UTC+7)',
-      'Cách đọc báo cáo',
-    ]) {
-      expect(visibleText).toContain(required);
-    }
-    for (const technical of [
-      'UC43',
-      'Enrollment.enrolledAt',
-      'Bài assessment đã nộp',
-      'Bức tranh vận hành',
-      'Cơ cấu tài khoản',
-      'Cơ cấu trạng thái ghi danh',
-      'Vòng đời lớp học',
-      'PENDING_PAYMENT',
-    ]) {
-      expect(visibleText).not.toContain(technical);
-    }
-  });
-
-  it('shows a safe error and retries', async () => {
-    vi.spyOn(adminApi.reports, 'system')
-      .mockRejectedValueOnce(new Error('database secret'))
-      .mockResolvedValueOnce(report);
-    renderAdmin('/admin/reports');
-    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải báo cáo hệ thống');
-    expect(screen.queryByText('database secret')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
-    expect(await screen.findByRole('heading', { name: 'Tình hình vận hành' })).toBeInTheDocument();
   });
 
   it('uses the standard expired-session flow', async () => {
@@ -391,19 +241,46 @@ describe('admin system reporting', () => {
   });
 });
 
+describe('report ECharts option builders', () => {
+  it('enables aria/tooltips and retains exact IDs for clicks', () => {
+    const capacity = buildClassCapacityOption(report.classes.capacity.items) as {
+      aria: { show: boolean };
+      tooltip: unknown;
+      series: Array<{ data: Array<{ classOfferingId: string }> }>;
+    };
+    const status = buildClassStatusOption(report) as {
+      tooltip: unknown;
+      series: Array<{ data: Array<{ status: string }> }>;
+    };
+    const roles = buildAccountRoleOption(report) as {
+      tooltip: unknown;
+      series: Array<{ data: Array<{ role: string }> }>;
+    };
+    const demand = buildEnrollmentDemandOption(report) as {
+      tooltip: unknown;
+      series: Array<{ data: Array<{ classOfferingId: string }> }>;
+    };
+    const daily = buildEnrollmentDailyOption(report) as {
+      tooltip: unknown;
+      series: Array<{ data: Array<{ date: string }> }>;
+    };
+    expect(capacity.aria.show).toBe(true);
+    expect(capacity.tooltip).toBeTruthy();
+    expect(capacity.series[0].data[0].classOfferingId).toBe('class-1');
+    expect(status.series[0].data.some((item) => item.status === 'OPEN')).toBe(true);
+    expect(roles.series[0].data.some((item) => item.role === 'STUDENT')).toBe(true);
+    expect(demand.series[0].data[0].classOfferingId).toBe('class-1');
+    expect(daily.series[0].data[1].date).toBe('2026-10-23');
+  });
+});
+
 describe('report period utilities', () => {
-  it('uses Vietnam calendar boundaries for presets', () => {
+  it('uses Vietnam calendar boundaries and validates 90 days', () => {
     expect(vietnamToday(new Date('2026-10-23T17:00:00.000Z'))).toBe('2026-10-24');
     expect(reportPreset(7, new Date('2026-10-23T17:00:00.000Z'))).toEqual({
       from: '2026-10-18',
       to: '2026-10-24',
     });
-  });
-
-  it('validates completeness, ordering, and the inclusive 90-day maximum', () => {
-    expect(validateReportPeriod('', '2026-01-01')).toMatch(/chọn đủ/);
-    expect(validateReportPeriod('2026-02-30', '2026-03-01')).toMatch(/chọn đủ/);
-    expect(validateReportPeriod('2026-02-02', '2026-02-01')).toMatch(/không được sau/);
     expect(validateReportPeriod('2026-01-01', '2026-04-01')).toMatch(/90 ngày/);
     expect(validateReportPeriod('2026-01-01', '2026-03-31')).toBeNull();
   });

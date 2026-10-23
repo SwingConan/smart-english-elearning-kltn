@@ -1,35 +1,30 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import {
-  Activity,
-  AlertTriangle,
-  BookOpen,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Download,
-  GraduationCap,
-  Printer,
-  RefreshCw,
-  School,
-  UserCheck,
-  Users,
-  type LucideIcon,
-} from 'lucide-react';
-import { Link } from 'react-router';
+import { CalendarDays, Download, ExternalLink, Printer, RefreshCw } from 'lucide-react';
+import { ReportEChart } from '@/components/charts/ReportEChart';
 import { adminApi } from '@/features/admin/api';
 import {
-  AccountCompositionChart,
-  ActivityTrendChart,
-  SegmentedBar,
-  type ChartDatum,
-} from '@/features/admin/report-charts';
+  buildAccountRoleOption,
+  buildClassCapacityOption,
+  buildClassStatusOption,
+  buildEnrollmentDailyOption,
+  buildEnrollmentDemandOption,
+} from '@/features/admin/report-echarts';
+import {
+  ReportDrilldownDrawer,
+  type ReportDrawerRequest,
+} from '@/features/admin/ReportDrilldownDrawer';
 import { downloadAdminReportCsv } from '@/features/admin/report-export';
 import {
   reportPreset,
   type ReportPeriodInput,
   validateReportPeriod,
 } from '@/features/admin/reporting-period';
-import type { AdminSystemReport } from '@/features/admin/types';
+import type {
+  AccountRole,
+  AccountStatus,
+  AdminSystemReport,
+  OfferingStatus,
+} from '@/features/admin/types';
 import { useAdminSessionExpiry } from '@/features/admin/use-admin-session-expiry';
 
 export function AdminReportsPage() {
@@ -42,6 +37,7 @@ export function AdminReportsPage() {
   const [error, setError] = useState(false);
   const [validation, setValidation] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [drawer, setDrawer] = useState<ReportDrawerRequest | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -49,7 +45,8 @@ export function AdminReportsPage() {
       .system(query, controller.signal)
       .then((response) => {
         setReport(response);
-        setDraft({ from: response.activity.period.from, to: response.activity.period.to });
+        setDraft({ from: response.period.from, to: response.period.to });
+        setError(false);
       })
       .catch(async (requestError: unknown) => {
         if (controller.signal.aborted || (await onSessionExpired(requestError))) return;
@@ -64,21 +61,9 @@ export function AdminReportsPage() {
   const apply = useCallback(() => {
     const message = validateReportPeriod(draft.from, draft.to);
     setValidation(message);
-    if (!message) {
-      setLoading(true);
-      setError(false);
-      setQuery({ ...draft });
-    }
+    if (!message) setQuery({ ...draft });
+    if (!message) setLoading(true);
   }, [draft]);
-
-  const selectPreset = (days: 7 | 30 | 90) => {
-    const period = reportPreset(days);
-    setDraft(period);
-    setValidation(null);
-    setLoading(true);
-    setError(false);
-    setQuery(period);
-  };
 
   const retry = () => {
     setLoading(true);
@@ -86,676 +71,615 @@ export function AdminReportsPage() {
     setReload((value) => value + 1);
   };
 
-  if (loading && !report) {
-    return (
-      <div aria-live="polite" className="rounded-2xl bg-white p-8" role="status">
-        Đang tải báo cáo hệ thống...
-      </div>
-    );
-  }
-  if (error && !report) {
-    return (
-      <div className="rounded-2xl border border-red-200 bg-white p-8" role="alert">
-        <p className="font-bold text-red-700">Không thể tải báo cáo hệ thống.</p>
-        <button
-          className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-white"
-          onClick={retry}
-          type="button"
-        >
-          Thử lại
-        </button>
-      </div>
-    );
-  }
+  if (loading && !report) return <PageState>Đang tải báo cáo hệ thống...</PageState>;
+  if (error && !report) return <PageError onRetry={retry} />;
   if (!report) return null;
 
-  const { snapshot } = report;
-  const classLifecycle: ChartDatum[] = [
-    { label: 'Lớp nháp', value: snapshot.classes.byStatus.DRAFT, color: '#94a3b8' },
-    { label: 'Đang mở', value: snapshot.classes.byStatus.OPEN, color: '#4f46e5' },
-    { label: 'Đang diễn ra', value: snapshot.classes.byStatus.IN_PROGRESS, color: '#0284c7' },
-    { label: 'Đã hoàn thành', value: snapshot.classes.byStatus.COMPLETED, color: '#059669' },
-    { label: 'Đã hủy', value: snapshot.classes.byStatus.CANCELLED, color: '#dc2626' },
-  ];
-  const enrollmentComposition: ChartDatum[] = [
-    { label: 'Đang hiệu lực', value: snapshot.enrollments.byStatus.ACTIVE, color: '#059669' },
-    {
-      label: 'Chờ xử lý đăng ký có phí',
-      value: snapshot.enrollments.byStatus.PENDING_PAYMENT,
-      color: '#d97706',
-      note: 'Chưa tính vào sĩ số đang học',
-    },
-    { label: 'Đã hoàn tất', value: snapshot.enrollments.byStatus.COMPLETED, color: '#4f46e5' },
-    { label: 'Đã ngừng học', value: snapshot.enrollments.byStatus.DROPPED, color: '#64748b' },
-    { label: 'Đã hủy', value: snapshot.enrollments.byStatus.CANCELLED, color: '#dc2626' },
-  ];
-  const coursePublication: ChartDatum[] = [
-    { label: 'Đã xuất bản', value: snapshot.courses.published, color: '#4f46e5' },
-    { label: 'Bản nháp', value: snapshot.courses.draft, color: '#cbd5e1' },
-  ];
-
   return (
-    <div className="report-print-root space-y-4">
-      <header className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-3 p-4 lg:grid-cols-[1fr_auto] lg:items-start lg:p-5">
+    <div className="report-print-root space-y-6">
+      <header className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-indigo-600">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-indigo-600">
               Báo cáo quản trị
             </p>
             <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950">
               Báo cáo hệ thống
             </h1>
-            <p className="mt-2 max-w-2xl text-slate-600">
-              Tổng quan vận hành và hoạt động gần đây từ dữ liệu thực của hệ thống.
+            <p className="mt-1 text-sm text-slate-600">
+              Các hàng đợi và chỉ số phục vụ quyết định vận hành hiện tại.
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
-            <Clock3 aria-hidden="true" className="text-indigo-600" size={18} />
-            <span>
-              Cập nhật lúc <strong>{new Date(report.generatedAt).toLocaleString('vi-VN')}</strong>
-            </span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <p className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
+              Cập nhật <strong>{new Date(report.generatedAt).toLocaleString('vi-VN')}</strong>
+            </p>
+            <ActionButton label="Làm mới" onClick={retry}>
+              <RefreshCw size={17} />
+            </ActionButton>
+            <ActionButton label="Xuất CSV" onClick={() => downloadAdminReportCsv(report)}>
+              <Download size={17} />
+            </ActionButton>
+            <ActionButton label="In / Lưu PDF" onClick={() => window.print()}>
+              <Printer size={17} />
+            </ActionButton>
           </div>
         </div>
-
-        <div className="border-t border-slate-200 bg-slate-50/80 p-3 lg:p-4">
-          <div className="mb-2 flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50 p-2.5 text-sm text-indigo-950">
-            <CalendarDays aria-hidden="true" className="mt-0.5 shrink-0" size={18} />
-            <p>
-              <strong>Tổng quan hiện tại</strong> phản ánh trạng thái tại thời điểm tải báo cáo. Bộ
-              lọc ngày chỉ ảnh hưởng đến <strong>hoạt động trong khoảng thời gian đã chọn</strong>.
-            </p>
-          </div>
-          <div className="report-toolbar report-no-print grid items-start gap-2 xl:grid-cols-12">
-            <div className="rounded-xl border border-slate-200 bg-white p-3 xl:col-span-3">
-              <p className="mb-2 text-sm font-bold text-slate-700">Chọn nhanh khoảng thời gian</p>
-              <div className="flex flex-wrap gap-2" aria-label="Khoảng thời gian nhanh">
-                {[7, 30, 90].map((days) => (
-                  <button
-                    className="min-w-16 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-400 hover:text-indigo-700"
-                    key={days}
-                    onClick={() => selectPreset(days as 7 | 30 | 90)}
-                    type="button"
-                  >
-                    {days} ngày
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3 xl:col-span-4">
-              <p className="mb-2 text-sm font-bold text-slate-700">Thao tác báo cáo</p>
-              <div className="report-toolbar-actions flex flex-wrap gap-2">
-                <ToolbarButton icon={RefreshCw} label="Làm mới" onClick={retry} />
-                <ToolbarButton
-                  icon={Download}
-                  label="Xuất CSV"
-                  onClick={() => downloadAdminReportCsv(report)}
-                />
-                <ToolbarButton icon={Printer} label="In / Lưu PDF" onClick={() => window.print()} />
-              </div>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3 xl:col-span-5">
-              <p className="mb-2 text-sm font-bold text-slate-700">Khoảng ngày tùy chỉnh</p>
-              <div className="grid max-w-3xl gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-                <label className="text-sm font-semibold text-slate-700">
-                  Từ ngày
-                  <input
-                    className="mt-1 block w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2"
-                    max={draft.to}
-                    onChange={(event) =>
-                      setDraft((value) => ({ ...value, from: event.target.value }))
-                    }
-                    type="date"
-                    value={draft.from}
-                  />
-                </label>
-                <label className="text-sm font-semibold text-slate-700">
-                  Đến ngày
-                  <input
-                    className="mt-1 block w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2"
-                    min={draft.from}
-                    onChange={(event) =>
-                      setDraft((value) => ({ ...value, to: event.target.value }))
-                    }
-                    type="date"
-                    value={draft.to}
-                  />
-                </label>
-                <button
-                  className="min-w-24 whitespace-nowrap rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white"
-                  onClick={apply}
-                  type="button"
-                >
-                  Áp dụng
-                </button>
-              </div>
-            </div>
-          </div>
-          {validation ? (
-            <p className="mt-3 text-sm font-semibold text-red-700" role="alert">
-              {validation}
-            </p>
-          ) : null}
-          {loading ? (
-            <p className="mt-3 text-sm font-semibold text-indigo-700" role="status">
-              Đang cập nhật...
-            </p>
-          ) : null}
-          {error ? (
-            <div className="report-no-print mt-3 flex flex-wrap items-center gap-3" role="alert">
-              <p className="text-sm text-red-700">
-                Không thể cập nhật. Dữ liệu gần nhất vẫn được giữ lại.
-              </p>
-              <button
-                className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-bold text-red-700"
-                onClick={retry}
-                type="button"
-              >
-                Thử lại
-              </button>
-            </div>
-          ) : null}
-        </div>
+        {error ? (
+          <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+            Không thể làm mới báo cáo. Dữ liệu gần nhất vẫn đang được hiển thị.
+          </p>
+        ) : null}
       </header>
 
-      <section aria-labelledby="snapshot-heading" className="space-y-4">
+      <section aria-labelledby="action-heading">
         <SectionHeading
-          eyebrow="Trạng thái tại thời điểm tải"
-          id="snapshot-heading"
-          subtitle="Năm chỉ số điều hành cốt lõi, không phụ thuộc khoảng ngày đã chọn."
-          title="Tổng quan hiện tại"
+          id="action-heading"
+          title="Cần xử lý"
+          subtitle="Mở từng hàng đợi để xem chính xác đối tượng tạo ra con số."
         />
-        <div
-          aria-label="Chỉ số tổng quan hiện tại"
-          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
-        >
-          <Metric
-            action="Xem tài khoản"
-            detail={`${snapshot.accounts.byRole.STUDENT} học viên · ${snapshot.accounts.byRole.INSTRUCTOR} giảng viên · ${snapshot.accounts.byRole.ADMIN_COORDINATOR} điều phối`}
-            href="/admin/accounts"
-            icon={Users}
-            title="Tài khoản"
-            tone="indigo"
-            value={snapshot.accounts.total}
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <QueueButton
+            label="Lớp nháp chưa sẵn sàng"
+            value={report.actionQueues.draftNotReady}
+            onClick={() =>
+              setDrawer({
+                kind: 'CLASS_LIST',
+                title: 'Lớp nháp chưa sẵn sàng',
+                query: { status: 'DRAFT', readiness: 'NOT_READY' },
+              })
+            }
           />
-          <Metric
-            action="Xem khóa học"
-            detail={`${snapshot.courses.published} xuất bản · ${snapshot.courses.draft} bản nháp`}
-            href="/admin/courses"
-            icon={BookOpen}
-            title="Khóa học"
-            tone="sky"
-            value={snapshot.courses.total}
+          <QueueButton
+            label="Lớp đang mở đã đủ sĩ số"
+            value={report.actionQueues.openFull}
+            onClick={() =>
+              setDrawer({
+                kind: 'CLASS_LIST',
+                title: 'Lớp đang mở đã đủ sĩ số',
+                query: { status: 'OPEN', registrationState: 'FULL' },
+              })
+            }
           />
-          <Metric
-            action="Xem lớp học"
-            detail={`${snapshot.classes.byStatus.OPEN} đang mở · ${snapshot.classes.byStatus.IN_PROGRESS} đang diễn ra`}
-            href="/admin/class-offerings"
-            icon={School}
-            title="Lớp học"
-            tone="violet"
-            value={snapshot.classes.total}
+          <QueueButton
+            label="Đăng ký có phí đang chờ xử lý"
+            value={report.actionQueues.pendingPayment}
+            onClick={() =>
+              setDrawer({
+                kind: 'ENROLLMENT_LIST',
+                title: 'Đăng ký có phí đang chờ xử lý',
+                query: { status: 'PENDING_PAYMENT' },
+              })
+            }
           />
-          <Metric
-            action="Xem vận hành lớp"
-            detail="Chỉ tính các ghi danh đang có hiệu lực."
-            href="/admin/class-offerings"
-            icon={UserCheck}
-            title="Ghi danh đang hiệu lực"
-            tone="emerald"
-            value={snapshot.enrollments.byStatus.ACTIVE}
+          <QueueButton
+            label="Bài Speaking/Writing chờ giảng viên duyệt"
+            value={report.actionQueues.gradingBacklog}
+            onClick={() =>
+              setDrawer({
+                kind: 'GRADING_BACKLOG',
+                title: 'Bài Speaking/Writing chờ giảng viên duyệt',
+                query: {},
+              })
+            }
           />
-          <Metric
-            action="Xem lớp học"
-            detail="Yêu cầu đang chờ xử lý; không đồng nghĩa đã thanh toán hoặc giữ chỗ."
-            href="/admin/class-offerings"
-            icon={Clock3}
-            title="Chờ xử lý đăng ký có phí"
-            tone="amber"
-            value={snapshot.enrollments.byStatus.PENDING_PAYMENT}
-          />
-        </div>
-      </section>
-
-      <section aria-labelledby="period-activity-heading" className="space-y-4">
-        <SectionHeading
-          eyebrow={`${report.activity.period.from} – ${report.activity.period.to} · Giờ Việt Nam (UTC+7)`}
-          id="period-activity-heading"
-          subtitle="Các hoạt động được ghi nhận trong khoảng ngày đã chọn."
-          title="Hoạt động trong khoảng thời gian đã chọn"
-        />
-        <div className="grid items-start gap-4 xl:grid-cols-12" data-report-region="main-analytics">
-          <section
-            aria-labelledby="trend-heading"
-            className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-8"
-            data-report-card="activity-trend"
-          >
-            <div className="mb-3">
-              <h3 className="text-xl font-black" id="trend-heading">
-                Xu hướng hoạt động theo ngày
-              </h3>
-              <p className="text-sm text-slate-500">
-                Biểu đồ thể hiện số hoạt động phát sinh theo từng ngày trong khoảng thời gian đã
-                chọn.
-              </p>
-            </div>
-            <ActivityTrendChart report={report} />
-            {report.activity.totals.newEnrollments +
-              report.activity.totals.submittedAssessments +
-              report.activity.totals.lessonCompletions ===
-            0 ? (
-              <p className="mt-3 rounded-xl bg-slate-100 p-3 text-sm text-slate-700">
-                Không ghi nhận hoạt động thuộc ba nhóm này trong khoảng thời gian đã chọn.
-              </p>
-            ) : null}
-          </section>
-
-          <aside
-            aria-labelledby="period-totals-heading"
-            className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-4"
-            data-report-card="period-totals"
-          >
-            <div className="mb-4">
-              <h3 className="text-lg font-black text-slate-950" id="period-totals-heading">
-                Tổng hoạt động trong kỳ
-              </h3>
-              <p className="text-sm text-slate-500">Ba chỉ số đi cùng biểu đồ xu hướng.</p>
-            </div>
-            <div className="space-y-3">
-              <ActivityTotal
-                icon={GraduationCap}
-                label="Ghi danh mới"
-                source="Theo ngày ghi danh"
-                value={report.activity.totals.newEnrollments}
-              />
-              <ActivityTotal
-                icon={Activity}
-                label="Bài đánh giá đã nộp"
-                source="Chỉ tính bài đã nộp"
-                value={report.activity.totals.submittedAssessments}
-              />
-              <ActivityTotal
-                icon={CheckCircle2}
-                label="Bài học hoàn tất"
-                source="Chỉ tính bài học đã hoàn tất"
-                value={report.activity.totals.lessonCompletions}
-              />
-            </div>
-          </aside>
-        </div>
-      </section>
-
-      <section aria-labelledby="snapshot-visuals-heading" className="space-y-4">
-        <SectionHeading
-          id="snapshot-visuals-heading"
-          subtitle="Biểu đồ tóm tắt luôn đi kèm chú giải và số lượng dạng văn bản."
-          title="Tình hình vận hành"
-        />
-        <div className="grid items-start gap-4 xl:grid-cols-12" data-report-region="snapshot-grid">
-          <ChartCard
-            action="Xem lớp học"
-            className="xl:col-span-7"
-            dataCard="class-status"
-            href="/admin/class-offerings"
-            subtitle={`${snapshot.classes.total} lớp trên toàn hệ thống`}
-            title="Lớp học theo trạng thái"
-          >
-            <SegmentedBar
-              ariaLabel="Lớp học theo trạng thái"
-              data={classLifecycle}
-              legendColumns={2}
-            />
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <MiniBreakdown
-                rows={[
-                  ['Sẵn sàng mở', snapshot.classes.draftReadiness.ready],
-                  ['Chưa sẵn sàng', snapshot.classes.draftReadiness.notReady],
-                ]}
-                title="Mức độ sẵn sàng của lớp nháp"
-              />
-              <MiniBreakdown
-                rows={[
-                  ['Còn chỗ', snapshot.classes.openRegistration.AVAILABLE],
-                  ['Đã đầy', snapshot.classes.openRegistration.FULL],
-                  ['Sắp mở', snapshot.classes.openRegistration.UPCOMING],
-                  ['Đã đóng', snapshot.classes.openRegistration.CLOSED],
-                ]}
-                title="Tình trạng đăng ký của lớp đang mở"
-              />
-            </div>
-          </ChartCard>
-          <ChartCard
-            action="Xem tài khoản"
-            className="xl:col-span-5"
-            dataCard="account-status"
-            href="/admin/accounts"
-            subtitle={`${snapshot.accounts.total} tài khoản theo vai trò và trạng thái`}
-            title="Tài khoản theo vai trò và trạng thái"
-          >
-            <AccountCompositionChart report={report} />
-          </ChartCard>
-          <ChartCard
-            action="Xem vận hành lớp"
-            className="xl:col-span-4"
-            dataCard="enrollment-status"
-            href="/admin/class-offerings"
-            subtitle={`${snapshot.enrollments.total} ghi danh hiện có`}
-            title="Ghi danh theo trạng thái"
-          >
-            <SegmentedBar ariaLabel="Ghi danh theo trạng thái" data={enrollmentComposition} />
-            <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm leading-5 text-amber-900">
-              Các đăng ký có phí đang chờ xử lý chưa được tính vào sĩ số đang học và chưa được xem
-              là đã thanh toán.
-            </p>
-          </ChartCard>
-          <ChartCard
-            action="Xem khóa học"
-            className="xl:col-span-4"
-            dataCard="course-status"
-            href="/admin/courses"
-            subtitle={`${snapshot.courses.published} trên ${snapshot.courses.total} khóa học đã xuất bản`}
-            title="Trạng thái khóa học"
-          >
-            <SegmentedBar
-              ariaLabel="Tỷ lệ khóa học đã xuất bản và bản nháp"
-              data={coursePublication}
-            />
-            <div className="mt-3 flex items-center gap-3 rounded-xl bg-indigo-50 p-4 text-indigo-950">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-indigo-700 shadow-sm">
-                <CheckCircle2 aria-hidden="true" size={24} />
-              </span>
-              <p className="text-sm leading-5">
-                <strong className="block text-2xl font-black">
-                  {snapshot.courses.total
-                    ? Math.round((snapshot.courses.published / snapshot.courses.total) * 100)
-                    : 0}
-                  %
-                </strong>
-                khóa học hiện đã được xuất bản.
-              </p>
-            </div>
-          </ChartCard>
-          <aside
-            aria-labelledby="attention-heading"
-            className="h-fit rounded-2xl border border-amber-200 bg-amber-50/70 p-5 shadow-sm xl:col-span-4"
-            data-report-card="operational-attention"
-          >
-            <div className="flex items-center gap-3">
-              <span className="rounded-xl bg-amber-100 p-2 text-amber-800">
-                <AlertTriangle aria-hidden="true" size={20} />
-              </span>
-              <div>
-                <h3 className="text-lg font-black text-slate-950" id="attention-heading">
-                  Cần chú ý
-                </h3>
-                <p className="text-sm text-slate-600">Ba điểm cần xử lý hiện tại.</p>
-              </div>
-            </div>
-            <div className="mt-4 space-y-3">
-              <Attention
-                label="Lớp nháp chưa sẵn sàng"
-                meaning="Thiếu điều kiện để mở lớp."
-                value={report.attention.draftNotReady}
-              />
-              <Attention
-                label="Lớp đang mở đã đủ sĩ số"
-                meaning="Sĩ số đang học đã đạt giới hạn."
-                value={report.attention.openFull}
-              />
-              <Attention
-                label="Đăng ký có phí đang chờ xử lý"
-                meaning="Yêu cầu đăng ký có phí đang chờ được xử lý."
-                value={report.attention.pendingPayment}
-              />
-            </div>
-          </aside>
         </div>
       </section>
 
       <section
-        aria-labelledby="daily-heading"
-        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+        aria-labelledby="capacity-heading"
+        className="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+        data-report-card="class-capacity"
       >
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 p-5 sm:p-6">
-          <div>
-            <h2 className="text-xl font-black" id="daily-heading">
-              Chi tiết theo ngày
-            </h2>
-            <p className="text-sm text-slate-500">
-              Đầy đủ {report.activity.period.days} ngày; ngày gần nhất hiển thị trước.
-            </p>
-          </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-            Dữ liệu chi tiết
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <SectionHeading
+            id="capacity-heading"
+            title="Vận hành lớp"
+            subtitle="Sĩ số ACTIVE so với sức chứa của các lớp đang mở hoặc đang diễn ra."
+          />
+          <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700">
+            {report.classes.capacity.totalOperationalClasses} lớp vận hành
           </span>
         </div>
-        <div className="report-daily-scroll max-h-[30rem] overflow-auto">
-          <table className="w-full min-w-[680px] text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-slate-100 shadow-sm">
-              <tr>
-                <th className="p-3">Ngày</th>
-                <th className="p-3">Ghi danh mới</th>
-                <th className="p-3">Bài đánh giá đã nộp</th>
-                <th className="p-3">Bài học hoàn tất</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...report.activity.daily].reverse().map((row) => (
-                <tr className="border-t border-slate-100 even:bg-slate-50/60" key={row.date}>
-                  <th className="p-3 font-semibold">{row.date}</th>
-                  <td className="p-3">{row.newEnrollments}</td>
-                  <td className="p-3">{row.submittedAssessments}</td>
-                  <td className="p-3">{row.lessonCompletions}</td>
-                </tr>
+        {report.classes.capacity.items.length ? (
+          <>
+            <ReportEChart
+              ariaLabel="Sĩ số ACTIVE và sức chứa theo lớp"
+              className="mt-4 h-[28rem] w-full"
+              onDataClick={(data) => {
+                const classOfferingId = dataField(data, 'classOfferingId');
+                const row = report.classes.capacity.items.find(
+                  (item) => item.id === classOfferingId,
+                );
+                if (row)
+                  setDrawer({ kind: 'CLASS_DETAIL', title: `${row.code} · ${row.name}`, row });
+              }}
+              option={buildClassCapacityOption(report.classes.capacity.items)}
+            />
+            <ul
+              className="mt-4 grid gap-2 text-sm sm:grid-cols-2 xl:grid-cols-3"
+              aria-label="Danh sách sĩ số lớp"
+            >
+              {report.classes.capacity.items.map((row) => (
+                <li key={row.id}>
+                  <button
+                    className="w-full rounded-xl border border-slate-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50/40"
+                    onClick={() =>
+                      setDrawer({ kind: 'CLASS_DETAIL', title: `${row.code} · ${row.name}`, row })
+                    }
+                    type="button"
+                  >
+                    <strong className="block text-slate-900">
+                      {row.code} · {row.name}
+                    </strong>
+                    <span className="text-slate-600">
+                      {row.activeEnrollments}
+                      {row.maxStudents === null
+                        ? ' · Không giới hạn cấu hình'
+                        : `/${row.maxStudents} học viên`}
+                    </span>
+                  </button>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+            {report.classes.capacity.truncated ? (
+              <p className="mt-3 text-sm text-slate-500">
+                Biểu đồ hiển thị 12 lớp ưu tiên. Mở danh sách lớp để xem đầy đủ.
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <EmptyState>Chưa có lớp OPEN hoặc IN_PROGRESS.</EmptyState>
+        )}
+      </section>
+
+      <section aria-labelledby="current-heading">
+        <SectionHeading
+          id="current-heading"
+          title="Tình hình vận hành hiện tại"
+          subtitle="Mỗi thành phần có thể mở danh sách đối tượng tương ứng."
+        />
+        <div className="mt-3 grid items-start gap-4 xl:grid-cols-12">
+          <ChartCard
+            className="xl:col-span-5"
+            title="Trạng thái lớp"
+            subtitle={`${report.classes.total} lớp trên hệ thống`}
+          >
+            <ReportEChart
+              ariaLabel="Lớp học theo trạng thái"
+              className="h-72 w-full"
+              onDataClick={(data) => {
+                const status = dataField(data, 'status') as OfferingStatus | undefined;
+                if (status)
+                  setDrawer({
+                    kind: 'CLASS_LIST',
+                    title: classStatusLabel(status),
+                    query: { status },
+                  });
+              }}
+              option={buildClassStatusOption(report)}
+            />
+          </ChartCard>
+          <ChartCard
+            className="xl:col-span-4"
+            title="Tài khoản"
+            subtitle={`${report.accounts.total} tài khoản theo vai trò`}
+          >
+            <ReportEChart
+              ariaLabel="Tài khoản theo vai trò"
+              className="h-72 w-full"
+              onDataClick={(data) => {
+                const role = dataField(data, 'role') as AccountRole | undefined;
+                if (role)
+                  setDrawer({
+                    kind: 'ACCOUNT_LIST',
+                    title: `Tài khoản · ${roleLabel(role)}`,
+                    query: { role },
+                  });
+              }}
+              option={buildAccountRoleOption(report)}
+            />
+            <div className="mt-3 grid grid-cols-3 gap-2" aria-label="Tài khoản theo trạng thái">
+              {(['ACTIVE', 'INACTIVE', 'LOCKED'] as AccountStatus[]).map((status) => (
+                <button
+                  className="rounded-xl border border-slate-200 p-2 text-center hover:border-indigo-300"
+                  key={status}
+                  onClick={() =>
+                    setDrawer({
+                      kind: 'ACCOUNT_LIST',
+                      title: `Tài khoản · ${accountStatusLabel(status)}`,
+                      query: { status },
+                    })
+                  }
+                  type="button"
+                >
+                  <strong className="block text-xl">{report.accounts.byStatus[status]}</strong>
+                  <span className="text-xs text-slate-600">{accountStatusLabel(status)}</span>
+                </button>
+              ))}
+            </div>
+          </ChartCard>
+          <ChartCard
+            className="xl:col-span-3"
+            title="Khóa học"
+            subtitle={`${report.courses.total} khóa học`}
+          >
+            <div className="space-y-3">
+              <button
+                className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 text-left hover:border-indigo-300"
+                onClick={() =>
+                  setDrawer({
+                    kind: 'COURSE_LIST',
+                    title: 'Khóa học đã xuất bản',
+                    query: { isPublished: true },
+                  })
+                }
+                type="button"
+              >
+                <span>
+                  <strong className="block text-2xl">{report.courses.published}</strong>
+                  <span className="text-sm text-slate-600">Đã xuất bản</span>
+                </span>
+                <ExternalLink size={18} />
+              </button>
+              <button
+                className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 text-left hover:border-indigo-300"
+                onClick={() =>
+                  setDrawer({
+                    kind: 'COURSE_LIST',
+                    title: 'Khóa học bản nháp',
+                    query: { isPublished: false },
+                  })
+                }
+                type="button"
+              >
+                <span>
+                  <strong className="block text-2xl">{report.courses.draft}</strong>
+                  <span className="text-sm text-slate-600">Bản nháp</span>
+                </span>
+                <ExternalLink size={18} />
+              </button>
+            </div>
+          </ChartCard>
         </div>
       </section>
 
-      <footer className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-6 text-slate-600">
-        <strong className="text-slate-900">Cách đọc báo cáo:</strong> Các số liệu ở phần tình hình
-        hiện tại phản ánh trạng thái mới nhất của hệ thống. Phần hoạt động chỉ tính dữ liệu trong
-        khoảng ngày đã chọn. Các đăng ký có phí đang chờ xử lý chưa được tính vào sĩ số đang học và
-        chưa được xem là đã thanh toán. Báo cáo tạo lúc{' '}
-        {new Date(report.generatedAt).toLocaleString('vi-VN')}.
+      <section
+        aria-labelledby="demand-heading"
+        className="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+        data-report-card="enrollment-demand"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <SectionHeading
+            id="demand-heading"
+            title="Nhu cầu ghi danh"
+            subtitle="Bộ lọc ngày chỉ áp dụng cho phần nhu cầu ghi danh này."
+          />
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700">
+            {report.enrollmentDemand.totalNewEnrollments} ghi danh mới
+          </span>
+        </div>
+        <PeriodControls
+          draft={draft}
+          loading={loading}
+          onApply={apply}
+          onDraft={setDraft}
+          onPreset={(days) => {
+            const period = reportPreset(days);
+            setDraft(period);
+            setValidation(null);
+            setLoading(true);
+            setQuery(period);
+          }}
+          validation={validation}
+        />
+        <div className="mt-5 grid gap-5 xl:grid-cols-2">
+          <ChartCard
+            title="Ghi danh mới theo lớp"
+            subtitle={`${report.period.from} – ${report.period.to}`}
+          >
+            {report.enrollmentDemand.byClass.length ? (
+              <ReportEChart
+                ariaLabel="Nhu cầu ghi danh theo lớp"
+                className="h-80 w-full"
+                onDataClick={(data) => {
+                  const classOfferingId = dataField(data, 'classOfferingId');
+                  if (classOfferingId)
+                    setDrawer({
+                      kind: 'ENROLLMENT_LIST',
+                      title: 'Ghi danh mới theo lớp',
+                      query: { from: report.period.from, to: report.period.to, classOfferingId },
+                    });
+                }}
+                option={buildEnrollmentDemandOption(report)}
+              />
+            ) : (
+              <EmptyState>Không có ghi danh mới trong kỳ.</EmptyState>
+            )}
+          </ChartCard>
+          <ChartCard
+            title="Ghi danh mới theo ngày"
+            subtitle="Chọn một điểm để xem các ghi danh trong ngày"
+          >
+            <ReportEChart
+              ariaLabel="Ghi danh mới theo ngày"
+              className="h-80 w-full"
+              onDataClick={(data) => {
+                const date = dataField(data, 'date');
+                if (date)
+                  setDrawer({
+                    kind: 'ENROLLMENT_LIST',
+                    title: `Ghi danh ngày ${date}`,
+                    query: { from: date, to: date },
+                  });
+              }}
+              option={buildEnrollmentDailyOption(report)}
+            />
+          </ChartCard>
+        </div>
+      </section>
+
+      {report.actionQueues.gradingBacklog > 0 ? (
+        <button
+          className="flex w-full items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-left hover:border-amber-400"
+          onClick={() =>
+            setDrawer({
+              kind: 'GRADING_BACKLOG',
+              title: 'Bài Speaking/Writing chờ giảng viên duyệt',
+              query: {},
+            })
+          }
+          type="button"
+        >
+          <span>
+            <strong className="block text-lg text-slate-950">
+              Theo dõi hàng đợi chấm Speaking/Writing
+            </strong>
+            <span className="text-sm text-slate-600">
+              Ưu tiên bài nộp cũ nhất; Admin chỉ theo dõi vận hành, không nhận nội dung câu trả lời.
+            </span>
+          </span>
+          <span className="text-3xl font-black text-amber-800">
+            {report.actionQueues.gradingBacklog}
+          </span>
+        </button>
+      ) : null}
+
+      <footer className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+        <strong className="text-slate-900">Cách đọc báo cáo:</strong> Hàng đợi, sĩ số lớp, trạng
+        thái lớp và tài khoản là ảnh chụp hiện tại. Khoảng ngày chỉ thay đổi nhu cầu ghi danh. Đăng
+        ký có phí chờ xử lý không được xem là đã thanh toán hoặc giữ chỗ. Giờ Việt Nam (UTC+7).
       </footer>
+
+      {drawer ? (
+        <ReportDrilldownDrawer
+          key={`${drawer.kind}-${drawer.title}`}
+          onClose={() => setDrawer(null)}
+          onSessionExpired={onSessionExpired}
+          request={drawer}
+        />
+      ) : null}
     </div>
   );
 }
 
-function ToolbarButton({
-  icon: Icon,
+type ReportDateRange = Required<ReportPeriodInput>;
+
+function PeriodControls({
+  draft,
+  loading,
+  onApply,
+  onDraft,
+  onPreset,
+  validation,
+}: {
+  draft: ReportDateRange;
+  loading: boolean;
+  onApply: () => void;
+  onDraft: (value: ReportDateRange) => void;
+  onPreset: (days: 7 | 30 | 90) => void;
+  validation: string | null;
+}) {
+  return (
+    <div className="report-no-print mt-4 rounded-2xl bg-slate-50 p-4">
+      <div className="grid gap-4 xl:grid-cols-[auto_1fr] xl:items-end">
+        <div>
+          <p className="mb-2 text-sm font-bold text-slate-700">Chọn nhanh</p>
+          <div className="flex flex-wrap gap-2">
+            {([7, 30, 90] as const).map((days) => (
+              <button
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold"
+                key={days}
+                onClick={() => onPreset(days)}
+                type="button"
+              >
+                {days} ngày
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <DateField
+            label="Từ ngày"
+            max={draft.to}
+            onChange={(from) => onDraft({ ...draft, from })}
+            value={draft.from}
+          />
+          <DateField
+            label="Đến ngày"
+            min={draft.from}
+            onChange={(to) => onDraft({ ...draft, to })}
+            value={draft.to}
+          />
+          <button
+            className="rounded-xl bg-indigo-600 px-5 py-2 font-bold text-white disabled:opacity-50"
+            disabled={loading}
+            onClick={onApply}
+            type="button"
+          >
+            Áp dụng
+          </button>
+        </div>
+      </div>
+      {validation ? (
+        <p className="mt-3 text-sm font-semibold text-red-700" role="alert">
+          {validation}
+        </p>
+      ) : null}
+      <p className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+        <CalendarDays size={15} />
+        Tối đa 90 ngày · Giờ Việt Nam (UTC+7)
+      </p>
+    </div>
+  );
+}
+
+function DateField({
+  label,
+  max,
+  min,
+  onChange,
+  value,
+}: {
+  label: string;
+  max?: string;
+  min?: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="text-sm font-semibold text-slate-700">
+      {label}
+      <input
+        className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+        max={max}
+        min={min}
+        onChange={(event) => onChange(event.target.value)}
+        type="date"
+        value={value}
+      />
+    </label>
+  );
+}
+function ActionButton({
+  children,
   label,
   onClick,
 }: {
-  icon: LucideIcon;
+  children: ReactNode;
   label: string;
   onClick: () => void;
 }) {
   return (
     <button
-      className="inline-flex min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-400 hover:text-indigo-700"
+      className="report-no-print inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:border-indigo-400"
       onClick={onClick}
       type="button"
     >
-      <Icon aria-hidden="true" size={17} />
+      {children}
       {label}
     </button>
   );
 }
-
-function SectionHeading({
-  eyebrow,
-  id,
-  subtitle,
-  title,
+function QueueButton({
+  label,
+  onClick,
+  value,
 }: {
-  eyebrow?: string;
-  id: string;
-  subtitle: string;
-  title: string;
+  label: string;
+  onClick: () => void;
+  value: number;
 }) {
   return (
+    <button
+      className="group flex min-h-32 items-start justify-between gap-3 rounded-2xl border border-amber-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-md"
+      onClick={onClick}
+      type="button"
+    >
+      <span>
+        <span className="block font-black text-slate-900">{label}</span>
+        <span className="mt-2 block text-xs font-bold text-indigo-700 group-hover:underline">
+          Xem đúng danh sách →
+        </span>
+      </span>
+      <strong className="text-3xl font-black text-amber-800">{value}</strong>
+    </button>
+  );
+}
+function SectionHeading({ id, subtitle, title }: { id: string; subtitle: string; title: string }) {
+  return (
     <div>
-      {eyebrow ? (
-        <p className="text-sm font-black tracking-[0.08em] text-indigo-600">{eyebrow}</p>
-      ) : null}
-      <h2
-        className={
-          eyebrow
-            ? 'mt-0.5 text-xl font-black tracking-tight text-slate-950'
-            : 'text-xl font-black tracking-tight text-slate-950'
-        }
-        id={id}
-      >
+      <h2 className="text-xl font-black tracking-tight text-slate-950" id={id}>
         {title}
       </h2>
       <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
     </div>
   );
 }
-
-const metricTones = {
-  indigo: 'bg-indigo-50 text-indigo-700',
-  sky: 'bg-sky-50 text-sky-700',
-  violet: 'bg-violet-50 text-violet-700',
-  emerald: 'bg-emerald-50 text-emerald-700',
-  amber: 'bg-amber-50 text-amber-700',
-};
-
-function Metric({
-  title,
-  value,
-  detail,
-  href,
-  action,
-  icon: Icon,
-  tone,
-}: {
-  title: string;
-  value: number;
-  detail: string;
-  href: string;
-  action: string;
-  icon: LucideIcon;
-  tone: keyof typeof metricTones;
-}) {
-  return (
-    <article className="group flex h-fit flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-bold leading-5 text-slate-700">{title}</h3>
-          <p className="mt-1 text-3xl font-black tracking-tight text-slate-950">{value}</p>
-        </div>
-        <span className={`shrink-0 rounded-xl p-2 ${metricTones[tone]}`}>
-          <Icon aria-hidden="true" size={19} />
-        </span>
-      </div>
-      <p className="mt-1.5 flex-1 text-xs leading-4 text-slate-500">{detail}</p>
-      <Link
-        className="report-no-print mt-2 text-xs font-bold text-indigo-700 group-hover:underline"
-        to={href}
-      >
-        {action} →
-      </Link>
-    </article>
-  );
-}
-
-function Attention({ label, meaning, value }: { label: string; meaning: string; value: number }) {
-  return (
-    <Link
-      className="group grid grid-cols-[auto_1fr] gap-3 rounded-xl border border-amber-200 bg-white p-3 transition hover:border-amber-400 hover:shadow-sm"
-      to="/admin/class-offerings"
-    >
-      <strong className="text-2xl font-black text-amber-800">{value}</strong>
-      <span>
-        <span className="block font-bold text-slate-900">{label}</span>
-        <span className="mt-0.5 block text-xs leading-4 text-slate-600">{meaning}</span>
-        <span className="report-no-print mt-1.5 block text-xs font-bold text-indigo-700 group-hover:underline">
-          Mở vận hành lớp →
-        </span>
-      </span>
-    </Link>
-  );
-}
-
 function ChartCard({
-  title,
-  subtitle,
-  href,
-  action,
-  className = '',
-  dataCard,
   children,
+  className = '',
+  subtitle,
+  title,
 }: {
-  title: string;
-  subtitle: string;
-  href: string;
-  action: string;
-  className?: string;
-  dataCard?: string;
   children: ReactNode;
+  className?: string;
+  subtitle: string;
+  title: string;
 }) {
   return (
     <article
-      className={`h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}
-      data-report-card={dataCard}
+      className={`h-fit min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}
     >
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-xl font-black text-slate-950">{title}</h3>
-          <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
-        </div>
-        <Link
-          className="report-no-print shrink-0 text-sm font-bold text-indigo-700 hover:underline"
-          to={href}
-        >
-          {action} →
-        </Link>
-      </div>
-      {children}
+      <h3 className="text-lg font-black text-slate-950">{title}</h3>
+      <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+      <div className="mt-3">{children}</div>
     </article>
   );
 }
-
-function MiniBreakdown({ title, rows }: { title: string; rows: Array<[string, number]> }) {
+function EmptyState({ children }: { children: ReactNode }) {
+  return <p className="mt-4 rounded-xl bg-slate-50 p-6 text-center text-slate-600">{children}</p>;
+}
+function PageState({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-3">
-      <h4 className="text-sm font-black text-slate-600">{title}</h4>
-      <dl className="mt-2 space-y-1.5">
-        {rows.map(([label, value]) => (
-          <div className="flex justify-between gap-3 text-sm" key={label}>
-            <dt>{label}</dt>
-            <dd className="font-black">{value}</dd>
-          </div>
-        ))}
-      </dl>
+    <div aria-live="polite" className="rounded-2xl bg-white p-8" role="status">
+      {children}
     </div>
   );
 }
-
-function ActivityTotal({
-  icon: Icon,
-  label,
-  value,
-  source,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: number;
-  source: string;
-}) {
+function PageError({ onRetry }: { onRetry: () => void }) {
   return (
-    <article className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-      <span className="rounded-lg bg-indigo-50 p-2 text-indigo-700">
-        <Icon aria-hidden="true" size={19} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-sm font-bold text-slate-600">{label}</h3>
-        <p className="text-xs text-slate-500">{source}</p>
-      </div>
-      <p className="text-2xl font-black text-slate-950">{value}</p>
-    </article>
+    <div className="rounded-2xl border border-red-200 bg-white p-8" role="alert">
+      <p className="font-bold text-red-700">Không thể tải báo cáo hệ thống.</p>
+      <button
+        className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-white"
+        onClick={onRetry}
+        type="button"
+      >
+        Thử lại
+      </button>
+    </div>
   );
+}
+function dataField(data: unknown, field: string): string | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const value = (data as Record<string, unknown>)[field];
+  return typeof value === 'string' ? value : undefined;
+}
+function classStatusLabel(status: OfferingStatus) {
+  return {
+    DRAFT: 'Lớp nháp',
+    OPEN: 'Lớp đang mở',
+    IN_PROGRESS: 'Lớp đang diễn ra',
+    COMPLETED: 'Lớp đã hoàn thành',
+    CANCELLED: 'Lớp đã hủy',
+  }[status];
+}
+function roleLabel(role: AccountRole) {
+  return { STUDENT: 'Học viên', INSTRUCTOR: 'Giảng viên', ADMIN_COORDINATOR: 'Điều phối/Admin' }[
+    role
+  ];
+}
+function accountStatusLabel(status: AccountStatus) {
+  return { ACTIVE: 'Đang hoạt động', INACTIVE: 'Tạm ngưng', LOCKED: 'Đã khóa' }[status];
 }

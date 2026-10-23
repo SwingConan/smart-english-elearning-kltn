@@ -7,84 +7,84 @@ export function serializeAdminReportCsv(report: AdminSystemReport): string {
     ['BÁO CÁO HỆ THỐNG'],
     ['THÔNG TIN BÁO CÁO'],
     ['Thời điểm tạo báo cáo', report.generatedAt],
-    ['Từ ngày', report.activity.period.from],
-    ['Đến ngày', report.activity.period.to],
-    ['Số ngày', report.activity.period.days],
+    ['Từ ngày', report.period.from],
+    ['Đến ngày', report.period.to],
+    ['Số ngày', report.period.days],
     ['Múi giờ', 'Giờ Việt Nam (UTC+7)'],
     [],
-    ['TỔNG QUAN HIỆN TẠI'],
-    ['Nhóm', 'Chỉ số', 'Giá trị'],
-    ['Tài khoản', 'Tổng', report.snapshot.accounts.total],
-    ['Tài khoản', 'Học viên', report.snapshot.accounts.byRole.STUDENT],
-    ['Tài khoản', 'Giảng viên', report.snapshot.accounts.byRole.INSTRUCTOR],
-    ['Tài khoản', 'Điều phối/Admin', report.snapshot.accounts.byRole.ADMIN_COORDINATOR],
-    ['Tài khoản', 'Đang hoạt động', report.snapshot.accounts.byStatus.ACTIVE],
-    ['Tài khoản', 'Tạm ngưng', report.snapshot.accounts.byStatus.INACTIVE],
-    ['Tài khoản', 'Đã khóa', report.snapshot.accounts.byStatus.LOCKED],
-    ['Khóa học', 'Tổng', report.snapshot.courses.total],
-    ['Khóa học', 'Đã xuất bản', report.snapshot.courses.published],
-    ['Khóa học', 'Bản nháp', report.snapshot.courses.draft],
-    ['Lớp học', 'Tổng', report.snapshot.classes.total],
-    ['Lớp học theo trạng thái', 'Lớp nháp', report.snapshot.classes.byStatus.DRAFT],
-    ['Lớp học theo trạng thái', 'Đang mở', report.snapshot.classes.byStatus.OPEN],
-    ['Lớp học theo trạng thái', 'Đang diễn ra', report.snapshot.classes.byStatus.IN_PROGRESS],
-    ['Lớp học theo trạng thái', 'Đã hoàn thành', report.snapshot.classes.byStatus.COMPLETED],
-    ['Lớp học theo trạng thái', 'Đã hủy', report.snapshot.classes.byStatus.CANCELLED],
-    ['Mức độ sẵn sàng của lớp nháp', 'Sẵn sàng mở', report.snapshot.classes.draftReadiness.ready],
-    [
-      'Mức độ sẵn sàng của lớp nháp',
-      'Chưa sẵn sàng',
-      report.snapshot.classes.draftReadiness.notReady,
-    ],
-    [
-      'Tình trạng đăng ký của lớp đang mở',
-      'Còn chỗ',
-      report.snapshot.classes.openRegistration.AVAILABLE,
-    ],
-    [
-      'Tình trạng đăng ký của lớp đang mở',
-      'Đã đủ sĩ số',
-      report.snapshot.classes.openRegistration.FULL,
-    ],
-    [
-      'Tình trạng đăng ký của lớp đang mở',
-      'Sắp mở đăng ký',
-      report.snapshot.classes.openRegistration.UPCOMING,
-    ],
-    [
-      'Tình trạng đăng ký của lớp đang mở',
-      'Đã đóng đăng ký',
-      report.snapshot.classes.openRegistration.CLOSED,
-    ],
-    ['Ghi danh', 'Tổng', report.snapshot.enrollments.total],
-    ['Ghi danh theo trạng thái', 'Đang hiệu lực', report.snapshot.enrollments.byStatus.ACTIVE],
-    [
-      'Ghi danh theo trạng thái',
-      'Chờ xử lý đăng ký có phí',
-      report.snapshot.enrollments.byStatus.PENDING_PAYMENT,
-    ],
-    ['Ghi danh theo trạng thái', 'Đã hoàn tất', report.snapshot.enrollments.byStatus.COMPLETED],
-    ['Ghi danh theo trạng thái', 'Đã ngừng học', report.snapshot.enrollments.byStatus.DROPPED],
-    ['Ghi danh theo trạng thái', 'Đã hủy', report.snapshot.enrollments.byStatus.CANCELLED],
-    ['Cần chú ý', 'Lớp nháp chưa sẵn sàng', report.attention.draftNotReady],
-    ['Cần chú ý', 'Lớp đang mở đã đủ sĩ số', report.attention.openFull],
-    ['Cần chú ý', 'Đăng ký có phí đang chờ xử lý', report.attention.pendingPayment],
+    ['CẦN XỬ LÝ'],
+    ['Hàng đợi', 'Số lượng'],
+    ['Lớp nháp chưa sẵn sàng', report.actionQueues.draftNotReady],
+    ['Lớp đang mở đã đủ sĩ số', report.actionQueues.openFull],
+    ['Đăng ký có phí đang chờ xử lý', report.actionQueues.pendingPayment],
+    ['Bài Speaking/Writing chờ giảng viên duyệt', report.actionQueues.gradingBacklog],
     [],
-    ['HOẠT ĐỘNG THEO NGÀY'],
-    ['Ngày', 'Ghi danh mới', 'Bài đánh giá đã nộp', 'Bài học đã hoàn tất'],
-    ...report.activity.daily.map((row) => [
-      row.date,
-      row.newEnrollments,
-      row.submittedAssessments,
-      row.lessonCompletions,
+    ['VẬN HÀNH LỚP'],
+    [
+      'Mã lớp',
+      'Tên lớp',
+      'Khóa học',
+      'Giảng viên',
+      'Trạng thái',
+      'Sĩ số ACTIVE',
+      'Sức chứa',
+      'Còn chỗ',
+      'Tình trạng đăng ký',
+      'Ngày bắt đầu',
+    ],
+    ...report.classes.capacity.items.map((item) => [
+      item.code,
+      item.name,
+      item.course.title,
+      item.instructor?.fullName ?? 'Chưa phân công',
+      classStatus(item.status),
+      item.activeEnrollments,
+      item.maxStudents ?? 'Không giới hạn cấu hình',
+      item.remainingSeats ?? 'Không giới hạn cấu hình',
+      registrationState(item.registrationState),
+      item.classStart ?? 'Chưa cấu hình',
     ]),
+    [],
+    ['TRẠNG THÁI LỚP'],
+    ['Trạng thái', 'Số lượng'],
+    ['Lớp nháp', report.classes.byStatus.DRAFT],
+    ['Đang mở', report.classes.byStatus.OPEN],
+    ['Đang diễn ra', report.classes.byStatus.IN_PROGRESS],
+    ['Đã hoàn thành', report.classes.byStatus.COMPLETED],
+    ['Đã hủy', report.classes.byStatus.CANCELLED],
+    [],
+    ['TÀI KHOẢN'],
+    ['Nhóm', 'Chỉ số', 'Giá trị'],
+    ['Vai trò', 'Học viên', report.accounts.byRole.STUDENT],
+    ['Vai trò', 'Giảng viên', report.accounts.byRole.INSTRUCTOR],
+    ['Vai trò', 'Điều phối/Admin', report.accounts.byRole.ADMIN_COORDINATOR],
+    ['Trạng thái', 'Đang hoạt động', report.accounts.byStatus.ACTIVE],
+    ['Trạng thái', 'Tạm ngưng', report.accounts.byStatus.INACTIVE],
+    ['Trạng thái', 'Đã khóa', report.accounts.byStatus.LOCKED],
+    [],
+    ['KHÓA HỌC'],
+    ['Tổng', report.courses.total],
+    ['Đã xuất bản', report.courses.published],
+    ['Bản nháp', report.courses.draft],
+    [],
+    ['NHU CẦU GHI DANH THEO LỚP'],
+    ['Mã lớp', 'Tên lớp', 'Khóa học', 'Ghi danh mới'],
+    ...report.enrollmentDemand.byClass.map((row) => [
+      row.classCode,
+      row.className,
+      row.courseTitle,
+      row.count,
+    ]),
+    [],
+    ['NHU CẦU GHI DANH THEO NGÀY'],
+    ['Ngày', 'Ghi danh mới'],
+    ...report.enrollmentDemand.daily.map((row) => [row.date, row.count]),
   ];
-
   return BOM + rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
 }
 
 export function adminReportCsvFilename(report: AdminSystemReport): string {
-  return `system-report-${report.activity.period.from}-to-${report.activity.period.to}.csv`;
+  return `system-report-${report.period.from}-to-${report.period.to}.csv`;
 }
 
 export function downloadAdminReportCsv(report: AdminSystemReport): void {
@@ -100,4 +100,31 @@ export function downloadAdminReportCsv(report: AdminSystemReport): void {
 function csvCell(value: string | number): string {
   const text = String(value);
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function classStatus(status: string) {
+  return (
+    (
+      {
+        DRAFT: 'Lớp nháp',
+        OPEN: 'Đang mở',
+        IN_PROGRESS: 'Đang diễn ra',
+        COMPLETED: 'Đã hoàn thành',
+        CANCELLED: 'Đã hủy',
+      } as Record<string, string>
+    )[status] ?? status
+  );
+}
+
+function registrationState(state: string) {
+  return (
+    (
+      {
+        AVAILABLE: 'Còn chỗ',
+        FULL: 'Đã đủ sĩ số',
+        UPCOMING: 'Sắp mở đăng ký',
+        CLOSED: 'Đã đóng đăng ký',
+      } as Record<string, string>
+    )[state] ?? state
+  );
 }

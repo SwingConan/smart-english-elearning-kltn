@@ -4,72 +4,85 @@ import type { AdminSystemReport } from './types';
 
 const report: AdminSystemReport = {
   generatedAt: '2026-10-23T05:00:00.000Z',
-  snapshot: {
-    accounts: {
-      total: 4,
-      byRole: { STUDENT: 2, INSTRUCTOR: 1, ADMIN_COORDINATOR: 1 },
-      byStatus: { ACTIVE: 2, INACTIVE: 1, LOCKED: 1 },
-    },
-    courses: { total: 2, published: 1, draft: 1 },
-    classes: {
-      total: 3,
-      byStatus: { DRAFT: 1, OPEN: 1, IN_PROGRESS: 1, COMPLETED: 0, CANCELLED: 0 },
-      draftReadiness: { ready: 0, notReady: 1 },
-      openRegistration: { AVAILABLE: 1, FULL: 0, UPCOMING: 0, CLOSED: 0 },
-    },
-    enrollments: {
-      total: 3,
-      byStatus: { ACTIVE: 2, PENDING_PAYMENT: 1, COMPLETED: 0, DROPPED: 0, CANCELLED: 0 },
+  period: { from: '2026-10-21', to: '2026-10-23', days: 3, timeZone: 'Asia/Ho_Chi_Minh' },
+  actionQueues: { draftNotReady: 1, openFull: 1, pendingPayment: 1, gradingBacklog: 2 },
+  accounts: {
+    total: 4,
+    byRole: { STUDENT: 2, INSTRUCTOR: 1, ADMIN_COORDINATOR: 1 },
+    byStatus: { ACTIVE: 2, INACTIVE: 1, LOCKED: 1 },
+  },
+  courses: { total: 2, published: 1, draft: 1 },
+  classes: {
+    total: 3,
+    byStatus: { DRAFT: 1, OPEN: 1, IN_PROGRESS: 1, COMPLETED: 0, CANCELLED: 0 },
+    capacity: {
+      totalOperationalClasses: 2,
+      truncated: false,
+      items: [
+        {
+          id: 'class-1',
+          code: 'C1',
+          name: 'Lớp 1',
+          status: 'OPEN',
+          course: { id: 'course-1', title: 'TOEIC nền tảng' },
+          instructor: { id: 'instructor-1', fullName: 'Giảng viên A' },
+          activeEnrollments: 10,
+          maxStudents: 10,
+          remainingSeats: 0,
+          registrationState: 'FULL',
+          operationalReadiness: { isReady: true, missing: [] },
+          classStart: '2026-11-01T00:00:00.000Z',
+        },
+      ],
     },
   },
-  attention: { draftNotReady: 1, openFull: 0, pendingPayment: 1 },
-  activity: {
-    period: { from: '2026-10-21', to: '2026-10-23', days: 3, timeZone: 'Asia/Ho_Chi_Minh' },
-    totals: { newEnrollments: 1, submittedAssessments: 2, lessonCompletions: 3 },
+  enrollmentDemand: {
+    totalNewEnrollments: 1,
+    byClass: [
+      {
+        classOfferingId: 'class-1',
+        classCode: 'C1',
+        className: 'Lớp 1',
+        courseId: 'course-1',
+        courseTitle: 'TOEIC nền tảng',
+        count: 1,
+      },
+    ],
     daily: [
-      { date: '2026-10-21', newEnrollments: 0, submittedAssessments: 0, lessonCompletions: 0 },
-      { date: '2026-10-22', newEnrollments: 1, submittedAssessments: 0, lessonCompletions: 1 },
-      { date: '2026-10-23', newEnrollments: 0, submittedAssessments: 2, lessonCompletions: 2 },
+      { date: '2026-10-21', count: 0 },
+      { date: '2026-10-22', count: 1 },
+      { date: '2026-10-23', count: 0 },
     ],
   },
 };
 
 describe('admin report CSV export', () => {
-  it('exports metadata, current snapshot, attention, and every daily activity row', () => {
+  it('exports the decision report contract and every enrollment-demand day', () => {
     const csv = serializeAdminReportCsv(report);
-
     expect(csv.startsWith('\uFEFF')).toBe(true);
     expect(csv).toContain('Thời điểm tạo báo cáo,2026-10-23T05:00:00.000Z');
-    expect(csv).toContain('Từ ngày,2026-10-21');
-    expect(csv).toContain('Múi giờ,Giờ Việt Nam (UTC+7)');
-    expect(csv).toContain('Tài khoản,Học viên,2');
-    expect(csv).toContain('Tài khoản,Đang hoạt động,2');
-    expect(csv).toContain('Lớp học theo trạng thái,Lớp nháp,1');
-    expect(csv).toContain('Ghi danh theo trạng thái,Chờ xử lý đăng ký có phí,1');
-    expect(csv).toContain('Cần chú ý,Lớp nháp chưa sẵn sàng,1');
-    expect(csv).toContain('Ngày,Ghi danh mới,Bài đánh giá đã nộp,Bài học đã hoàn tất');
-    expect(csv).toContain('2026-10-21,0,0,0');
-    expect(csv).toContain('2026-10-22,1,0,1');
-    expect(csv).toContain('2026-10-23,0,2,2');
+    expect(csv).toContain('Lớp nháp chưa sẵn sàng,1');
+    expect(csv).toContain('Bài Speaking/Writing chờ giảng viên duyệt,2');
+    expect(csv).toContain('C1,Lớp 1,TOEIC nền tảng,Giảng viên A,Đang mở,10,10,0,Đã đủ sĩ số');
+    expect(csv).toContain('NHU CẦU GHI DANH THEO NGÀY');
+    expect(csv).toContain('2026-10-21,0');
+    expect(csv).toContain('2026-10-22,1');
+    expect(csv).toContain('2026-10-23,0');
   });
 
-  it('uses a resolved-period filename and excludes sensitive or invented fields', () => {
+  it('uses the resolved-period filename and removes obsolete/private fields', () => {
     const csv = serializeAdminReportCsv(report);
-
     expect(adminReportCsvFilename(report)).toBe('system-report-2026-10-21-to-2026-10-23.csv');
     for (const forbidden of [
       'passwordHash',
       'meetingUrl',
-      'storageKey',
-      'session',
-      'revenue',
-      'paymentSuccess',
-      'generatedAt',
-      'newEnrollments',
+      'audioStorageKey',
+      'textResponse',
       'submittedAssessments',
       'lessonCompletions',
-      'PENDING_PAYMENT',
-      'DRAFT chưa sẵn sàng',
+      'Bài đánh giá đã nộp',
+      'Bài học hoàn tất',
+      'Chi tiết theo ngày',
     ]) {
       expect(csv).not.toContain(forbidden);
     }
