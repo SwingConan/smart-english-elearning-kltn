@@ -20,7 +20,6 @@ import { adminApi } from '@/features/admin/api';
 import {
   AccountCompositionChart,
   ActivityTrendChart,
-  DonutChart,
   SegmentedBar,
   type ChartDatum,
 } from '@/features/admin/report-charts';
@@ -136,21 +135,21 @@ export function AdminReportsPage() {
   ];
 
   return (
-    <div className="report-print-root space-y-7">
+    <div className="report-print-root space-y-4">
       <header className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-6 p-6 lg:grid-cols-[1fr_auto] lg:items-start lg:p-8">
+        <div className="grid gap-3 p-4 lg:grid-cols-[1fr_auto] lg:items-start lg:p-5">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.16em] text-indigo-600">
               Báo cáo quản trị
             </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+            <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950">
               Báo cáo hệ thống
             </h1>
             <p className="mt-2 max-w-2xl text-slate-600">
               Tổng quan vận hành và hoạt động gần đây từ dữ liệu thực của hệ thống.
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
             <Clock3 aria-hidden="true" className="text-indigo-600" size={18} />
             <span>
               Cập nhật lúc <strong>{new Date(report.generatedAt).toLocaleString('vi-VN')}</strong>
@@ -158,21 +157,21 @@ export function AdminReportsPage() {
           </div>
         </div>
 
-        <div className="border-t border-slate-200 bg-slate-50/80 p-5 lg:p-6">
-          <div className="mb-4 flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-950">
+        <div className="border-t border-slate-200 bg-slate-50/80 p-3 lg:p-4">
+          <div className="mb-2 flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50 p-2.5 text-sm text-indigo-950">
             <CalendarDays aria-hidden="true" className="mt-0.5 shrink-0" size={18} />
             <p>
               <strong>Tổng quan hiện tại</strong> phản ánh trạng thái tại thời điểm tải báo cáo. Bộ
               lọc ngày chỉ ảnh hưởng đến <strong>hoạt động trong khoảng thời gian đã chọn</strong>.
             </p>
           </div>
-          <div className="report-toolbar report-no-print grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="mb-3 text-sm font-bold text-slate-700">Chọn nhanh khoảng thời gian</p>
+          <div className="report-toolbar report-no-print grid items-start gap-2 xl:grid-cols-12">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 xl:col-span-3">
+              <p className="mb-2 text-sm font-bold text-slate-700">Chọn nhanh khoảng thời gian</p>
               <div className="flex flex-wrap gap-2" aria-label="Khoảng thời gian nhanh">
                 {[7, 30, 90].map((days) => (
                   <button
-                    className="min-w-20 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-400 hover:text-indigo-700"
+                    className="min-w-16 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-400 hover:text-indigo-700"
                     key={days}
                     onClick={() => selectPreset(days as 7 | 30 | 90)}
                     type="button"
@@ -182,8 +181,8 @@ export function AdminReportsPage() {
                 ))}
               </div>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="mb-3 text-sm font-bold text-slate-700">Thao tác báo cáo</p>
+            <div className="rounded-xl border border-slate-200 bg-white p-3 xl:col-span-4">
+              <p className="mb-2 text-sm font-bold text-slate-700">Thao tác báo cáo</p>
               <div className="report-toolbar-actions flex flex-wrap gap-2">
                 <ToolbarButton icon={RefreshCw} label="Làm mới" onClick={retry} />
                 <ToolbarButton
@@ -194,13 +193,13 @@ export function AdminReportsPage() {
                 <ToolbarButton icon={Printer} label="In / Lưu PDF" onClick={() => window.print()} />
               </div>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
-              <p className="mb-3 text-sm font-bold text-slate-700">Khoảng ngày tùy chỉnh</p>
+            <div className="rounded-xl border border-slate-200 bg-white p-3 xl:col-span-5">
+              <p className="mb-2 text-sm font-bold text-slate-700">Khoảng ngày tùy chỉnh</p>
               <div className="grid max-w-3xl gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
                 <label className="text-sm font-semibold text-slate-700">
                   Từ ngày
                   <input
-                    className="mt-1 block w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2.5"
+                    className="mt-1 block w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2"
                     max={draft.to}
                     onChange={(event) =>
                       setDraft((value) => ({ ...value, from: event.target.value }))
@@ -212,7 +211,7 @@ export function AdminReportsPage() {
                 <label className="text-sm font-semibold text-slate-700">
                   Đến ngày
                   <input
-                    className="mt-1 block w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2.5"
+                    className="mt-1 block w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2"
                     min={draft.from}
                     onChange={(event) =>
                       setDraft((value) => ({ ...value, to: event.target.value }))
@@ -222,7 +221,7 @@ export function AdminReportsPage() {
                   />
                 </label>
                 <button
-                  className="min-w-28 whitespace-nowrap rounded-xl bg-indigo-600 px-5 py-2.5 font-bold text-white"
+                  className="min-w-24 whitespace-nowrap rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white"
                   onClick={apply}
                   type="button"
                 >
@@ -258,7 +257,7 @@ export function AdminReportsPage() {
         </div>
       </header>
 
-      <section aria-labelledby="snapshot-heading" className="space-y-5">
+      <section aria-labelledby="snapshot-heading" className="space-y-4">
         <SectionHeading
           eyebrow="Trạng thái tại thời điểm tải"
           id="snapshot-heading"
@@ -267,7 +266,7 @@ export function AdminReportsPage() {
         />
         <div
           aria-label="Chỉ số tổng quan hiện tại"
-          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
         >
           <Metric
             action="Xem tài khoản"
@@ -317,56 +316,94 @@ export function AdminReportsPage() {
         </div>
       </section>
 
-      <section
-        aria-labelledby="attention-heading"
-        className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 shadow-sm"
-      >
-        <div className="flex items-center gap-3">
-          <span className="rounded-xl bg-amber-100 p-2 text-amber-800">
-            <AlertTriangle aria-hidden="true" size={20} />
-          </span>
-          <div>
-            <h2 className="text-lg font-black text-slate-950" id="attention-heading">
-              Cần chú ý
-            </h2>
-            <p className="text-sm text-slate-600">
-              Các điểm cần xử lý theo trạng thái vận hành hiện tại.
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-          <Attention
-            label="Lớp nháp chưa sẵn sàng"
-            meaning="Thiếu một hoặc nhiều điều kiện để mở lớp."
-            value={report.attention.draftNotReady}
-          />
-          <Attention
-            label="Lớp đang mở đã đủ sĩ số"
-            meaning="Số học viên đang học đã đạt giới hạn của lớp."
-            value={report.attention.openFull}
-          />
-          <Attention
-            label="Đăng ký có phí đang chờ xử lý"
-            meaning="Yêu cầu đăng ký có phí đang chờ được xử lý."
-            value={report.attention.pendingPayment}
-          />
+      <section aria-labelledby="period-activity-heading" className="space-y-4">
+        <SectionHeading
+          eyebrow={`${report.activity.period.from} – ${report.activity.period.to} · Giờ Việt Nam (UTC+7)`}
+          id="period-activity-heading"
+          subtitle="Các hoạt động được ghi nhận trong khoảng ngày đã chọn."
+          title="Hoạt động trong khoảng thời gian đã chọn"
+        />
+        <div className="grid items-start gap-4 xl:grid-cols-12" data-report-region="main-analytics">
+          <section
+            aria-labelledby="trend-heading"
+            className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-8"
+            data-report-card="activity-trend"
+          >
+            <div className="mb-3">
+              <h3 className="text-xl font-black" id="trend-heading">
+                Xu hướng hoạt động theo ngày
+              </h3>
+              <p className="text-sm text-slate-500">
+                Biểu đồ thể hiện số hoạt động phát sinh theo từng ngày trong khoảng thời gian đã
+                chọn.
+              </p>
+            </div>
+            <ActivityTrendChart report={report} />
+            {report.activity.totals.newEnrollments +
+              report.activity.totals.submittedAssessments +
+              report.activity.totals.lessonCompletions ===
+            0 ? (
+              <p className="mt-3 rounded-xl bg-slate-100 p-3 text-sm text-slate-700">
+                Không ghi nhận hoạt động thuộc ba nhóm này trong khoảng thời gian đã chọn.
+              </p>
+            ) : null}
+          </section>
+
+          <aside
+            aria-labelledby="period-totals-heading"
+            className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-4"
+            data-report-card="period-totals"
+          >
+            <div className="mb-4">
+              <h3 className="text-lg font-black text-slate-950" id="period-totals-heading">
+                Tổng hoạt động trong kỳ
+              </h3>
+              <p className="text-sm text-slate-500">Ba chỉ số đi cùng biểu đồ xu hướng.</p>
+            </div>
+            <div className="space-y-3">
+              <ActivityTotal
+                icon={GraduationCap}
+                label="Ghi danh mới"
+                source="Theo ngày ghi danh"
+                value={report.activity.totals.newEnrollments}
+              />
+              <ActivityTotal
+                icon={Activity}
+                label="Bài đánh giá đã nộp"
+                source="Chỉ tính bài đã nộp"
+                value={report.activity.totals.submittedAssessments}
+              />
+              <ActivityTotal
+                icon={CheckCircle2}
+                label="Bài học hoàn tất"
+                source="Chỉ tính bài học đã hoàn tất"
+                value={report.activity.totals.lessonCompletions}
+              />
+            </div>
+          </aside>
         </div>
       </section>
 
-      <section aria-labelledby="snapshot-visuals-heading" className="space-y-5">
+      <section aria-labelledby="snapshot-visuals-heading" className="space-y-4">
         <SectionHeading
           id="snapshot-visuals-heading"
           subtitle="Biểu đồ tóm tắt luôn đi kèm chú giải và số lượng dạng văn bản."
           title="Tình hình vận hành"
         />
-        <div className="grid items-start gap-5 2xl:grid-cols-2">
+        <div className="grid items-start gap-4 xl:grid-cols-12" data-report-region="snapshot-grid">
           <ChartCard
             action="Xem lớp học"
+            className="xl:col-span-7"
+            dataCard="class-status"
             href="/admin/class-offerings"
             subtitle={`${snapshot.classes.total} lớp trên toàn hệ thống`}
             title="Lớp học theo trạng thái"
           >
-            <SegmentedBar ariaLabel="Lớp học theo trạng thái" data={classLifecycle} />
+            <SegmentedBar
+              ariaLabel="Lớp học theo trạng thái"
+              data={classLifecycle}
+              legendColumns={2}
+            />
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <MiniBreakdown
                 rows={[
@@ -387,23 +424,9 @@ export function AdminReportsPage() {
             </div>
           </ChartCard>
           <ChartCard
-            action="Xem vận hành lớp"
-            href="/admin/class-offerings"
-            subtitle={`${snapshot.enrollments.total} ghi danh hiện có`}
-            title="Ghi danh theo trạng thái"
-          >
-            <DonutChart
-              ariaLabel="Ghi danh theo trạng thái"
-              centerLabel="ghi danh"
-              data={enrollmentComposition}
-            />
-            <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-              Các đăng ký có phí đang chờ xử lý chưa được tính vào sĩ số đang học và chưa được xem
-              là đã thanh toán.
-            </p>
-          </ChartCard>
-          <ChartCard
             action="Xem tài khoản"
+            className="xl:col-span-5"
+            dataCard="account-status"
             href="/admin/accounts"
             subtitle={`${snapshot.accounts.total} tài khoản theo vai trò và trạng thái`}
             title="Tài khoản theo vai trò và trạng thái"
@@ -411,7 +434,23 @@ export function AdminReportsPage() {
             <AccountCompositionChart report={report} />
           </ChartCard>
           <ChartCard
+            action="Xem vận hành lớp"
+            className="xl:col-span-4"
+            dataCard="enrollment-status"
+            href="/admin/class-offerings"
+            subtitle={`${snapshot.enrollments.total} ghi danh hiện có`}
+            title="Ghi danh theo trạng thái"
+          >
+            <SegmentedBar ariaLabel="Ghi danh theo trạng thái" data={enrollmentComposition} />
+            <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm leading-5 text-amber-900">
+              Các đăng ký có phí đang chờ xử lý chưa được tính vào sĩ số đang học và chưa được xem
+              là đã thanh toán.
+            </p>
+          </ChartCard>
+          <ChartCard
             action="Xem khóa học"
+            className="xl:col-span-4"
+            dataCard="course-status"
             href="/admin/courses"
             subtitle={`${snapshot.courses.published} trên ${snapshot.courses.total} khóa học đã xuất bản`}
             title="Trạng thái khóa học"
@@ -420,12 +459,12 @@ export function AdminReportsPage() {
               ariaLabel="Tỷ lệ khóa học đã xuất bản và bản nháp"
               data={coursePublication}
             />
-            <div className="mt-5 flex items-center gap-4 rounded-2xl bg-indigo-50 p-5 text-indigo-950">
-              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white text-indigo-700 shadow-sm">
-                <CheckCircle2 aria-hidden="true" size={30} />
+            <div className="mt-3 flex items-center gap-3 rounded-xl bg-indigo-50 p-4 text-indigo-950">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-indigo-700 shadow-sm">
+                <CheckCircle2 aria-hidden="true" size={24} />
               </span>
-              <p className="text-base leading-6">
-                <strong className="block text-3xl font-black">
+              <p className="text-sm leading-5">
+                <strong className="block text-2xl font-black">
                   {snapshot.courses.total
                     ? Math.round((snapshot.courses.published / snapshot.courses.total) * 100)
                     : 0}
@@ -435,58 +474,41 @@ export function AdminReportsPage() {
               </p>
             </div>
           </ChartCard>
+          <aside
+            aria-labelledby="attention-heading"
+            className="h-fit rounded-2xl border border-amber-200 bg-amber-50/70 p-5 shadow-sm xl:col-span-4"
+            data-report-card="operational-attention"
+          >
+            <div className="flex items-center gap-3">
+              <span className="rounded-xl bg-amber-100 p-2 text-amber-800">
+                <AlertTriangle aria-hidden="true" size={20} />
+              </span>
+              <div>
+                <h3 className="text-lg font-black text-slate-950" id="attention-heading">
+                  Cần chú ý
+                </h3>
+                <p className="text-sm text-slate-600">Ba điểm cần xử lý hiện tại.</p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              <Attention
+                label="Lớp nháp chưa sẵn sàng"
+                meaning="Thiếu điều kiện để mở lớp."
+                value={report.attention.draftNotReady}
+              />
+              <Attention
+                label="Lớp đang mở đã đủ sĩ số"
+                meaning="Sĩ số đang học đã đạt giới hạn."
+                value={report.attention.openFull}
+              />
+              <Attention
+                label="Đăng ký có phí đang chờ xử lý"
+                meaning="Yêu cầu đăng ký có phí đang chờ được xử lý."
+                value={report.attention.pendingPayment}
+              />
+            </div>
+          </aside>
         </div>
-      </section>
-
-      <section aria-labelledby="period-activity-heading" className="space-y-5">
-        <SectionHeading
-          eyebrow={`${report.activity.period.from} – ${report.activity.period.to} · Giờ Việt Nam (UTC+7)`}
-          id="period-activity-heading"
-          subtitle="Các hoạt động được ghi nhận trong khoảng ngày đã chọn."
-          title="Hoạt động trong khoảng thời gian đã chọn"
-        />
-        <div aria-label="Tổng hoạt động" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <ActivityTotal
-            icon={GraduationCap}
-            label="Ghi danh mới"
-            source="Theo ngày ghi danh"
-            value={report.activity.totals.newEnrollments}
-          />
-          <ActivityTotal
-            icon={Activity}
-            label="Bài đánh giá đã nộp"
-            source="Chỉ tính bài đã nộp"
-            value={report.activity.totals.submittedAssessments}
-          />
-          <ActivityTotal
-            icon={CheckCircle2}
-            label="Bài học hoàn tất"
-            source="Chỉ tính bài học đã hoàn tất"
-            value={report.activity.totals.lessonCompletions}
-          />
-        </div>
-        <section
-          aria-labelledby="trend-heading"
-          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
-        >
-          <div className="mb-4">
-            <h3 className="text-xl font-black" id="trend-heading">
-              Xu hướng hoạt động theo ngày
-            </h3>
-            <p className="text-sm text-slate-500">
-              Biểu đồ thể hiện số hoạt động phát sinh theo từng ngày trong khoảng thời gian đã chọn.
-            </p>
-          </div>
-          <ActivityTrendChart report={report} />
-          {report.activity.totals.newEnrollments +
-            report.activity.totals.submittedAssessments +
-            report.activity.totals.lessonCompletions ===
-          0 ? (
-            <p className="mt-4 rounded-xl bg-slate-100 p-4 text-sm text-slate-700">
-              Không ghi nhận hoạt động thuộc ba nhóm này trong khoảng thời gian đã chọn.
-            </p>
-          ) : null}
-        </section>
       </section>
 
       <section
@@ -552,7 +574,7 @@ function ToolbarButton({
 }) {
   return (
     <button
-      className="inline-flex min-w-28 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-400 hover:text-indigo-700"
+      className="inline-flex min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-indigo-400 hover:text-indigo-700"
       onClick={onClick}
       type="button"
     >
@@ -581,8 +603,8 @@ function SectionHeading({
       <h2
         className={
           eyebrow
-            ? 'mt-1 text-2xl font-black tracking-tight text-slate-950'
-            : 'text-2xl font-black tracking-tight text-slate-950'
+            ? 'mt-0.5 text-xl font-black tracking-tight text-slate-950'
+            : 'text-xl font-black tracking-tight text-slate-950'
         }
         id={id}
       >
@@ -619,15 +641,19 @@ function Metric({
   tone: keyof typeof metricTones;
 }) {
   return (
-    <article className="group flex min-h-56 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
-      <div className={`mb-5 w-fit rounded-xl p-2.5 ${metricTones[tone]}`}>
-        <Icon aria-hidden="true" size={21} />
+    <article className="group flex h-fit flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold leading-5 text-slate-700">{title}</h3>
+          <p className="mt-1 text-3xl font-black tracking-tight text-slate-950">{value}</p>
+        </div>
+        <span className={`shrink-0 rounded-xl p-2 ${metricTones[tone]}`}>
+          <Icon aria-hidden="true" size={19} />
+        </span>
       </div>
-      <h3 className="text-base font-bold leading-6 text-slate-700">{title}</h3>
-      <p className="mt-2 text-4xl font-black tracking-tight text-slate-950">{value}</p>
-      <p className="mt-2 flex-1 text-sm leading-6 text-slate-500">{detail}</p>
+      <p className="mt-1.5 flex-1 text-xs leading-4 text-slate-500">{detail}</p>
       <Link
-        className="report-no-print mt-4 text-sm font-bold text-indigo-700 group-hover:underline"
+        className="report-no-print mt-2 text-xs font-bold text-indigo-700 group-hover:underline"
         to={href}
       >
         {action} →
@@ -639,14 +665,14 @@ function Metric({
 function Attention({ label, meaning, value }: { label: string; meaning: string; value: number }) {
   return (
     <Link
-      className="group grid grid-cols-[auto_1fr] gap-3 rounded-xl border border-amber-200 bg-white p-4 transition hover:border-amber-400 hover:shadow-sm"
+      className="group grid grid-cols-[auto_1fr] gap-3 rounded-xl border border-amber-200 bg-white p-3 transition hover:border-amber-400 hover:shadow-sm"
       to="/admin/class-offerings"
     >
-      <strong className="text-3xl font-black text-amber-800">{value}</strong>
+      <strong className="text-2xl font-black text-amber-800">{value}</strong>
       <span>
         <span className="block font-bold text-slate-900">{label}</span>
-        <span className="mt-1 block text-sm leading-5 text-slate-600">{meaning}</span>
-        <span className="report-no-print mt-2 block text-sm font-bold text-indigo-700 group-hover:underline">
+        <span className="mt-0.5 block text-xs leading-4 text-slate-600">{meaning}</span>
+        <span className="report-no-print mt-1.5 block text-xs font-bold text-indigo-700 group-hover:underline">
           Mở vận hành lớp →
         </span>
       </span>
@@ -659,17 +685,24 @@ function ChartCard({
   subtitle,
   href,
   action,
+  className = '',
+  dataCard,
   children,
 }: {
   title: string;
   subtitle: string;
   href: string;
   action: string;
+  className?: string;
+  dataCard?: string;
   children: ReactNode;
 }) {
   return (
-    <article className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="mb-5 flex items-start justify-between gap-4">
+    <article
+      className={`h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}
+      data-report-card={dataCard}
+    >
+      <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h3 className="text-xl font-black text-slate-950">{title}</h3>
           <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
@@ -688,9 +721,9 @@ function ChartCard({
 
 function MiniBreakdown({ title, rows }: { title: string; rows: Array<[string, number]> }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-4">
+    <div className="rounded-xl bg-slate-50 p-3">
       <h4 className="text-sm font-black text-slate-600">{title}</h4>
-      <dl className="mt-3 space-y-2">
+      <dl className="mt-2 space-y-1.5">
         {rows.map(([label, value]) => (
           <div className="flex justify-between gap-3 text-sm" key={label}>
             <dt>{label}</dt>
@@ -714,15 +747,15 @@ function ActivityTotal({
   source: string;
 }) {
   return (
-    <article className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <span className="rounded-xl bg-indigo-50 p-3 text-indigo-700">
-        <Icon aria-hidden="true" size={22} />
+    <article className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+      <span className="rounded-lg bg-indigo-50 p-2 text-indigo-700">
+        <Icon aria-hidden="true" size={19} />
       </span>
-      <div>
+      <div className="min-w-0 flex-1">
         <h3 className="text-sm font-bold text-slate-600">{label}</h3>
-        <p className="text-3xl font-black text-slate-950">{value}</p>
-        <p className="text-sm text-slate-500">{source}</p>
+        <p className="text-xs text-slate-500">{source}</p>
       </div>
+      <p className="text-2xl font-black text-slate-950">{value}</p>
     </article>
   );
 }

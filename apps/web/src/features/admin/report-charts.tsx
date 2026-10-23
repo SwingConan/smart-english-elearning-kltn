@@ -7,7 +7,15 @@ export interface ChartDatum {
   note?: string;
 }
 
-export function SegmentedBar({ ariaLabel, data }: { ariaLabel: string; data: ChartDatum[] }) {
+export function SegmentedBar({
+  ariaLabel,
+  data,
+  legendColumns = 1,
+}: {
+  ariaLabel: string;
+  data: ChartDatum[];
+  legendColumns?: 1 | 2;
+}) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   let offset = 0;
 
@@ -15,7 +23,7 @@ export function SegmentedBar({ ariaLabel, data }: { ariaLabel: string; data: Cha
     <div>
       <svg
         aria-label={ariaLabel}
-        className="h-10 w-full overflow-visible"
+        className="h-8 w-full overflow-visible"
         preserveAspectRatio="none"
         role="img"
         viewBox="0 0 100 20"
@@ -41,7 +49,7 @@ export function SegmentedBar({ ariaLabel, data }: { ariaLabel: string; data: Cha
             })
           : null}
       </svg>
-      <ChartLegend data={data} />
+      <ChartLegend columns={legendColumns} data={data} />
     </div>
   );
 }
@@ -126,15 +134,15 @@ export function AccountCompositionChart({ report }: { report: AdminSystemReport 
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
           Theo vai trò
         </p>
-        <SegmentedBar ariaLabel="Tài khoản theo vai trò" data={roles} />
+        <SegmentedBar ariaLabel="Tài khoản theo vai trò" data={roles} legendColumns={2} />
       </div>
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
           Theo trạng thái
         </p>
-        <SegmentedBar ariaLabel="Tài khoản theo trạng thái" data={statuses} />
+        <SegmentedBar ariaLabel="Tài khoản theo trạng thái" data={statuses} legendColumns={2} />
       </div>
-      <p className="rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+      <p className="rounded-xl bg-slate-50 p-3 text-sm leading-5 text-slate-600">
         Trạng thái “Đang hoạt động” cho biết tài khoản đang được phép sử dụng hệ thống; đây không
         phải số người dùng truy cập gần đây.
       </p>
@@ -144,8 +152,8 @@ export function AccountCompositionChart({ report }: { report: AdminSystemReport 
 
 export function ActivityTrendChart({ report }: { report: AdminSystemReport }) {
   const rows = report.activity.daily;
-  const width = 960;
-  const height = 320;
+  const width = 840;
+  const height = 360;
   const margin = { top: 24, right: 28, bottom: 54, left: 44 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
@@ -186,7 +194,7 @@ export function ActivityTrendChart({ report }: { report: AdminSystemReport }) {
       <div className="overflow-x-auto">
         <svg
           aria-label={`Biểu đồ hoạt động từ ${report.activity.period.from} đến ${report.activity.period.to}, gồm đầy đủ ${rows.length} ngày`}
-          className="h-auto min-w-[720px] w-full"
+          className="h-auto min-w-[560px] w-full"
           role="img"
           viewBox={`0 0 ${width} ${height}`}
         >
@@ -268,9 +276,12 @@ export function ActivityTrendChart({ report }: { report: AdminSystemReport }) {
   );
 }
 
-function ChartLegend({ data }: { data: ChartDatum[] }) {
+function ChartLegend({ data, columns = 1 }: { data: ChartDatum[]; columns?: 1 | 2 }) {
   return (
-    <ul className="mt-3 grid gap-3 text-sm" aria-label="Chú giải biểu đồ">
+    <ul
+      className={`mt-3 grid gap-2 text-sm ${columns === 2 ? 'sm:grid-cols-2' : ''}`}
+      aria-label="Chú giải biểu đồ"
+    >
       {data.map((item) => (
         <li className="flex items-start justify-between gap-3" key={item.label}>
           <span className="flex min-w-0 items-start gap-2">

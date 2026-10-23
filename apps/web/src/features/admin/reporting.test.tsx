@@ -149,6 +149,49 @@ describe('admin system reporting', () => {
     expect(document.querySelector('[data-date="2026-09-24"][data-value="0"]')).toBeInTheDocument();
   });
 
+  it('prioritizes the activity trend and composes snapshot cards by information density', async () => {
+    vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
+    renderAdmin('/admin/reports');
+    const trendHeading = await screen.findByRole('heading', {
+      name: 'Xu hướng hoạt động theo ngày',
+    });
+    const snapshotVisualsHeading = screen.getByRole('heading', { name: 'Tình hình vận hành' });
+
+    expect(
+      trendHeading.compareDocumentPosition(snapshotVisualsHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(document.querySelector('[data-report-region="main-analytics"]')).toHaveClass(
+      'xl:grid-cols-12',
+    );
+    expect(document.querySelector('[data-report-card="activity-trend"]')).toHaveClass(
+      'xl:col-span-8',
+    );
+    expect(document.querySelector('[data-report-card="period-totals"]')).toHaveClass(
+      'xl:col-span-4',
+    );
+    expect(document.querySelector('[data-report-card="class-status"]')).toHaveClass(
+      'xl:col-span-7',
+    );
+    expect(document.querySelector('[data-report-card="account-status"]')).toHaveClass(
+      'xl:col-span-5',
+    );
+    for (const compactCard of ['enrollment-status', 'course-status', 'operational-attention']) {
+      expect(document.querySelector(`[data-report-card="${compactCard}"]`)).toHaveClass(
+        'xl:col-span-4',
+      );
+    }
+
+    const enrollmentCard = document.querySelector<HTMLElement>(
+      '[data-report-card="enrollment-status"]',
+    );
+    expect(enrollmentCard).not.toBeNull();
+    expect(
+      within(enrollmentCard!).getByRole('img', { name: 'Ghi danh theo trạng thái' }),
+    ).toHaveClass('h-8');
+    expect(enrollmentCard!.querySelector('circle')).not.toBeInTheDocument();
+  });
+
   it('applies 7/30/90-day presets as explicit inclusive ranges', async () => {
     const request = vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
     renderAdmin('/admin/reports');
