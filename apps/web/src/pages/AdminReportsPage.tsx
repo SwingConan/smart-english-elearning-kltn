@@ -8,6 +8,7 @@ import {
   buildClassStatusOption,
   buildEnrollmentDailyOption,
   buildEnrollmentDemandOption,
+  formatReportDate,
 } from '@/features/admin/report-echarts';
 import {
   ReportDrilldownDrawer,
@@ -96,7 +97,7 @@ export function AdminReportsPage() {
   const openEnrollmentDay = (date: string) =>
     setDrawer({
       kind: 'ENROLLMENT_LIST',
-      title: `Ghi danh ngày ${date}`,
+      title: `Ghi danh ngày ${formatReportDate(date)}`,
       query: { from: date, to: date },
     });
   const nonZeroEnrollmentDays = report.enrollmentDemand.daily.filter((item) => item.count > 0);
@@ -420,7 +421,7 @@ export function AdminReportsPage() {
         <div className="mt-5 grid gap-5 xl:grid-cols-2">
           <ChartCard
             title="Ghi danh mới theo lớp"
-            subtitle={`${report.period.from} – ${report.period.to}`}
+            subtitle={`${formatReportDate(report.period.from)} – ${formatReportDate(report.period.to)}`}
           >
             {report.enrollmentDemand.byClass.length ? (
               <>
@@ -464,7 +465,7 @@ export function AdminReportsPage() {
           </ChartCard>
           <ChartCard
             title="Ghi danh mới theo ngày"
-            subtitle="Chọn một điểm để xem các ghi danh trong ngày"
+            subtitle="Chọn một cột để xem các ghi danh trong ngày"
           >
             <ReportEChart
               ariaLabel="Ghi danh mới theo ngày"
@@ -487,7 +488,7 @@ export function AdminReportsPage() {
                     onClick={() => openEnrollmentDay(item.date)}
                     type="button"
                   >
-                    <span>{item.date}</span>
+                    <span>{formatReportDate(item.date)}</span>
                     <strong className="text-indigo-700">{item.count} ghi danh</strong>
                   </button>
                 ))}

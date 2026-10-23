@@ -23,6 +23,16 @@ const base = {
   textStyle: { fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' },
 } satisfies EChartsCoreOption;
 
+export function formatReportDate(date: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : date;
+}
+
+function formatReportDateShort(date: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  return match ? `${match[3]}/${match[2]}` : date;
+}
+
 export function buildClassCapacityOption(items: AdminReportClassRow[]): EChartsCoreOption {
   const labels = items.map((item) => `${item.code} · ${item.name}`);
   return {
@@ -167,8 +177,8 @@ export function buildEnrollmentDemandOption(report: AdminSystemReport): EChartsC
     yAxis: {
       type: 'category',
       inverse: true,
-      data: rows.map((row) => `${row.classCode} · ${row.className}`),
-      axisLabel: { width: 190, overflow: 'truncate' },
+      data: rows.map((row) => row.classCode),
+      axisLabel: { width: 150, overflow: 'truncate' },
     },
     series: [
       {
@@ -186,22 +196,32 @@ export function buildEnrollmentDailyOption(report: AdminSystemReport): EChartsCo
   return {
     ...base,
     grid: { left: 8, right: 18, top: 20, bottom: 24, containLabel: true },
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params: unknown) => {
+        const first = Array.isArray(params)
+          ? (params[0] as { data?: { date?: string; value?: number } })
+          : null;
+        if (!first?.data?.date) return '';
+        return `${formatReportDate(first.data.date)}<br/><strong>${first.data.value ?? 0}</strong> ghi danh mới`;
+      },
+    },
     xAxis: {
       type: 'category',
       data: rows.map((row) => row.date),
-      axisLabel: { hideOverlap: true },
+      axisLabel: {
+        hideOverlap: true,
+        formatter: (value: string) => formatReportDateShort(value),
+      },
     },
     yAxis: { type: 'value', minInterval: 1 },
     series: [
       {
         name: 'Ghi danh mới',
-        type: 'line',
-        smooth: false,
-        symbolSize: 8,
-        lineStyle: { color: '#4f46e5', width: 3 },
-        itemStyle: { color: '#4f46e5' },
-        areaStyle: { color: 'rgba(79,70,229,0.10)' },
+        type: 'bar',
+        barMaxWidth: 26,
+        itemStyle: { color: '#4f46e5', borderRadius: [5, 5, 0, 0] },
         data: rows.map((row) => ({ value: row.count, date: row.date })),
       },
     ],

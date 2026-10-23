@@ -12,6 +12,7 @@ import {
   buildClassStatusOption,
   buildEnrollmentDailyOption,
   buildEnrollmentDemandOption,
+  formatReportDate,
 } from './report-echarts';
 import { reportPreset, validateReportPeriod, vietnamToday } from './reporting-period';
 import type { AdminSystemReport } from './types';
@@ -128,6 +129,9 @@ describe('admin decision reporting', () => {
     expect(
       screen.getByRole('button', { name: 'Mô phỏng Sĩ số đang học và sức chứa theo lớp' }),
     ).toBeInTheDocument();
+    expect(screen.getByText('24/09/2026 – 23/10/2026')).toBeInTheDocument();
+    expect(screen.getByText('23/10/2026')).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('2026-09-24 – 2026-10-23');
   });
 
   it('uses natural wording when there are no operational classes', async () => {
@@ -305,7 +309,7 @@ describe('admin decision reporting', () => {
 
     fireEvent.click(
       within(screen.getByLabelText('Mở ghi danh theo ngày có phát sinh')).getByRole('button', {
-        name: /2026-10-23.*2 ghi danh/,
+        name: /23\/10\/2026.*2 ghi danh/,
       }),
     );
     await waitFor(() =>
@@ -450,12 +454,20 @@ describe('report ECharts option builders', () => {
       series: Array<{ data: Array<{ role: string }> }>;
     };
     const demand = buildEnrollmentDemandOption(report) as {
-      tooltip: unknown;
+      tooltip: { formatter: (input: unknown) => string };
+      yAxis: { data: string[] };
       series: Array<{ data: Array<{ classOfferingId: string }> }>;
     };
     const daily = buildEnrollmentDailyOption(report) as {
-      tooltip: unknown;
-      series: Array<{ data: Array<{ date: string }> }>;
+      tooltip: { formatter: (input: unknown) => string };
+      xAxis: { axisLabel: { formatter: (value: string) => string } };
+      series: Array<{
+        type: string;
+        smooth?: boolean;
+        lineStyle?: unknown;
+        areaStyle?: unknown;
+        data: Array<{ date: string; value: number }>;
+      }>;
     };
     expect(capacity.aria.show).toBe(true);
     expect(capacity.tooltip).toBeTruthy();
@@ -463,8 +475,25 @@ describe('report ECharts option builders', () => {
     expect(capacity.series[0].data[0].classOfferingId).toBe('class-1');
     expect(status.series[0].data.some((item) => item.status === 'OPEN')).toBe(true);
     expect(roles.series[0].data.some((item) => item.role === 'STUDENT')).toBe(true);
+    expect(demand.yAxis.data).toEqual(['C1']);
     expect(demand.series[0].data[0].classOfferingId).toBe('class-1');
+    expect(
+      demand.tooltip.formatter({
+        data: { row: report.enrollmentDemand.byClass[0] },
+      }),
+    ).toContain('C1 · Lớp 1');
+    expect(daily.series[0]).not.toHaveProperty('lineStyle');
+    expect(daily.series[0]).not.toHaveProperty('areaStyle');
+    expect(daily.series[0]).not.toHaveProperty('smooth');
+    expect(daily.series[0].type).toBe('bar');
+    expect(daily.series[0].data).toHaveLength(report.enrollmentDemand.daily.length);
+    expect(daily.series[0].data[0]).toEqual({ date: '2026-09-24', value: 0 });
     expect(daily.series[0].data[1].date).toBe('2026-10-23');
+    expect(daily.xAxis.axisLabel.formatter('2026-10-23')).toBe('23/10');
+    expect(daily.tooltip.formatter([{ data: { date: '2026-10-23', value: 2 } }])).toContain(
+      '23/10/2026',
+    );
+    expect(formatReportDate('not-an-iso-date')).toBe('not-an-iso-date');
   });
 });
 
