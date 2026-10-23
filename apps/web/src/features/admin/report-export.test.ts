@@ -63,6 +63,8 @@ describe('admin report CSV export', () => {
     expect(csv).toContain('Thời điểm tạo báo cáo,2026-10-23T05:00:00.000Z');
     expect(csv).toContain('Lớp nháp chưa sẵn sàng,1');
     expect(csv).toContain('Bài Speaking/Writing chờ giảng viên duyệt,2');
+    expect(csv).toContain('Sĩ số đang học');
+    expect(csv).not.toContain('Sĩ số ACTIVE');
     expect(csv).toContain('C1,Lớp 1,TOEIC nền tảng,Giảng viên A,Đang mở,10,10,0,Đã đủ sĩ số');
     expect(csv).toContain('NHU CẦU GHI DANH THEO NGÀY');
     expect(csv).toContain('2026-10-21,0');

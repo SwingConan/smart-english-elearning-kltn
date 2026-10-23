@@ -26,7 +26,7 @@ export function serializeAdminReportCsv(report: AdminSystemReport): string {
       'Khóa học',
       'Giảng viên',
       'Trạng thái',
-      'Sĩ số ACTIVE',
+      'Sĩ số đang học',
       'Sức chứa',
       'Còn chỗ',
       'Tình trạng đăng ký',
