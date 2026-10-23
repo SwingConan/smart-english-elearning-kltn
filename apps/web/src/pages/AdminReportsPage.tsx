@@ -201,7 +201,7 @@ export function AdminReportsPage() {
           <SectionHeading
             id="capacity-heading"
             title="Vận hành lớp"
-            subtitle="Sĩ số ACTIVE so với sức chứa của các lớp đang mở hoặc đang diễn ra."
+            subtitle="Sĩ số đang học so với sức chứa của các lớp đang mở hoặc đang diễn ra."
           />
           <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700">
             {report.classes.capacity.totalOperationalClasses} lớp vận hành
@@ -210,7 +210,7 @@ export function AdminReportsPage() {
         {report.classes.capacity.items.length ? (
           <>
             <ReportEChart
-              ariaLabel="Sĩ số ACTIVE và sức chứa theo lớp"
+              ariaLabel="Sĩ số đang học và sức chứa theo lớp"
               className="mt-4 h-[28rem] w-full"
               onDataClick={(data) => {
                 const classOfferingId = dataField(data, 'classOfferingId');
@@ -255,7 +255,7 @@ export function AdminReportsPage() {
             ) : null}
           </>
         ) : (
-          <EmptyState>Chưa có lớp OPEN hoặc IN_PROGRESS.</EmptyState>
+          <EmptyState>Chưa có lớp đang mở hoặc đang diễn ra.</EmptyState>
         )}
       </section>
 

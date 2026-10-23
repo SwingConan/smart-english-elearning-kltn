@@ -249,7 +249,7 @@ function ClassRows({ rows }: { rows: AdminReportClassRow[] }) {
             <StatePill>{classStatus(row.status)}</StatePill>
           </div>
           <p className="mt-2 text-sm">
-            Sĩ số ACTIVE:{' '}
+            Sĩ số đang học:{' '}
             <strong>
               {row.activeEnrollments}
               {row.maxStudents === null ? ' · Không giới hạn cấu hình' : `/${row.maxStudents}`}
@@ -391,7 +391,7 @@ function ClassDetail({ row }: { row: AdminReportClassRow }) {
         <Detail label="Giảng viên" value={row.instructor?.fullName ?? 'Chưa phân công'} />
         <Detail label="Trạng thái" value={classStatus(row.status)} />
         <Detail
-          label="Sĩ số ACTIVE"
+          label="Sĩ số đang học"
           value={
             row.maxStudents === null
               ? `${row.activeEnrollments} · Không giới hạn cấu hình`

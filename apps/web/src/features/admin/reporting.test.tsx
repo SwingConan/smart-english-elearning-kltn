@@ -25,7 +25,7 @@ vi.mock('@/components/charts/ReportEChart', () => ({
     onDataClick?: (data: unknown) => void;
   }) => {
     const data =
-      ariaLabel === 'Sĩ số ACTIVE và sức chứa theo lớp'
+      ariaLabel === 'Sĩ số đang học và sức chứa theo lớp'
         ? { classOfferingId: 'class-1' }
         : ariaLabel === 'Lớp học theo trạng thái'
           ? { status: 'OPEN' }
@@ -124,6 +124,23 @@ describe('admin decision reporting', () => {
     expect(text).not.toContain('Bài học hoàn tất');
     expect(text).not.toContain('Chi tiết theo ngày');
     expect(text).not.toContain('Theo dõi hàng đợi chấm Speaking/Writing');
+    expect(text).not.toContain('Sĩ số ACTIVE');
+    expect(
+      screen.getByRole('button', { name: 'Mô phỏng Sĩ số đang học và sức chứa theo lớp' }),
+    ).toBeInTheDocument();
+  });
+
+  it('uses natural wording when there are no operational classes', async () => {
+    vi.spyOn(adminApi.reports, 'system').mockResolvedValue({
+      ...report,
+      classes: {
+        ...report.classes,
+        capacity: { totalOperationalClasses: 0, items: [], truncated: false },
+      },
+    });
+    renderAdmin('/admin/reports');
+    expect(await screen.findByText('Chưa có lớp đang mở hoặc đang diễn ra.')).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('Chưa có lớp OPEN hoặc IN_PROGRESS.');
   });
 
   it('opens exact class, pending-payment, and grading queues with server queries', async () => {
@@ -231,6 +248,15 @@ describe('admin decision reporting', () => {
       .mockResolvedValue({ data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } });
     renderAdmin('/admin/reports');
     await screen.findByRole('heading', { name: 'Vận hành lớp' });
+
+    fireEvent.click(
+      within(screen.getByLabelText('Danh sách sĩ số lớp')).getByRole('button', {
+        name: /C1 · Lớp 1/,
+      }),
+    );
+    expect(screen.getByText('Sĩ số đang học')).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('Sĩ số ACTIVE');
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
 
     fireEvent.click(
       within(screen.getByLabelText('Mở danh sách lớp theo trạng thái')).getByRole('button', {
@@ -412,6 +438,7 @@ describe('report ECharts option builders', () => {
     const capacity = buildClassCapacityOption(report.classes.capacity.items) as {
       aria: { show: boolean };
       tooltip: unknown;
+      xAxis: { name: string };
       series: Array<{ data: Array<{ classOfferingId: string }> }>;
     };
     const status = buildClassStatusOption(report) as {
@@ -432,6 +459,7 @@ describe('report ECharts option builders', () => {
     };
     expect(capacity.aria.show).toBe(true);
     expect(capacity.tooltip).toBeTruthy();
+    expect(capacity.xAxis.name).toBe('Học viên đang học');
     expect(capacity.series[0].data[0].classOfferingId).toBe('class-1');
     expect(status.series[0].data.some((item) => item.status === 'OPEN')).toBe(true);
     expect(roles.series[0].data.some((item) => item.role === 'STUDENT')).toBe(true);

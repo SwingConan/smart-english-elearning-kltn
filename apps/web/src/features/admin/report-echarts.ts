@@ -33,7 +33,7 @@ export function buildClassCapacityOption(items: AdminReportClassRow[]): EChartsC
       axisPointer: { type: 'shadow' },
       formatter: (params: unknown) => capacityTooltip(params, items),
     },
-    xAxis: { type: 'value', minInterval: 1, name: 'Học viên ACTIVE' },
+    xAxis: { type: 'value', minInterval: 1, name: 'Học viên đang học' },
     yAxis: {
       type: 'category',
       inverse: true,
