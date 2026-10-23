@@ -21,12 +21,10 @@ import {
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AssessmentResponseStorage } from '../placement/assessment-response.storage';
-import {
-  CreateClassAssessmentDto,
-  UpdateClassAssessmentDto,
-} from './dto/class-assessment.dto';
+import { CreateClassAssessmentDto, UpdateClassAssessmentDto } from './dto/class-assessment.dto';
 import { GradeProductiveAnswerDto } from './dto/grade-answer.dto';
 import { AssessmentInstructorService } from './assessment-instructor.service';
+import { computeProductiveGradingState } from './grading-state';
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
 const PRODUCTIVE_TYPES = [
@@ -69,7 +67,9 @@ export class ClassAssessmentService {
             select: {
               id: true,
               answers: {
-                where: { testQuestion: { question: { responseType: { in: [...PRODUCTIVE_TYPES] } } } },
+                where: {
+                  testQuestion: { question: { responseType: { in: [...PRODUCTIVE_TYPES] } } },
+                },
                 select: {
                   evaluations: {
                     where: {
@@ -142,7 +142,8 @@ export class ClassAssessmentService {
       if (!test) {
         throw new BadRequestException({
           code: 'CLASS_ASSESSMENT_TEST_INVALID',
-          message: 'Chỉ có thể giao bài kiểm tra trong lớp hoặc bài luyện tập đã xuất bản cùng khóa học.',
+          message:
+            'Chỉ có thể giao bài kiểm tra trong lớp hoặc bài luyện tập đã xuất bản cùng khóa học.',
         });
       }
       if (test.purpose === TestPurpose.IN_CLASS && dto.stage === undefined) {
@@ -166,9 +167,7 @@ export class ClassAssessmentService {
             classOfferingId,
             testId: dto.testId,
             stage:
-              test.purpose === TestPurpose.PRACTICE_MOCK
-                ? AssessmentStage.PERIODIC
-                : dto.stage!,
+              test.purpose === TestPurpose.PRACTICE_MOCK ? AssessmentStage.PERIODIC : dto.stage!,
             openAt: dto.openAt ?? null,
             closeAt: dto.closeAt ?? null,
             maxAttemptsOverride: dto.maxAttemptsOverride ?? null,
@@ -329,18 +328,10 @@ export class ClassAssessmentService {
         test: assessment.test,
         classOffering: assessment.classOffering,
       },
-      submissions: attempts.map((attempt) => {
-        const finalCount = attempt.answers.filter((answer) =>
-          answer.evaluations.some(({ status }) => status === AnswerEvaluationStatus.REVIEWED_FINAL),
-        ).length;
-        const gradingState =
-          finalCount === attempt.answers.length && attempt.answers.length > 0
-            ? 'REVIEWED_FINAL'
-            : finalCount > 0
-              ? 'PARTIALLY_REVIEWED'
-              : 'SUBMITTED_PENDING_REVIEW';
-        return { ...attempt, gradingState };
-      }),
+      submissions: attempts.map((attempt) => ({
+        ...attempt,
+        gradingState: computeProductiveGradingState(attempt.answers).gradingState,
+      })),
     };
   }
 
@@ -468,7 +459,11 @@ export class ClassAssessmentService {
         },
       });
       if (!answer) throw new NotFoundException('Productive answer not found');
-      if (!PRODUCTIVE_TYPES.includes(answer.testQuestion.question.responseType as (typeof PRODUCTIVE_TYPES)[number])) {
+      if (
+        !PRODUCTIVE_TYPES.includes(
+          answer.testQuestion.question.responseType as (typeof PRODUCTIVE_TYPES)[number],
+        )
+      ) {
         throw new BadRequestException('Only Speaking or Writing responses use rubric grading');
       }
       const hasResponse =
@@ -483,12 +478,18 @@ export class ClassAssessmentService {
       }
       const rubric = answer.testQuestion.question.rubric;
       if (!rubric || rubric.criteria.length === 0) {
-        throw new BadRequestException({ code: 'RUBRIC_REQUIRED', message: 'Câu trả lời chưa có rubric hợp lệ.' });
+        throw new BadRequestException({
+          code: 'RUBRIC_REQUIRED',
+          message: 'Câu trả lời chưa có rubric hợp lệ.',
+        });
       }
 
       const existing = answer.evaluations[0];
       const expectedUpdatedAt = dto.expectedUpdatedAt ? new Date(dto.expectedUpdatedAt) : null;
-      if (existing && (!expectedUpdatedAt || existing.updatedAt.getTime() !== expectedUpdatedAt.getTime())) {
+      if (
+        existing &&
+        (!expectedUpdatedAt || existing.updatedAt.getTime() !== expectedUpdatedAt.getTime())
+      ) {
         throw new ConflictException({
           code: 'STALE_GRADING_EVALUATION',
           message: 'Bài chấm đã được cập nhật ở phiên khác. Vui lòng tải lại trước khi tiếp tục.',
@@ -516,18 +517,30 @@ export class ClassAssessmentService {
         submittedIds.add(item.rubricCriterionId);
         const criterion = criterionById.get(item.rubricCriterionId);
         if (!criterion) {
-          throw new BadRequestException({ code: 'INVALID_RUBRIC_CRITERION', message: 'Tiêu chí không thuộc rubric của câu hỏi.' });
+          throw new BadRequestException({
+            code: 'INVALID_RUBRIC_CRITERION',
+            message: 'Tiêu chí không thuộc rubric của câu hỏi.',
+          });
         }
         const score = this.decimal(item.score, 'Điểm tiêu chí không hợp lệ.');
         if (criterion.maxScore.lessThanOrEqualTo(0) || criterion.weight.lessThanOrEqualTo(0)) {
-          throw new BadRequestException({ code: 'INVALID_RUBRIC_CONFIGURATION', message: 'Rubric chưa được cấu hình hợp lệ.' });
+          throw new BadRequestException({
+            code: 'INVALID_RUBRIC_CONFIGURATION',
+            message: 'Rubric chưa được cấu hình hợp lệ.',
+          });
         }
         if (score.lessThan(0) || score.greaterThan(criterion.maxScore)) {
-          throw new BadRequestException({ code: 'RUBRIC_SCORE_OUT_OF_RANGE', message: 'Điểm tiêu chí nằm ngoài phạm vi cho phép.' });
+          throw new BadRequestException({
+            code: 'RUBRIC_SCORE_OUT_OF_RANGE',
+            message: 'Điểm tiêu chí nằm ngoài phạm vi cho phép.',
+          });
         }
       }
       if (dto.finalize && submittedIds.size !== rubric.criteria.length) {
-        throw new BadRequestException({ code: 'RUBRIC_INCOMPLETE', message: 'Cần chấm đủ tất cả tiêu chí trước khi xác nhận.' });
+        throw new BadRequestException({
+          code: 'RUBRIC_INCOMPLETE',
+          message: 'Cần chấm đủ tất cả tiêu chí trước khi xác nhận.',
+        });
       }
 
       let totalScore: Prisma.Decimal | null = null;
@@ -583,7 +596,10 @@ export class ClassAssessmentService {
               rubricCriterionId: item.rubricCriterionId,
             },
           },
-          update: { score: new Prisma.Decimal(item.score), feedback: item.feedback?.trim() || null },
+          update: {
+            score: new Prisma.Decimal(item.score),
+            feedback: item.feedback?.trim() || null,
+          },
           create: {
             answerEvaluationId: evaluation.id,
             rubricCriterionId: item.rubricCriterionId,
@@ -674,7 +690,8 @@ export class ClassAssessmentService {
       questions.every(
         (question) =>
           question.answers.length === 1 &&
-          (question.answers[0].testQuestion.question.responseType === QuestionResponseType.TEXT_RESPONSE
+          (question.answers[0].testQuestion.question.responseType ===
+          QuestionResponseType.TEXT_RESPONSE
             ? Boolean(question.answers[0].textResponse?.trim())
             : Boolean(question.answers[0].audioStorageKey)) &&
           question.answers[0].pointsAwarded !== null &&
@@ -763,7 +780,12 @@ export class ClassAssessmentService {
         stage: true,
         test: { select: { id: true, title: true } },
         classOffering: {
-          select: { id: true, code: true, name: true, course: { select: { id: true, title: true } } },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            course: { select: { id: true, title: true } },
+          },
         },
       },
     });

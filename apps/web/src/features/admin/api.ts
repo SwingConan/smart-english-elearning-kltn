@@ -25,6 +25,13 @@ import type {
   CourseRecommendationDirectoryQuery,
   CourseRecommendationRow,
   CourseRecommendationProfileInput,
+  AdminSystemReport,
+  AdminReportClassRow,
+  AdminReportClassesQuery,
+  AdminReportEnrollmentRow,
+  AdminReportEnrollmentsQuery,
+  AdminReportGradingBacklogQuery,
+  AdminReportGradingBacklogRow,
 } from './types';
 
 function queryString<T extends object>(input: T): string {
@@ -37,6 +44,24 @@ function queryString<T extends object>(input: T): string {
 }
 
 export const adminApi = {
+  reports: {
+    system: (query: { from?: string; to?: string } = {}, signal?: AbortSignal) =>
+      apiFetch<AdminSystemReport>(`/admin/reports/system${queryString(query)}`, { signal }),
+    classes: (query: AdminReportClassesQuery = {}, signal?: AbortSignal) =>
+      apiFetch<Paginated<AdminReportClassRow>>(`/admin/reports/classes${queryString(query)}`, {
+        signal,
+      }),
+    enrollments: (query: AdminReportEnrollmentsQuery = {}, signal?: AbortSignal) =>
+      apiFetch<Paginated<AdminReportEnrollmentRow>>(
+        `/admin/reports/enrollments${queryString(query)}`,
+        { signal },
+      ),
+    gradingBacklog: (query: AdminReportGradingBacklogQuery = {}, signal?: AbortSignal) =>
+      apiFetch<Paginated<AdminReportGradingBacklogRow>>(
+        `/admin/reports/grading-backlog${queryString(query)}`,
+        { signal },
+      ),
+  },
   criteria: {
     placement: {
       get: (signal?: AbortSignal) =>

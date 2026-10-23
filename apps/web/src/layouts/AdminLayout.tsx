@@ -6,6 +6,7 @@ import {
   Lightbulb,
   LogOut,
   Menu,
+  BarChart3,
   UserCog,
   X,
 } from 'lucide-react';
@@ -13,6 +14,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { useAuth } from '@/features/auth/auth-context';
 
 const links = [
+  [BarChart3, '/admin/reports', 'Báo cáo hệ thống'],
   [BookOpen, '/admin/courses', 'Khóa học'],
   [GraduationCap, '/admin/class-offerings', 'Lớp học'],
   [UserCog, '/admin/accounts', 'Tài khoản'],
@@ -69,7 +71,7 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <header className="admin-shell-header sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
@@ -86,7 +88,7 @@ export function AdminLayout() {
             <div>
               <Link
                 className="text-lg font-black tracking-tight text-indigo-700"
-                to="/admin/courses"
+                to="/admin/reports"
               >
                 Smart English
               </Link>
@@ -118,8 +120,8 @@ export function AdminLayout() {
           </div>
         </div>
       </header>
-      <div className="mx-auto grid max-w-7xl gap-7 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8">
-        <aside className="sticky top-24 hidden self-start rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
+      <div className="admin-shell-content mx-auto grid max-w-7xl gap-7 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8">
+        <aside className="admin-shell-sidebar sticky top-24 hidden self-start rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
           {navigation}
         </aside>
         <main className="min-w-0">

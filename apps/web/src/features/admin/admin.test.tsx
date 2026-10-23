@@ -91,7 +91,7 @@ describe('admin authorization and shell', () => {
     expect(screen.getAllByRole('link', { name: 'Khóa học' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: 'Lớp học' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: 'Tài khoản' }).length).toBeGreaterThan(0);
-    expect(screen.queryByRole('link', { name: /báo cáo/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /báo cáo/i }).length).toBeGreaterThan(0);
     const openDrawer = screen.getByRole('button', { name: 'Mở điều hướng quản trị' });
     fireEvent.click(openDrawer);
     expect(

@@ -118,3 +118,57 @@ a {
     animation-iteration-count: 1 !important;
   }
 }
+
+@media print {
+  @page {
+    margin: 12mm;
+    size: A4 portrait;
+  }
+
+  body {
+    background: white;
+    color: #0f172a;
+  }
+
+  .admin-shell-header,
+  .admin-shell-sidebar,
+  .report-no-print {
+    display: none !important;
+  }
+
+  .admin-shell-content {
+    display: block !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .report-print-root {
+    width: 100%;
+  }
+
+  .report-print-root article,
+  .report-print-root section,
+  .report-print-root header,
+  .report-print-root footer {
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  .report-print-root svg {
+    print-color-adjust: exact;
+  }
+
+  .report-daily-scroll {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .report-daily-scroll thead {
+    position: static !important;
+    display: table-header-group;
+  }
+
+  .report-daily-scroll tr {
+    break-inside: avoid;
+  }
+}

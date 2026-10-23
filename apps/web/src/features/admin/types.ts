@@ -321,3 +321,112 @@ export interface CreateStaffAccountInput {
   password: string;
   role: Extract<AccountRole, 'INSTRUCTOR' | 'ADMIN_COORDINATOR'>;
 }
+
+export interface AdminSystemReport {
+  generatedAt: string;
+  period: { from: string; to: string; days: number; timeZone: 'Asia/Ho_Chi_Minh' };
+  actionQueues: {
+    draftNotReady: number;
+    openFull: number;
+    pendingPayment: number;
+    gradingBacklog: number;
+  };
+  accounts: {
+    total: number;
+    byRole: Record<AccountRole, number>;
+    byStatus: Record<AccountStatus, number>;
+  };
+  courses: { total: number; published: number; draft: number };
+  classes: {
+    total: number;
+    byStatus: Record<OfferingStatus, number>;
+    capacity: {
+      totalOperationalClasses: number;
+      items: AdminReportClassRow[];
+      truncated: boolean;
+    };
+  };
+  enrollmentDemand: {
+    totalNewEnrollments: number;
+    byClass: Array<{
+      classOfferingId: string;
+      classCode: string;
+      className: string;
+      courseId: string;
+      courseTitle: string;
+      count: number;
+    }>;
+    daily: Array<{ date: string; count: number }>;
+  };
+}
+
+export interface AdminReportClassRow {
+  id: string;
+  code: string;
+  name: string;
+  status: OfferingStatus;
+  course: { id: string; title: string };
+  instructor: { id: string; fullName: string } | null;
+  activeEnrollments: number;
+  maxStudents: number | null;
+  remainingSeats: number | null;
+  registrationState: RegistrationState;
+  operationalReadiness: {
+    isReady: boolean;
+    missing: OperationalReadinessReason[];
+  };
+  classStart: string | null;
+}
+
+export interface AdminReportEnrollmentRow {
+  id: string;
+  status: EnrollmentStatus;
+  enrolledAt: string;
+  learner: { id: string; fullName: string; email: string };
+  classOffering: { id: string; code: string; name: string };
+  course: { id: string; title: string };
+}
+
+export type ReportGradingState = 'SUBMITTED_PENDING_REVIEW' | 'PARTIALLY_REVIEWED';
+
+export interface AdminReportGradingBacklogRow {
+  attemptId: string;
+  submittedAt: string;
+  gradingState: ReportGradingState;
+  pendingProductiveAnswers: number;
+  totalProductiveAnswers: number;
+  learner: { id: string; fullName: string; email: string };
+  classOffering: { id: string; code: string; name: string };
+  course: { id: string; title: string };
+  instructor: { id: string; fullName: string } | null;
+  assessment: { id: string; title: string; stage: 'PERIODIC' | 'MIDTERM' | 'FINAL' };
+}
+
+export interface AdminReportClassesQuery {
+  search?: string;
+  scope?: 'OPERATIONAL';
+  status?: OfferingStatus;
+  readiness?: 'READY' | 'NOT_READY';
+  registrationState?: RegistrationState;
+  page?: number;
+  limit?: number;
+}
+
+export interface AdminReportEnrollmentsQuery {
+  from?: string;
+  to?: string;
+  classOfferingId?: string;
+  courseId?: string;
+  status?: EnrollmentStatus;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface AdminReportGradingBacklogQuery {
+  classOfferingId?: string;
+  classAssessmentId?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
