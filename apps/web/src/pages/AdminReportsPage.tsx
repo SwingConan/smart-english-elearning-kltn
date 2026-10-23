@@ -15,6 +15,7 @@ import {
   type ReportDrawerRequest,
 } from '@/features/admin/ReportDrilldownDrawer';
 import { downloadAdminReportCsv } from '@/features/admin/report-export';
+import { formatVietnamReportDateTime } from '@/features/admin/report-display-format';
 import {
   reportPreset,
   type ReportPeriodInput,
@@ -119,7 +120,7 @@ export function AdminReportsPage() {
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <p className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
-              Cập nhật <strong>{new Date(report.generatedAt).toLocaleString('vi-VN')}</strong>
+              Cập nhật <strong>{formatVietnamReportDateTime(report.generatedAt)}</strong>
             </p>
             <ActionButton label="Làm mới" onClick={retry}>
               <RefreshCw size={17} />
@@ -445,13 +446,12 @@ export function AdminReportsPage() {
                         onClick={() => openEnrollmentClass(item.classOfferingId)}
                         type="button"
                       >
-                        <span className="min-w-0">
-                          <strong className="block truncate">
-                            {item.classCode} · {item.className}
-                          </strong>
-                          <span className="block truncate text-xs text-slate-500">
-                            {item.courseTitle}
+                        <span className="min-w-0 flex-1 break-words">
+                          <strong className="block text-sm text-slate-900">{item.classCode}</strong>
+                          <span className="block text-sm font-semibold text-slate-800">
+                            {item.className}
                           </span>
+                          <span className="block text-xs text-slate-500">{item.courseTitle}</span>
                         </span>
                         <strong className="shrink-0 text-lg text-indigo-700">{item.count}</strong>
                       </button>
@@ -647,7 +647,7 @@ function QueueButton({
 }) {
   return (
     <button
-      className="group flex min-h-32 items-start justify-between gap-3 rounded-2xl border border-amber-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-md"
+      className="group flex min-h-28 items-start justify-between gap-3 rounded-2xl border border-amber-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-md"
       onClick={onClick}
       type="button"
     >

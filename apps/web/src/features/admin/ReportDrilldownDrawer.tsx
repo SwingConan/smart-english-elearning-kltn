@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ExternalLink, Search, X } from 'lucide-react';
 import { Link } from 'react-router';
 import { adminApi } from './api';
+import { formatVietnamReportDate, formatVietnamReportDateTime } from './report-display-format';
 import type {
   AccountQuery,
   AdminAccount,
@@ -358,7 +359,7 @@ function EnrollmentRows({ rows }: { rows: AdminReportEnrollmentRow[] }) {
             {row.classOffering.code} · {row.classOffering.name}
           </p>
           <p className="text-sm text-slate-500">
-            {row.course.title} · {new Date(row.enrolledAt).toLocaleString('vi-VN')}
+            {row.course.title} · {formatVietnamReportDateTime(row.enrolledAt)}
           </p>
           <Link
             className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-indigo-700"
@@ -393,7 +394,7 @@ function BacklogRows({ rows }: { rows: AdminReportGradingBacklogRow[] }) {
             duyệt
           </p>
           <p className="text-sm text-slate-500">
-            Nộp {new Date(row.submittedAt).toLocaleString('vi-VN')} ·{' '}
+            Nộp {formatVietnamReportDateTime(row.submittedAt)} ·{' '}
             {row.instructor?.fullName ?? 'Chưa phân công'}
           </p>
           <Link
@@ -432,9 +433,7 @@ function ClassDetail({ row }: { row: AdminReportClassRow }) {
         />
         <Detail
           label="Bắt đầu"
-          value={
-            row.classStart ? new Date(row.classStart).toLocaleDateString('vi-VN') : 'Chưa cấu hình'
-          }
+          value={row.classStart ? formatVietnamReportDate(row.classStart) : 'Chưa cấu hình'}
         />
       </dl>
       <Link

@@ -138,7 +138,7 @@ export function buildAccountRoleOption(report: AdminSystemReport): EChartsCoreOp
   return {
     ...base,
     tooltip: { trigger: 'item', formatter: '{b}<br/><strong>{c}</strong> tài khoản · {d}%' },
-    legend: { bottom: 0, type: 'scroll' },
+    legend: { show: false },
     series: [
       {
         name: 'Vai trò',

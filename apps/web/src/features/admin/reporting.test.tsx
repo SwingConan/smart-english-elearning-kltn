@@ -120,6 +120,7 @@ describe('admin decision reporting', () => {
     expect(screen.getByRole('heading', { name: 'Cần xử lý' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Vận hành lớp' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Nhu cầu ghi danh' })).toBeInTheDocument();
+    expect(document.body.textContent).toContain('Cập nhật 23/10/2026 12:00:00');
     const text = document.body.textContent ?? '';
     expect(text).not.toContain('Bài đánh giá đã nộp');
     expect(text).not.toContain('Bài học hoàn tất');
@@ -324,6 +325,7 @@ describe('admin decision reporting', () => {
       }),
     );
     expect(screen.getByText('Sĩ số đang học')).toBeInTheDocument();
+    expect(screen.getByText('01/11/2026')).toBeInTheDocument();
     expect(document.body.textContent).not.toContain('Sĩ số ACTIVE');
     fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
 
@@ -355,7 +357,7 @@ describe('admin decision reporting', () => {
 
     fireEvent.click(
       within(screen.getByLabelText('Mở ghi danh theo lớp')).getByRole('button', {
-        name: /C1 · Lớp 1.*2/,
+        name: /C1.*Lớp 1.*TOEIC nền tảng.*2/,
       }),
     );
     await waitFor(() =>
@@ -463,6 +465,7 @@ describe('admin decision reporting', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Đăng ký có phí đang chờ xử lý/ }));
     expect(await screen.findByText('Chờ xử lý đăng ký có phí')).toBeInTheDocument();
+    expect(screen.getByText(/TOEIC nền tảng · 23\/10\/2026 09:00:00/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
 
     fireEvent.click(
@@ -474,6 +477,7 @@ describe('admin decision reporting', () => {
     expect(screen.getByText(/Bài giữa kỳ · C1 · Lớp 1/)).toBeInTheDocument();
     expect(screen.getByText(/Còn 1\/2 câu Speaking\/Writing cần duyệt/)).toBeInTheDocument();
     expect(screen.getByText(/Giảng viên Một/)).toBeInTheDocument();
+    expect(screen.getByText(/Nộp 23\/10\/2026 08:00:00/)).toBeInTheDocument();
   });
 
   it('applies period presets only through the enrollment-demand report period', async () => {
@@ -516,6 +520,7 @@ describe('report ECharts option builders', () => {
     };
     const roles = buildAccountRoleOption(report) as {
       tooltip: unknown;
+      legend: { show: boolean; type?: string };
       series: Array<{ data: Array<{ role: string }> }>;
     };
     const demand = buildEnrollmentDemandOption(report) as {
@@ -544,6 +549,8 @@ describe('report ECharts option builders', () => {
     expect(capacity.xAxis.name).toBe('Học viên đang học');
     expect(capacity.series[0].data[0].classOfferingId).toBe('class-1');
     expect(status.series[0].data.some((item) => item.status === 'OPEN')).toBe(true);
+    expect(roles.legend.show).toBe(false);
+    expect(roles.legend.type).toBeUndefined();
     expect(roles.series[0].data.some((item) => item.role === 'STUDENT')).toBe(true);
     expect(demand.yAxis.data).toEqual(['C1']);
     expect(demand.series[0].data[0].classOfferingId).toBe('class-1');
