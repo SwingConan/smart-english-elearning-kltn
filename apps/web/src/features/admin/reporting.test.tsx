@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '@/App';
@@ -68,14 +68,49 @@ describe('admin system reporting', () => {
     vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
     renderAdmin('/admin/reports');
     expect(await screen.findByText('Tài khoản theo vai trò')).toBeInTheDocument();
+    const snapshotHeading = screen.getByRole('heading', { name: 'Tổng quan hiện tại' });
+    const activityHeading = screen.getByRole('heading', { name: 'Hoạt động trong kỳ' });
+    expect(
+      snapshotHeading.compareDocumentPosition(activityHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Bộ lọc thời gian chỉ áp dụng cho Hoạt động trong kỳ; Tổng quan hiện tại luôn phản ánh/,
+      ),
+    ).toBeInTheDocument();
+
+    const activeCard = screen
+      .getByRole('heading', { name: 'Ghi danh đang hoạt động' })
+      .closest('article');
+    expect(activeCard).not.toBeNull();
+    expect(within(activeCard!).getByText('4')).toBeInTheDocument();
+    expect(within(activeCard!).getByText('Chỉ Enrollment trạng thái ACTIVE.')).toBeInTheDocument();
+
+    const pendingCard = screen
+      .getByRole('heading', { name: 'Chờ xử lý đăng ký có phí' })
+      .closest('article');
+    expect(pendingCard).not.toBeNull();
+    expect(within(pendingCard!).getByText('1')).toBeInTheDocument();
+    expect(
+      within(pendingCard!).getByText(/không đồng nghĩa đã thanh toán, thanh toán thành công/),
+    ).toBeInTheDocument();
+    expect(within(pendingCard!).getByRole('link', { name: 'Xem lớp học' })).toHaveAttribute(
+      'href',
+      '/admin/class-offerings',
+    );
+
     expect(screen.getByText('Lớp nháp chưa sẵn sàng')).toBeInTheDocument();
-    expect(screen.getByText(/Ảnh chụp tổng quan phản ánh/)).toBeInTheDocument();
     expect(screen.getByText(/không suy diễn thanh toán thành công/)).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Xem chi tiết' })).toHaveLength(7);
     expect(screen.getByRole('link', { name: /Lớp nháp chưa sẵn sàng/ })).toHaveAttribute(
       'href',
       '/admin/class-offerings',
     );
+    expect(
+      screen.getByRole('link', {
+        name: /Ghi danh PENDING_PAYMENT · điểm vào vận hành lớp hiện có/,
+      }),
+    ).toHaveAttribute('href', '/admin/class-offerings');
     expect(screen.getByRole('row', { name: '2026-09-24 0 0 0' })).toBeInTheDocument();
   });
 
@@ -127,7 +162,46 @@ describe('admin system reporting', () => {
       },
     });
     renderAdmin('/admin/reports');
-    expect(await screen.findByText('Không có hoạt động trong khoảng đã chọn.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Không ghi nhận hoạt động thuộc ba nhóm này trong khoảng thời gian đã chọn.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('retains the report and selected dates after a refresh failure, then retries the same query', async () => {
+    let resolveRetry!: (value: AdminSystemReport) => void;
+    const retryResult = new Promise<AdminSystemReport>((resolve) => {
+      resolveRetry = resolve;
+    });
+    const request = vi
+      .spyOn(adminApi.reports, 'system')
+      .mockResolvedValueOnce(report)
+      .mockRejectedValueOnce(new Error('refresh secret'))
+      .mockReturnValueOnce(retryResult);
+    renderAdmin('/admin/reports');
+    await screen.findByText('Tài khoản theo vai trò');
+
+    fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: '2026-10-01' } });
+    fireEvent.change(screen.getByLabelText('Đến ngày'), { target: { value: '2026-10-20' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Áp dụng' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Không thể cập nhật. Dữ liệu gần nhất vẫn được giữ lại.',
+    );
+    expect(screen.getByRole('row', { name: '2026-10-23 2 3 4' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Từ ngày')).toHaveValue('2026-10-01');
+    expect(screen.getByLabelText('Đến ngày')).toHaveValue('2026-10-20');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+    expect(screen.getByText('Đang cập nhật...')).toHaveAttribute('role', 'status');
+    expect(request).toHaveBeenLastCalledWith(
+      { from: '2026-10-01', to: '2026-10-20' },
+      expect.any(AbortSignal),
+    );
+
+    resolveRetry(report);
+    await waitFor(() => expect(screen.queryByText('Đang cập nhật...')).not.toBeInTheDocument());
   });
 
   it('shows a safe error and retries', async () => {
