@@ -193,7 +193,6 @@ export interface PlacementRecommendationOffering {
     startTime: string;
     endTime: string;
     locationText: string | null;
-    meetingUrl: string | null;
   }>;
   maxStudents: number | null;
   registeredCount: number;

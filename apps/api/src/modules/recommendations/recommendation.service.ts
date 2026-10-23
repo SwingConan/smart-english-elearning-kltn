@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  ClassOfferingStatus,
   EnrollmentStatus,
   Prisma,
   SkillScoreStatus,
@@ -154,6 +155,11 @@ export class RecommendationService {
         course: {
           include: {
             classOfferings: {
+              where: {
+                status: {
+                  in: [ClassOfferingStatus.OPEN, ClassOfferingStatus.IN_PROGRESS],
+                },
+              },
               include: {
                 instructor: { select: { id: true, fullName: true } },
                 scheduleSlots: {
@@ -164,7 +170,6 @@ export class RecommendationService {
                     startTime: true,
                     endTime: true,
                     locationText: true,
-                    meetingUrl: true,
                   },
                 },
                 enrollments: {
