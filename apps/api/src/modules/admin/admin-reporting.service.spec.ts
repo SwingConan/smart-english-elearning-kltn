@@ -22,6 +22,7 @@ function createHarness() {
     enrollment: { count: jest.fn(), findMany: jest.fn() },
     testAttempt: { findMany: jest.fn(), count: jest.fn() },
     $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
   };
   prisma.user.groupBy
     .mockResolvedValueOnce([group('role', UserRole.STUDENT, 4)])
@@ -41,6 +42,14 @@ function createHarness() {
     offering('open-unlimited', ClassOfferingStatus.OPEN, { maxStudents: null, registered: 3 }),
     offering('in-progress', ClassOfferingStatus.IN_PROGRESS, { registered: 1 }),
   ]);
+  prisma.$queryRaw.mockResolvedValue([
+    {
+      draftNotReady: 1,
+      openFull: 1,
+      totalOperationalClasses: 3,
+      capacityIds: ['open-full', 'open-unlimited', 'in-progress'],
+    },
+  ]);
   prisma.enrollment.count.mockResolvedValue(2);
   prisma.enrollment.findMany.mockResolvedValue([
     demandEnrollment('2026-10-01T05:00:00.000Z', 'open-full'),
@@ -59,7 +68,7 @@ function createHarness() {
 
 describe('AdminReportingService', () => {
   it('returns decision-oriented queues, truthful capacity, and zero-filled enrollment demand', async () => {
-    const { service } = createHarness();
+    const { prisma, service } = createHarness();
     const result = await service.getSystemReport(
       { from: '2026-10-01', to: '2026-10-03' },
       new Date('2026-10-02T05:00:00.000Z'),
@@ -92,13 +101,19 @@ describe('AdminReportingService', () => {
     });
     const unlimited = result.classes.capacity.items.find((row) => row.id === 'open-unlimited');
     expect(unlimited).toMatchObject({ maxStudents: null, remainingSeats: null });
+    expect(prisma.classOffering.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ['open-full', 'open-unlimited', 'in-progress'] } },
+        take: 12,
+      }),
+    );
     expect(JSON.stringify(result)).not.toContain('meetingUrl');
     expect(JSON.stringify(result)).not.toContain('submittedAssessments');
     expect(JSON.stringify(result)).not.toContain('lessonCompletions');
   });
 
   it('validates computed class-filter combinations and paginates exact rows', async () => {
-    const { service } = createHarness();
+    const { prisma, service } = createHarness();
     await expect(
       service.listClasses({ readiness: 'NOT_READY', page: 1, limit: 10 }),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -110,7 +125,16 @@ describe('AdminReportingService', () => {
         limit: 10,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.listClasses({
+        scope: 'OPERATIONAL',
+        status: ClassOfferingStatus.OPEN,
+        page: 1,
+        limit: 10,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
 
+    prisma.$queryRaw.mockResolvedValueOnce([{ ids: ['draft-not-ready'], total: 1 }]);
     const result = await service.listClasses({
       status: ClassOfferingStatus.DRAFT,
       readiness: 'NOT_READY',
@@ -123,6 +147,29 @@ describe('AdminReportingService', () => {
       operationalReadiness: { isReady: false },
     });
     expect(JSON.stringify(result)).not.toContain('meetingUrl');
+  });
+
+  it('hydrates only the DB-authoritative class page and keeps exact page metadata', async () => {
+    const { prisma, service } = createHarness();
+    prisma.$queryRaw.mockResolvedValueOnce([{ ids: ['open-full', 'open-unlimited'], total: 12 }]);
+
+    const result = await service.listClasses({
+      scope: 'OPERATIONAL',
+      page: 2,
+      limit: 2,
+    });
+
+    expect(result.meta).toEqual({ page: 2, limit: 2, total: 12, totalPages: 6 });
+    expect(result.data.map((row) => row.id)).toEqual(['open-full', 'open-unlimited']);
+    expect(prisma.classOffering.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ['open-full', 'open-unlimited'] } },
+        take: 2,
+      }),
+    );
+    expect(prisma.classOffering.findMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: undefined }),
+    );
   });
 
   it('uses backend pagination and a private enrollment projection', async () => {

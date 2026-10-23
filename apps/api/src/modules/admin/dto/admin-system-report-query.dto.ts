@@ -46,6 +46,10 @@ class PaginatedReportQueryDto {
 
 export class AdminReportClassesQueryDto extends PaginatedReportQueryDto {
   @IsOptional()
+  @IsIn(['OPERATIONAL'])
+  scope?: 'OPERATIONAL';
+
+  @IsOptional()
   @IsEnum(ClassOfferingStatus)
   status?: ClassOfferingStatus;
 

@@ -404,6 +404,7 @@ export interface AdminReportGradingBacklogRow {
 
 export interface AdminReportClassesQuery {
   search?: string;
+  scope?: 'OPERATIONAL';
   status?: OfferingStatus;
   readiness?: 'READY' | 'NOT_READY';
   registrationState?: RegistrationState;

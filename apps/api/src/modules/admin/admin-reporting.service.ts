@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import {
   AnswerEvaluationSource,
   ClassOfferingStatus,
@@ -14,6 +14,11 @@ import { computeProductiveGradingState } from '../assessments/grading-state';
 import { computeOperationalReadiness } from '../classes/class-operations';
 import { computeRegistrationState } from '../classes/registration-state';
 import { enumerateCalendarDays, resolveReportPeriod, vietnamDate } from './admin-reporting-period';
+import {
+  isOperationalStatus,
+  queryReportingClassPage,
+  queryReportingClassSnapshot,
+} from './admin-reporting-class-query';
 import {
   AdminReportClassesQueryDto,
   AdminReportEnrollmentsQueryDto,
@@ -92,7 +97,7 @@ export class AdminReportingService {
       userStatuses,
       coursePublication,
       classesByStatus,
-      operationalClasses,
+      classSnapshot,
       pendingPayment,
       enrollmentActivity,
       gradingBacklog,
@@ -101,18 +106,7 @@ export class AdminReportingService {
       this.prisma.user.groupBy({ by: ['status'], _count: { _all: true } }),
       this.prisma.course.groupBy({ by: ['isPublished'], _count: { _all: true } }),
       this.prisma.classOffering.groupBy({ by: ['status'], _count: { _all: true } }),
-      this.prisma.classOffering.findMany({
-        where: {
-          status: {
-            in: [
-              ClassOfferingStatus.DRAFT,
-              ClassOfferingStatus.OPEN,
-              ClassOfferingStatus.IN_PROGRESS,
-            ],
-          },
-        },
-        select: reportingClassSelect,
-      }),
+      queryReportingClassSnapshot(this.prisma, now, capacityLimit),
       this.prisma.enrollment.count({ where: { status: EnrollmentStatus.PENDING_PAYMENT } }),
       this.prisma.enrollment.findMany({
         where: { enrolledAt: { gte: period.start, lt: period.endExclusive } },
@@ -136,22 +130,9 @@ export class AdminReportingService {
     const classCounts = enumCounts(classStatuses, classesByStatus, 'status');
     const published = coursePublication.find((row) => row.isPublished)?._count._all ?? 0;
     const draft = coursePublication.find((row) => !row.isPublished)?._count._all ?? 0;
-    const projected = operationalClasses.map((offering) => this.projectClass(offering, now));
-    const draftNotReady = projected.filter(
-      (offering) =>
-        offering.status === ClassOfferingStatus.DRAFT && !offering.operationalReadiness.isReady,
-    ).length;
-    const openFull = projected.filter(
-      (offering) =>
-        offering.status === ClassOfferingStatus.OPEN && offering.registrationState === 'FULL',
-    ).length;
-    const capacity = projected
-      .filter(
-        (offering) =>
-          offering.status === ClassOfferingStatus.OPEN ||
-          offering.status === ClassOfferingStatus.IN_PROGRESS,
-      )
-      .sort(compareCapacityRows);
+    const capacityRows = await this.hydrateClasses(classSnapshot.capacityIds, capacityLimit);
+    const capacity = capacityRows.map((offering) => this.projectClass(offering, now));
+    this.assertCapacityParity(capacity, classSnapshot.capacityIds);
     const daily = new Map(
       enumerateCalendarDays(period.from, period.to).map((date) => [date, { date, count: 0 }]),
     );
@@ -186,16 +167,21 @@ export class AdminReportingService {
     return {
       generatedAt: now.toISOString(),
       period: { from: period.from, to: period.to, days: period.days, timeZone: period.timeZone },
-      actionQueues: { draftNotReady, openFull, pendingPayment, gradingBacklog },
+      actionQueues: {
+        draftNotReady: classSnapshot.draftNotReady,
+        openFull: classSnapshot.openFull,
+        pendingPayment,
+        gradingBacklog,
+      },
       accounts: { total: sum(roleCounts), byRole: roleCounts, byStatus: userStatusCounts },
       courses: { total: published + draft, published, draft },
       classes: {
         total: sum(classCounts),
         byStatus: classCounts,
         capacity: {
-          totalOperationalClasses: capacity.length,
-          items: capacity.slice(0, capacityLimit).map(stripInternalClassFields),
-          truncated: capacity.length > capacityLimit,
+          totalOperationalClasses: classSnapshot.totalOperationalClasses,
+          items: capacity.map(stripInternalClassFields),
+          truncated: classSnapshot.totalOperationalClasses > capacityLimit,
         },
       },
       enrollmentDemand: {
@@ -210,41 +196,23 @@ export class AdminReportingService {
   }
 
   async listClasses(query: AdminReportClassesQueryDto, now = new Date()) {
+    if (query.scope && (query.status || query.readiness || query.registrationState)) {
+      throw invalidFilter('scope=OPERATIONAL cannot be combined with status/readiness filters');
+    }
     if (query.readiness && query.status !== ClassOfferingStatus.DRAFT) {
       throw invalidFilter('readiness requires status=DRAFT');
     }
     if (query.registrationState && query.status !== ClassOfferingStatus.OPEN) {
       throw invalidFilter('registrationState requires status=OPEN');
     }
-    const where: Prisma.ClassOfferingWhereInput = {
-      ...(query.status ? { status: query.status } : {}),
-      ...(query.search
-        ? {
-            OR: [
-              { code: { contains: query.search, mode: 'insensitive' } },
-              { name: { contains: query.search, mode: 'insensitive' } },
-              { course: { title: { contains: query.search, mode: 'insensitive' } } },
-              { instructor: { fullName: { contains: query.search, mode: 'insensitive' } } },
-            ],
-          }
-        : {}),
+    const page = await queryReportingClassPage(this.prisma, query, now);
+    const candidates = await this.hydrateClasses(page.ids, query.limit);
+    const projected = candidates.map((offering) => this.projectClass(offering, now));
+    this.assertClassPageParity(projected, page.ids, query);
+    return {
+      data: projected.map(stripInternalClassFields),
+      meta: pageMeta(query.page, query.limit, page.total),
     };
-    const candidates = await this.prisma.classOffering.findMany({
-      where,
-      select: reportingClassSelect,
-      orderBy: [{ classStart: 'asc' }, { id: 'asc' }],
-    });
-    const filtered = candidates
-      .map((offering) => this.projectClass(offering, now))
-      .filter((offering) =>
-        query.readiness
-          ? offering.operationalReadiness.isReady === (query.readiness === 'READY')
-          : true,
-      )
-      .filter((offering) =>
-        query.registrationState ? offering.registrationState === query.registrationState : true,
-      );
-    return paginate(filtered.map(stripInternalClassFields), query.page, query.limit);
   }
 
   async listEnrollments(query: AdminReportEnrollmentsQueryDto) {
@@ -394,6 +362,44 @@ export class AdminReportingService {
     };
   }
 
+  private async hydrateClasses(ids: string[], limit: number): Promise<ReportingClass[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.classOffering.findMany({
+      where: { id: { in: ids } },
+      select: reportingClassSelect,
+      take: limit,
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const ordered = ids.flatMap((id) => {
+      const row = byId.get(id);
+      return row ? [row] : [];
+    });
+    if (ordered.length !== ids.length) throw reportingParityError();
+    return ordered;
+  }
+
+  private assertClassPageParity(
+    rows: ProjectedClass[],
+    ids: string[],
+    query: AdminReportClassesQueryDto,
+  ) {
+    const matches = rows.every(
+      (row, index) =>
+        row.id === ids[index] &&
+        (!query.scope || isOperationalStatus(row.status)) &&
+        (!query.status || row.status === query.status) &&
+        (!query.readiness || row.operationalReadiness.isReady === (query.readiness === 'READY')) &&
+        (!query.registrationState || row.registrationState === query.registrationState),
+    );
+    if (!matches) throw reportingParityError();
+  }
+
+  private assertCapacityParity(rows: ProjectedClass[], ids: string[]) {
+    if (!rows.every((row) => isOperationalStatus(row.status))) throw reportingParityError();
+    const sharedOrder = [...rows].sort(compareCapacityRows).map((row) => row.id);
+    if (sharedOrder.some((id, index) => id !== ids[index])) throw reportingParityError();
+  }
+
   private backlogWhere(
     extraWhere: Prisma.TestAttemptWhereInput = {},
   ): Prisma.TestAttemptWhereInput {
@@ -481,11 +487,13 @@ function pageMeta(page: number, limit: number, total: number) {
   return { page, limit, total, totalPages: total === 0 ? 0 : Math.ceil(total / limit) };
 }
 
-function paginate<T>(data: T[], page: number, limit: number) {
-  const start = (page - 1) * limit;
-  return { data: data.slice(start, start + limit), meta: pageMeta(page, limit, data.length) };
-}
-
 function invalidFilter(message: string) {
   return new BadRequestException({ code: 'REPORT_FILTER_INVALID', message });
+}
+
+function reportingParityError() {
+  return new InternalServerErrorException({
+    code: 'REPORT_CLASS_QUERY_PARITY_FAILED',
+    message: 'Reporting class query no longer matches shared class business semantics',
+  });
 }

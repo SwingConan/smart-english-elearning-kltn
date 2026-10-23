@@ -41,6 +41,10 @@ export function buildClassCapacityOption(items: AdminReportClassRow[]): EChartsC
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
+      confine: true,
+      renderMode: 'html',
+      extraCssText:
+        'max-width: min(320px, calc(100vw - 32px)); white-space: normal; overflow-wrap: anywhere; box-sizing: border-box;',
       formatter: (params: unknown) => capacityTooltip(params, items),
     },
     xAxis: { type: 'value', minInterval: 1, name: 'Học viên đang học' },
@@ -247,7 +251,7 @@ function capacityTooltip(params: unknown, items: AdminReportClassRow[]) {
     escapeHtml(item.course.title),
     `Giảng viên: ${escapeHtml(item.instructor?.fullName ?? 'Chưa phân công')}`,
     `Sĩ số: ${capacity}`,
-    `Bắt đầu: ${item.classStart ? escapeHtml(item.classStart.slice(0, 10)) : 'Chưa cấu hình'}`,
+    `Bắt đầu: ${item.classStart ? escapeHtml(formatReportDate(item.classStart.slice(0, 10))) : 'Chưa cấu hình'}`,
   ].join('<br/>');
 }
 

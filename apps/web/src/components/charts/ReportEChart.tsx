@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { BarChart, LineChart, PieChart } from 'echarts/charts';
+import { BarChart, PieChart } from 'echarts/charts';
 import {
   AriaComponent,
   GridComponent,
@@ -13,7 +13,6 @@ import { SVGRenderer } from 'echarts/renderers';
 echarts.use([
   BarChart,
   PieChart,
-  LineChart,
   TooltipComponent,
   GridComponent,
   LegendComponent,

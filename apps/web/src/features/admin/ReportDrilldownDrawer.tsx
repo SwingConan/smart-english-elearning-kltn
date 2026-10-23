@@ -140,10 +140,17 @@ export function ReportDrilldownDrawer({
               className="flex gap-2 border-b border-slate-200 p-4"
               onSubmit={(event) => {
                 event.preventDefault();
+                const trimmed = search.trim();
                 setLoading(true);
                 setError(false);
-                setPage(1);
-                setAppliedSearch(search.trim());
+                if (page !== 1) {
+                  setPage(1);
+                  setAppliedSearch(trimmed);
+                } else if (appliedSearch !== trimmed) {
+                  setAppliedSearch(trimmed);
+                } else {
+                  setReload((value) => value + 1);
+                }
               }}
             >
               <label className="relative flex-1">

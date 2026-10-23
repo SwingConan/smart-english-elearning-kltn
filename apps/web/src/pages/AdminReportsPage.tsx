@@ -251,9 +251,22 @@ export function AdminReportsPage() {
               ))}
             </ul>
             {report.classes.capacity.truncated ? (
-              <p className="mt-3 text-sm text-slate-500">
-                Biểu đồ hiển thị 12 lớp ưu tiên. Mở danh sách lớp để xem đầy đủ.
-              </p>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+                <p>Biểu đồ hiển thị 12 lớp ưu tiên.</p>
+                <button
+                  className="report-no-print rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 font-bold text-indigo-700 hover:border-indigo-400"
+                  onClick={() =>
+                    setDrawer({
+                      kind: 'CLASS_LIST',
+                      title: 'Toàn bộ lớp vận hành',
+                      query: { scope: 'OPERATIONAL' },
+                    })
+                  }
+                  type="button"
+                >
+                  Xem toàn bộ {report.classes.capacity.totalOperationalClasses} lớp vận hành
+                </button>
+              </div>
             ) : null}
           </>
         ) : (
@@ -465,14 +478,15 @@ export function AdminReportsPage() {
           </ChartCard>
           <ChartCard
             title="Ghi danh mới theo ngày"
-            subtitle="Chọn một cột để xem các ghi danh trong ngày"
+            subtitle="Chỉ các ngày có ghi danh mới có thể mở chi tiết."
           >
             <ReportEChart
               ariaLabel="Ghi danh mới theo ngày"
               className="h-80 w-full"
               onDataClick={(data) => {
                 const date = dataField(data, 'date');
-                if (date) openEnrollmentDay(date);
+                const count = dataNumberField(data, 'value');
+                if (date && count !== undefined && count > 0) openEnrollmentDay(date);
               }}
               option={buildEnrollmentDailyOption(report)}
             />
@@ -741,6 +755,11 @@ function dataField(data: unknown, field: string): string | undefined {
   if (!data || typeof data !== 'object') return undefined;
   const value = (data as Record<string, unknown>)[field];
   return typeof value === 'string' ? value : undefined;
+}
+function dataNumberField(data: unknown, field: string): number | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const value = (data as Record<string, unknown>)[field];
+  return typeof value === 'number' ? value : undefined;
 }
 function classStatusLabel(status: OfferingStatus) {
   return {

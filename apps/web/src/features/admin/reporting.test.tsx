@@ -25,6 +25,26 @@ vi.mock('@/components/charts/ReportEChart', () => ({
     ariaLabel: string;
     onDataClick?: (data: unknown) => void;
   }) => {
+    if (ariaLabel === 'Ghi danh mới theo ngày') {
+      return (
+        <>
+          <button
+            aria-label="Mô phỏng ghi danh ngày 0"
+            onClick={() => onDataClick?.({ date: '2026-09-24', value: 0 })}
+            type="button"
+          >
+            {ariaLabel}
+          </button>
+          <button
+            aria-label="Mô phỏng ghi danh ngày có phát sinh"
+            onClick={() => onDataClick?.({ date: '2026-10-23', value: 2 })}
+            type="button"
+          >
+            {ariaLabel}
+          </button>
+        </>
+      );
+    }
     const data =
       ariaLabel === 'Sĩ số đang học và sức chứa theo lớp'
         ? { classOfferingId: 'class-1' }
@@ -387,6 +407,121 @@ describe('admin decision reporting', () => {
     );
   });
 
+  it('makes zero-day chart data non-actionable and keeps non-zero chart/fallback parity', async () => {
+    vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
+    const enrollments = vi
+      .spyOn(adminApi.reports, 'enrollments')
+      .mockResolvedValue({ data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+    renderAdmin('/admin/reports');
+    await screen.findByRole('heading', { name: 'Ghi danh mới theo ngày' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mô phỏng ghi danh ngày 0' }));
+    expect(enrollments).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mô phỏng ghi danh ngày có phát sinh' }));
+    await waitFor(() =>
+      expect(enrollments).toHaveBeenCalledWith(
+        { from: '2026-10-23', to: '2026-10-23', page: 1, limit: 10 },
+        expect.any(AbortSignal),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
+
+    fireEvent.click(
+      within(screen.getByLabelText('Mở ghi danh theo ngày có phát sinh')).getByRole('button', {
+        name: /23\/10\/2026.*2 ghi danh/,
+      }),
+    );
+    await waitFor(() => expect(enrollments).toHaveBeenCalledTimes(2));
+    expect(enrollments).toHaveBeenLastCalledWith(
+      { from: '2026-10-23', to: '2026-10-23', page: 1, limit: 10 },
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('opens the exact operational full-list scope when capacity is truncated', async () => {
+    vi.spyOn(adminApi.reports, 'system').mockResolvedValue({
+      ...report,
+      classes: {
+        ...report.classes,
+        capacity: { ...report.classes.capacity, totalOperationalClasses: 13, truncated: true },
+      },
+    });
+    const classes = vi.spyOn(adminApi.reports, 'classes').mockResolvedValue({
+      data: [classRow],
+      meta: { page: 1, limit: 10, total: 13, totalPages: 2 },
+    });
+    renderAdmin('/admin/reports');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Xem toàn bộ 13 lớp vận hành' }));
+    await waitFor(() =>
+      expect(classes).toHaveBeenCalledWith(
+        { scope: 'OPERATIONAL', page: 1, limit: 10 },
+        expect.any(AbortSignal),
+      ),
+    );
+    expect(await screen.findByText('13 kết quả')).toBeInTheDocument();
+  });
+
+  it('reruns repeated drawer searches exactly once, resets later pages, and retries errors', async () => {
+    vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
+    const classes = vi.spyOn(adminApi.reports, 'classes').mockImplementation(async (query) => ({
+      data: [classRow],
+      meta: { page: query?.page ?? 1, limit: 10, total: 11, totalPages: 2 },
+    }));
+    renderAdmin('/admin/reports');
+    await screen.findByRole('heading', { name: 'Vận hành lớp' });
+    fireEvent.click(screen.getByRole('button', { name: /Lớp nháp chưa sẵn sàng/ }));
+    await waitFor(() => expect(classes).toHaveBeenCalledTimes(1));
+
+    const dialog = screen.getByRole('dialog');
+    const input = within(dialog).getByPlaceholderText('Tìm theo tên hoặc mã lớp');
+    const submit = within(dialog).getByRole('button', { name: 'Tìm' });
+    fireEvent.change(input, { target: { value: '  C1  ' } });
+    fireEvent.click(submit);
+    await waitFor(() => expect(classes).toHaveBeenCalledTimes(2));
+    expect(classes).toHaveBeenLastCalledWith(
+      { status: 'DRAFT', readiness: 'NOT_READY', search: 'C1', page: 1, limit: 10 },
+      expect.any(AbortSignal),
+    );
+
+    fireEvent.click(submit);
+    await waitFor(() => expect(classes).toHaveBeenCalledTimes(3));
+    expect(within(dialog).queryByText('Đang tải dữ liệu...')).not.toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.click(submit);
+    await waitFor(() => expect(classes).toHaveBeenCalledTimes(4));
+    fireEvent.click(submit);
+    await waitFor(() => expect(classes).toHaveBeenCalledTimes(5));
+    expect(classes).toHaveBeenLastCalledWith(
+      { status: 'DRAFT', readiness: 'NOT_READY', page: 1, limit: 10 },
+      expect.any(AbortSignal),
+    );
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Trang sau' }));
+    await waitFor(() => expect(classes).toHaveBeenCalledTimes(6));
+    expect(classes).toHaveBeenLastCalledWith(
+      { status: 'DRAFT', readiness: 'NOT_READY', page: 2, limit: 10 },
+      expect.any(AbortSignal),
+    );
+    fireEvent.click(submit);
+    await waitFor(() => expect(classes).toHaveBeenCalledTimes(7));
+    expect(classes).toHaveBeenLastCalledWith(
+      { status: 'DRAFT', readiness: 'NOT_READY', page: 1, limit: 10 },
+      expect.any(AbortSignal),
+    );
+
+    classes.mockRejectedValueOnce(new Error('temporary failure'));
+    fireEvent.click(submit);
+    expect(await within(dialog).findByText('Không thể tải danh sách.')).toBeInTheDocument();
+    expect(classes).toHaveBeenCalledTimes(8);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Thử lại' }));
+    await waitFor(() => expect(classes).toHaveBeenCalledTimes(9));
+    expect(within(dialog).queryByText('Không thể tải danh sách.')).not.toBeInTheDocument();
+  });
+
   it('renders a truthful zero-day fallback without creating day controls', async () => {
     vi.spyOn(adminApi.reports, 'system').mockResolvedValue({
       ...report,
@@ -510,7 +645,12 @@ describe('report ECharts option builders', () => {
   it('enables aria/tooltips and retains exact IDs for clicks', () => {
     const capacity = buildClassCapacityOption(report.classes.capacity.items) as {
       aria: { show: boolean };
-      tooltip: unknown;
+      tooltip: {
+        confine: boolean;
+        renderMode: string;
+        extraCssText: string;
+        formatter: (input: unknown) => string;
+      };
       xAxis: { name: string };
       series: Array<{ data: Array<{ classOfferingId: string }> }>;
     };
@@ -545,7 +685,13 @@ describe('report ECharts option builders', () => {
       }>;
     };
     expect(capacity.aria.show).toBe(true);
-    expect(capacity.tooltip).toBeTruthy();
+    expect(capacity.tooltip.confine).toBe(true);
+    expect(capacity.tooltip.renderMode).toBe('html');
+    expect(capacity.tooltip.extraCssText).toMatch(/max-width/);
+    expect(capacity.tooltip.extraCssText).toMatch(/overflow-wrap:\s*anywhere/);
+    expect(capacity.tooltip.formatter([{ data: { classOfferingId: 'class-1' } }])).toContain(
+      'Bắt đầu: 01/11/2026',
+    );
     expect(capacity.xAxis.name).toBe('Học viên đang học');
     expect(capacity.series[0].data[0].classOfferingId).toBe('class-1');
     expect(status.series[0].data.some((item) => item.status === 'OPEN')).toBe(true);

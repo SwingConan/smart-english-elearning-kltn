@@ -1,4 +1,5 @@
 import type { AdminSystemReport } from './types';
+import { formatVietnamReportDate, formatVietnamReportDateTime } from './report-display-format';
 
 const BOM = '\uFEFF';
 
@@ -6,9 +7,9 @@ export function serializeAdminReportCsv(report: AdminSystemReport): string {
   const rows: Array<Array<string | number>> = [
     ['BÁO CÁO HỆ THỐNG'],
     ['THÔNG TIN BÁO CÁO'],
-    ['Thời điểm tạo báo cáo', report.generatedAt],
-    ['Từ ngày', report.period.from],
-    ['Đến ngày', report.period.to],
+    ['Thời điểm tạo báo cáo', formatVietnamReportDateTime(report.generatedAt)],
+    ['Từ ngày', formatVietnamReportDate(report.period.from)],
+    ['Đến ngày', formatVietnamReportDate(report.period.to)],
     ['Số ngày', report.period.days],
     ['Múi giờ', 'Giờ Việt Nam (UTC+7)'],
     [],
@@ -20,6 +21,14 @@ export function serializeAdminReportCsv(report: AdminSystemReport): string {
     ['Bài Speaking/Writing chờ giảng viên duyệt', report.actionQueues.gradingBacklog],
     [],
     ['VẬN HÀNH LỚP'],
+    ['Tổng lớp vận hành', report.classes.capacity.totalOperationalClasses],
+    ['Số lớp chi tiết trong tệp', report.classes.capacity.items.length],
+    [
+      'Danh sách chi tiết',
+      report.classes.capacity.truncated
+        ? `${report.classes.capacity.items.length} lớp ưu tiên; xem Báo cáo hệ thống để mở danh sách đầy đủ`
+        : 'Đầy đủ danh sách lớp vận hành',
+    ],
     [
       'Mã lớp',
       'Tên lớp',
@@ -42,7 +51,7 @@ export function serializeAdminReportCsv(report: AdminSystemReport): string {
       item.maxStudents ?? 'Không giới hạn cấu hình',
       item.remainingSeats ?? 'Không giới hạn cấu hình',
       registrationState(item.registrationState),
-      item.classStart ?? 'Chưa cấu hình',
+      item.classStart ? formatVietnamReportDate(item.classStart) : 'Chưa cấu hình',
     ]),
     [],
     ['TRẠNG THÁI LỚP'],
@@ -78,7 +87,7 @@ export function serializeAdminReportCsv(report: AdminSystemReport): string {
     [],
     ['NHU CẦU GHI DANH THEO NGÀY'],
     ['Ngày', 'Ghi danh mới'],
-    ...report.enrollmentDemand.daily.map((row) => [row.date, row.count]),
+    ...report.enrollmentDemand.daily.map((row) => [formatVietnamReportDate(row.date), row.count]),
   ];
   return BOM + rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
 }

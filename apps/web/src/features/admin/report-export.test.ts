@@ -16,8 +16,8 @@ const report: AdminSystemReport = {
     total: 3,
     byStatus: { DRAFT: 1, OPEN: 1, IN_PROGRESS: 1, COMPLETED: 0, CANCELLED: 0 },
     capacity: {
-      totalOperationalClasses: 2,
-      truncated: false,
+      totalOperationalClasses: 13,
+      truncated: true,
       items: [
         {
           id: 'class-1',
@@ -60,16 +60,26 @@ describe('admin report CSV export', () => {
   it('exports the decision report contract and every enrollment-demand day', () => {
     const csv = serializeAdminReportCsv(report);
     expect(csv.startsWith('\uFEFF')).toBe(true);
-    expect(csv).toContain('Thời điểm tạo báo cáo,2026-10-23T05:00:00.000Z');
+    expect(csv).toContain('Thời điểm tạo báo cáo,23/10/2026 12:00:00');
+    expect(csv).toContain('Từ ngày,21/10/2026');
+    expect(csv).toContain('Đến ngày,23/10/2026');
     expect(csv).toContain('Lớp nháp chưa sẵn sàng,1');
     expect(csv).toContain('Bài Speaking/Writing chờ giảng viên duyệt,2');
+    expect(csv).toContain('Tổng lớp vận hành,13');
+    expect(csv).toContain('Số lớp chi tiết trong tệp,1');
+    expect(csv).toContain(
+      'Danh sách chi tiết,1 lớp ưu tiên; xem Báo cáo hệ thống để mở danh sách đầy đủ',
+    );
     expect(csv).toContain('Sĩ số đang học');
     expect(csv).not.toContain('Sĩ số ACTIVE');
     expect(csv).toContain('C1,Lớp 1,TOEIC nền tảng,Giảng viên A,Đang mở,10,10,0,Đã đủ sĩ số');
     expect(csv).toContain('NHU CẦU GHI DANH THEO NGÀY');
-    expect(csv).toContain('2026-10-21,0');
-    expect(csv).toContain('2026-10-22,1');
-    expect(csv).toContain('2026-10-23,0');
+    expect(csv).toContain('21/10/2026,0');
+    expect(csv).toContain('22/10/2026,1');
+    expect(csv).toContain('23/10/2026,0');
+    expect(csv).toContain('01/11/2026');
+    expect(csv).not.toContain('2026-10-23T05:00:00.000Z');
+    expect(csv).not.toContain('2026-11-01T00:00:00.000Z');
   });
 
   it('uses the resolved-period filename and removes obsolete/private fields', () => {
