@@ -4,41 +4,54 @@ import * as argon2 from 'argon2';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import {
+  AnswerEvaluationSource,
+  AnswerEvaluationStatus,
+  AssessmentStage,
   ClassOfferingStatus,
   EnrollmentStatus,
-  LessonProgressStatus,
   PricingType,
+  QuestionDifficulty,
+  QuestionResponseType,
   TestAttemptStatus,
   TestPurpose,
   TestStatus,
+  ToeicSkill,
   UserRole,
   UserStatus,
 } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
 import { loginAgent } from './assessment-e2e-helpers';
 
-describe('M09-E UC43 system reporting (e2e)', () => {
+describe('M09-E rebaselined Admin decision reporting (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let admin: ReturnType<typeof request.agent>;
   let student: ReturnType<typeof request.agent>;
   let instructor: ReturnType<typeof request.agent>;
-  const userIds: string[] = [];
+  const sessionIds = new Set<string>();
   const courseIds: string[] = [];
   const classIds: string[] = [];
   const enrollmentIds: string[] = [];
-  const moduleIds: string[] = [];
-  const lessonIds: string[] = [];
+  const userIds: string[] = [];
+  const attemptIds: string[] = [];
+  const answerIds: string[] = [];
+  const assessmentIds: string[] = [];
+  const testQuestionIds: string[] = [];
+  const questionIds: string[] = [];
   const testIds: string[] = [];
-  const sessionIds = new Set<string>();
   const unique = `${Date.now()}-${process.pid}`;
-  const password = 'M09eReporting!2026';
+  const password = 'M09eDecisionReporting!2026';
   const emails = {
     admin: `m09e-admin-${unique}@example.com`,
     student: `m09e-student-${unique}@example.com`,
     pending: `m09e-pending-${unique}@example.com`,
     instructor: `m09e-instructor-${unique}@example.com`,
   };
+  let draftClassId: string;
+  let fullClassId: string;
+  let pendingEnrollmentId: string;
+  let pendingAttemptId: string;
+  let finalAttemptId: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -63,22 +76,184 @@ describe('M09-E UC43 system reporting (e2e)', () => {
       });
       userIds.push(user.id);
     }
+
     admin = request.agent(app.getHttpServer());
     student = request.agent(app.getHttpServer());
     instructor = request.agent(app.getHttpServer());
     await loginAgent(admin, emails.admin, password, sessionIds);
     await loginAgent(student, emails.student, password, sessionIds);
     await loginAgent(instructor, emails.instructor, password, sessionIds);
+
+    const adminUser = { id: userIds[0] };
+    const learners = [{ id: userIds[1] }, { id: userIds[2] }];
+    const instructorUser = { id: userIds[3] };
+
+    const course = await prisma.course.create({
+      data: {
+        title: `M09E Decision ${unique}`,
+        slug: `m09e-decision-${unique}`,
+        description: 'M09-E shadow fixture',
+        level: 'FOUNDATION',
+        isPublished: true,
+        createdById: adminUser.id,
+      },
+    });
+    courseIds.push(course.id);
+    const draft = await prisma.classOffering.create({
+      data: {
+        courseId: course.id,
+        code: `M09E-DRAFT-${unique}`,
+        name: 'M09E exact draft not ready',
+        status: ClassOfferingStatus.DRAFT,
+        pricingType: PricingType.FREE,
+      },
+    });
+    const full = await prisma.classOffering.create({
+      data: {
+        courseId: course.id,
+        instructorId: instructorUser.id,
+        code: `M09E-FULL-${unique}`,
+        name: 'M09E exact open full',
+        status: ClassOfferingStatus.OPEN,
+        pricingType: PricingType.FREE,
+        maxStudents: 1,
+        classStart: new Date('2026-11-01T00:00:00.000Z'),
+        classEnd: new Date('2026-12-01T00:00:00.000Z'),
+      },
+    });
+    const pendingClass = await prisma.classOffering.create({
+      data: {
+        courseId: course.id,
+        code: `M09E-PENDING-${unique}`,
+        name: 'M09E pending payment class',
+        status: ClassOfferingStatus.COMPLETED,
+        pricingType: PricingType.PAID,
+        tuitionFeeVnd: 500000,
+      },
+    });
+    classIds.push(draft.id, full.id, pendingClass.id);
+    draftClassId = draft.id;
+    fullClassId = full.id;
+    await prisma.classScheduleSlot.create({
+      data: {
+        classOfferingId: full.id,
+        dayOfWeek: 2,
+        startTime: new Date('1970-01-01T08:00:00.000Z'),
+        endTime: new Date('1970-01-01T10:00:00.000Z'),
+        meetingUrl: 'https://private.example.test/m09e',
+      },
+    });
+    const active = await prisma.enrollment.create({
+      data: {
+        learnerId: learners[0].id,
+        classOfferingId: full.id,
+        status: EnrollmentStatus.ACTIVE,
+        enrolledAt: new Date('2026-10-21T05:00:00.000Z'),
+      },
+    });
+    const pending = await prisma.enrollment.create({
+      data: {
+        learnerId: learners[1].id,
+        classOfferingId: pendingClass.id,
+        status: EnrollmentStatus.PENDING_PAYMENT,
+        enrolledAt: new Date('2026-10-01T05:00:00.000Z'),
+      },
+    });
+    enrollmentIds.push(active.id, pending.id);
+    pendingEnrollmentId = pending.id;
+
+    const test = await prisma.test.create({
+      data: {
+        courseId: course.id,
+        purpose: TestPurpose.IN_CLASS,
+        title: `M09E Speaking/Writing ${unique}`,
+        status: TestStatus.PUBLISHED,
+      },
+    });
+    testIds.push(test.id);
+    const question = await prisma.question.create({
+      data: {
+        courseId: course.id,
+        responseType: QuestionResponseType.TEXT_RESPONSE,
+        difficulty: QuestionDifficulty.EASY,
+        toeicSkill: ToeicSkill.WRITING,
+        content: 'M09-E protected productive response fixture',
+      },
+    });
+    questionIds.push(question.id);
+    const testQuestion = await prisma.testQuestion.create({
+      data: { testId: test.id, questionId: question.id, orderIndex: 1, points: 10 },
+    });
+    testQuestionIds.push(testQuestion.id);
+    const assessment = await prisma.classAssessment.create({
+      data: {
+        classOfferingId: full.id,
+        testId: test.id,
+        stage: AssessmentStage.MIDTERM,
+      },
+    });
+    assessmentIds.push(assessment.id);
+    const pendingAttempt = await prisma.testAttempt.create({
+      data: {
+        testId: test.id,
+        learnerId: learners[0].id,
+        enrollmentId: active.id,
+        classAssessmentId: assessment.id,
+        attemptNumber: 1,
+        status: TestAttemptStatus.SUBMITTED,
+        submittedAt: new Date('2026-10-20T05:00:00.000Z'),
+      },
+    });
+    const finalAttempt = await prisma.testAttempt.create({
+      data: {
+        testId: test.id,
+        learnerId: learners[0].id,
+        enrollmentId: active.id,
+        classAssessmentId: assessment.id,
+        attemptNumber: 2,
+        status: TestAttemptStatus.SUBMITTED,
+        submittedAt: new Date('2026-10-21T05:00:00.000Z'),
+      },
+    });
+    attemptIds.push(pendingAttempt.id, finalAttempt.id);
+    pendingAttemptId = pendingAttempt.id;
+    finalAttemptId = finalAttempt.id;
+    const pendingAnswer = await prisma.testAnswer.create({
+      data: {
+        attemptId: pendingAttempt.id,
+        testQuestionId: testQuestion.id,
+        textResponse: 'Protected pending answer must never leave the grading service',
+      },
+    });
+    const finalAnswer = await prisma.testAnswer.create({
+      data: {
+        attemptId: finalAttempt.id,
+        testQuestionId: testQuestion.id,
+        textResponse: 'Protected final answer must never leave the grading service',
+      },
+    });
+    answerIds.push(pendingAnswer.id, finalAnswer.id);
+    await prisma.answerEvaluation.create({
+      data: {
+        testAnswerId: finalAnswer.id,
+        source: AnswerEvaluationSource.INSTRUCTOR,
+        status: AnswerEvaluationStatus.REVIEWED_FINAL,
+        evaluatorId: instructorUser.id,
+        totalScore: 8,
+      },
+    });
   });
 
   afterAll(async () => {
     if (prisma) {
       await prisma.userSession.deleteMany({ where: { sid: { in: [...sessionIds] } } });
-      await prisma.testAttempt.deleteMany({ where: { testId: { in: testIds } } });
-      await prisma.lessonProgress.deleteMany({ where: { lessonId: { in: lessonIds } } });
+      await prisma.answerEvaluation.deleteMany({ where: { testAnswerId: { in: answerIds } } });
+      await prisma.testAnswer.deleteMany({ where: { id: { in: answerIds } } });
+      await prisma.testAttempt.deleteMany({ where: { id: { in: attemptIds } } });
+      await prisma.classAssessment.deleteMany({ where: { id: { in: assessmentIds } } });
+      await prisma.testQuestion.deleteMany({ where: { id: { in: testQuestionIds } } });
+      await prisma.question.deleteMany({ where: { id: { in: questionIds } } });
       await prisma.test.deleteMany({ where: { id: { in: testIds } } });
-      await prisma.lesson.deleteMany({ where: { id: { in: lessonIds } } });
-      await prisma.module.deleteMany({ where: { id: { in: moduleIds } } });
       await prisma.enrollment.deleteMany({ where: { id: { in: enrollmentIds } } });
       await prisma.classScheduleSlot.deleteMany({ where: { classOfferingId: { in: classIds } } });
       await prisma.classOffering.deleteMany({ where: { id: { in: classIds } } });
@@ -88,284 +263,131 @@ describe('M09-E UC43 system reporting (e2e)', () => {
     if (app) await app.close();
   });
 
-  it('enforces authentication, the admin role, and strict public periods', async () => {
-    await request(app.getHttpServer()).get('/api/admin/reports/system').expect(401);
-    await student.get('/api/admin/reports/system').expect(403);
-    await instructor.get('/api/admin/reports/system').expect(403);
-    await admin.get('/api/admin/reports/system').expect(200);
-    await admin.get('/api/admin/reports/system?from=2026-10-01').expect(400);
-    await admin.get('/api/admin/reports/system?from=2026-02-30&to=2026-03-01').expect(400);
-    await admin.get('/api/admin/reports/system?from=2026-01-01&to=2026-04-01').expect(400);
-    await admin.get('/api/admin/reports/system?from=2026-03-31&to=2026-01-01').expect(400);
+  it.each([
+    '/api/admin/reports/system?from=2026-10-20&to=2026-10-23',
+    '/api/admin/reports/classes',
+    '/api/admin/reports/enrollments',
+    '/api/admin/reports/grading-backlog',
+  ])('enforces ADMIN_COORDINATOR RBAC for %s', async (path) => {
+    await request(app.getHttpServer()).get(path).expect(401);
+    await student.get(path).expect(403);
+    await instructor.get(path).expect(403);
+    await admin.get(path).expect(200);
   });
 
-  it('proves snapshot semantics, private projection, and all three activity sources', async () => {
-    const path = '/api/admin/reports/system?from=2026-10-20&to=2026-10-22';
-    const before = await admin.get(path).expect(200);
-    const adminId = userIds[0];
-    const studentId = userIds[1];
-    const pendingId = userIds[2];
-    const instructorId = userIds[3];
-    const extraAccount = await prisma.user.create({
-      data: {
-        email: `m09e-locked-${unique}@example.com`,
-        fullName: 'M09E Locked Account',
-        role: UserRole.STUDENT,
-        status: UserStatus.LOCKED,
-        passwordHash: await argon2.hash(`${password}-locked`, { type: argon2.argon2id }),
-      },
-    });
-    userIds.push(extraAccount.id);
-    const published = await prisma.course.create({
-      data: {
-        title: `M09E Published ${unique}`,
-        slug: `m09e-published-${unique}`,
-        description: 'Disposable M09-E reporting fixture',
-        level: 'FOUNDATION',
-        isPublished: true,
-        createdById: adminId,
-      },
-    });
-    const draft = await prisma.course.create({
-      data: {
-        title: `M09E Draft ${unique}`,
-        slug: `m09e-draft-${unique}`,
-        description: 'Disposable M09-E reporting fixture',
-        level: 'FOUNDATION',
-        isPublished: false,
-        createdById: adminId,
-      },
-    });
-    courseIds.push(published.id, draft.id);
-    const open = await prisma.classOffering.create({
-      data: {
-        courseId: published.id,
-        instructorId,
-        code: `M09E-OPEN-${unique}`,
-        name: 'M09-E Full Open Class',
-        status: ClassOfferingStatus.OPEN,
-        pricingType: PricingType.FREE,
-        maxStudents: 1,
-      },
-    });
-    const notReady = await prisma.classOffering.create({
-      data: {
-        courseId: draft.id,
-        code: `M09E-DRAFT-${unique}`,
-        name: 'M09-E Not Ready Draft',
-        status: ClassOfferingStatus.DRAFT,
-        pricingType: PricingType.FREE,
-      },
-    });
-    const ready = await prisma.classOffering.create({
-      data: {
-        courseId: published.id,
-        instructorId,
-        code: `M09E-READY-${unique}`,
-        name: 'M09-E Ready Draft',
-        status: ClassOfferingStatus.DRAFT,
-        pricingType: PricingType.FREE,
-        classStart: new Date('2026-11-01T00:00:00.000Z'),
-        classEnd: new Date('2026-12-01T00:00:00.000Z'),
-      },
-    });
-    classIds.push(open.id, notReady.id, ready.id);
-    await prisma.classScheduleSlot.create({
-      data: {
-        classOfferingId: open.id,
-        dayOfWeek: 2,
-        startTime: new Date('1970-01-01T08:00:00.000Z'),
-        endTime: new Date('1970-01-01T10:00:00.000Z'),
-        meetingUrl: 'https://meet.example.test/m09e-private',
-      },
-    });
-    await prisma.classScheduleSlot.create({
-      data: {
-        classOfferingId: ready.id,
-        dayOfWeek: 3,
-        startTime: new Date('1970-01-01T08:00:00.000Z'),
-        endTime: new Date('1970-01-01T10:00:00.000Z'),
-        locationText: 'M09-E Room',
-      },
-    });
-    const active = await prisma.enrollment.create({
-      data: {
-        learnerId: studentId,
-        classOfferingId: open.id,
-        status: EnrollmentStatus.ACTIVE,
-        enrolledAt: new Date('2026-10-20T17:00:00.000Z'),
-      },
-    });
-    const pendingClass = await prisma.classOffering.create({
-      data: {
-        courseId: published.id,
-        code: `M09E-PENDING-${unique}`,
-        name: 'M09-E Pending Class',
-        status: ClassOfferingStatus.COMPLETED,
-        pricingType: PricingType.FREE,
-      },
-    });
-    classIds.push(pendingClass.id);
-    const pending = await prisma.enrollment.create({
-      data: {
-        learnerId: pendingId,
-        classOfferingId: pendingClass.id,
-        status: EnrollmentStatus.PENDING_PAYMENT,
-        enrolledAt: new Date('2026-10-01T00:00:00.000Z'),
-      },
-    });
-    enrollmentIds.push(active.id, pending.id);
-    const courseModule = await prisma.module.create({
-      data: { courseId: published.id, title: 'M09-E module', orderIndex: 1 },
-    });
-    moduleIds.push(courseModule.id);
-    const lessons = await Promise.all(
-      [1, 2].map((orderIndex) =>
-        prisma.lesson.create({
-          data: { moduleId: courseModule.id, title: `M09-E lesson ${orderIndex}`, orderIndex },
-        }),
-      ),
-    );
-    lessonIds.push(...lessons.map((lesson) => lesson.id));
-    await prisma.lessonProgress.createMany({
-      data: [
-        {
-          enrollmentId: active.id,
-          lessonId: lessons[0].id,
-          status: LessonProgressStatus.COMPLETED,
-          completedAt: new Date('2026-10-21T05:00:00.000Z'),
-        },
-        {
-          enrollmentId: active.id,
-          lessonId: lessons[1].id,
-          status: LessonProgressStatus.NOT_STARTED,
-          completedAt: null,
-        },
-      ],
-    });
-    const test = await prisma.test.create({
-      data: {
-        courseId: published.id,
-        title: 'M09-E reporting test',
-        purpose: TestPurpose.PRACTICE_MOCK,
-        status: TestStatus.PUBLISHED,
-      },
-    });
-    testIds.push(test.id);
-    await prisma.testAttempt.createMany({
-      data: [
-        {
-          testId: test.id,
-          learnerId: studentId,
-          enrollmentId: active.id,
-          attemptNumber: 1,
-          status: TestAttemptStatus.SUBMITTED,
-          submittedAt: new Date('2026-10-21T06:00:00.000Z'),
-        },
-        {
-          testId: test.id,
-          learnerId: studentId,
-          enrollmentId: active.id,
-          attemptNumber: 2,
-          status: TestAttemptStatus.IN_PROGRESS,
-          submittedAt: null,
-        },
-        {
-          testId: test.id,
-          learnerId: studentId,
-          enrollmentId: active.id,
-          attemptNumber: 3,
-          status: TestAttemptStatus.SUBMITTED,
-          submittedAt: new Date('2026-10-23T17:00:00.000Z'),
-        },
-      ],
-    });
-
-    const after = await admin.get(path).expect(200);
-    expect(after.body).toMatchObject({
-      activity: {
-        period: {
-          from: '2026-10-20',
-          to: '2026-10-22',
-          days: 3,
-          timeZone: 'Asia/Ho_Chi_Minh',
-        },
-      },
-    });
-    expect(after.body.snapshot.courses.total - before.body.snapshot.courses.total).toBe(2);
-    expect(after.body.snapshot.courses.published - before.body.snapshot.courses.published).toBe(1);
-    expect(after.body.snapshot.courses.draft - before.body.snapshot.courses.draft).toBe(1);
-    expect(after.body.snapshot.accounts.total - before.body.snapshot.accounts.total).toBe(1);
-    expect(
-      after.body.snapshot.accounts.byStatus.LOCKED - before.body.snapshot.accounts.byStatus.LOCKED,
-    ).toBe(1);
-    expect(after.body.snapshot.classes.total - before.body.snapshot.classes.total).toBe(4);
-    expect(
-      after.body.snapshot.classes.draftReadiness.ready -
-        before.body.snapshot.classes.draftReadiness.ready,
-    ).toBe(1);
-    expect(
-      after.body.snapshot.classes.draftReadiness.notReady -
-        before.body.snapshot.classes.draftReadiness.notReady,
-    ).toBe(1);
-    expect(
-      after.body.snapshot.classes.openRegistration.FULL -
-        before.body.snapshot.classes.openRegistration.FULL,
-    ).toBe(1);
-    expect(
-      after.body.snapshot.enrollments.byStatus.ACTIVE -
-        before.body.snapshot.enrollments.byStatus.ACTIVE,
-    ).toBe(1);
-    expect(
-      after.body.snapshot.enrollments.byStatus.PENDING_PAYMENT -
-        before.body.snapshot.enrollments.byStatus.PENDING_PAYMENT,
-    ).toBe(1);
-    expect(after.body.attention.draftNotReady - before.body.attention.draftNotReady).toBe(1);
-    expect(after.body.attention.openFull - before.body.attention.openFull).toBe(1);
-    expect(after.body.attention.pendingPayment - before.body.attention.pendingPayment).toBe(1);
-    const beforeDay = before.body.activity.daily.find(
-      (row: { date: string }) => row.date === '2026-10-21',
-    );
-    const afterDay = after.body.activity.daily.find(
-      (row: { date: string }) => row.date === '2026-10-21',
-    );
-    expect(afterDay.newEnrollments - beforeDay.newEnrollments).toBe(1);
-    expect(afterDay.submittedAssessments - beforeDay.submittedAssessments).toBe(1);
-    expect(afterDay.lessonCompletions - beforeDay.lessonCompletions).toBe(1);
-    expect(after.body.activity.daily).toHaveLength(3);
-    expect(
-      after.body.activity.daily.some(
-        (row: {
-          newEnrollments: number;
-          submittedAssessments: number;
-          lessonCompletions: number;
-        }) =>
-          row.newEnrollments === 0 && row.submittedAssessments === 0 && row.lessonCompletions === 0,
-      ),
-    ).toBe(true);
-    const serialized = JSON.stringify(after.body);
-    expect(serialized).not.toContain('meetingUrl');
-    expect(serialized).not.toContain('m09e-private');
-    expect(serialized).not.toContain('passwordHash');
-    expect(serialized).not.toContain('storageKey');
-    for (const forbidden of [
-      'revenue',
-      'paymentSuccess',
-      'DAU',
-      'MAU',
-      'engagementScore',
-      'toeicAggregate',
-      'growth',
-      'aiRisk',
-      'bktMastery',
-    ]) {
-      expect(serialized).not.toContain(forbidden);
-    }
-
-    const otherPeriod = await admin
-      .get('/api/admin/reports/system?from=2026-10-01&to=2026-10-01')
+  it('returns actionable queues, class capacity, enrollment demand, and a private aggregate', async () => {
+    const response = await admin
+      .get('/api/admin/reports/system?from=2026-10-20&to=2026-10-23')
       .expect(200);
-    expect(otherPeriod.body.snapshot).toEqual(after.body.snapshot);
-    expect(otherPeriod.body.attention).toEqual(after.body.attention);
+    expect(response.body.period).toMatchObject({
+      from: '2026-10-20',
+      to: '2026-10-23',
+      days: 4,
+      timeZone: 'Asia/Ho_Chi_Minh',
+    });
+    expect(response.body.actionQueues.draftNotReady).toBeGreaterThanOrEqual(1);
+    expect(response.body.actionQueues.openFull).toBeGreaterThanOrEqual(1);
+    expect(response.body.actionQueues.pendingPayment).toBeGreaterThanOrEqual(1);
+    expect(response.body.actionQueues.gradingBacklog).toBeGreaterThanOrEqual(1);
+    expect(response.body.classes.capacity.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: fullClassId,
+          activeEnrollments: 1,
+          maxStudents: 1,
+          remainingSeats: 0,
+          registrationState: 'FULL',
+        }),
+      ]),
+    );
+    expect(response.body.enrollmentDemand.byClass).toEqual(
+      expect.arrayContaining([expect.objectContaining({ classOfferingId: fullClassId, count: 1 })]),
+    );
+    expect(response.body.enrollmentDemand.daily).toHaveLength(4);
+    expect(
+      response.body.enrollmentDemand.daily.some((row: { count: number }) => row.count === 0),
+    ).toBe(true);
+    const serialized = JSON.stringify(response.body);
+    for (const forbidden of [
+      'meetingUrl',
+      'private.example.test',
+      'passwordHash',
+      'textResponse',
+      'audioStorageKey',
+      'submittedAssessments',
+      'lessonCompletions',
+    ])
+      expect(serialized).not.toContain(forbidden);
+  });
+
+  it('drills into exact DRAFT NOT_READY and OPEN FULL classes with strict filters', async () => {
+    const draft = await admin
+      .get('/api/admin/reports/classes?status=DRAFT&readiness=NOT_READY')
+      .expect(200);
+    expect(draft.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: draftClassId,
+          operationalReadiness: expect.objectContaining({ isReady: false }),
+        }),
+      ]),
+    );
+    const full = await admin
+      .get('/api/admin/reports/classes?status=OPEN&registrationState=FULL')
+      .expect(200);
+    expect(full.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: fullClassId, registrationState: 'FULL' }),
+      ]),
+    );
+    await admin.get('/api/admin/reports/classes?readiness=NOT_READY').expect(400);
+    await admin.get('/api/admin/reports/classes?status=DRAFT&registrationState=FULL').expect(400);
+    await admin.get('/api/admin/reports/classes?status=OPEN&readiness=NOT_READY').expect(400);
+  });
+
+  it('drills into pending and period/class/date enrollments with pagination and no payment inference', async () => {
+    const pending = await admin
+      .get(
+        `/api/admin/reports/enrollments?status=PENDING_PAYMENT&search=${encodeURIComponent(emails.pending)}&limit=1`,
+      )
+      .expect(200);
+    expect(pending.body.meta.limit).toBe(1);
+    expect(pending.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: pendingEnrollmentId, status: 'PENDING_PAYMENT' }),
+      ]),
+    );
+    const classPeriod = await admin
+      .get(
+        `/api/admin/reports/enrollments?from=2026-10-20&to=2026-10-23&classOfferingId=${fullClassId}`,
+      )
+      .expect(200);
+    expect(classPeriod.body.data).toHaveLength(1);
+    const sameDate = await admin
+      .get(
+        '/api/admin/reports/enrollments?from=2026-10-21&to=2026-10-21&search=M09E%20exact%20open',
+      )
+      .expect(200);
+    expect(sameDate.body.data[0].classOffering.id).toBe(fullClassId);
+    expect(JSON.stringify(pending.body)).not.toContain('paymentSuccess');
+  });
+
+  it('returns productive grading backlog oldest-first without protected answer fields', async () => {
+    const response = await admin.get('/api/admin/reports/grading-backlog?limit=50').expect(200);
+    const pending = response.body.data.find(
+      (row: { attemptId: string }) => row.attemptId === pendingAttemptId,
+    );
+    expect(pending).toMatchObject({
+      gradingState: expect.stringMatching(/SUBMITTED_PENDING_REVIEW|PARTIALLY_REVIEWED/),
+      pendingProductiveAnswers: expect.any(Number),
+    });
+    expect(
+      response.body.data.some((row: { attemptId: string }) => row.attemptId === finalAttemptId),
+    ).toBe(false);
+    const submitted = response.body.data.map((row: { submittedAt: string }) => row.submittedAt);
+    expect(submitted).toEqual([...submitted].sort());
+    const serialized = JSON.stringify(response.body);
+    for (const forbidden of ['textResponse', 'audioStorageKey', 'criterionScores', 'feedback'])
+      expect(serialized).not.toContain(forbidden);
   });
 });
