@@ -75,6 +75,32 @@ export function AdminReportsPage() {
   if (error && !report) return <PageError onRetry={retry} />;
   if (!report) return null;
 
+  const openClassStatus = (status: OfferingStatus) =>
+    setDrawer({
+      kind: 'CLASS_LIST',
+      title: classStatusLabel(status),
+      query: { status },
+    });
+  const openAccountRole = (role: AccountRole) =>
+    setDrawer({
+      kind: 'ACCOUNT_LIST',
+      title: `Tài khoản · ${roleLabel(role)}`,
+      query: { role },
+    });
+  const openEnrollmentClass = (classOfferingId: string) =>
+    setDrawer({
+      kind: 'ENROLLMENT_LIST',
+      title: 'Ghi danh mới theo lớp',
+      query: { from: report.period.from, to: report.period.to, classOfferingId },
+    });
+  const openEnrollmentDay = (date: string) =>
+    setDrawer({
+      kind: 'ENROLLMENT_LIST',
+      title: `Ghi danh ngày ${date}`,
+      query: { from: date, to: date },
+    });
+  const nonZeroEnrollmentDays = report.enrollmentDemand.daily.filter((item) => item.count > 0);
+
   return (
     <div className="report-print-root space-y-6">
       <header className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -250,15 +276,25 @@ export function AdminReportsPage() {
               className="h-72 w-full"
               onDataClick={(data) => {
                 const status = dataField(data, 'status') as OfferingStatus | undefined;
-                if (status)
-                  setDrawer({
-                    kind: 'CLASS_LIST',
-                    title: classStatusLabel(status),
-                    query: { status },
-                  });
+                if (status) openClassStatus(status);
               }}
               option={buildClassStatusOption(report)}
             />
+            <div
+              aria-label="Mở danh sách lớp theo trạng thái"
+              className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3"
+            >
+              {(['DRAFT', 'OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as OfferingStatus[]).map(
+                (status) => (
+                  <CompactDrilldownButton
+                    key={status}
+                    label={classStatusControlLabel(status)}
+                    onClick={() => openClassStatus(status)}
+                    value={report.classes.byStatus[status]}
+                  />
+                ),
+              )}
+            </div>
           </ChartCard>
           <ChartCard
             className="xl:col-span-4"
@@ -270,15 +306,23 @@ export function AdminReportsPage() {
               className="h-72 w-full"
               onDataClick={(data) => {
                 const role = dataField(data, 'role') as AccountRole | undefined;
-                if (role)
-                  setDrawer({
-                    kind: 'ACCOUNT_LIST',
-                    title: `Tài khoản · ${roleLabel(role)}`,
-                    query: { role },
-                  });
+                if (role) openAccountRole(role);
               }}
               option={buildAccountRoleOption(report)}
             />
+            <div
+              aria-label="Mở danh sách tài khoản theo vai trò"
+              className="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3"
+            >
+              {(['STUDENT', 'INSTRUCTOR', 'ADMIN_COORDINATOR'] as AccountRole[]).map((role) => (
+                <CompactDrilldownButton
+                  key={role}
+                  label={roleLabel(role)}
+                  onClick={() => openAccountRole(role)}
+                  value={report.accounts.byRole[role]}
+                />
+              ))}
+            </div>
             <div className="mt-3 grid grid-cols-3 gap-2" aria-label="Tài khoản theo trạng thái">
               {(['ACTIVE', 'INACTIVE', 'LOCKED'] as AccountStatus[]).map((status) => (
                 <button
@@ -379,20 +423,41 @@ export function AdminReportsPage() {
             subtitle={`${report.period.from} – ${report.period.to}`}
           >
             {report.enrollmentDemand.byClass.length ? (
-              <ReportEChart
-                ariaLabel="Nhu cầu ghi danh theo lớp"
-                className="h-80 w-full"
-                onDataClick={(data) => {
-                  const classOfferingId = dataField(data, 'classOfferingId');
-                  if (classOfferingId)
-                    setDrawer({
-                      kind: 'ENROLLMENT_LIST',
-                      title: 'Ghi danh mới theo lớp',
-                      query: { from: report.period.from, to: report.period.to, classOfferingId },
-                    });
-                }}
-                option={buildEnrollmentDemandOption(report)}
-              />
+              <>
+                <ReportEChart
+                  ariaLabel="Nhu cầu ghi danh theo lớp"
+                  className="h-80 w-full"
+                  onDataClick={(data) => {
+                    const classOfferingId = dataField(data, 'classOfferingId');
+                    if (classOfferingId) openEnrollmentClass(classOfferingId);
+                  }}
+                  option={buildEnrollmentDemandOption(report)}
+                />
+                <ol
+                  aria-label="Mở ghi danh theo lớp"
+                  className="mt-3 max-h-56 space-y-2 overflow-auto"
+                >
+                  {report.enrollmentDemand.byClass.map((item) => (
+                    <li key={item.classOfferingId}>
+                      <button
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50/40"
+                        onClick={() => openEnrollmentClass(item.classOfferingId)}
+                        type="button"
+                      >
+                        <span className="min-w-0">
+                          <strong className="block truncate">
+                            {item.classCode} · {item.className}
+                          </strong>
+                          <span className="block truncate text-xs text-slate-500">
+                            {item.courseTitle}
+                          </span>
+                        </span>
+                        <strong className="shrink-0 text-lg text-indigo-700">{item.count}</strong>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </>
             ) : (
               <EmptyState>Không có ghi danh mới trong kỳ.</EmptyState>
             )}
@@ -406,44 +471,33 @@ export function AdminReportsPage() {
               className="h-80 w-full"
               onDataClick={(data) => {
                 const date = dataField(data, 'date');
-                if (date)
-                  setDrawer({
-                    kind: 'ENROLLMENT_LIST',
-                    title: `Ghi danh ngày ${date}`,
-                    query: { from: date, to: date },
-                  });
+                if (date) openEnrollmentDay(date);
               }}
               option={buildEnrollmentDailyOption(report)}
             />
+            {nonZeroEnrollmentDays.length ? (
+              <div
+                aria-label="Mở ghi danh theo ngày có phát sinh"
+                className="mt-3 max-h-48 space-y-2 overflow-auto"
+              >
+                {nonZeroEnrollmentDays.map((item) => (
+                  <button
+                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left hover:border-indigo-300 hover:bg-indigo-50/40"
+                    key={item.date}
+                    onClick={() => openEnrollmentDay(item.date)}
+                    type="button"
+                  >
+                    <span>{item.date}</span>
+                    <strong className="text-indigo-700">{item.count} ghi danh</strong>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <EmptyState>Không có ngày phát sinh ghi danh trong kỳ.</EmptyState>
+            )}
           </ChartCard>
         </div>
       </section>
-
-      {report.actionQueues.gradingBacklog > 0 ? (
-        <button
-          className="flex w-full items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-left hover:border-amber-400"
-          onClick={() =>
-            setDrawer({
-              kind: 'GRADING_BACKLOG',
-              title: 'Bài Speaking/Writing chờ giảng viên duyệt',
-              query: {},
-            })
-          }
-          type="button"
-        >
-          <span>
-            <strong className="block text-lg text-slate-950">
-              Theo dõi hàng đợi chấm Speaking/Writing
-            </strong>
-            <span className="text-sm text-slate-600">
-              Ưu tiên bài nộp cũ nhất; Admin chỉ theo dõi vận hành, không nhận nội dung câu trả lời.
-            </span>
-          </span>
-          <span className="text-3xl font-black text-amber-800">
-            {report.actionQueues.gradingBacklog}
-          </span>
-        </button>
-      ) : null}
 
       <footer className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
         <strong className="text-slate-900">Cách đọc báo cáo:</strong> Hàng đợi, sĩ số lớp, trạng
@@ -606,6 +660,27 @@ function QueueButton({
     </button>
   );
 }
+function CompactDrilldownButton({
+  label,
+  onClick,
+  value,
+}: {
+  label: string;
+  onClick: () => void;
+  value: number;
+}) {
+  return (
+    <button
+      aria-label={`${label}: ${value}`}
+      className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-slate-200 px-3 py-2 text-left hover:border-indigo-300 hover:bg-indigo-50/40"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="min-w-0 text-xs font-semibold text-slate-700">{label}</span>
+      <strong className="shrink-0 text-base text-indigo-700">{value}</strong>
+    </button>
+  );
+}
 function SectionHeading({ id, subtitle, title }: { id: string; subtitle: string; title: string }) {
   return (
     <div>
@@ -673,6 +748,15 @@ function classStatusLabel(status: OfferingStatus) {
     IN_PROGRESS: 'Lớp đang diễn ra',
     COMPLETED: 'Lớp đã hoàn thành',
     CANCELLED: 'Lớp đã hủy',
+  }[status];
+}
+function classStatusControlLabel(status: OfferingStatus) {
+  return {
+    DRAFT: 'Lớp nháp',
+    OPEN: 'Đang mở',
+    IN_PROGRESS: 'Đang diễn ra',
+    COMPLETED: 'Đã hoàn thành',
+    CANCELLED: 'Đã hủy',
   }[status];
 }
 function roleLabel(role: AccountRole) {

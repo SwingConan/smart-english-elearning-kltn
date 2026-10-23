@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '@/App';
@@ -123,6 +123,7 @@ describe('admin decision reporting', () => {
     expect(text).not.toContain('Bài đánh giá đã nộp');
     expect(text).not.toContain('Bài học hoàn tất');
     expect(text).not.toContain('Chi tiết theo ngày');
+    expect(text).not.toContain('Theo dõi hàng đợi chấm Speaking/Writing');
   });
 
   it('opens exact class, pending-payment, and grading queues with server queries', async () => {
@@ -213,6 +214,171 @@ describe('admin decision reporting', () => {
         expect.any(AbortSignal),
       ),
     );
+  });
+
+  it('maps visible keyboard fallbacks to the same exact backend filters', async () => {
+    vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
+    const classes = vi
+      .spyOn(adminApi.reports, 'classes')
+      .mockResolvedValue({ data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+    const accounts = vi.spyOn(adminApi.accounts, 'list').mockResolvedValue({
+      data: [],
+      meta: { page: 1, limit: 10, total: 0, totalPages: 0 },
+      summary: { total: 0, active: 0, inactive: 0, locked: 0 },
+    });
+    const enrollments = vi
+      .spyOn(adminApi.reports, 'enrollments')
+      .mockResolvedValue({ data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+    renderAdmin('/admin/reports');
+    await screen.findByRole('heading', { name: 'Vận hành lớp' });
+
+    fireEvent.click(
+      within(screen.getByLabelText('Mở danh sách lớp theo trạng thái')).getByRole('button', {
+        name: 'Đang mở: 2',
+      }),
+    );
+    await waitFor(() =>
+      expect(classes).toHaveBeenCalledWith(
+        { status: 'OPEN', page: 1, limit: 10 },
+        expect.any(AbortSignal),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
+
+    fireEvent.click(
+      within(screen.getByLabelText('Mở danh sách tài khoản theo vai trò')).getByRole('button', {
+        name: 'Học viên: 6',
+      }),
+    );
+    await waitFor(() =>
+      expect(accounts).toHaveBeenCalledWith(
+        { role: 'STUDENT', page: 1, limit: 10 },
+        expect.any(AbortSignal),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
+
+    fireEvent.click(
+      within(screen.getByLabelText('Mở ghi danh theo lớp')).getByRole('button', {
+        name: /C1 · Lớp 1.*2/,
+      }),
+    );
+    await waitFor(() =>
+      expect(enrollments).toHaveBeenCalledWith(
+        {
+          from: report.period.from,
+          to: report.period.to,
+          classOfferingId: 'class-1',
+          page: 1,
+          limit: 10,
+        },
+        expect.any(AbortSignal),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
+
+    fireEvent.click(
+      within(screen.getByLabelText('Mở ghi danh theo ngày có phát sinh')).getByRole('button', {
+        name: /2026-10-23.*2 ghi danh/,
+      }),
+    );
+    await waitFor(() =>
+      expect(enrollments).toHaveBeenCalledWith(
+        { from: '2026-10-23', to: '2026-10-23', page: 1, limit: 10 },
+        expect.any(AbortSignal),
+      ),
+    );
+  });
+
+  it('renders a truthful zero-day fallback without creating day controls', async () => {
+    vi.spyOn(adminApi.reports, 'system').mockResolvedValue({
+      ...report,
+      enrollmentDemand: {
+        totalNewEnrollments: 0,
+        byClass: [],
+        daily: report.enrollmentDemand.daily.map((item) => ({ ...item, count: 0 })),
+      },
+    });
+    renderAdmin('/admin/reports');
+    expect(
+      await screen.findByText('Không có ngày phát sinh ghi danh trong kỳ.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Mở ghi danh theo ngày có phát sinh')).not.toBeInTheDocument();
+  });
+
+  it('uses safe Admin links and Vietnamese primary labels in report drawers', async () => {
+    vi.spyOn(adminApi.reports, 'system').mockResolvedValue(report);
+    vi.spyOn(adminApi.accounts, 'list').mockResolvedValue({
+      data: [
+        {
+          id: 'account-1',
+          email: 'learner@example.test',
+          fullName: 'Học viên Một',
+          role: 'STUDENT',
+          status: 'INACTIVE',
+          createdAt: '2026-10-01T00:00:00.000Z',
+          updatedAt: '2026-10-01T00:00:00.000Z',
+          context: { operationalClassAssignments: 0, totalClassAssignments: 0, enrollmentCount: 1 },
+        },
+      ],
+      meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
+      summary: { total: 1, active: 0, inactive: 1, locked: 0 },
+    });
+    vi.spyOn(adminApi.reports, 'enrollments').mockResolvedValue({
+      data: [
+        {
+          id: 'enrollment-1',
+          status: 'PENDING_PAYMENT',
+          enrolledAt: '2026-10-23T02:00:00.000Z',
+          learner: { id: 'account-1', fullName: 'Học viên Một', email: 'learner@example.test' },
+          classOffering: { id: 'class-1', code: 'C1', name: 'Lớp 1' },
+          course: { id: 'course-1', title: 'TOEIC nền tảng' },
+        },
+      ],
+      meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
+    });
+    vi.spyOn(adminApi.reports, 'gradingBacklog').mockResolvedValue({
+      data: [
+        {
+          attemptId: 'attempt-1',
+          submittedAt: '2026-10-23T01:00:00.000Z',
+          gradingState: 'PARTIALLY_REVIEWED',
+          pendingProductiveAnswers: 1,
+          totalProductiveAnswers: 2,
+          learner: { id: 'account-1', fullName: 'Học viên Một', email: 'learner@example.test' },
+          classOffering: { id: 'class-1', code: 'C1', name: 'Lớp 1' },
+          course: { id: 'course-1', title: 'TOEIC nền tảng' },
+          instructor: { id: 'instructor-1', fullName: 'Giảng viên Một' },
+          assessment: { id: 'assessment-1', title: 'Bài giữa kỳ', stage: 'MIDTERM' },
+        },
+      ],
+      meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
+    });
+    renderAdmin('/admin/reports');
+    await screen.findByRole('heading', { name: 'Vận hành lớp' });
+
+    fireEvent.click(
+      within(screen.getByLabelText('Mở danh sách tài khoản theo vai trò')).getByRole('button', {
+        name: 'Học viên: 6',
+      }),
+    );
+    expect(await screen.findByText('Tạm ngưng')).toBeInTheDocument();
+    expect(screen.getByText('Vai trò: Học viên')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Đăng ký có phí đang chờ xử lý/ }));
+    expect(await screen.findByText('Chờ xử lý đăng ký có phí')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết' }));
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Bài Speaking\/Writing chờ giảng viên duyệt/ }),
+    );
+    const adminLink = await screen.findByRole('link', { name: /Mở vận hành lớp/ });
+    expect(adminLink).toHaveAttribute('href', '/admin/class-offerings/class-1/operations');
+    expect(document.querySelector('a[href^="/instructor/"][href*="/grading"]')).toBeNull();
+    expect(screen.getByText(/Bài giữa kỳ · C1 · Lớp 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Còn 1\/2 câu Speaking\/Writing cần duyệt/)).toBeInTheDocument();
+    expect(screen.getByText(/Giảng viên Một/)).toBeInTheDocument();
   });
 
   it('applies period presets only through the enrollment-demand report period', async () => {

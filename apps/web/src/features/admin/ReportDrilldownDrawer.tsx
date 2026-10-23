@@ -13,6 +13,7 @@ import type {
   AdminReportGradingBacklogQuery,
   AdminReportGradingBacklogRow,
   CourseQuery,
+  EnrollmentStatus,
   PageMeta,
 } from './types';
 
@@ -276,9 +277,9 @@ function AccountRows({ rows }: { rows: AdminAccount[] }) {
               <strong>{row.fullName}</strong>
               <p className="text-sm text-slate-500">{row.email}</p>
             </div>
-            <StatePill>{row.status}</StatePill>
+            <StatePill>{accountStatusLabel(row.status)}</StatePill>
           </div>
-          <p className="mt-2 text-sm">Vai trò: {row.role}</p>
+          <p className="mt-2 text-sm">Vai trò: {accountRoleLabel(row.role)}</p>
           <Link
             className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-indigo-700"
             to={`/admin/accounts/${row.id}`}
@@ -325,7 +326,7 @@ function EnrollmentRows({ rows }: { rows: AdminReportEnrollmentRow[] }) {
               <strong>{row.learner.fullName}</strong>
               <p className="text-sm text-slate-500">{row.learner.email}</p>
             </div>
-            <StatePill>{row.status}</StatePill>
+            <StatePill>{enrollmentStatusLabel(row.status)}</StatePill>
           </div>
           <p className="mt-2 text-sm">
             {row.classOffering.code} · {row.classOffering.name}
@@ -354,7 +355,7 @@ function BacklogRows({ rows }: { rows: AdminReportGradingBacklogRow[] }) {
             <div>
               <strong>{row.learner.fullName}</strong>
               <p className="text-sm text-slate-500">
-                {row.assessment.title} · {row.classOffering.code}
+                {row.assessment.title} · {row.classOffering.code} · {row.classOffering.name}
               </p>
             </div>
             <StatePill>
@@ -371,9 +372,9 @@ function BacklogRows({ rows }: { rows: AdminReportGradingBacklogRow[] }) {
           </p>
           <Link
             className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-indigo-700"
-            to={`/instructor/classes/${row.classOffering.id}/assessments/${row.assessment.id}/grading`}
+            to={`/admin/class-offerings/${row.classOffering.id}/operations`}
           >
-            Mở hàng đợi giảng viên <ExternalLink size={14} />
+            Mở vận hành lớp <ExternalLink size={14} />
           </Link>
         </li>
       ))}
@@ -448,6 +449,32 @@ function classStatus(status: AdminReportClassRow['status']) {
     OPEN: 'Đang mở',
     IN_PROGRESS: 'Đang diễn ra',
     COMPLETED: 'Đã hoàn thành',
+    CANCELLED: 'Đã hủy',
+  }[status];
+}
+
+function accountRoleLabel(role: AdminAccount['role']) {
+  return {
+    STUDENT: 'Học viên',
+    INSTRUCTOR: 'Giảng viên',
+    ADMIN_COORDINATOR: 'Điều phối/Admin',
+  }[role];
+}
+
+function accountStatusLabel(status: AdminAccount['status']) {
+  return {
+    ACTIVE: 'Đang hoạt động',
+    INACTIVE: 'Tạm ngưng',
+    LOCKED: 'Đã khóa',
+  }[status];
+}
+
+function enrollmentStatusLabel(status: EnrollmentStatus) {
+  return {
+    ACTIVE: 'Đang hiệu lực',
+    PENDING_PAYMENT: 'Chờ xử lý đăng ký có phí',
+    COMPLETED: 'Đã hoàn tất',
+    DROPPED: 'Đã ngừng học',
     CANCELLED: 'Đã hủy',
   }[status];
 }
