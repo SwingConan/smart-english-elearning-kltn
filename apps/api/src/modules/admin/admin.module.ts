@@ -7,6 +7,8 @@ import { AdminClassOfferingsController } from './admin-class-offerings.controlle
 import { AdminCriteriaController } from './admin-criteria.controller';
 import { AdminCriteriaService } from './admin-criteria.service';
 import { AdminCoursesController } from './admin-courses.controller';
+import { AdminReportingController } from './admin-reporting.controller';
+import { AdminReportingService } from './admin-reporting.service';
 
 @Module({
   imports: [CoursesModule, ClassesModule, UsersModule],
@@ -15,7 +17,8 @@ import { AdminCoursesController } from './admin-courses.controller';
     AdminClassOfferingsController,
     AdminAccountsController,
     AdminCriteriaController,
+    AdminReportingController,
   ],
-  providers: [AdminCriteriaService],
+  providers: [AdminCriteriaService, AdminReportingService],
 })
 export class AdminModule {}

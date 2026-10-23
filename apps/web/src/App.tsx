@@ -20,6 +20,7 @@ import { AdminEvaluationCriteriaPage } from '@/pages/AdminEvaluationCriteriaPage
 import { AdminCourseRecommendationProfilesPage } from '@/pages/AdminCourseRecommendationProfilesPage';
 import { AdminCourseRecommendationProfilePage } from '@/pages/AdminCourseRecommendationProfilePage';
 import { AdminAccountsPage } from '@/pages/AdminAccountsPage';
+import { AdminReportsPage } from '@/pages/AdminReportsPage';
 import { AdminAccountCreatePage } from '@/pages/AdminAccountCreatePage';
 import { AdminAccountDetailPage } from '@/pages/AdminAccountDetailPage';
 import { ClassOfferingDetailPage } from '@/pages/ClassOfferingDetailPage';
@@ -142,7 +143,8 @@ export function App() {
       </Route>
 
       <Route path="admin" element={admin(<AdminLayout />)}>
-        <Route index element={<Navigate replace to="courses" />} />
+        <Route index element={<Navigate replace to="reports" />} />
+        <Route path="reports" element={<AdminReportsPage />} />
         <Route path="courses" element={<AdminCoursesPage />} />
         <Route path="courses/new" element={<AdminCourseEditorPage />} />
         <Route path="courses/:courseId/edit" element={<AdminCourseEditorPage />} />

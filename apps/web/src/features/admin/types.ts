@@ -321,3 +321,36 @@ export interface CreateStaffAccountInput {
   password: string;
   role: Extract<AccountRole, 'INSTRUCTOR' | 'ADMIN_COORDINATOR'>;
 }
+
+export interface AdminSystemReport {
+  generatedAt: string;
+  snapshot: {
+    accounts: {
+      total: number;
+      byRole: Record<AccountRole, number>;
+      byStatus: Record<AccountStatus, number>;
+    };
+    courses: { total: number; published: number; draft: number };
+    classes: {
+      total: number;
+      byStatus: Record<'DRAFT' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED', number>;
+      draftReadiness: { ready: number; notReady: number };
+      openRegistration: Record<'AVAILABLE' | 'FULL' | 'UPCOMING' | 'CLOSED', number>;
+    };
+    enrollments: {
+      total: number;
+      byStatus: Record<EnrollmentStatus, number>;
+    };
+  };
+  attention: { draftNotReady: number; openFull: number; pendingPayment: number };
+  activity: {
+    period: { from: string; to: string; days: number; timeZone: 'Asia/Ho_Chi_Minh' };
+    totals: { newEnrollments: number; submittedAssessments: number; lessonCompletions: number };
+    daily: Array<{
+      date: string;
+      newEnrollments: number;
+      submittedAssessments: number;
+      lessonCompletions: number;
+    }>;
+  };
+}

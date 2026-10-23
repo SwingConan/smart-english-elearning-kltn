@@ -25,6 +25,7 @@ import type {
   CourseRecommendationDirectoryQuery,
   CourseRecommendationRow,
   CourseRecommendationProfileInput,
+  AdminSystemReport,
 } from './types';
 
 function queryString<T extends object>(input: T): string {
@@ -37,6 +38,10 @@ function queryString<T extends object>(input: T): string {
 }
 
 export const adminApi = {
+  reports: {
+    system: (query: { from?: string; to?: string } = {}, signal?: AbortSignal) =>
+      apiFetch<AdminSystemReport>(`/admin/reports/system${queryString(query)}`, { signal }),
+  },
   criteria: {
     placement: {
       get: (signal?: AbortSignal) =>

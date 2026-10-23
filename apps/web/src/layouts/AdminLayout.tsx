@@ -6,6 +6,7 @@ import {
   Lightbulb,
   LogOut,
   Menu,
+  BarChart3,
   UserCog,
   X,
 } from 'lucide-react';
@@ -13,6 +14,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { useAuth } from '@/features/auth/auth-context';
 
 const links = [
+  [BarChart3, '/admin/reports', 'Báo cáo hệ thống'],
   [BookOpen, '/admin/courses', 'Khóa học'],
   [GraduationCap, '/admin/class-offerings', 'Lớp học'],
   [UserCog, '/admin/accounts', 'Tài khoản'],
@@ -86,7 +88,7 @@ export function AdminLayout() {
             <div>
               <Link
                 className="text-lg font-black tracking-tight text-indigo-700"
-                to="/admin/courses"
+                to="/admin/reports"
               >
                 Smart English
               </Link>
