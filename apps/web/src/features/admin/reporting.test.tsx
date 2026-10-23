@@ -454,7 +454,12 @@ describe('report ECharts option builders', () => {
       series: Array<{ data: Array<{ role: string }> }>;
     };
     const demand = buildEnrollmentDemandOption(report) as {
-      tooltip: { formatter: (input: unknown) => string };
+      tooltip: {
+        confine: boolean;
+        renderMode: string;
+        extraCssText: string;
+        formatter: (input: unknown) => string;
+      };
       yAxis: { data: string[] };
       series: Array<{ data: Array<{ classOfferingId: string }> }>;
     };
@@ -477,11 +482,33 @@ describe('report ECharts option builders', () => {
     expect(roles.series[0].data.some((item) => item.role === 'STUDENT')).toBe(true);
     expect(demand.yAxis.data).toEqual(['C1']);
     expect(demand.series[0].data[0].classOfferingId).toBe('class-1');
-    expect(
-      demand.tooltip.formatter({
-        data: { row: report.enrollmentDemand.byClass[0] },
-      }),
-    ).toContain('C1 · Lớp 1');
+    expect(demand.tooltip.confine).toBe(true);
+    expect(demand.tooltip.renderMode).toBe('html');
+    expect(demand.tooltip.extraCssText).toMatch(/max-width/);
+    expect(demand.tooltip.extraCssText).toMatch(/white-space:\s*normal/);
+    expect(demand.tooltip.extraCssText).toMatch(/overflow-wrap:\s*anywhere/);
+    const demandTooltip = demand.tooltip.formatter({
+      data: { row: report.enrollmentDemand.byClass[0] },
+    });
+    expect(demandTooltip).toContain('<strong>C1</strong><br/>Lớp 1');
+    expect(demandTooltip).toContain('TOEIC nền tảng');
+    expect(demandTooltip).toContain('<strong>2</strong> ghi danh mới');
+
+    const unsafeRow = {
+      ...report.enrollmentDemand.byClass[0],
+      classCode: '<C1>',
+      className: 'Lớp & "Một"',
+      courseTitle: "TOEIC <Nền tảng> 'A'",
+    };
+    const escapedDemand = buildEnrollmentDemandOption({
+      ...report,
+      enrollmentDemand: { ...report.enrollmentDemand, byClass: [unsafeRow] },
+    }) as { tooltip: { formatter: (input: unknown) => string } };
+    const escapedTooltip = escapedDemand.tooltip.formatter({ data: { row: unsafeRow } });
+    expect(escapedTooltip).toContain('&lt;C1&gt;');
+    expect(escapedTooltip).toContain('Lớp &amp; &quot;Một&quot;');
+    expect(escapedTooltip).toContain('TOEIC &lt;Nền tảng&gt; &#39;A&#39;');
+    expect(escapedTooltip).not.toContain('<Nền tảng>');
     expect(daily.series[0]).not.toHaveProperty('lineStyle');
     expect(daily.series[0]).not.toHaveProperty('areaStyle');
     expect(daily.series[0]).not.toHaveProperty('smooth');

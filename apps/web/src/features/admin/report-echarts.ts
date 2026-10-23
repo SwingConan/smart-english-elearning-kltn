@@ -166,11 +166,15 @@ export function buildEnrollmentDemandOption(report: AdminSystemReport): EChartsC
     grid: { left: 8, right: 24, top: 12, bottom: 8, containLabel: true },
     tooltip: {
       trigger: 'item',
+      confine: true,
+      renderMode: 'html',
+      extraCssText:
+        'max-width: min(320px, calc(100vw - 32px)); white-space: normal; overflow-wrap: anywhere; box-sizing: border-box;',
       formatter: (input: unknown) => {
         const data = chartData(input) as { row?: (typeof rows)[number] };
         const row = data.row;
         if (!row) return '';
-        return `${escapeHtml(row.classCode)} · ${escapeHtml(row.className)}<br/>${escapeHtml(row.courseTitle)}<br/><strong>${row.count}</strong> ghi danh mới`;
+        return `<strong>${escapeHtml(row.classCode)}</strong><br/>${escapeHtml(row.className)}<br/>${escapeHtml(row.courseTitle)}<br/><strong>${row.count}</strong> ghi danh mới`;
       },
     },
     xAxis: { type: 'value', minInterval: 1 },
