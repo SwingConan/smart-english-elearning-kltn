@@ -13,9 +13,9 @@ export function AuthShell({
   children: ReactNode;
 }) {
   return (
-    <section className="mx-auto grid min-h-[calc(100vh-14rem)] max-w-7xl items-stretch px-4 py-10 sm:px-6 lg:grid-cols-[.9fr_1.1fr] lg:px-8 lg:py-14">
-      <div className="flex items-center rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10 lg:rounded-r-none lg:border-r-0">
-        <div className="mx-auto w-full max-w-md">
+    <section className="mx-auto grid min-h-[calc(100vh-14rem)] w-full min-w-0 max-w-7xl items-stretch px-4 py-10 sm:px-6 lg:grid-cols-[.9fr_1.1fr] lg:px-8 lg:py-14">
+      <div className="flex min-w-0 items-center rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10 lg:rounded-r-none lg:border-r-0">
+        <div className="mx-auto w-full min-w-0 max-w-md">
           <p className="eyebrow">{eyebrow}</p>
           <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
           <p className="mt-3 leading-7 text-slate-600">{description}</p>

@@ -944,8 +944,9 @@ async function main(): Promise<void> {
     throw new Error('SEED_DEFAULT_PASSWORD must be configured with 8 to 128 characters.');
   }
 
+  const schema = new URL(connectionString).searchParams.get('schema') ?? undefined;
   const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    adapter: new PrismaPg({ connectionString }, { schema }),
   });
 
   try {

@@ -134,6 +134,24 @@ describe('AuthNavigation', () => {
 });
 
 describe('LoginPage', () => {
+  it('shows the discoverable recovery link and reset-success banner', async () => {
+    vi.spyOn(authApi, 'me').mockRejectedValueOnce(new ApiError(401, null));
+    render(
+      <MemoryRouter initialEntries={['/login?reset=1']}>
+        <AuthProvider>
+          <LoginPage />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('link', { name: 'Quên mật khẩu?' })).toHaveAttribute(
+      'href',
+      '/forgot-password',
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại.',
+    );
+  });
+
   it('lets the learner reveal and hide the password', async () => {
     vi.spyOn(authApi, 'me').mockRejectedValueOnce(new ApiError(401, null));
     render(

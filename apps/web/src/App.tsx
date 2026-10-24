@@ -57,6 +57,8 @@ import { PlacementPage } from '@/pages/PlacementPage';
 import { PlacementResultPage } from '@/pages/PlacementResultPage';
 import { QuestionBankPage } from '@/pages/QuestionBankPage';
 import { RegisterPage } from '@/pages/RegisterPage';
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { StudentAdaptivePathPage } from '@/pages/StudentAdaptivePathPage';
 import { StudentAssessmentListPage } from '@/pages/StudentAssessmentListPage';
 import { StudentMasteryPage } from '@/pages/StudentMasteryPage';
@@ -92,6 +94,8 @@ export function App() {
         <Route path="status" element={<SystemStatusPage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
+        <Route path="forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="reset-password" element={<ResetPasswordPage />} />
 
         <Route path="instructor/teaching" element={instructor(<InstructorTeachingPage />)} />
         <Route

@@ -208,10 +208,27 @@ model User {
   testAttempts           TestAttempt[]         @relation("LearnerTestAttempts")
   answerEvaluations      AnswerEvaluation[]    @relation("EvaluationInstructor")
   studyRecommendations   StudyRecommendation[] @relation("LearnerStudyRecommendations")
+  passwordResetTokens    PasswordResetToken[]
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
 
   @@map("users")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique @db.VarChar(64)
+  expiresAt DateTime
+  usedAt    DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@map("password_reset_tokens")
 }
 
 model UserSession {

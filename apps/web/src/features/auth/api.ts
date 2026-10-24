@@ -20,6 +20,11 @@ export interface RegisterInput extends LoginInput {
   fullName: string;
 }
 
+export interface ConfirmPasswordResetInput {
+  token: string;
+  newPassword: string;
+}
+
 export const authApi = {
   me: () => apiFetch<AuthUser>('/auth/me'),
   login: (input: LoginInput) =>
@@ -33,4 +38,14 @@ export const authApi = {
       body: JSON.stringify(input),
     }),
   logout: () => apiFetch<void>('/auth/logout', { method: 'POST' }),
+  requestPasswordReset: (email: string) =>
+    apiFetch<void>('/auth/password-reset/request', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  confirmPasswordReset: (input: ConfirmPasswordResetInput) =>
+    apiFetch<void>('/auth/password-reset/confirm', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 };

@@ -7,9 +7,11 @@ import {
   Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { PublicUser } from '../users/user.types';
 import { AuthService } from './auth.service';
@@ -17,12 +19,16 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { ConfirmPasswordResetDto } from './dto/confirm-password-reset.dto';
+import { PasswordResetService } from './password-reset.service';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
+    private readonly passwordResetService: PasswordResetService,
     private readonly config: ConfigService,
   ) {}
 
@@ -34,13 +40,28 @@ export class AuthController {
   }
 
   @Public()
+  @Post('password-reset/request')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ passwordReset: { limit: 5, ttl: 15 * 60 * 1000 } })
+  @ApiOperation({ summary: 'Request a password-reset email' })
+  async requestPasswordReset(@Body() input: RequestPasswordResetDto): Promise<void> {
+    await this.passwordResetService.request(input.email);
+  }
+
+  @Public()
+  @Post('password-reset/confirm')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Confirm a password reset' })
+  async confirmPasswordReset(@Body() input: ConfirmPasswordResetDto): Promise<void> {
+    await this.passwordResetService.confirm(input.token, input.newPassword);
+  }
+
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Log in with a server-side session' })
-  async login(
-    @Body() input: LoginDto,
-    @Req() request: Request,
-  ): Promise<PublicUser> {
+  async login(@Body() input: LoginDto, @Req() request: Request): Promise<PublicUser> {
     const user = await this.authService.login(input);
     await this.regenerateSession(request);
     request.session.userId = user.id;

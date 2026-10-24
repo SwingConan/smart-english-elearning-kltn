@@ -64,6 +64,11 @@ export function LoginPage() {
           Đăng ký tài khoản thành công. Vui lòng đăng nhập.
         </p>
       ) : null}
+      {searchParams.get('reset') === '1' ? (
+        <p className="mt-4 rounded-md bg-emerald-50 p-3 text-sm text-emerald-800" role="status">
+          Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại.
+        </p>
+      ) : null}
       <form className="mt-6 space-y-4" onSubmit={(event) => void handleSubmit(event)}>
         <label className="block">
           <span className="text-sm font-medium">Email</span>
@@ -82,9 +87,17 @@ export function LoginPage() {
           ) : null}
         </label>
         <div className="block">
-          <label className="text-sm font-medium" htmlFor="login-password">
-            Mật khẩu
-          </label>
+          <div className="flex items-center justify-between gap-4">
+            <label className="text-sm font-medium" htmlFor="login-password">
+              Mật khẩu
+            </label>
+            <Link
+              className="text-sm font-medium text-indigo-700 underline-offset-4 hover:underline"
+              to="/forgot-password"
+            >
+              Quên mật khẩu?
+            </Link>
+          </div>
           <span className="relative mt-2 block">
             <input
               aria-invalid={touched.password && !password}

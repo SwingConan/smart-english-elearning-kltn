@@ -12,7 +12,8 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
       throw new Error('DATABASE_URL is required. Copy apps/api/.env.example to apps/api/.env.');
     }
 
-    const adapter = new PrismaPg({ connectionString });
+    const schema = new URL(connectionString).searchParams.get('schema') ?? undefined;
+    const adapter = new PrismaPg({ connectionString }, { schema });
     super({ adapter });
   }
 
