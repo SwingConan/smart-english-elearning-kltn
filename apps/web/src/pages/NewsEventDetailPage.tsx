@@ -1,31 +1,52 @@
-import { ArrowLeft, ArrowRight, CalendarDays, Check, Clock3 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Clock3 } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { useEffect, useState } from 'react';
 import { newsCoverUrl } from '@/content/news-assets';
-import { findNewsEvent, newsEvents } from '@/content/news-events';
 import { PublicContent, publicContentApi } from '@/features/public-content/api';
 import { SafeMarkdown } from '@/components/ui/SafeMarkdown';
+import { ApiError } from '@/lib/api-client';
 
 export function NewsEventDetailPage() {
   const { slug = '' } = useParams();
-  const fallback = findNewsEvent(slug);
   const [remote, setRemote] = useState<PublicContent | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [relatedItems, setRelatedItems] = useState<PublicContent[]>([]);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'not-found' | 'error'>(
+    'loading',
+  );
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
-    void publicContentApi
-      .detail(slug)
-      .then(setRemote)
-      .catch(() => setRemote(null))
-      .finally(() => setLoaded(true));
-  }, [slug]);
-  const item = remote ?? fallback;
-  if (!loaded && !fallback && remote)
+    void Promise.all([publicContentApi.detail(slug), publicContentApi.list()])
+      .then(([item, list]) => {
+        setRemote(item);
+        setRelatedItems(list.data);
+        setLoadState('ready');
+      })
+      .catch((error: unknown) => {
+        setRemote(null);
+        setLoadState(error instanceof ApiError && error.status === 404 ? 'not-found' : 'error');
+      });
+  }, [reloadKey, slug]);
+  if (loadState === 'loading')
     return (
       <p className="p-12 text-center" role="status">
         Đang tải bài viết…
       </p>
     );
-  if (!item)
+  if (loadState === 'error')
+    return (
+      <section className="mx-auto max-w-3xl px-4 py-20 text-center" role="alert">
+        <h1 className="text-3xl font-bold">Chưa thể tải bài viết</h1>
+        <p className="mt-3 text-slate-600">Vui lòng kiểm tra kết nối và thử lại.</p>
+        <button
+          className="btn-primary mt-6"
+          onClick={() => setReloadKey((value) => value + 1)}
+          type="button"
+        >
+          Thử lại
+        </button>
+      </section>
+    );
+  if (loadState === 'not-found' || !remote)
     return (
       <section className="mx-auto max-w-3xl px-4 py-20 text-center">
         <h1 className="text-3xl font-bold">Không tìm thấy bài viết</h1>
@@ -38,7 +59,8 @@ export function NewsEventDetailPage() {
       </section>
     );
 
-  const related = newsEvents
+  const item = remote;
+  const related = relatedItems
     .filter((candidate) => candidate.slug !== item.slug)
     .sort((a, b) => Number(b.category === item.category) - Number(a.category === item.category))
     .slice(0, 3);
@@ -66,12 +88,10 @@ export function NewsEventDetailPage() {
               </span>
               <span className="inline-flex items-center gap-2">
                 <Clock3 size={17} />
-                {'readMinutes' in item
-                  ? item.readMinutes
-                  : Math.max(
-                      1,
-                      Math.ceil(((item.bodyMarkdown?.length ?? 0) + item.excerpt.length) / 1000),
-                    )}{' '}
+                {Math.max(
+                  1,
+                  Math.ceil(((item.bodyMarkdown?.length ?? 0) + item.excerpt.length) / 1000),
+                )}{' '}
                 phút đọc
               </span>
             </div>
@@ -84,42 +104,7 @@ export function NewsEventDetailPage() {
             src={newsCoverUrl(item)}
           />
           <div className="mx-auto mt-12 max-w-3xl space-y-12">
-            {'bodyMarkdown' in item && item.bodyMarkdown ? (
-              <SafeMarkdown markdown={item.bodyMarkdown} />
-            ) : 'sections' in item ? (
-              item.sections.map((section) => (
-                <section key={section.heading}>
-                  <h2 className="text-2xl font-bold tracking-tight">{section.heading}</h2>
-                  {section.paragraphs?.map((paragraph) => (
-                    <p className="mt-4 text-base leading-8 text-slate-700" key={paragraph}>
-                      {paragraph}
-                    </p>
-                  ))}
-                  {section.bullets && (
-                    <ul className="mt-5 space-y-3">
-                      {section.bullets.map((bullet) => (
-                        <li className="flex gap-3 leading-7 text-slate-700" key={bullet}>
-                          <Check className="mt-1 shrink-0 text-indigo-600" size={19} />
-                          {bullet}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {section.steps && (
-                    <ol className="mt-5 space-y-4">
-                      {section.steps.map((step, index) => (
-                        <li className="flex gap-4 leading-7 text-slate-700" key={step}>
-                          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
-                            {index + 1}
-                          </span>
-                          {step}
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </section>
-              ))
-            ) : null}
+            {item.bodyMarkdown ? <SafeMarkdown markdown={item.bodyMarkdown} /> : null}
           </div>
           <div className="mx-auto mt-12 max-w-3xl rounded-3xl bg-indigo-950 px-6 py-8 text-white sm:px-8">
             <h2 className="text-2xl font-bold">Biến thông tin thành bước học tiếp theo</h2>

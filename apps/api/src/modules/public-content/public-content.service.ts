@@ -112,12 +112,12 @@ export class PublicContentService {
   }
 
   async publish(actorId: string, id: string) {
-    await this.adminDetail(id);
+    const current = await this.adminDetail(id);
     return this.prisma.publicContent.update({
       where: { id },
       data: {
         status: PublicContentStatus.PUBLISHED,
-        publishedAt: new Date(),
+        publishedAt: current.publishedAt ?? new Date(),
         updatedById: actorId,
       },
     });
@@ -141,6 +141,7 @@ export class PublicContentService {
       coverKey: input.coverKey?.trim() || null,
       coverImageUrl: input.coverImageUrl?.trim() || null,
       featured: input.featured ?? false,
+      publishedAt: input.publishedAt ? new Date(input.publishedAt) : null,
     };
   }
 
@@ -156,6 +157,7 @@ export class PublicContentService {
         ? { coverImageUrl: input.coverImageUrl.trim() || null }
         : {}),
       ...(input.featured !== undefined ? { featured: input.featured } : {}),
+      ...(input.publishedAt !== undefined ? { publishedAt: new Date(input.publishedAt) } : {}),
     };
   }
 

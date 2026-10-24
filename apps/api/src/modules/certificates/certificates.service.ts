@@ -19,7 +19,15 @@ export class CertificatesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async readiness(learnerId: string, enrollmentId: string) {
-    const enrollment = await this.prisma.enrollment.findFirst({
+    return this.computeReadiness(this.prisma, learnerId, enrollmentId);
+  }
+
+  private async computeReadiness(
+    db: PrismaService | Prisma.TransactionClient,
+    learnerId: string,
+    enrollmentId: string,
+  ) {
+    const enrollment = await db.enrollment.findFirst({
       where: { id: enrollmentId, learnerId },
       include: {
         learner: { select: { fullName: true, email: true } },
@@ -126,6 +134,8 @@ export class CertificatesService {
         }),
       );
     const unmet: string[] = [];
+    if (enrollment.status !== EnrollmentStatus.ACTIVE && !enrollment.courseCompletion)
+      unmet.push('ENROLLMENT_NOT_ACTIVE');
     if (enrollment.classOffering.status !== ClassOfferingStatus.COMPLETED)
       unmet.push('CLASS_NOT_COMPLETED');
     if (lessonPercent < policy.minLessonCompletionPercent)
@@ -178,21 +188,21 @@ export class CertificatesService {
   }
 
   async evaluate(learnerId: string, enrollmentId: string) {
-    const readiness = await this.readiness(learnerId, enrollmentId);
-    if (readiness.completion) return readiness;
-    if (!readiness.eligible) return readiness;
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
-        const completion = await this.prisma.$transaction(
+        return await this.prisma.$transaction(
           async (tx) => {
             await tx.$queryRaw(
               Prisma.sql`SELECT id FROM "enrollments" WHERE id = ${enrollmentId}::uuid FOR UPDATE`,
             );
-            const existing = await tx.courseCompletion.findUnique({
-              where: { enrollmentId },
-              include: { certificate: true },
+            const readiness = await this.computeReadiness(tx, learnerId, enrollmentId);
+            if (readiness.completion || !readiness.eligible) return readiness;
+            const enrollmentChanged = await tx.enrollment.updateMany({
+              where: { id: enrollmentId, learnerId, status: EnrollmentStatus.ACTIVE },
+              data: { status: EnrollmentStatus.COMPLETED },
             });
-            if (existing) return existing;
+            if (enrollmentChanged.count !== 1)
+              throw new ConflictException('Enrollment changed; reload and retry');
             const created = await tx.courseCompletion.create({
               data: {
                 enrollmentId,
@@ -201,10 +211,6 @@ export class CertificatesService {
                 evidenceSnapshot: readiness.evidence,
                 completedAt: new Date(),
               },
-            });
-            await tx.enrollment.updateMany({
-              where: { id: enrollmentId, status: EnrollmentStatus.ACTIVE },
-              data: { status: EnrollmentStatus.COMPLETED },
             });
             const certificate = await tx.certificate.create({
               data: {
@@ -218,18 +224,17 @@ export class CertificatesService {
                 issuedAt: new Date(),
               },
             });
-            return { ...created, certificate };
+            return { ...readiness, completion: { ...created, certificate } };
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
-        return { ...readiness, completion };
       } catch (error: unknown) {
         if (!this.isIssuanceConflict(error)) throw error;
         const completion = await this.prisma.courseCompletion.findUnique({
           where: { enrollmentId },
           include: { certificate: true },
         });
-        if (completion) return { ...readiness, completion };
+        if (completion) return this.readiness(learnerId, enrollmentId);
         if (attempt === 3)
           throw new ConflictException('Concurrent completion evaluation; please retry');
       }

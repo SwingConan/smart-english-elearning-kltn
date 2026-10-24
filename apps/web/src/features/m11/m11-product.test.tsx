@@ -49,7 +49,7 @@ describe('M11 profile and payment mutations', () => {
         phoneNumber: '0901000000',
       }),
     );
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã lưu hồ sơ.');
+    expect(await screen.findByRole('status')).toHaveTextContent('Hồ sơ đã được cập nhật.');
     expect(authApi.me).toHaveBeenCalledTimes(2);
   });
 

@@ -1,9 +1,48 @@
+import 'reflect-metadata';
 import { ConfigService } from '@nestjs/config';
 import { EnrollmentStatus, PaymentStatus, PricingType } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { validate } from 'class-validator';
+import { RejectPaymentDto } from './dto/payment.dto';
 import { PaymentsService } from './payments.service';
 
 describe('PaymentsService', () => {
+  it('rejects an empty or whitespace-only rejection reason at validation', async () => {
+    const dto = Object.assign(new RejectPaymentDto(), { reason: '   ' });
+    await expect(validate(dto)).resolves.not.toHaveLength(0);
+  });
+
+  it('persists the exact rejection reason without changing enrollment status', async () => {
+    const prisma = {
+      tuitionPayment: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'payment',
+          status: PaymentStatus.REJECTED,
+          adminNote: 'Không tìm thấy giao dịch VCB #123',
+          enrollment: { status: EnrollmentStatus.PENDING_PAYMENT },
+        }),
+      },
+      enrollment: { updateMany: jest.fn() },
+    };
+    const service = new PaymentsService(
+      prisma as unknown as PrismaService,
+      { get: jest.fn() } as unknown as ConfigService,
+    );
+    await expect(
+      service.reject('admin', 'payment', { reason: 'Không tìm thấy giao dịch VCB #123' }),
+    ).resolves.toMatchObject({
+      adminNote: 'Không tìm thấy giao dịch VCB #123',
+      enrollment: { status: EnrollmentStatus.PENDING_PAYMENT },
+    });
+    expect(prisma.tuitionPayment.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ adminNote: 'Không tìm thấy giao dịch VCB #123' }),
+      }),
+    );
+    expect(prisma.enrollment.updateMany).not.toHaveBeenCalled();
+  });
+
   it('keeps a second verification idempotent and activates the enrollment once', async () => {
     const payment: {
       id: string;
@@ -64,14 +103,12 @@ describe('PaymentsService', () => {
   it('never trusts a client amount when creating a payment', async () => {
     const prisma = {
       enrollment: {
-        findFirst: jest
-          .fn()
-          .mockResolvedValue({
-            id: 'enrollment',
-            status: EnrollmentStatus.PENDING_PAYMENT,
-            pricingTypeSnapshot: PricingType.PAID,
-            tuitionFeeVndSnapshot: 2_000_000,
-          }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'enrollment',
+          status: EnrollmentStatus.PENDING_PAYMENT,
+          pricingTypeSnapshot: PricingType.PAID,
+          tuitionFeeVndSnapshot: 2_000_000,
+        }),
       },
       tuitionPayment: {
         findFirst: jest.fn().mockResolvedValue(null),

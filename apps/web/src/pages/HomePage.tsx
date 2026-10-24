@@ -14,7 +14,6 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { Link } from 'react-router';
-import { newsEvents } from '@/content/news-events';
 import { newsCoverUrl } from '@/content/news-assets';
 import { catalogApi } from '@/features/catalog/api';
 import { CourseCard } from '@/features/catalog/CourseCard';
@@ -27,8 +26,10 @@ import placementImage from '@/assets/marketing/placement-assessment.webp';
 export function HomePage() {
   const [courses, setCourses] = useState<PublicCourse[]>([]);
   const [publishedContent, setPublishedContent] = useState<PublicContent[]>([]);
+  const [contentState, setContentState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [courseState, setCourseState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [reloadKey, setReloadKey] = useState(0);
+  const [contentReloadKey, setContentReloadKey] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     void catalogApi
@@ -47,11 +48,12 @@ export function HomePage() {
   useEffect(() => {
     void publicContentApi
       .list()
-      .then((response) => setPublishedContent(response.data))
-      .catch(() => undefined);
-  }, []);
-
-  const latestNews = publishedContent.length > 0 ? publishedContent : newsEvents;
+      .then((response) => {
+        setPublishedContent(response.data);
+        setContentState('ready');
+      })
+      .catch(() => setContentState('error'));
+  }, [contentReloadKey]);
 
   return (
     <>
@@ -296,32 +298,55 @@ export function HomePage() {
             Xem tất cả →
           </Link>
         </div>
-        <div className="mt-8 grid gap-6 md:grid-cols-3">
-          {latestNews.slice(0, 3).map((item) => (
-            <article className="overflow-hidden rounded-2xl border bg-white" key={item.slug}>
-              <img
-                alt=""
-                className="aspect-[16/10] w-full object-cover transition duration-500 hover:scale-[1.02]"
-                decoding="async"
-                loading="lazy"
-                src={newsCoverUrl(item)}
-              />
-              <div className="p-5">
-                <p className="text-xs font-bold uppercase tracking-wide text-indigo-700">
-                  {item.category}
-                </p>
-                <h3 className="mt-2 text-lg font-bold">{item.title}</h3>
-                <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">{item.excerpt}</p>
-                <Link
-                  className="mt-4 inline-block font-semibold text-indigo-700"
-                  to={`/news-events/${item.slug}`}
-                >
-                  Đọc thêm →
-                </Link>
-              </div>
-            </article>
-          ))}
-        </div>
+        {contentState === 'loading' ? (
+          <p className="mt-8 text-slate-500" role="status">
+            Đang tải tin mới nhất…
+          </p>
+        ) : contentState === 'error' ? (
+          <div className="state-error mt-8" role="alert">
+            <p>Chưa thể tải tin tức.</p>
+            <button
+              className="btn-secondary mt-3"
+              onClick={() => setContentReloadKey((value) => value + 1)}
+              type="button"
+            >
+              Thử lại
+            </button>
+          </div>
+        ) : publishedContent.length === 0 ? (
+          <div className="state-empty mt-8">
+            <p>Chưa có tin tức hoặc sự kiện được xuất bản.</p>
+          </div>
+        ) : (
+          <div className="mt-8 grid gap-6 md:grid-cols-3">
+            {publishedContent.slice(0, 3).map((item) => (
+              <article className="overflow-hidden rounded-2xl border bg-white" key={item.slug}>
+                <img
+                  alt=""
+                  className="aspect-[16/10] w-full object-cover transition duration-500 hover:scale-[1.02]"
+                  decoding="async"
+                  loading="lazy"
+                  src={newsCoverUrl(item)}
+                />
+                <div className="p-5">
+                  <p className="text-xs font-bold uppercase tracking-wide text-indigo-700">
+                    {item.category}
+                  </p>
+                  <h3 className="mt-2 text-lg font-bold">{item.title}</h3>
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">
+                    {item.excerpt}
+                  </p>
+                  <Link
+                    className="mt-4 inline-block font-semibold text-indigo-700"
+                    to={`/news-events/${item.slug}`}
+                  >
+                    Đọc thêm →
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="section-shell pt-0">

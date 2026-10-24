@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Length, Matches, Max, Min } from 'class-validator';
 import { PaymentStatus } from '../../../generated/prisma/client';
 
 export class SubmitPaymentDto {
@@ -9,6 +9,13 @@ export class SubmitPaymentDto {
 
 export class ReviewPaymentDto {
   @IsOptional() @IsString() @Length(1, 2000) adminNote?: string;
+}
+
+export class RejectPaymentDto {
+  @IsString()
+  @Length(1, 2000)
+  @Matches(/\S/, { message: 'reason must contain non-whitespace characters' })
+  reason!: string;
 }
 
 export class PaymentQueryDto {

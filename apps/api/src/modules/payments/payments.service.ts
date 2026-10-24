@@ -14,7 +14,12 @@ import {
   Prisma,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { PaymentQueryDto, ReviewPaymentDto, SubmitPaymentDto } from './dto/payment.dto';
+import {
+  PaymentQueryDto,
+  RejectPaymentDto,
+  ReviewPaymentDto,
+  SubmitPaymentDto,
+} from './dto/payment.dto';
 
 const paymentInclude = {
   enrollment: {
@@ -225,11 +230,11 @@ export class PaymentsService {
     throw new ConflictException('Concurrent payment review detected; reload and retry');
   }
 
-  async reject(adminId: string, id: string, input: ReviewPaymentDto) {
+  async reject(adminId: string, id: string, input: RejectPaymentDto) {
     void adminId;
     const changed = await this.prisma.tuitionPayment.updateMany({
       where: { id, status: { in: [PaymentStatus.PENDING, PaymentStatus.SUBMITTED] } },
-      data: { status: PaymentStatus.REJECTED, adminNote: input.adminNote?.trim() || null },
+      data: { status: PaymentStatus.REJECTED, adminNote: input.reason },
     });
     if (changed.count !== 1)
       throw new ConflictException('Payment cannot be rejected in its current state');

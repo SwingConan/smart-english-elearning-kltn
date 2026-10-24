@@ -19,9 +19,15 @@ export const publicContentApi = {
     ),
   detail: (slug: string) => apiFetch<PublicContent>(`/public-content/${encodeURIComponent(slug)}`),
   admin: () => apiFetch<PublicContent[]>('/admin/public-content'),
+  adminDetail: (id: string) => apiFetch<PublicContent>(`/admin/public-content/${id}`),
   create: (input: Omit<PublicContent, 'id'>) =>
     apiFetch<PublicContent>('/admin/public-content', {
       method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  update: (id: string, input: Partial<Omit<PublicContent, 'id' | 'status'>>) =>
+    apiFetch<PublicContent>(`/admin/public-content/${id}`, {
+      method: 'PATCH',
       body: JSON.stringify(input),
     }),
   publish: (id: string) =>

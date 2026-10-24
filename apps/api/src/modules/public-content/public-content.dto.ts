@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import { PartialType } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsDateString,
   IsIn,
   IsInt,
   IsOptional,
@@ -29,6 +30,7 @@ export class SavePublicContentDto {
   @IsOptional() @IsString() @Length(1, 80) coverKey?: string;
   @IsOptional() @IsUrl({ protocols: ['https'], require_protocol: true }) coverImageUrl?: string;
   @IsOptional() @IsBoolean() featured?: boolean;
+  @IsOptional() @IsDateString() publishedAt?: string;
 }
 
 export class UpdatePublicContentDto extends PartialType(SavePublicContentDto) {}

@@ -211,6 +211,7 @@ export class AssessmentInstructorService {
           orderBy: { orderIndex: 'asc' },
           select: {
             id: true,
+            code: true,
             name: true,
             description: true,
             weight: true,
@@ -245,6 +246,7 @@ export class AssessmentInstructorService {
           orderBy: { orderIndex: 'asc' },
           select: {
             id: true,
+            code: true,
             name: true,
             description: true,
             weight: true,

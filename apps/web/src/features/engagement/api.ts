@@ -9,6 +9,9 @@ export interface Consultation {
   meetingUrl?: string | null;
   learnerNote?: string | null;
   instructorNote?: string | null;
+  declineReason?: string | null;
+  cancelledAt?: string | null;
+  completedAt?: string | null;
   enrollment?: { learner: { fullName: string; email: string } };
 }
 export interface AttendanceSession {

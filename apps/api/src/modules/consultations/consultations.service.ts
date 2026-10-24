@@ -8,16 +8,35 @@ import { ConsultationStatus, EnrollmentStatus } from '../../generated/prisma/cli
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateConsultationDto, UpdateConsultationDto } from './consultations.dto';
 
+const studentConsultationSelect = {
+  id: true,
+  enrollmentId: true,
+  topic: true,
+  learnerNote: true,
+  requestedStartAt: true,
+  confirmedStartAt: true,
+  durationMinutes: true,
+  status: true,
+  meetingUrl: true,
+  declineReason: true,
+  cancelledAt: true,
+  completedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 @Injectable()
 export class ConsultationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listMine(learnerId: string, enrollmentId: string) {
     await this.requireOwnedEnrollment(learnerId, enrollmentId);
-    return this.prisma.consultationRequest.findMany({
+    const rows = await this.prisma.consultationRequest.findMany({
       where: { enrollmentId },
+      select: studentConsultationSelect,
       orderBy: { createdAt: 'desc' },
     });
+    return rows.map((row) => this.studentView(row));
   }
 
   async create(learnerId: string, enrollmentId: string, input: CreateConsultationDto) {
@@ -29,7 +48,7 @@ export class ConsultationsService {
     const start = new Date(input.requestedStartAt);
     if (start.getTime() <= Date.now())
       throw new BadRequestException('Consultation time must be in the future');
-    return this.prisma.consultationRequest.create({
+    const created = await this.prisma.consultationRequest.create({
       data: {
         enrollmentId,
         instructorId: enrollment.classOffering.instructorId,
@@ -38,7 +57,9 @@ export class ConsultationsService {
         requestedStartAt: start,
         durationMinutes: input.durationMinutes,
       },
+      select: studentConsultationSelect,
     });
+    return this.studentView(created);
   }
 
   async cancel(learnerId: string, enrollmentId: string, id: string) {
@@ -52,7 +73,11 @@ export class ConsultationsService {
       data: { status: ConsultationStatus.CANCELLED, cancelledAt: new Date() },
     });
     if (changed.count !== 1) throw new ConflictException('Consultation can no longer be cancelled');
-    return this.prisma.consultationRequest.findUnique({ where: { id } });
+    const cancelled = await this.prisma.consultationRequest.findUniqueOrThrow({
+      where: { id },
+      select: studentConsultationSelect,
+    });
+    return this.studentView(cancelled);
   }
 
   async listForInstructor(instructorId: string, classOfferingId: string) {
@@ -121,6 +146,13 @@ export class ConsultationsService {
         if (!row) throw new NotFoundException('Enrollment not found');
         return row;
       });
+  }
+
+  private studentView<T extends { status: ConsultationStatus; meetingUrl: string | null }>(row: T) {
+    return {
+      ...row,
+      meetingUrl: row.status === ConsultationStatus.CONFIRMED ? row.meetingUrl : null,
+    };
   }
 
   private async requireAssignedInstructor(instructorId: string, classOfferingId: string) {

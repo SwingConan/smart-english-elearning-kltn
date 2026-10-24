@@ -10,6 +10,7 @@ import { catalogApi } from '@/features/catalog/api';
 import { enrollmentApi } from '@/features/enrollments/api';
 import type { EnrollmentView } from '@/features/enrollments/types';
 import { learningApi } from '@/features/learning/api';
+import { publicContentApi } from '@/features/public-content/api';
 import type { CourseProgress } from '@/features/learning/types';
 import { ApiError } from '@/lib/api-client';
 import { ClassShellLayout } from '@/layouts/ClassShellLayout';
@@ -82,14 +83,22 @@ describe('M02 public product surface', () => {
     );
   });
 
-  it('renders typed news list, detail and not-found state', () => {
+  it('renders API-published news list, detail and not-found state', async () => {
     expect(newsEvents).toHaveLength(8);
+    const published = newsEvents.slice(0, 2).map((item) => ({
+      ...item,
+      id: item.slug,
+      bodyMarkdown: item.sections.map((section) => `## ${section.heading}`).join('\n\n'),
+      featured: Boolean(item.featured),
+    }));
+    vi.spyOn(publicContentApi, 'list').mockResolvedValue({ data: published });
+    vi.spyOn(publicContentApi, 'detail').mockResolvedValue(published[0]);
     const list = render(
       <MemoryRouter>
         <NewsEventsPage />
       </MemoryRouter>,
     );
-    expect(screen.getAllByRole('heading', { name: newsEvents[0].title })).toHaveLength(2);
+    expect(await screen.findAllByRole('heading', { name: newsEvents[0].title })).toHaveLength(2);
     list.unmount();
     const detail = render(
       <MemoryRouter initialEntries={[`/news-events/${newsEvents[0].slug}`]}>
@@ -98,9 +107,9 @@ describe('M02 public product surface', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: newsEvents[0].title })).toBeInTheDocument();
-    expect(screen.getByText(/Placement nội bộ trước Enrollment/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: newsEvents[0].title })).toBeInTheDocument();
     detail.unmount();
+    vi.spyOn(publicContentApi, 'detail').mockRejectedValue(new ApiError(404, null));
     render(
       <MemoryRouter initialEntries={['/news-events/missing']}>
         <Routes>
@@ -108,15 +117,25 @@ describe('M02 public product surface', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: /Không tìm thấy bài viết/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /Không tìm thấy bài viết/i }),
+    ).toBeInTheDocument();
   });
 
-  it('filters and searches the editorial library', () => {
+  it('filters and searches the API editorial library', async () => {
+    vi.spyOn(publicContentApi, 'list').mockResolvedValue({
+      data: newsEvents.map((item) => ({
+        ...item,
+        id: item.slug,
+        featured: Boolean(item.featured),
+      })),
+    });
     render(
       <MemoryRouter>
         <NewsEventsPage />
       </MemoryRouter>,
     );
+    await screen.findByText('8 bài viết phù hợp');
     fireEvent.click(screen.getByRole('button', { name: 'Workshop' }));
     expect(screen.getByText('1 bài viết phù hợp')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Workshop Listening/i })).toBeInTheDocument();
@@ -128,6 +147,27 @@ describe('M02 public product surface', () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Xóa bộ lọc/i }));
     expect(screen.getByText('8 bài viết phù hợp')).toBeInTheDocument();
+  });
+
+  it('never revives legacy articles for an empty or failed public API', async () => {
+    vi.spyOn(publicContentApi, 'list').mockResolvedValueOnce({ data: [] });
+    const empty = render(
+      <MemoryRouter>
+        <NewsEventsPage />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText('Chưa có bài viết được xuất bản')).toBeInTheDocument();
+    expect(screen.queryByText(newsEvents[0].title)).not.toBeInTheDocument();
+    empty.unmount();
+    vi.spyOn(publicContentApi, 'list').mockRejectedValueOnce(new ApiError(503, null));
+    render(
+      <MemoryRouter>
+        <NewsEventsPage />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent('Chưa thể tải tin tức và sự kiện.');
+    expect(screen.getByRole('button', { name: 'Thử lại' })).toBeInTheDocument();
+    expect(screen.queryByText(newsEvents[0].title)).not.toBeInTheDocument();
   });
 
   it('presents the complete ten-step guide and accessible FAQ', () => {

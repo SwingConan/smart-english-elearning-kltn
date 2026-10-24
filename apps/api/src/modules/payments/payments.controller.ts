@@ -3,7 +3,12 @@ import { UserRole } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PublicUser } from '../users/user.types';
-import { PaymentQueryDto, ReviewPaymentDto, SubmitPaymentDto } from './dto/payment.dto';
+import {
+  PaymentQueryDto,
+  RejectPaymentDto,
+  ReviewPaymentDto,
+  SubmitPaymentDto,
+} from './dto/payment.dto';
 import { PaymentsService } from './payments.service';
 
 @Roles(UserRole.STUDENT)
@@ -52,7 +57,7 @@ export class AdminPaymentsController {
   @Post(':id/reject') reject(
     @CurrentUser() user: PublicUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() input: ReviewPaymentDto,
+    @Body() input: RejectPaymentDto,
   ) {
     return this.payments.reject(user.id, id, input);
   }

@@ -5,6 +5,7 @@ export interface Payment {
   amountVnd: number;
   referenceCode: string;
   payerReference?: string | null;
+  adminNote?: string | null;
   submittedAt?: string | null;
   createdAt: string;
   enrollment?: { learner?: { fullName: string; email: string }; classOffering?: { name: string } };
@@ -39,9 +40,9 @@ export const paymentApi = {
       method: 'POST',
       body: JSON.stringify({ adminNote }),
     }),
-  reject: (id: string, adminNote?: string) =>
+  reject: (id: string, reason: string) =>
     apiFetch<Payment>(`/admin/payments/${id}/reject`, {
       method: 'POST',
-      body: JSON.stringify({ adminNote }),
+      body: JSON.stringify({ reason }),
     }),
 };
