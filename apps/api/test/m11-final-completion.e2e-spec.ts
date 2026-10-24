@@ -223,6 +223,34 @@ describe('M11 final use-case completion (e2e)', () => {
     expect(paymentClassOptions.body).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: ids.paidClass })]),
     );
+    const filteredPayments = await admin
+      .get('/api/admin/payments')
+      .query({ classOfferingId: ids.paidClass })
+      .expect(200);
+    expect(filteredPayments.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: ids.payment,
+          enrollment: expect.objectContaining({
+            classOffering: expect.objectContaining({ id: ids.paidClass }),
+          }),
+        }),
+      ]),
+    );
+    const trimmedPaymentSearch = await admin
+      .get('/api/admin/payments')
+      .query({ search: `  ${createdPayment.body.referenceCode}  ` })
+      .expect(200);
+    expect(trimmedPaymentSearch.body.data).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: ids.payment })]),
+    );
+    const unknownPaymentQuery = await admin
+      .get('/api/admin/payments')
+      .query({ unknownQueryKey: 'must-still-be-rejected' })
+      .expect(400);
+    expect(unknownPaymentQuery.body.message).toEqual(
+      expect.arrayContaining(['property unknownQueryKey should not exist']),
+    );
     await student
       .patch(`/api/enrollments/${ids.paidEnrollment}/payments/${ids.payment}/submitted`)
       .send({ payerReference: 'BANK-M11' })

@@ -32,12 +32,13 @@ export class RejectPaymentDto {
 export class PaymentQueryDto {
   @IsOptional() @IsEnum(PaymentStatus) status?: PaymentStatus;
   @IsOptional() @IsUUID() classOfferingId?: string;
-  @IsOptional() @IsString() @Length(1, 200) search?: string;
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @Length(1, 200)
+  search?: string;
   @IsOptional() @IsDateString() createdFrom?: string;
   @IsOptional() @IsDateString() createdTo?: string;
   @Type(() => Number) @IsInt() @Min(1) page = 1;
   @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 20;
-
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  normalize?: never;
 }
