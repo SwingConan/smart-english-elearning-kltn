@@ -1,6 +1,11 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
-import { BankInstructions, Payment, paymentApi } from '@/features/payments/api';
+import {
+  BankInstructions,
+  Payment,
+  PaymentEnrollmentContext,
+  paymentApi,
+} from '@/features/payments/api';
 
 const labels = {
   PENDING: 'Chờ chuyển khoản',
@@ -15,6 +20,7 @@ export function StudentPaymentPage() {
   const { enrollmentId = '' } = useParams();
   const [items, setItems] = useState<Payment[]>([]);
   const [bank, setBank] = useState<BankInstructions | null>(null);
+  const [enrollment, setEnrollment] = useState<PaymentEnrollmentContext | null>(null);
   const [payerReference, setReference] = useState('');
   const [learnerNote, setLearnerNote] = useState('');
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -24,6 +30,7 @@ export function StudentPaymentPage() {
       const data = await paymentApi.mine(enrollmentId);
       setItems(data.data);
       setBank(data.bank);
+      setEnrollment(data.enrollment);
       setState('ready');
     } catch {
       setState('error');
@@ -67,15 +74,19 @@ export function StudentPaymentPage() {
       </div>
     );
   const actionable = items.some((item) => ['PENDING', 'SUBMITTED'].includes(item.status));
-  const identity = items[0]?.enrollment;
   return (
     <section className="space-y-6">
       <header>
         <h2 className="text-2xl font-black">Thanh toán học phí</h2>
-        {identity?.classOffering ? (
+        {enrollment?.classOffering ? (
           <p className="text-slate-600">
-            {identity.classOffering.course.title} · {identity.classOffering.code} —{' '}
-            {identity.classOffering.name}
+            {enrollment.classOffering.course.title} · {enrollment.classOffering.code} —{' '}
+            {enrollment.classOffering.name}
+          </p>
+        ) : null}
+        {enrollment?.tuitionFeeVndSnapshot != null ? (
+          <p className="mt-1 font-semibold">
+            Học phí cố định: {enrollment.tuitionFeeVndSnapshot.toLocaleString('vi-VN')} ₫
           </p>
         ) : null}
       </header>

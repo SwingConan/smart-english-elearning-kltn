@@ -84,7 +84,7 @@ export class PaymentsService {
   }
 
   async listMine(learnerId: string, enrollmentId: string) {
-    await this.requireOwnedEnrollment(learnerId, enrollmentId);
+    const enrollment = await this.requireOwnedEnrollment(learnerId, enrollmentId);
     const data = await this.prisma.tuitionPayment.findMany({
       where: { enrollmentId },
       orderBy: { createdAt: 'desc' },
@@ -92,12 +92,22 @@ export class PaymentsService {
     });
     return {
       data,
+      enrollment,
       bank: data.some(
         (item) => item.status === PaymentStatus.PENDING || item.status === PaymentStatus.SUBMITTED,
       )
         ? this.bankInstructions()
         : null,
     };
+  }
+
+  listAdminFilterOptions() {
+    return this.prisma.classOffering.findMany({
+      where: { enrollments: { some: { tuitionPayments: { some: {} } } } },
+      select: { id: true, code: true, name: true },
+      orderBy: [{ code: 'asc' }, { name: 'asc' }],
+      take: 500,
+    });
   }
 
   async submit(
@@ -267,7 +277,20 @@ export class PaymentsService {
     return this.prisma.enrollment
       .findFirst({
         where: { id, learnerId },
-        select: { id: true, status: true, pricingTypeSnapshot: true, tuitionFeeVndSnapshot: true },
+        select: {
+          id: true,
+          status: true,
+          pricingTypeSnapshot: true,
+          tuitionFeeVndSnapshot: true,
+          classOffering: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              course: { select: { id: true, title: true } },
+            },
+          },
+        },
       })
       .then((row) => {
         if (!row) throw new NotFoundException('Enrollment not found');

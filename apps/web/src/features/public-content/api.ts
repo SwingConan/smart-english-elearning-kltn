@@ -1,4 +1,15 @@
 import { apiFetch } from '@/lib/api-client';
+export const PUBLIC_CONTENT_COVER_OPTIONS = [
+  { value: 'enrollment', label: 'Khai giảng và đăng ký' },
+  { value: 'listening', label: 'Luyện nghe' },
+  { value: 'reading', label: 'Luyện đọc' },
+  { value: 'speaking', label: 'Luyện nói' },
+  { value: 'writing', label: 'Luyện viết' },
+  { value: 'placement', label: 'Kiểm tra đầu vào' },
+  { value: 'study-rhythm', label: 'Nhịp độ học tập' },
+  { value: 'results', label: 'Kết quả học tập' },
+] as const;
+export type PublicContentCoverKey = (typeof PUBLIC_CONTENT_COVER_OPTIONS)[number]['value'];
 export interface PublicContent {
   id: string;
   slug: string;
@@ -6,7 +17,7 @@ export interface PublicContent {
   title: string;
   excerpt: string;
   bodyMarkdown?: string;
-  coverKey?: string | null;
+  coverKey?: PublicContentCoverKey | null;
   coverImageUrl?: string | null;
   featured: boolean;
   status?: string;

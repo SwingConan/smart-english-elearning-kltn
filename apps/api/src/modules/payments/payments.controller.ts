@@ -44,6 +44,9 @@ export class AdminPaymentsController {
   @Get() list(@Query() query: PaymentQueryDto) {
     return this.payments.listAdmin(query);
   }
+  @Get('filter-options') filterOptions() {
+    return this.payments.listAdminFilterOptions();
+  }
   @Get(':id') detail(@Param('id', ParseUUIDPipe) id: string) {
     return this.payments.adminDetail(id);
   }

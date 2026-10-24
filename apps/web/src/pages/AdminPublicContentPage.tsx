@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { SafeMarkdown } from '@/components/ui/SafeMarkdown';
-import type { PublicContent } from '@/features/public-content/api';
-import { publicContentApi } from '@/features/public-content/api';
+import type { PublicContent, PublicContentCoverKey } from '@/features/public-content/api';
+import { PUBLIC_CONTENT_COVER_OPTIONS, publicContentApi } from '@/features/public-content/api';
 import { datetimeLocalToIso, isoToDatetimeLocal } from '@/features/public-content/datetime';
 
 const emptyForm = {
@@ -45,7 +45,7 @@ export function AdminPublicContentPage() {
       excerpt: form.excerpt,
       bodyMarkdown: form.bodyMarkdown,
       featured: form.featured,
-      coverKey: form.coverKey.trim() || null,
+      coverKey: (form.coverKey || null) as PublicContentCoverKey | null,
       coverImageUrl: form.coverImageUrl.trim() || null,
       ...(!form.id || form.publishedAtDirty
         ? { publishedAt: datetimeLocalToIso(form.publishedAt) }
@@ -136,12 +136,19 @@ export function AdminPublicContentPage() {
         </label>
         <div className="grid gap-4 md:grid-cols-3">
           <label>
-            <span className="text-sm font-semibold">Cover key</span>
-            <input
+            <span className="text-sm font-semibold">Ảnh minh họa có sẵn</span>
+            <select
               className="input-field mt-1"
               onChange={(e) => setForm({ ...form, coverKey: e.target.value, coverImageUrl: '' })}
               value={form.coverKey}
-            />
+            >
+              <option value="">Không dùng ảnh có sẵn</option>
+              {PUBLIC_CONTENT_COVER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             <span className="text-sm font-semibold">Ảnh HTTPS</span>

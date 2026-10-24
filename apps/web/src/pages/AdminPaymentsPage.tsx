@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import type { Payment, PaymentQuery } from '@/features/payments/api';
+import type { Payment, PaymentClassOption, PaymentQuery } from '@/features/payments/api';
 import { paymentApi } from '@/features/payments/api';
 
 const labels: Record<string, string> = {
@@ -18,15 +18,8 @@ export function AdminPaymentsPage() {
   const [rejecting, setRejecting] = useState<Payment | null>(null);
   const [reason, setReason] = useState('');
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const classOptions = [
-    ...new Map(
-      items.flatMap((item) =>
-        item.enrollment?.classOffering
-          ? [[item.enrollment.classOffering.id, item.enrollment.classOffering] as const]
-          : [],
-      ),
-    ).values(),
-  ];
+  const [classOptions, setClassOptions] = useState<PaymentClassOption[]>([]);
+  const [optionState, setOptionState] = useState<'loading' | 'ready' | 'error'>('loading');
   const load = useCallback(async () => {
     try {
       const response = await paymentApi.admin(query);
@@ -41,6 +34,19 @@ export function AdminPaymentsPage() {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+  const loadClassOptions = useCallback(async () => {
+    setOptionState('loading');
+    try {
+      setClassOptions(await paymentApi.filterOptions());
+      setOptionState('ready');
+    } catch {
+      setOptionState('error');
+    }
+  }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadClassOptions(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadClassOptions]);
   const filter = (event: FormEvent) => {
     event.preventDefault();
     setQuery({ ...draft, search: draft.search?.trim() || undefined, page: 1, limit: 20 });
@@ -102,16 +108,27 @@ export function AdminPaymentsPage() {
           <span className="text-sm font-semibold">Lớp học</span>
           <select
             className="input-field mt-1"
+            disabled={optionState === 'loading'}
             onChange={(e) => setDraft({ ...draft, classOfferingId: e.target.value || undefined })}
             value={draft.classOfferingId ?? ''}
           >
-            <option value="">Tất cả lớp</option>
+            <option value="">
+              {optionState === 'loading' ? 'Đang tải danh sách lớp…' : 'Tất cả lớp'}
+            </option>
             {classOptions.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.code} — {item.name}
               </option>
             ))}
           </select>
+          {optionState === 'error' ? (
+            <span className="mt-1 block text-sm text-rose-700" role="alert">
+              Không thể tải danh sách lớp.{' '}
+              <button className="underline" onClick={() => void loadClassOptions()} type="button">
+                Thử lại
+              </button>
+            </span>
+          ) : null}
         </label>
         <span />
         <label>

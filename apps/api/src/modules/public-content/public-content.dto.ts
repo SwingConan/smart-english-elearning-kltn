@@ -21,13 +21,24 @@ export const PUBLIC_CONTENT_CATEGORIES = [
   'Cập nhật chương trình',
 ] as const;
 
+export const PUBLIC_CONTENT_COVER_KEYS = [
+  'enrollment',
+  'listening',
+  'reading',
+  'speaking',
+  'writing',
+  'placement',
+  'study-rhythm',
+  'results',
+] as const;
+
 export class SavePublicContentDto {
   @IsString() @Length(1, 140) slug!: string;
   @IsIn(PUBLIC_CONTENT_CATEGORIES) category!: string;
   @IsString() @Length(3, 240) title!: string;
   @IsString() @Length(10, 1000) excerpt!: string;
   @IsString() @Length(10, 50000) bodyMarkdown!: string;
-  @IsOptional() @IsString() @Length(1, 80) coverKey?: string | null;
+  @IsOptional() @IsIn(PUBLIC_CONTENT_COVER_KEYS) coverKey?: string | null;
   @IsOptional() @IsUrl({ protocols: ['https'], require_protocol: true }) coverImageUrl?:
     string | null;
   @IsOptional() @IsBoolean() featured?: boolean;

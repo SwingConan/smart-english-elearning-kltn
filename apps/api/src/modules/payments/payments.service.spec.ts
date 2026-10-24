@@ -173,4 +173,48 @@ describe('PaymentsService', () => {
       }),
     );
   });
+
+  it('returns enrollment pricing and class context when payment history is empty', async () => {
+    const enrollment = {
+      id: 'enrollment',
+      status: EnrollmentStatus.PENDING_PAYMENT,
+      pricingTypeSnapshot: PricingType.PAID,
+      tuitionFeeVndSnapshot: 1_200_000,
+      classOffering: {
+        id: 'class-b',
+        code: 'B02',
+        name: 'Lớp B',
+        course: { id: 'course', title: 'TOEIC 650' },
+      },
+    };
+    const prisma = {
+      enrollment: { findFirst: jest.fn().mockResolvedValue(enrollment) },
+      tuitionPayment: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new PaymentsService(
+      prisma as unknown as PrismaService,
+      { get: jest.fn() } as unknown as ConfigService,
+    );
+    await expect(service.listMine('learner', 'enrollment')).resolves.toEqual({
+      data: [],
+      bank: null,
+      enrollment,
+    });
+  });
+
+  it('loads bounded authoritative class options independently of the current payment page', async () => {
+    const options = [
+      { id: 'class-a', code: 'A01', name: 'Lớp A' },
+      { id: 'class-b', code: 'B02', name: 'Lớp B' },
+    ];
+    const prisma = { classOffering: { findMany: jest.fn().mockResolvedValue(options) } };
+    const service = new PaymentsService(
+      prisma as unknown as PrismaService,
+      { get: jest.fn() } as unknown as ConfigService,
+    );
+    await expect(service.listAdminFilterOptions()).resolves.toEqual(options);
+    expect(prisma.classOffering.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 500, select: { id: true, code: true, name: true } }),
+    );
+  });
 });

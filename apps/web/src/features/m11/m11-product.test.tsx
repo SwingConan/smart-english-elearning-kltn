@@ -67,10 +67,22 @@ describe('M11 profile and payment mutations', () => {
       accountName: 'SMART ENGLISH',
       transferPrefix: 'SE',
     };
+    const enrollment = {
+      id: 'enrollment-1',
+      status: 'PENDING_PAYMENT',
+      pricingTypeSnapshot: 'PAID',
+      tuitionFeeVndSnapshot: 2_500_000,
+      classOffering: {
+        id: 'class-1',
+        code: 'C01',
+        name: 'Lớp TOEIC',
+        course: { id: 'course-1', title: 'TOEIC 650' },
+      },
+    };
     const mine = vi
       .spyOn(paymentApi, 'mine')
-      .mockResolvedValueOnce({ data: [], bank })
-      .mockResolvedValue({ data: [payment], bank });
+      .mockResolvedValueOnce({ data: [], bank, enrollment })
+      .mockResolvedValue({ data: [payment], bank, enrollment });
     vi.spyOn(paymentApi, 'create').mockResolvedValue({ ...payment, bank });
     const submit = vi.spyOn(paymentApi, 'submit').mockResolvedValue({
       ...payment,

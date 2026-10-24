@@ -21,7 +21,8 @@ const covers: Record<NewsCoverKey, string> = {
 
 export function newsCoverUrl(item: { coverKey?: string | null; coverImageUrl?: string | null }) {
   if (item.coverImageUrl) return item.coverImageUrl;
-  return covers[
-    (item.coverKey && item.coverKey in covers ? item.coverKey : 'results') as NewsCoverKey
-  ];
+  if (!item.coverKey) return covers.results;
+  if (item.coverKey in covers) return covers[item.coverKey as NewsCoverKey];
+  console.error(`Unsupported public-content cover key: ${item.coverKey}`);
+  return covers.results;
 }

@@ -7,6 +7,7 @@ import {
 import { Prisma, PublicContentStatus } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
+  PUBLIC_CONTENT_COVER_KEYS,
   PublicContentQueryDto,
   SavePublicContentDto,
   UpdatePublicContentDto,
@@ -182,7 +183,10 @@ export class PublicContentService {
   }
 
   private validateCover(input: Pick<UpdatePublicContentDto, 'coverKey' | 'coverImageUrl'>) {
-    if (input.coverKey && !/^[a-z0-9-]{1,80}$/.test(input.coverKey))
+    if (
+      input.coverKey &&
+      !(PUBLIC_CONTENT_COVER_KEYS as readonly string[]).includes(input.coverKey)
+    )
       throw new BadRequestException('coverKey is not allowed');
     if (input.coverKey && input.coverImageUrl)
       throw new BadRequestException('Choose either coverKey or coverImageUrl, not both');

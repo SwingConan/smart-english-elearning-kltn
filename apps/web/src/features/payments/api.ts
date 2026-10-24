@@ -25,6 +25,23 @@ export interface BankInstructions {
   accountName: string;
   transferPrefix: string;
 }
+export interface PaymentEnrollmentContext {
+  id: string;
+  status: string;
+  pricingTypeSnapshot: string;
+  tuitionFeeVndSnapshot?: number | null;
+  classOffering: {
+    id: string;
+    code: string;
+    name: string;
+    course: { id: string; title: string };
+  };
+}
+export interface PaymentClassOption {
+  id: string;
+  code: string;
+  name: string;
+}
 export interface PaymentQuery {
   status?: PaymentStatus;
   classOfferingId?: string;
@@ -43,9 +60,11 @@ const queryString = (query: PaymentQuery) => {
 };
 export const paymentApi = {
   mine: (enrollmentId: string) =>
-    apiFetch<{ data: Payment[]; bank: BankInstructions | null }>(
-      `/enrollments/${enrollmentId}/payments`,
-    ),
+    apiFetch<{
+      data: Payment[];
+      bank: BankInstructions | null;
+      enrollment: PaymentEnrollmentContext;
+    }>(`/enrollments/${enrollmentId}/payments`),
   create: (enrollmentId: string) =>
     apiFetch<Payment & { bank: BankInstructions }>(`/enrollments/${enrollmentId}/payments`, {
       method: 'POST',
@@ -64,6 +83,7 @@ export const paymentApi = {
       data: Payment[];
       meta?: { total: number; page: number; limit: number; totalPages: number };
     }>(`/admin/payments?${queryString(query)}`),
+  filterOptions: () => apiFetch<PaymentClassOption[]>('/admin/payments/filter-options'),
   detail: (id: string) => apiFetch<Payment>(`/admin/payments/${id}`),
   verify: (id: string, adminNote?: string) =>
     apiFetch<Payment>(`/admin/payments/${id}/verify`, {

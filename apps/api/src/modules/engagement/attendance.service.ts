@@ -96,9 +96,17 @@ export class AttendanceService {
     input: BulkAttendanceDto,
   ) {
     await this.requireAssigned(instructorId, classOfferingId);
-    const uniqueIds = new Set(input.records.map((record) => record.enrollmentId));
-    if (uniqueIds.size !== input.records.length)
+    const recordIds = input.records.map((record) => record.enrollmentId);
+    const clearIds = input.clearEnrollmentIds ?? [];
+    const uniqueRecordIds = new Set(recordIds);
+    const uniqueClearIds = new Set(clearIds);
+    if (
+      uniqueRecordIds.size !== recordIds.length ||
+      uniqueClearIds.size !== clearIds.length ||
+      recordIds.some((enrollmentId) => uniqueClearIds.has(enrollmentId))
+    )
       throw new BadRequestException('Each enrollment may appear only once');
+    const referencedIds = new Set([...recordIds, ...clearIds]);
     return this.prisma.$transaction(
       async (tx) => {
         await tx.$queryRaw(
@@ -110,9 +118,9 @@ export class AttendanceService {
         });
         if (!session) throw new NotFoundException('Attendance session not found');
         const valid = await tx.enrollment.count({
-          where: { id: { in: [...uniqueIds] }, classOfferingId },
+          where: { id: { in: [...referencedIds] }, classOfferingId },
         });
-        if (valid !== uniqueIds.size)
+        if (valid !== referencedIds.size)
           throw new BadRequestException('Every enrollment must belong to the class');
         for (const record of input.records) {
           await tx.attendanceRecord.upsert({
@@ -136,8 +144,14 @@ export class AttendanceService {
             },
           });
         }
+        if (clearIds.length > 0) {
+          await tx.attendanceRecord.deleteMany({
+            where: { attendanceSessionId: id, enrollmentId: { in: clearIds } },
+          });
+        }
         return {
           updated: input.records.length,
+          cleared: clearIds.length,
           session: await tx.attendanceSession.findUniqueOrThrow({
             where: { id },
             include: { records: true },

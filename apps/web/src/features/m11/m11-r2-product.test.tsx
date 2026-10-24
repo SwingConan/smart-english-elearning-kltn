@@ -21,6 +21,18 @@ const payment = {
   adminNote: 'Không tìm thấy giao dịch',
   createdAt: '2026-10-24T00:00:00Z',
 };
+const enrollment = {
+  id: 'e1',
+  status: 'PENDING_PAYMENT',
+  pricingTypeSnapshot: 'PAID',
+  tuitionFeeVndSnapshot: 1_200_000,
+  classOffering: {
+    id: 'c1',
+    code: 'C01',
+    name: 'Lớp TOEIC',
+    course: { id: 'course', title: 'TOEIC 650' },
+  },
+};
 const renderRoute = (node: React.ReactNode, path: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
@@ -32,7 +44,7 @@ const renderRoute = (node: React.ReactNode, path: string) =>
 
 describe('M11 R2 product completeness', () => {
   it('shows rejection history and permits a fresh payment request', async () => {
-    vi.spyOn(paymentApi, 'mine').mockResolvedValue({ data: [payment], bank: null });
+    vi.spyOn(paymentApi, 'mine').mockResolvedValue({ data: [payment], bank: null, enrollment });
     const create = vi.spyOn(paymentApi, 'create').mockResolvedValue({
       ...payment,
       status: 'PENDING',

@@ -203,11 +203,26 @@ describe('M11 final use-case completion (e2e)', () => {
       await prisma.user.findUnique({ where: { id: ids.student }, select: { email: true } }),
     ).toEqual({ email: expect.stringContaining('m11-student-') });
 
+    const emptyPaymentHistory = await student
+      .get(`/api/enrollments/${ids.paidEnrollment}/payments`)
+      .expect(200);
+    expect(emptyPaymentHistory.body).toMatchObject({
+      data: [],
+      enrollment: {
+        id: ids.paidEnrollment,
+        tuitionFeeVndSnapshot: 900_000,
+        classOffering: { id: ids.paidClass },
+      },
+    });
     const createdPayment = await student
       .post(`/api/enrollments/${ids.paidEnrollment}/payments`)
       .expect(201);
     expect(createdPayment.body).toMatchObject({ amountVnd: 900_000, status: 'PENDING' });
     ids.payment = createdPayment.body.id;
+    const paymentClassOptions = await admin.get('/api/admin/payments/filter-options').expect(200);
+    expect(paymentClassOptions.body).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: ids.paidClass })]),
+    );
     await student
       .patch(`/api/enrollments/${ids.paidEnrollment}/payments/${ids.payment}/submitted`)
       .send({ payerReference: 'BANK-M11' })
@@ -298,6 +313,29 @@ describe('M11 final use-case completion (e2e)', () => {
     expect(
       await prisma.attendanceRecord.count({ where: { attendanceSessionId: ids.session } }),
     ).toBe(1);
+    await instructor
+      .put(`/api/instructor/classes/${ids.freeClass}/attendance/sessions/${ids.session}/records`)
+      .send({ records: [], clearEnrollmentIds: [ids.freeEnrollment] })
+      .expect(200);
+    expect(
+      await prisma.attendanceRecord.findUnique({
+        where: {
+          attendanceSessionId_enrollmentId: {
+            attendanceSessionId: ids.session,
+            enrollmentId: ids.freeEnrollment,
+          },
+        },
+      }),
+    ).toBeNull();
+    await instructor
+      .put(`/api/instructor/classes/${ids.freeClass}/attendance/sessions/${ids.session}/records`)
+      .send({
+        records: [
+          { enrollmentId: ids.freeEnrollment, status: 'PRESENT', note: 'Restored after clear' },
+        ],
+        clearEnrollmentIds: [],
+      })
+      .expect(200);
     expect(
       await prisma.attendanceRecord.findUnique({
         where: {
@@ -325,6 +363,17 @@ describe('M11 final use-case completion (e2e)', () => {
       .expect(403);
     await instructor.post(`/api/instructor/rubrics/${ids.rubric}/deactivate`).expect(201);
 
+    await admin
+      .post('/api/admin/public-content')
+      .send({
+        slug: `m11-public-${unique}-bad-cover`,
+        category: 'Cập nhật chương trình',
+        title: 'M11 invalid cover',
+        excerpt: 'This draft must reject an uncontrolled cover key.',
+        bodyMarkdown: '# Invalid cover\n\nThis body is sufficiently long.',
+        coverKey: 'UNKNOWN',
+      })
+      .expect(400);
     const draft = await admin
       .post('/api/admin/public-content')
       .send({

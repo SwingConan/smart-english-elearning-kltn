@@ -16,6 +16,8 @@ export function InstructorAttendancePage() {
   const [items, setItems] = useState<AttendanceSession[]>([]);
   const [slots, setSlots] = useState<ScheduleSlot[]>([]);
   const [selected, setSelected] = useState<AttendanceSession | null>(null);
+  const [persistedMarkedIds, setPersistedMarkedIds] = useState<Set<string>>(new Set());
+  const [clearEnrollmentIds, setClearEnrollmentIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState({
     sessionDate: new Date().toISOString().slice(0, 10),
     scheduleSlotId: '',
@@ -41,8 +43,14 @@ export function InstructorAttendancePage() {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
-  const open = async (id: string) =>
-    setSelected(await engagementApi.attendance.detail(classOfferingId, id));
+  const open = async (id: string) => {
+    const detail = await engagementApi.attendance.detail(classOfferingId, id);
+    setSelected(detail);
+    setPersistedMarkedIds(
+      new Set(detail.roster?.filter((row) => row.attendance).map((row) => row.id) ?? []),
+    );
+    setClearEnrollmentIds(new Set());
+  };
   const create = async (event: FormEvent) => {
     event.preventDefault();
     setMessage('');
@@ -63,7 +71,13 @@ export function InstructorAttendancePage() {
       setMessage('Không thể tạo buổi điểm danh. Kiểm tra dữ liệu hoặc buổi trùng lịch.');
     }
   };
-  const updateRoster = (id: string, status: string | null, note?: string) =>
+  const updateRoster = (id: string, status: string | null, note?: string) => {
+    setClearEnrollmentIds((current) => {
+      const next = new Set(current);
+      if (!status && persistedMarkedIds.has(id)) next.add(id);
+      else next.delete(id);
+      return next;
+    });
     setSelected((current) =>
       current
         ? {
@@ -81,6 +95,7 @@ export function InstructorAttendancePage() {
           }
         : current,
     );
+  };
   const save = async () => {
     if (!selected?.roster) return;
     try {
@@ -94,6 +109,7 @@ export function InstructorAttendancePage() {
             status: row.attendance!.status,
             note: row.attendance!.note?.trim() || undefined,
           })),
+        [...clearEnrollmentIds],
       );
       await open(selected.id);
       setMessage('Đã lưu điểm danh.');

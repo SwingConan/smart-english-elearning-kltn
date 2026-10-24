@@ -31,4 +31,10 @@ export class BulkAttendanceDto {
   @ValidateNested({ each: true })
   @Type(() => AttendanceRecordDto)
   records!: AttendanceRecordDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(500)
+  @IsUUID('4', { each: true })
+  clearEnrollmentIds?: string[];
 }

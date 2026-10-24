@@ -82,10 +82,11 @@ export const engagementApi = {
       classId: string,
       id: string,
       records: Array<{ enrollmentId: string; status: string; note?: string }>,
+      clearEnrollmentIds: string[] = [],
     ) =>
       apiFetch(`/instructor/classes/${classId}/attendance/sessions/${id}/records`, {
         method: 'PUT',
-        body: JSON.stringify({ records }),
+        body: JSON.stringify({ records, clearEnrollmentIds }),
       }),
   },
   liveClass: (enrollmentId: string) =>
