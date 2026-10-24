@@ -6,13 +6,17 @@ import { LearningService } from './learning.service';
 import { LearningResourceStorage, LocalLearningResourceStorage } from './learning-resource.storage';
 import { InstructorWorkspaceController } from './instructor-workspace.controller';
 import { InstructorWorkspaceService } from './instructor-workspace.service';
+import { CertificatesModule } from '../certificates/certificates.module';
+import { LearningReportService } from './learning-report.service';
 
 @Module({
+  imports: [CertificatesModule],
   controllers: [InstructorContentController, InstructorWorkspaceController, LearningController],
   providers: [
     InstructorContentService,
     LearningService,
     InstructorWorkspaceService,
+    LearningReportService,
     LocalLearningResourceStorage,
     { provide: LearningResourceStorage, useExisting: LocalLearningResourceStorage },
   ],

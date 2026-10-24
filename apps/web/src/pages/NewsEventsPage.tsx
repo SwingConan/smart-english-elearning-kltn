@@ -1,15 +1,33 @@
 import { ArrowRight, CalendarDays, Clock3, Search, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { newsCoverUrl } from '@/content/news-assets';
 import { newsCategories, newsEvents } from '@/content/news-events';
+import { PublicContent, publicContentApi } from '@/features/public-content/api';
 
 export function NewsEventsPage() {
   const [category, setCategory] = useState<(typeof newsCategories)[number]>('Tất cả');
   const [query, setQuery] = useState('');
-  const featured = newsEvents.find((item) => item.featured) ?? newsEvents[0];
+  const [published, setPublished] = useState<PublicContent[]>([]);
+  useEffect(() => {
+    void publicContentApi
+      .list()
+      .then((result) => setPublished(result.data))
+      .catch(() => undefined);
+  }, []);
+  const source = published.length
+    ? published.map((item) => ({
+        ...item,
+        publishedAt: item.publishedAt ?? '',
+        readMinutes: Math.max(
+          1,
+          Math.ceil((item.excerpt.length + (item.bodyMarkdown?.length ?? 0)) / 1000),
+        ),
+      }))
+    : newsEvents;
+  const featured = source.find((item) => item.featured) ?? source[0];
   const normalizedQuery = query.trim().toLocaleLowerCase('vi');
-  const filtered = newsEvents.filter(
+  const filtered = source.filter(
     (item) =>
       (category === 'Tất cả' || item.category === category) &&
       (!normalizedQuery ||

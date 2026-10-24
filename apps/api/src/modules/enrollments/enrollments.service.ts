@@ -86,6 +86,7 @@ export class EnrollmentsService {
                 status: true,
                 pricingType: true,
                 maxStudents: true,
+                tuitionFeeVnd: true,
                 enrollmentStart: true,
                 enrollmentEnd: true,
                 course: { select: { isPublished: true } },
@@ -116,14 +117,14 @@ export class EnrollmentsService {
                 ? EnrollmentStatus.ACTIVE
                 : EnrollmentStatus.PENDING_PAYMENT;
 
-            if (enrollmentStatus === EnrollmentStatus.ACTIVE && offering.maxStudents !== null) {
-              const activeCount = await transaction.enrollment.count({
+            if (offering.maxStudents !== null) {
+              const reservedCount = await transaction.enrollment.count({
                 where: {
                   classOfferingId: offering.id,
-                  status: EnrollmentStatus.ACTIVE,
+                  status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.PENDING_PAYMENT] },
                 },
               });
-              if (activeCount >= offering.maxStudents) {
+              if (reservedCount >= offering.maxStudents) {
                 throw new ConflictException('Class offering is full');
               }
             }
@@ -133,6 +134,9 @@ export class EnrollmentsService {
                 learnerId,
                 classOfferingId: offering.id,
                 status: enrollmentStatus,
+                pricingTypeSnapshot: offering.pricingType,
+                tuitionFeeVndSnapshot:
+                  offering.pricingType === PricingType.PAID ? offering.tuitionFeeVnd : null,
               },
               select: enrollmentViewSelect,
             });

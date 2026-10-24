@@ -27,6 +27,7 @@ import { seedM05 } from './m05-seed';
 import { seedM06 } from './m06-seed';
 import { seedM07 } from './m07-seed';
 import { seedM08 } from './m08-seed';
+import { seedM11 } from './m11-seed';
 
 const FREE_OFFERING_ID = '10000000-0000-4000-8000-000000000001';
 const PAID_OFFERING_ID = '10000000-0000-4000-8000-000000000002';
@@ -278,10 +279,22 @@ const m03PlacementFoundationQuestionSeeds = [
     content: 'Where should new employees enter the building?',
     explanation: 'The announcement asks new employees to use the lobby entrance.',
     options: [
-      { id: '72000000-0000-4000-8000-000000000001', content: 'The lobby entrance', isCorrect: true },
+      {
+        id: '72000000-0000-4000-8000-000000000001',
+        content: 'The lobby entrance',
+        isCorrect: true,
+      },
       { id: '72000000-0000-4000-8000-000000000002', content: 'The loading area', isCorrect: false },
-      { id: '72000000-0000-4000-8000-000000000003', content: 'The staff cafeteria', isCorrect: false },
-      { id: '72000000-0000-4000-8000-000000000004', content: 'The parking garage', isCorrect: false },
+      {
+        id: '72000000-0000-4000-8000-000000000003',
+        content: 'The staff cafeteria',
+        isCorrect: false,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000004',
+        content: 'The parking garage',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -306,10 +319,26 @@ const m03PlacementFoundationQuestionSeeds = [
     content: 'Why is the caller leaving a message?',
     explanation: 'The caller says that the appointment time has changed.',
     options: [
-      { id: '72000000-0000-4000-8000-000000000009', content: 'To change an appointment', isCorrect: true },
-      { id: '72000000-0000-4000-8000-000000000010', content: 'To order office supplies', isCorrect: false },
-      { id: '72000000-0000-4000-8000-000000000011', content: 'To request a refund', isCorrect: false },
-      { id: '72000000-0000-4000-8000-000000000012', content: 'To invite a new customer', isCorrect: false },
+      {
+        id: '72000000-0000-4000-8000-000000000009',
+        content: 'To change an appointment',
+        isCorrect: true,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000010',
+        content: 'To order office supplies',
+        isCorrect: false,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000011',
+        content: 'To request a refund',
+        isCorrect: false,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000012',
+        content: 'To invite a new customer',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -320,10 +349,26 @@ const m03PlacementFoundationQuestionSeeds = [
     content: 'What should the listener do next?',
     explanation: 'The caller asks the listener to call back and confirm the new time.',
     options: [
-      { id: '72000000-0000-4000-8000-000000000013', content: 'Call back to confirm', isCorrect: true },
-      { id: '72000000-0000-4000-8000-000000000014', content: 'Visit the office today', isCorrect: false },
-      { id: '72000000-0000-4000-8000-000000000015', content: 'Send a payment receipt', isCorrect: false },
-      { id: '72000000-0000-4000-8000-000000000016', content: 'Book a meeting room', isCorrect: false },
+      {
+        id: '72000000-0000-4000-8000-000000000013',
+        content: 'Call back to confirm',
+        isCorrect: true,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000014',
+        content: 'Visit the office today',
+        isCorrect: false,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000015',
+        content: 'Send a payment receipt',
+        isCorrect: false,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000016',
+        content: 'Book a meeting room',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -348,10 +393,26 @@ const m03PlacementFoundationQuestionSeeds = [
     content: 'Where should the supplies be stored?',
     explanation: 'The message asks staff to place the supplies in the cabinet beside the printer.',
     options: [
-      { id: '72000000-0000-4000-8000-000000000021', content: 'In the cabinet beside the printer', isCorrect: true },
-      { id: '72000000-0000-4000-8000-000000000022', content: 'At the reception desk', isCorrect: false },
-      { id: '72000000-0000-4000-8000-000000000023', content: 'In the meeting room', isCorrect: false },
-      { id: '72000000-0000-4000-8000-000000000024', content: 'Near the main entrance', isCorrect: false },
+      {
+        id: '72000000-0000-4000-8000-000000000021',
+        content: 'In the cabinet beside the printer',
+        isCorrect: true,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000022',
+        content: 'At the reception desk',
+        isCorrect: false,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000023',
+        content: 'In the meeting room',
+        isCorrect: false,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000024',
+        content: 'Near the main entrance',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -363,9 +424,21 @@ const m03PlacementFoundationQuestionSeeds = [
     explanation: 'The notice says that the cafeteria will close for cleaning.',
     options: [
       { id: '72000000-0000-4000-8000-000000000025', content: 'For cleaning', isCorrect: true },
-      { id: '72000000-0000-4000-8000-000000000026', content: 'For a staff meeting', isCorrect: false },
-      { id: '72000000-0000-4000-8000-000000000027', content: 'For new equipment', isCorrect: false },
-      { id: '72000000-0000-4000-8000-000000000028', content: 'For a private event', isCorrect: false },
+      {
+        id: '72000000-0000-4000-8000-000000000026',
+        content: 'For a staff meeting',
+        isCorrect: false,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000027',
+        content: 'For new equipment',
+        isCorrect: false,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000028',
+        content: 'For a private event',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -376,10 +449,26 @@ const m03PlacementFoundationQuestionSeeds = [
     content: 'What alternative does the notice suggest?',
     explanation: 'Employees can use the vending machines on the first floor.',
     options: [
-      { id: '72000000-0000-4000-8000-000000000029', content: 'Use the first-floor vending machines', isCorrect: true },
-      { id: '72000000-0000-4000-8000-000000000030', content: 'Bring food to reception', isCorrect: false },
-      { id: '72000000-0000-4000-8000-000000000031', content: 'Order from the finance office', isCorrect: false },
-      { id: '72000000-0000-4000-8000-000000000032', content: 'Visit the training center', isCorrect: false },
+      {
+        id: '72000000-0000-4000-8000-000000000029',
+        content: 'Use the first-floor vending machines',
+        isCorrect: true,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000030',
+        content: 'Bring food to reception',
+        isCorrect: false,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000031',
+        content: 'Order from the finance office',
+        isCorrect: false,
+      },
+      {
+        id: '72000000-0000-4000-8000-000000000032',
+        content: 'Visit the training center',
+        isCorrect: false,
+      },
     ],
   },
 ] as const;
@@ -395,8 +484,16 @@ const m03PlacementCoreQuestionSeeds = [
     options: [
       { id: '71000000-0000-4000-8000-000000000001', content: 'At reception', isCorrect: true },
       { id: '71000000-0000-4000-8000-000000000002', content: 'In the cafeteria', isCorrect: false },
-      { id: '71000000-0000-4000-8000-000000000003', content: 'Beside the elevator', isCorrect: false },
-      { id: '71000000-0000-4000-8000-000000000004', content: 'Inside the meeting room', isCorrect: false },
+      {
+        id: '71000000-0000-4000-8000-000000000003',
+        content: 'Beside the elevator',
+        isCorrect: false,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000004',
+        content: 'Inside the meeting room',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -421,10 +518,26 @@ const m03PlacementCoreQuestionSeeds = [
     content: 'Why is the delivery delayed?',
     explanation: 'The caller explains that severe weather delayed the delivery truck.',
     options: [
-      { id: '71000000-0000-4000-8000-000000000009', content: 'The address was incorrect', isCorrect: false },
-      { id: '71000000-0000-4000-8000-000000000010', content: 'The weather affected transport', isCorrect: true },
-      { id: '71000000-0000-4000-8000-000000000011', content: 'The warehouse was closed', isCorrect: false },
-      { id: '71000000-0000-4000-8000-000000000012', content: 'The order was cancelled', isCorrect: false },
+      {
+        id: '71000000-0000-4000-8000-000000000009',
+        content: 'The address was incorrect',
+        isCorrect: false,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000010',
+        content: 'The weather affected transport',
+        isCorrect: true,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000011',
+        content: 'The warehouse was closed',
+        isCorrect: false,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000012',
+        content: 'The order was cancelled',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -436,9 +549,21 @@ const m03PlacementCoreQuestionSeeds = [
     explanation: 'The caller offers to email an updated delivery schedule.',
     options: [
       { id: '71000000-0000-4000-8000-000000000013', content: 'Refund the order', isCorrect: false },
-      { id: '71000000-0000-4000-8000-000000000014', content: 'Send an updated schedule', isCorrect: true },
-      { id: '71000000-0000-4000-8000-000000000015', content: 'Change the delivery address', isCorrect: false },
-      { id: '71000000-0000-4000-8000-000000000016', content: 'Call the warehouse manager', isCorrect: false },
+      {
+        id: '71000000-0000-4000-8000-000000000014',
+        content: 'Send an updated schedule',
+        isCorrect: true,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000015',
+        content: 'Change the delivery address',
+        isCorrect: false,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000016',
+        content: 'Call the warehouse manager',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -449,10 +574,26 @@ const m03PlacementCoreQuestionSeeds = [
     content: 'What is the purpose of the email?',
     explanation: 'The email confirms the room and time for a scheduled meeting.',
     options: [
-      { id: '71000000-0000-4000-8000-000000000017', content: 'To confirm meeting details', isCorrect: true },
-      { id: '71000000-0000-4000-8000-000000000018', content: 'To request annual leave', isCorrect: false },
-      { id: '71000000-0000-4000-8000-000000000019', content: 'To advertise a conference', isCorrect: false },
-      { id: '71000000-0000-4000-8000-000000000020', content: 'To cancel a reservation', isCorrect: false },
+      {
+        id: '71000000-0000-4000-8000-000000000017',
+        content: 'To confirm meeting details',
+        isCorrect: true,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000018',
+        content: 'To request annual leave',
+        isCorrect: false,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000019',
+        content: 'To advertise a conference',
+        isCorrect: false,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000020',
+        content: 'To cancel a reservation',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -463,9 +604,17 @@ const m03PlacementCoreQuestionSeeds = [
     content: 'Where will the meeting take place?',
     explanation: 'The email names Conference Room B as the meeting location.',
     options: [
-      { id: '71000000-0000-4000-8000-000000000021', content: 'Conference Room A', isCorrect: false },
+      {
+        id: '71000000-0000-4000-8000-000000000021',
+        content: 'Conference Room A',
+        isCorrect: false,
+      },
       { id: '71000000-0000-4000-8000-000000000022', content: 'Conference Room B', isCorrect: true },
-      { id: '71000000-0000-4000-8000-000000000023', content: 'The training center', isCorrect: false },
+      {
+        id: '71000000-0000-4000-8000-000000000023',
+        content: 'The training center',
+        isCorrect: false,
+      },
       { id: '71000000-0000-4000-8000-000000000024', content: 'The main lobby', isCorrect: false },
     ],
   },
@@ -477,10 +626,26 @@ const m03PlacementCoreQuestionSeeds = [
     content: 'What must employees do before Friday?',
     explanation: 'The notice asks employees to update their emergency contact information.',
     options: [
-      { id: '71000000-0000-4000-8000-000000000025', content: 'Submit a travel request', isCorrect: false },
-      { id: '71000000-0000-4000-8000-000000000026', content: 'Update emergency contact details', isCorrect: true },
-      { id: '71000000-0000-4000-8000-000000000027', content: 'Complete a safety course', isCorrect: false },
-      { id: '71000000-0000-4000-8000-000000000028', content: 'Return office equipment', isCorrect: false },
+      {
+        id: '71000000-0000-4000-8000-000000000025',
+        content: 'Submit a travel request',
+        isCorrect: false,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000026',
+        content: 'Update emergency contact details',
+        isCorrect: true,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000027',
+        content: 'Complete a safety course',
+        isCorrect: false,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000028',
+        content: 'Return office equipment',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -492,9 +657,21 @@ const m03PlacementCoreQuestionSeeds = [
     explanation: 'The final sentence directs questions to the Human Resources desk.',
     options: [
       { id: '71000000-0000-4000-8000-000000000029', content: 'The finance team', isCorrect: false },
-      { id: '71000000-0000-4000-8000-000000000030', content: 'The building manager', isCorrect: false },
-      { id: '71000000-0000-4000-8000-000000000031', content: 'The Human Resources desk', isCorrect: true },
-      { id: '71000000-0000-4000-8000-000000000032', content: 'The security office', isCorrect: false },
+      {
+        id: '71000000-0000-4000-8000-000000000030',
+        content: 'The building manager',
+        isCorrect: false,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000031',
+        content: 'The Human Resources desk',
+        isCorrect: true,
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000032',
+        content: 'The security office',
+        isCorrect: false,
+      },
     ],
   },
 ] as const;
@@ -508,10 +685,26 @@ const m03PlacementAdvancedQuestionSeeds = [
     content: 'What caused the supplier to revise its quotation?',
     explanation: 'The supplier revised the quotation after transportation costs increased.',
     options: [
-      { id: '73000000-0000-4000-8000-000000000001', content: 'Higher transportation costs', isCorrect: true },
-      { id: '73000000-0000-4000-8000-000000000002', content: 'A change in product design', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000003', content: 'A smaller order quantity', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000004', content: 'New payment regulations', isCorrect: false },
+      {
+        id: '73000000-0000-4000-8000-000000000001',
+        content: 'Higher transportation costs',
+        isCorrect: true,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000002',
+        content: 'A change in product design',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000003',
+        content: 'A smaller order quantity',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000004',
+        content: 'New payment regulations',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -520,12 +713,29 @@ const m03PlacementAdvancedQuestionSeeds = [
     toeicSkill: ToeicSkill.LISTENING,
     difficulty: QuestionDifficulty.HARD,
     content: 'What is the manager most likely trying to determine?',
-    explanation: 'Comparing purchase price and three-year maintenance reveals the best long-term value.',
+    explanation:
+      'Comparing purchase price and three-year maintenance reveals the best long-term value.',
     options: [
-      { id: '73000000-0000-4000-8000-000000000005', content: 'Which offer provides better long-term value', isCorrect: true },
-      { id: '73000000-0000-4000-8000-000000000006', content: 'Which employee placed the first order', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000007', content: 'Whether the office needs more storage', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000008', content: 'When the current contract was signed', isCorrect: false },
+      {
+        id: '73000000-0000-4000-8000-000000000005',
+        content: 'Which offer provides better long-term value',
+        isCorrect: true,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000006',
+        content: 'Which employee placed the first order',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000007',
+        content: 'Whether the office needs more storage',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000008',
+        content: 'When the current contract was signed',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -536,10 +746,26 @@ const m03PlacementAdvancedQuestionSeeds = [
     content: 'What should employees do before Friday evening?',
     explanation: 'Employees are told to download any cloud files needed during maintenance.',
     options: [
-      { id: '73000000-0000-4000-8000-000000000009', content: 'Download files needed for weekend work', isCorrect: true },
-      { id: '73000000-0000-4000-8000-000000000010', content: 'Replace their office computers', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000011', content: 'Submit a travel expense form', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000012', content: 'Change their account password', isCorrect: false },
+      {
+        id: '73000000-0000-4000-8000-000000000009',
+        content: 'Download files needed for weekend work',
+        isCorrect: true,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000010',
+        content: 'Replace their office computers',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000011',
+        content: 'Submit a travel expense form',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000012',
+        content: 'Change their account password',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -548,12 +774,29 @@ const m03PlacementAdvancedQuestionSeeds = [
     toeicSkill: ToeicSkill.LISTENING,
     difficulty: QuestionDifficulty.MEDIUM,
     content: 'Why might an employee contact the help desk on Monday?',
-    explanation: 'The announcement says to contact the help desk if access does not return after restarting.',
+    explanation:
+      'The announcement says to contact the help desk if access does not return after restarting.',
     options: [
-      { id: '73000000-0000-4000-8000-000000000013', content: 'Cloud access is still unavailable after a restart', isCorrect: true },
-      { id: '73000000-0000-4000-8000-000000000014', content: 'A meeting room is double-booked', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000015', content: 'A printed report is missing', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000016', content: 'The cafeteria opens late', isCorrect: false },
+      {
+        id: '73000000-0000-4000-8000-000000000013',
+        content: 'Cloud access is still unavailable after a restart',
+        isCorrect: true,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000014',
+        content: 'A meeting room is double-booked',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000015',
+        content: 'A printed report is missing',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000016',
+        content: 'The cafeteria opens late',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -562,12 +805,29 @@ const m03PlacementAdvancedQuestionSeeds = [
     toeicSkill: ToeicSkill.READING,
     difficulty: QuestionDifficulty.MEDIUM,
     content: 'What is the purpose of the proposed pilot?',
-    explanation: 'The pilot will test whether staggered hours improve coverage without reducing collaboration.',
+    explanation:
+      'The pilot will test whether staggered hours improve coverage without reducing collaboration.',
     options: [
-      { id: '73000000-0000-4000-8000-000000000017', content: 'To evaluate a staggered-hours arrangement', isCorrect: true },
-      { id: '73000000-0000-4000-8000-000000000018', content: 'To reduce the number of project teams', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000019', content: 'To select a new office location', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000020', content: 'To replace the attendance system', isCorrect: false },
+      {
+        id: '73000000-0000-4000-8000-000000000017',
+        content: 'To evaluate a staggered-hours arrangement',
+        isCorrect: true,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000018',
+        content: 'To reduce the number of project teams',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000019',
+        content: 'To select a new office location',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000020',
+        content: 'To replace the attendance system',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -576,12 +836,29 @@ const m03PlacementAdvancedQuestionSeeds = [
     toeicSkill: ToeicSkill.READING,
     difficulty: QuestionDifficulty.HARD,
     content: 'What concern does the email imply the pilot must address?',
-    explanation: 'The email emphasizes maintaining client coverage and collaboration while allowing flexible hours.',
+    explanation:
+      'The email emphasizes maintaining client coverage and collaboration while allowing flexible hours.',
     options: [
-      { id: '73000000-0000-4000-8000-000000000021', content: 'Service and teamwork must remain reliable', isCorrect: true },
-      { id: '73000000-0000-4000-8000-000000000022', content: 'Employees may need larger desks', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000023', content: 'The company lacks training rooms', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000024', content: 'Managers cannot access payroll records', isCorrect: false },
+      {
+        id: '73000000-0000-4000-8000-000000000021',
+        content: 'Service and teamwork must remain reliable',
+        isCorrect: true,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000022',
+        content: 'Employees may need larger desks',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000023',
+        content: 'The company lacks training rooms',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000024',
+        content: 'Managers cannot access payroll records',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -592,10 +869,26 @@ const m03PlacementAdvancedQuestionSeeds = [
     content: 'When are two competitive quotations normally required?',
     explanation: 'The policy requires two quotations for purchases above the stated threshold.',
     options: [
-      { id: '73000000-0000-4000-8000-000000000025', content: 'When a purchase exceeds the stated threshold', isCorrect: true },
-      { id: '73000000-0000-4000-8000-000000000026', content: 'When an invoice arrives early', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000027', content: 'When supplies are delivered locally', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000028', content: 'When a department hires new staff', isCorrect: false },
+      {
+        id: '73000000-0000-4000-8000-000000000025',
+        content: 'When a purchase exceeds the stated threshold',
+        isCorrect: true,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000026',
+        content: 'When an invoice arrives early',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000027',
+        content: 'When supplies are delivered locally',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000028',
+        content: 'When a department hires new staff',
+        isCorrect: false,
+      },
     ],
   },
   {
@@ -606,10 +899,26 @@ const m03PlacementAdvancedQuestionSeeds = [
     content: 'What must accompany a request to renew an existing service?',
     explanation: 'A renewal request must explain why changing providers would disrupt operations.',
     options: [
-      { id: '73000000-0000-4000-8000-000000000029', content: 'A written operational justification', isCorrect: true },
-      { id: '73000000-0000-4000-8000-000000000030', content: 'A copy of every previous invoice', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000031', content: 'A new employee schedule', isCorrect: false },
-      { id: '73000000-0000-4000-8000-000000000032', content: 'A customer satisfaction survey', isCorrect: false },
+      {
+        id: '73000000-0000-4000-8000-000000000029',
+        content: 'A written operational justification',
+        isCorrect: true,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000030',
+        content: 'A copy of every previous invoice',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000031',
+        content: 'A new employee schedule',
+        isCorrect: false,
+      },
+      {
+        id: '73000000-0000-4000-8000-000000000032',
+        content: 'A customer satisfaction survey',
+        isCorrect: false,
+      },
     ],
   },
 ] as const;
@@ -1213,9 +1522,30 @@ async function main(): Promise<void> {
       },
     });
     const m04Bands = [
-      { id: 'f0400000-0000-4000-8000-000000000001', code: 'FOUNDATION', label: 'Nền tảng', minValue: 0, maxValue: 45, orderIndex: 0 },
-      { id: 'f0400000-0000-4000-8000-000000000002', code: 'DEVELOPING', label: 'Đang phát triển', minValue: 45, maxValue: 70, orderIndex: 1 },
-      { id: 'f0400000-0000-4000-8000-000000000003', code: 'ADVANCING', label: 'Nâng cao', minValue: 70, maxValue: 100, orderIndex: 2 },
+      {
+        id: 'f0400000-0000-4000-8000-000000000001',
+        code: 'FOUNDATION',
+        label: 'Nền tảng',
+        minValue: 0,
+        maxValue: 45,
+        orderIndex: 0,
+      },
+      {
+        id: 'f0400000-0000-4000-8000-000000000002',
+        code: 'DEVELOPING',
+        label: 'Đang phát triển',
+        minValue: 45,
+        maxValue: 70,
+        orderIndex: 1,
+      },
+      {
+        id: 'f0400000-0000-4000-8000-000000000003',
+        code: 'ADVANCING',
+        label: 'Nâng cao',
+        minValue: 70,
+        maxValue: 100,
+        orderIndex: 2,
+      },
     ] as const;
     for (const band of m04Bands) {
       await prisma.evaluationBand.upsert({
@@ -1466,10 +1796,7 @@ async function main(): Promise<void> {
     await prisma.classOffering.updateMany({
       where: {
         id: {
-          in: [
-            '11000000-0000-4000-8000-000000000005',
-            '11000000-0000-4000-8000-000000000006',
-          ],
+          in: ['11000000-0000-4000-8000-000000000005', '11000000-0000-4000-8000-000000000006'],
         },
       },
       data: { status: ClassOfferingStatus.IN_PROGRESS },
@@ -1825,12 +2152,16 @@ async function main(): Promise<void> {
       },
       update: {
         status: EnrollmentStatus.ACTIVE,
+        pricingTypeSnapshot: PricingType.FREE,
+        tuitionFeeVndSnapshot: null,
       },
       create: {
         id: DEMO_ENROLLMENT_ID,
         learnerId: student.id,
         classOfferingId: FREE_OFFERING_ID,
         status: EnrollmentStatus.ACTIVE,
+        pricingTypeSnapshot: PricingType.FREE,
+        tuitionFeeVndSnapshot: null,
       },
     });
 
@@ -1841,12 +2172,18 @@ async function main(): Promise<void> {
           classOfferingId: '11000000-0000-4000-8000-000000000008',
         },
       },
-      update: { status: EnrollmentStatus.ACTIVE },
+      update: {
+        status: EnrollmentStatus.ACTIVE,
+        pricingTypeSnapshot: PricingType.PAID,
+        tuitionFeeVndSnapshot: 1_950_000,
+      },
       create: {
         id: M04_FULL_OFFERING_ENROLLMENT_ID,
         learnerId: student.id,
         classOfferingId: '11000000-0000-4000-8000-000000000008',
         status: EnrollmentStatus.ACTIVE,
+        pricingTypeSnapshot: PricingType.PAID,
+        tuitionFeeVndSnapshot: 1_950_000,
       },
     });
 
@@ -1857,12 +2194,18 @@ async function main(): Promise<void> {
           classOfferingId: PAID_OFFERING_ID,
         },
       },
-      update: { status: EnrollmentStatus.PENDING_PAYMENT },
+      update: {
+        status: EnrollmentStatus.PENDING_PAYMENT,
+        pricingTypeSnapshot: PricingType.PAID,
+        tuitionFeeVndSnapshot: 1_500_000,
+      },
       create: {
         id: '50000000-0000-4000-8000-000000000002',
         learnerId: student.id,
         classOfferingId: PAID_OFFERING_ID,
         status: EnrollmentStatus.PENDING_PAYMENT,
+        pricingTypeSnapshot: PricingType.PAID,
+        tuitionFeeVndSnapshot: 1_500_000,
       },
     });
 
@@ -2303,8 +2646,14 @@ async function main(): Promise<void> {
     }
 
     const nonSeededDemoAttempts = await prisma.testAttempt.findMany({
-      where: { classAssessmentId: DEMO_CLASS_ASSESSMENT_ID, id: { not: DEMO_SUBMITTED_ATTEMPT_ID } },
-      select: { id: true, answers: { select: { id: true, evaluations: { select: { id: true } } } } },
+      where: {
+        classAssessmentId: DEMO_CLASS_ASSESSMENT_ID,
+        id: { not: DEMO_SUBMITTED_ATTEMPT_ID },
+      },
+      select: {
+        id: true,
+        answers: { select: { id: true, evaluations: { select: { id: true } } } },
+      },
     });
     const nonSeededAttemptIds = nonSeededDemoAttempts.map((attempt) => attempt.id);
     const nonSeededAnswerIds = nonSeededDemoAttempts.flatMap((attempt) =>
@@ -2320,11 +2669,21 @@ async function main(): Promise<void> {
       await prisma.answerEvaluation.deleteMany({ where: { id: { in: nonSeededEvaluationIds } } });
     }
     if (nonSeededAttemptIds.length) {
-      await prisma.masteryHistory.deleteMany({ where: { testAttemptId: { in: nonSeededAttemptIds } } });
-      await prisma.studyRecommendation.deleteMany({ where: { sourceAttemptId: { in: nonSeededAttemptIds } } });
-      await prisma.courseRecommendation.deleteMany({ where: { attemptId: { in: nonSeededAttemptIds } } });
-      await prisma.attemptSkillScore.deleteMany({ where: { attemptId: { in: nonSeededAttemptIds } } });
-      await prisma.attemptEvaluation.deleteMany({ where: { attemptId: { in: nonSeededAttemptIds } } });
+      await prisma.masteryHistory.deleteMany({
+        where: { testAttemptId: { in: nonSeededAttemptIds } },
+      });
+      await prisma.studyRecommendation.deleteMany({
+        where: { sourceAttemptId: { in: nonSeededAttemptIds } },
+      });
+      await prisma.courseRecommendation.deleteMany({
+        where: { attemptId: { in: nonSeededAttemptIds } },
+      });
+      await prisma.attemptSkillScore.deleteMany({
+        where: { attemptId: { in: nonSeededAttemptIds } },
+      });
+      await prisma.attemptEvaluation.deleteMany({
+        where: { attemptId: { in: nonSeededAttemptIds } },
+      });
     }
     if (nonSeededAnswerIds.length) {
       await prisma.testAnswer.deleteMany({ where: { id: { in: nonSeededAnswerIds } } });
@@ -2488,6 +2847,13 @@ async function main(): Promise<void> {
       courseId: course.id,
       classOfferingId: FREE_OFFERING_ID,
       passwordHash,
+    });
+    await seedM11(prisma, {
+      studentId: student.id,
+      instructorId: instructor.id,
+      classOfferingId: FREE_OFFERING_ID,
+      activeEnrollmentId: DEMO_ENROLLMENT_ID,
+      paidEnrollmentId: '50000000-0000-4000-8000-000000000002',
     });
 
     console.log(

@@ -1,11 +1,30 @@
 import { ArrowLeft, ArrowRight, CalendarDays, Check, Clock3 } from 'lucide-react';
 import { Link, useParams } from 'react-router';
+import { useEffect, useState } from 'react';
 import { newsCoverUrl } from '@/content/news-assets';
 import { findNewsEvent, newsEvents } from '@/content/news-events';
+import { PublicContent, publicContentApi } from '@/features/public-content/api';
+import { SafeMarkdown } from '@/components/ui/SafeMarkdown';
 
 export function NewsEventDetailPage() {
   const { slug = '' } = useParams();
-  const item = findNewsEvent(slug);
+  const fallback = findNewsEvent(slug);
+  const [remote, setRemote] = useState<PublicContent | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    void publicContentApi
+      .detail(slug)
+      .then(setRemote)
+      .catch(() => setRemote(null))
+      .finally(() => setLoaded(true));
+  }, [slug]);
+  const item = remote ?? fallback;
+  if (!loaded && !fallback && remote)
+    return (
+      <p className="p-12 text-center" role="status">
+        Đang tải bài viết…
+      </p>
+    );
   if (!item)
     return (
       <section className="mx-auto max-w-3xl px-4 py-20 text-center">
@@ -41,11 +60,19 @@ export function NewsEventDetailPage() {
             <div className="mt-6 flex flex-wrap gap-5 text-sm font-medium text-slate-500">
               <span className="inline-flex items-center gap-2">
                 <CalendarDays size={17} />
-                {new Date(item.publishedAt).toLocaleDateString('vi-VN')}
+                {item.publishedAt
+                  ? new Date(item.publishedAt).toLocaleDateString('vi-VN')
+                  : 'Chưa xác định'}
               </span>
               <span className="inline-flex items-center gap-2">
                 <Clock3 size={17} />
-                {item.readMinutes} phút đọc
+                {'readMinutes' in item
+                  ? item.readMinutes
+                  : Math.max(
+                      1,
+                      Math.ceil(((item.bodyMarkdown?.length ?? 0) + item.excerpt.length) / 1000),
+                    )}{' '}
+                phút đọc
               </span>
             </div>
           </div>
@@ -57,38 +84,42 @@ export function NewsEventDetailPage() {
             src={newsCoverUrl(item)}
           />
           <div className="mx-auto mt-12 max-w-3xl space-y-12">
-            {item.sections.map((section) => (
-              <section key={section.heading}>
-                <h2 className="text-2xl font-bold tracking-tight">{section.heading}</h2>
-                {section.paragraphs?.map((paragraph) => (
-                  <p className="mt-4 text-base leading-8 text-slate-700" key={paragraph}>
-                    {paragraph}
-                  </p>
-                ))}
-                {section.bullets && (
-                  <ul className="mt-5 space-y-3">
-                    {section.bullets.map((bullet) => (
-                      <li className="flex gap-3 leading-7 text-slate-700" key={bullet}>
-                        <Check className="mt-1 shrink-0 text-indigo-600" size={19} />
-                        {bullet}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {section.steps && (
-                  <ol className="mt-5 space-y-4">
-                    {section.steps.map((step, index) => (
-                      <li className="flex gap-4 leading-7 text-slate-700" key={step}>
-                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
-                          {index + 1}
-                        </span>
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </section>
-            ))}
+            {'bodyMarkdown' in item && item.bodyMarkdown ? (
+              <SafeMarkdown markdown={item.bodyMarkdown} />
+            ) : 'sections' in item ? (
+              item.sections.map((section) => (
+                <section key={section.heading}>
+                  <h2 className="text-2xl font-bold tracking-tight">{section.heading}</h2>
+                  {section.paragraphs?.map((paragraph) => (
+                    <p className="mt-4 text-base leading-8 text-slate-700" key={paragraph}>
+                      {paragraph}
+                    </p>
+                  ))}
+                  {section.bullets && (
+                    <ul className="mt-5 space-y-3">
+                      {section.bullets.map((bullet) => (
+                        <li className="flex gap-3 leading-7 text-slate-700" key={bullet}>
+                          <Check className="mt-1 shrink-0 text-indigo-600" size={19} />
+                          {bullet}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {section.steps && (
+                    <ol className="mt-5 space-y-4">
+                      {section.steps.map((step, index) => (
+                        <li className="flex gap-4 leading-7 text-slate-700" key={step}>
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
+                            {index + 1}
+                          </span>
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </section>
+              ))
+            ) : null}
           </div>
           <div className="mx-auto mt-12 max-w-3xl rounded-3xl bg-indigo-950 px-6 py-8 text-white sm:px-8">
             <h2 className="text-2xl font-bold">Biến thông tin thành bước học tiếp theo</h2>

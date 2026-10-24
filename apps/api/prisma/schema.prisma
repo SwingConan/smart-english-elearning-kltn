@@ -195,6 +195,39 @@ enum StudyRecommendationTarget {
   PRACTICE
 }
 
+enum PaymentStatus {
+  PENDING
+  SUBMITTED
+  VERIFIED
+  REJECTED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+}
+
+enum ConsultationStatus {
+  REQUESTED
+  CONFIRMED
+  COMPLETED
+  DECLINED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum PublicContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 model User {
   id                     String                @id @default(uuid()) @db.Uuid
   email                  String                @unique
@@ -202,12 +235,21 @@ model User {
   fullName               String
   role                   UserRole
   status                 UserStatus            @default(ACTIVE)
+  phoneNumber            String?               @db.VarChar(32)
   createdCourses         Course[]              @relation("CourseCreatedBy")
   assignedClassOfferings ClassOffering[]       @relation("ClassOfferingInstructor")
   enrollments            Enrollment[]          @relation("LearnerEnrollments")
   testAttempts           TestAttempt[]         @relation("LearnerTestAttempts")
   answerEvaluations      AnswerEvaluation[]    @relation("EvaluationInstructor")
   studyRecommendations   StudyRecommendation[] @relation("LearnerStudyRecommendations")
+  createdRubrics         Rubric[]              @relation("RubricCreatedBy")
+  verifiedPayments       TuitionPayment[]      @relation("PaymentVerifiedBy")
+  consultationRequests   ConsultationRequest[] @relation("ConsultationInstructor")
+  attendanceSessions     AttendanceSession[]   @relation("AttendanceSessionCreatedBy")
+  attendanceRecords      AttendanceRecord[]    @relation("AttendanceRecordRecordedBy")
+  revokedCertificates    Certificate[]         @relation("CertificateRevokedBy")
+  createdPublicContent   PublicContent[]       @relation("PublicContentCreatedBy")
+  updatedPublicContent   PublicContent[]       @relation("PublicContentUpdatedBy")
   passwordResetTokens    PasswordResetToken[]
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
@@ -281,29 +323,31 @@ model CourseAdaptivePolicy {
 }
 
 model ClassOffering {
-  id               String              @id @default(uuid()) @db.Uuid
-  courseId         String              @db.Uuid
-  instructorId     String?             @db.Uuid
-  code             String              @unique @default(uuid())
-  name             String
-  status           ClassOfferingStatus @default(DRAFT)
-  modality         ClassModality       @default(ONLINE)
-  pricingType      PricingType         @default(FREE)
-  tuitionFeeVnd    Int?
-  maxStudents      Int?
-  totalSessions    Int?
-  totalPeriods     Int?
-  enrollmentStart  DateTime?
-  enrollmentEnd    DateTime?
-  classStart       DateTime?
-  classEnd         DateTime?
-  course           Course              @relation(fields: [courseId], references: [id])
-  instructor       User?               @relation("ClassOfferingInstructor", fields: [instructorId], references: [id])
-  enrollments      Enrollment[]
-  scheduleSlots    ClassScheduleSlot[]
-  classAssessments ClassAssessment[]
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  id                 String              @id @default(uuid()) @db.Uuid
+  courseId           String              @db.Uuid
+  instructorId       String?             @db.Uuid
+  code               String              @unique @default(uuid())
+  name               String
+  status             ClassOfferingStatus @default(DRAFT)
+  modality           ClassModality       @default(ONLINE)
+  pricingType        PricingType         @default(FREE)
+  tuitionFeeVnd      Int?
+  maxStudents        Int?
+  totalSessions      Int?
+  totalPeriods       Int?
+  enrollmentStart    DateTime?
+  enrollmentEnd      DateTime?
+  classStart         DateTime?
+  classEnd           DateTime?
+  course             Course              @relation(fields: [courseId], references: [id])
+  instructor         User?               @relation("ClassOfferingInstructor", fields: [instructorId], references: [id])
+  enrollments        Enrollment[]
+  scheduleSlots      ClassScheduleSlot[]
+  classAssessments   ClassAssessment[]
+  attendanceSessions AttendanceSession[]
+  completionPolicy   CompletionPolicy?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@index([courseId])
   @@index([status])
@@ -312,16 +356,17 @@ model ClassOffering {
 }
 
 model ClassScheduleSlot {
-  id              String        @id @default(uuid()) @db.Uuid
-  classOfferingId String        @db.Uuid
-  dayOfWeek       Int           @db.SmallInt
-  startTime       DateTime      @db.Time
-  endTime         DateTime      @db.Time
-  locationText    String?
-  meetingUrl      String?
-  classOffering   ClassOffering @relation(fields: [classOfferingId], references: [id], onDelete: Restrict)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                 String              @id @default(uuid()) @db.Uuid
+  classOfferingId    String              @db.Uuid
+  dayOfWeek          Int                 @db.SmallInt
+  startTime          DateTime            @db.Time
+  endTime            DateTime            @db.Time
+  locationText       String?
+  meetingUrl         String?
+  classOffering      ClassOffering       @relation(fields: [classOfferingId], references: [id], onDelete: Restrict)
+  attendanceSessions AttendanceSession[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@index([classOfferingId])
   @@index([classOfferingId, dayOfWeek])
@@ -329,19 +374,25 @@ model ClassScheduleSlot {
 }
 
 model Enrollment {
-  id                   String                @id @default(uuid()) @db.Uuid
-  learnerId            String                @db.Uuid
-  classOfferingId      String                @db.Uuid
-  status               EnrollmentStatus
-  learner              User                  @relation("LearnerEnrollments", fields: [learnerId], references: [id])
-  classOffering        ClassOffering         @relation(fields: [classOfferingId], references: [id])
-  lessonProgress       LessonProgress[]
-  testAttempts         TestAttempt[]
-  learnerSkills        LearnerSkillState[]
-  masteryHistory       MasteryHistory[]
-  studyRecommendations StudyRecommendation[]
-  enrolledAt           DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  id                    String                @id @default(uuid()) @db.Uuid
+  learnerId             String                @db.Uuid
+  classOfferingId       String                @db.Uuid
+  status                EnrollmentStatus
+  pricingTypeSnapshot   PricingType           @default(FREE)
+  tuitionFeeVndSnapshot Int?
+  learner               User                  @relation("LearnerEnrollments", fields: [learnerId], references: [id])
+  classOffering         ClassOffering         @relation(fields: [classOfferingId], references: [id])
+  lessonProgress        LessonProgress[]
+  testAttempts          TestAttempt[]
+  learnerSkills         LearnerSkillState[]
+  masteryHistory        MasteryHistory[]
+  studyRecommendations  StudyRecommendation[]
+  tuitionPayments       TuitionPayment[]
+  consultationRequests  ConsultationRequest[]
+  attendanceRecords     AttendanceRecord[]
+  courseCompletion      CourseCompletion?
+  enrolledAt            DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
   @@unique([learnerId, classOfferingId])
   @@index([learnerId])
@@ -651,13 +702,187 @@ model Rubric {
   name        String
   description String?           @db.Text
   isActive    Boolean           @default(true)
+  createdById String?           @db.Uuid
+  createdBy   User?             @relation("RubricCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   criteria    RubricCriterion[]
   questions   Question[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
   @@index([isActive])
+  @@index([createdById])
   @@map("rubrics")
+}
+
+model TuitionPayment {
+  id             String        @id @default(uuid()) @db.Uuid
+  enrollmentId   String        @db.Uuid
+  method         PaymentMethod @default(BANK_TRANSFER)
+  status         PaymentStatus @default(PENDING)
+  amountVnd      Int
+  referenceCode  String        @unique
+  payerReference String?       @db.VarChar(128)
+  learnerNote    String?       @db.Text
+  adminNote      String?       @db.Text
+  submittedAt    DateTime?
+  verifiedAt     DateTime?
+  verifiedById   String?       @db.Uuid
+  enrollment     Enrollment    @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  verifiedBy     User?         @relation("PaymentVerifiedBy", fields: [verifiedById], references: [id], onDelete: Restrict)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([enrollmentId, status])
+  @@index([status, createdAt])
+  @@index([verifiedById])
+  @@map("tuition_payments")
+}
+
+model ConsultationRequest {
+  id               String             @id @default(uuid()) @db.Uuid
+  enrollmentId     String             @db.Uuid
+  instructorId     String             @db.Uuid
+  status           ConsultationStatus @default(REQUESTED)
+  topic            String
+  learnerNote      String?            @db.Text
+  instructorNote   String?            @db.Text
+  requestedStartAt DateTime
+  confirmedStartAt DateTime?
+  durationMinutes  Int
+  meetingUrl       String?
+  declineReason    String?            @db.Text
+  cancelledAt      DateTime?
+  completedAt      DateTime?
+  enrollment       Enrollment         @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  instructor       User               @relation("ConsultationInstructor", fields: [instructorId], references: [id], onDelete: Restrict)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([enrollmentId, status])
+  @@index([instructorId, status])
+  @@index([requestedStartAt])
+  @@index([confirmedStartAt])
+  @@map("consultation_requests")
+}
+
+model AttendanceSession {
+  id              String             @id @default(uuid()) @db.Uuid
+  classOfferingId String             @db.Uuid
+  scheduleSlotId  String?            @db.Uuid
+  sessionDate     DateTime           @db.Date
+  title           String?
+  note            String?            @db.Text
+  createdById     String             @db.Uuid
+  classOffering   ClassOffering      @relation(fields: [classOfferingId], references: [id], onDelete: Restrict)
+  scheduleSlot    ClassScheduleSlot? @relation(fields: [scheduleSlotId], references: [id], onDelete: SetNull)
+  createdBy       User               @relation("AttendanceSessionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  records         AttendanceRecord[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([classOfferingId, sessionDate])
+  @@index([scheduleSlotId])
+  @@index([createdById])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  id                  String            @id @default(uuid()) @db.Uuid
+  attendanceSessionId String            @db.Uuid
+  enrollmentId        String            @db.Uuid
+  status              AttendanceStatus
+  note                String?           @db.Text
+  recordedById        String            @db.Uuid
+  attendanceSession   AttendanceSession @relation(fields: [attendanceSessionId], references: [id], onDelete: Cascade)
+  enrollment          Enrollment        @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  recordedBy          User              @relation("AttendanceRecordRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@unique([attendanceSessionId, enrollmentId])
+  @@index([enrollmentId, status])
+  @@index([recordedById])
+  @@map("attendance_records")
+}
+
+model CompletionPolicy {
+  id                         String             @id @default(uuid()) @db.Uuid
+  classOfferingId            String             @unique @db.Uuid
+  minLessonCompletionPercent Int                @default(100)
+  minAttendancePercent       Int?
+  requireFinalAssessment     Boolean            @default(true)
+  classOffering              ClassOffering      @relation(fields: [classOfferingId], references: [id], onDelete: Restrict)
+  completions                CourseCompletion[]
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+
+  @@map("completion_policies")
+}
+
+model CourseCompletion {
+  id               String            @id @default(uuid()) @db.Uuid
+  enrollmentId     String            @unique @db.Uuid
+  policyId         String?           @db.Uuid
+  criteriaSnapshot Json
+  evidenceSnapshot Json
+  completedAt      DateTime
+  enrollment       Enrollment        @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  policy           CompletionPolicy? @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  certificate      Certificate?
+  createdAt        DateTime          @default(now())
+
+  @@index([policyId])
+  @@map("course_completions")
+}
+
+model Certificate {
+  id                   String           @id @default(uuid()) @db.Uuid
+  completionId         String           @unique @db.Uuid
+  certificateNumber    String           @unique
+  learnerNameSnapshot  String
+  learnerEmailSnapshot String
+  courseTitleSnapshot  String
+  classNameSnapshot    String
+  classCodeSnapshot    String
+  issuedAt             DateTime
+  revokedAt            DateTime?
+  revokedById          String?          @db.Uuid
+  revokeReason         String?          @db.Text
+  completion           CourseCompletion @relation(fields: [completionId], references: [id], onDelete: Restrict)
+  revokedBy            User?            @relation("CertificateRevokedBy", fields: [revokedById], references: [id], onDelete: Restrict)
+  createdAt            DateTime         @default(now())
+
+  @@index([issuedAt])
+  @@index([revokedAt])
+  @@index([revokedById])
+  @@map("certificates")
+}
+
+model PublicContent {
+  id            String              @id @default(uuid()) @db.Uuid
+  slug          String              @unique
+  category      String
+  title         String
+  excerpt       String              @db.Text
+  bodyMarkdown  String              @db.Text
+  coverKey      String?
+  coverImageUrl String?
+  featured      Boolean             @default(false)
+  status        PublicContentStatus @default(DRAFT)
+  publishedAt   DateTime?
+  createdById   String              @db.Uuid
+  updatedById   String              @db.Uuid
+  createdBy     User                @relation("PublicContentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy     User                @relation("PublicContentUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([category])
+  @@index([featured, status])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("public_content")
 }
 
 model RubricCriterion {

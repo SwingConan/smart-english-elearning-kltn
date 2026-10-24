@@ -363,7 +363,6 @@ describe('Student learning APIs (e2e)', () => {
 
     for (const status of [
       EnrollmentStatus.PENDING_PAYMENT,
-      EnrollmentStatus.COMPLETED,
       EnrollmentStatus.DROPPED,
       EnrollmentStatus.CANCELLED,
     ]) {
@@ -381,6 +380,26 @@ describe('Student learning APIs (e2e)', () => {
         .get(`/api/learning/enrollments/${enrollmentId}/mastery/${observedSkillId}/history`)
         .expect(404);
     }
+
+    const completedEnrollmentId = id(EnrollmentStatus.COMPLETED);
+    await studentAgent
+      .get(`/api/learning/enrollments/${completedEnrollmentId}/content`)
+      .expect(200);
+    await studentAgent
+      .get(`/api/learning/enrollments/${completedEnrollmentId}/progress`)
+      .expect(200);
+    await studentAgent
+      .get(`/api/learning/enrollments/${completedEnrollmentId}/mastery`)
+      .expect(200);
+    await studentAgent
+      .get(`/api/learning/enrollments/${completedEnrollmentId}/mastery/${observedSkillId}/history`)
+      .expect(200);
+    await studentAgent
+      .post(`/api/learning/enrollments/${completedEnrollmentId}/lessons/${lessonAId}/open`)
+      .expect(404);
+    await studentAgent
+      .patch(`/api/learning/enrollments/${completedEnrollmentId}/lessons/${lessonAId}/complete`)
+      .expect(404);
   });
 
   it('returns mixed mastery with stable ordering and performs no GET-side writes', async () => {

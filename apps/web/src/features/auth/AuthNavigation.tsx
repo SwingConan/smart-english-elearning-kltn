@@ -49,7 +49,7 @@ export function AuthNavigation() {
       ) : null}
       {user.role === 'INSTRUCTOR' ? <Link to="/instructor/teaching">Lớp giảng dạy</Link> : null}
       {user.role === 'STUDENT' ? <Link to="/student/enrollments">Khóa học của tôi</Link> : null}
-      <span>{user.fullName}</span>
+      <Link to="/profile">{user.fullName}</Link>
       <button
         className="rounded-lg border border-slate-300 px-3 py-2 font-semibold transition hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-50"
         disabled={isLoggingOut}

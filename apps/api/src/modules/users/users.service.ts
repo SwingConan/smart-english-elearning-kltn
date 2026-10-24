@@ -1,12 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { Prisma, UserRole, UserStatus } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import {
-  PublicUser,
-  publicUserSelect,
-  UserCredentials,
-  userCredentialsSelect,
-} from './user.types';
+import { PublicUser, publicUserSelect, UserCredentials, userCredentialsSelect } from './user.types';
 
 interface CreateStudentInput {
   email: string;
@@ -36,6 +31,17 @@ export class UsersService {
     });
   }
 
+  updateProfile(id: string, input: { fullName: string; phoneNumber?: string | null }) {
+    return this.prisma.user.update({
+      where: { id },
+      data: {
+        fullName: input.fullName.trim().replace(/\s+/g, ' '),
+        phoneNumber: input.phoneNumber?.trim().replace(/\s+/g, ' ') || null,
+      },
+      select: publicUserSelect,
+    });
+  }
+
   async createStudent(input: CreateStudentInput): Promise<PublicUser> {
     try {
       return await this.prisma.user.create({
@@ -49,10 +55,7 @@ export class UsersService {
         select: publicUserSelect,
       });
     } catch (error: unknown) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('An account with this email already exists');
       }
 

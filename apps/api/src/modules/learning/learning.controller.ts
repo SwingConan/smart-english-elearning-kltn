@@ -1,4 +1,13 @@
-import { Controller, Get, Patch, Param, ParseUUIDPipe, Post, Res, StreamableFile } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Res,
+  StreamableFile,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { LearningService } from './learning.service';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -6,11 +15,23 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole } from '../../generated/prisma/client';
 import { PublicUser } from '../users/user.types';
 import { contentDisposition } from './content-disposition';
+import { LearningReportService } from './learning-report.service';
 
 @Roles(UserRole.STUDENT)
 @Controller('learning')
 export class LearningController {
-  constructor(private readonly learningService: LearningService) {}
+  constructor(
+    private readonly learningService: LearningService,
+    private readonly reports: LearningReportService,
+  ) {}
+
+  @Get('enrollments/:enrollmentId/report')
+  getReport(
+    @CurrentUser() user: PublicUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) enrollmentId: string,
+  ) {
+    return this.reports.get(user.id, enrollmentId);
+  }
 
   @Get('enrollments/:enrollmentId/content')
   async getContent(
@@ -53,10 +74,17 @@ export class LearningController {
     @Param('resourceId', new ParseUUIDPipe()) resourceId: string,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const resource = await this.learningService.getResourceDownload(user.id, enrollmentId, resourceId);
+    const resource = await this.learningService.getResourceDownload(
+      user.id,
+      enrollmentId,
+      resourceId,
+    );
     if (resource.delivery === 'STORAGE') {
       response.setHeader('Content-Type', resource.mimeType);
-      response.setHeader('Content-Disposition', contentDisposition('attachment', resource.fileName));
+      response.setHeader(
+        'Content-Disposition',
+        contentDisposition('attachment', resource.fileName),
+      );
       response.setHeader('Cache-Control', 'private, no-store');
       return new StreamableFile(resource.stream);
     }

@@ -77,26 +77,28 @@ describe('LearningService', () => {
 
   afterEach(() => jest.useRealTimers());
 
-  it('scopes every learning request to the current learner and ACTIVE enrollment', async () => {
+  it('scopes read-only learning requests to the learner and ACTIVE or COMPLETED enrollment', async () => {
     await service.getContent(learnerId, enrollmentId);
     expect(prisma.enrollment.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: enrollmentId, learnerId, status: EnrollmentStatus.ACTIVE },
+        where: {
+          id: enrollmentId,
+          learnerId,
+          status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED] },
+        },
       }),
     );
   });
 
-  it.each([
-    EnrollmentStatus.PENDING_PAYMENT,
-    EnrollmentStatus.COMPLETED,
-    EnrollmentStatus.DROPPED,
-    EnrollmentStatus.CANCELLED,
-  ])('returns 404 for unavailable enrollment status %s', async (status) => {
-    prisma.enrollment.findFirst.mockResolvedValue(null);
-    await expect(
-      service.getProgress(learnerId, `${enrollmentId}-${status}`),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
+  it.each([EnrollmentStatus.PENDING_PAYMENT, EnrollmentStatus.DROPPED, EnrollmentStatus.CANCELLED])(
+    'returns 404 for unavailable enrollment status %s',
+    async (status) => {
+      prisma.enrollment.findFirst.mockResolvedValue(null);
+      await expect(
+        service.getProgress(learnerId, `${enrollmentId}-${status}`),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    },
+  );
 
   it('returns 404 for another learner and a cross-course lesson', async () => {
     prisma.enrollment.findFirst.mockResolvedValueOnce(null);
@@ -141,17 +143,19 @@ describe('LearningService', () => {
       test: { id: 'practice-test', title: 'Bài luyện sau bài học — Part 1' },
     });
     const result = await service.openLesson(learnerId, enrollmentId, lessonId);
-    expect(prisma.classAssessment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({
-        classOfferingId: enrollment.classOfferingId,
-        isActive: true,
-        test: {
-          lessonId,
-          purpose: 'PRACTICE_MOCK',
-          status: 'PUBLISHED',
-        },
+    expect(prisma.classAssessment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          classOfferingId: enrollment.classOfferingId,
+          isActive: true,
+          test: {
+            lessonId,
+            purpose: 'PRACTICE_MOCK',
+            status: 'PUBLISHED',
+          },
+        }),
       }),
-    }));
+    );
     expect(result.practice).toEqual({
       classAssessmentId: 'practice-assessment',
       testId: 'practice-test',
@@ -164,9 +168,11 @@ describe('LearningService', () => {
     await expect(service.openLesson(learnerId, enrollmentId, lessonId)).resolves.toMatchObject({
       practice: null,
     });
-    expect(prisma.classAssessment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ classOfferingId: 'offering-id', isActive: true }),
-    }));
+    expect(prisma.classAssessment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ classOfferingId: 'offering-id', isActive: true }),
+      }),
+    );
   });
 
   it.each([LessonProgressStatus.IN_PROGRESS, LessonProgressStatus.COMPLETED])(

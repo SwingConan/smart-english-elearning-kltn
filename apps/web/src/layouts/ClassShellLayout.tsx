@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { BarChart3, BookOpen, ClipboardList, Home, Lightbulb, Menu, Trophy } from 'lucide-react';
+import {
+  Award,
+  BarChart3,
+  BookOpen,
+  ClipboardList,
+  Home,
+  Lightbulb,
+  Menu,
+  MessagesSquare,
+  Radio,
+  Trophy,
+} from 'lucide-react';
 import { Link, NavLink, Outlet, useMatch, useParams } from 'react-router';
 import { OverlayDrawer } from '@/components/ui/OverlayDrawer';
 import { enrollmentApi } from '@/features/enrollments/api';
@@ -54,7 +65,7 @@ export function ClassShellLayout() {
         retry={state === 'error' ? () => setReload((value) => value + 1) : undefined}
       />
     );
-  if (enrollment.status !== 'ACTIVE')
+  if (!['ACTIVE', 'COMPLETED'].includes(enrollment.status))
     return (
       <section className="mx-auto max-w-3xl px-4 py-16">
         <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8">
@@ -77,6 +88,10 @@ export function ClassShellLayout() {
     [Trophy, `${base}/results`, 'Kết quả', false],
     [Lightbulb, `${base}/recommendations`, 'Gợi ý tự học', false],
     [BarChart3, `${base}/progress`, 'Tiến độ', false],
+    [BarChart3, `${base}/report`, 'Báo cáo học tập', false],
+    [MessagesSquare, `${base}/consultations`, 'Tư vấn', false],
+    [Radio, `${base}/live-class`, 'Lớp trực tuyến', false],
+    [Award, `${base}/certificate`, 'Chứng chỉ', false],
   ] as const;
   const navigation = (
     <nav aria-label="Điều hướng lớp học" className="space-y-1">

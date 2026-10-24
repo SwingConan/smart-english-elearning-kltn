@@ -33,6 +33,7 @@ import { UpdateTestQuestionDto } from './dto/update-test-question.dto';
 import { UpdateTestDto } from './dto/update-test.dto';
 import { QuestionQueryDto } from './dto/question-query.dto';
 import { ConfirmQuestionImportDto } from './dto/confirm-question-import.dto';
+import { CreateRubricDto, UpdateRubricDto } from './dto/rubric.dto';
 import {
   CreateTestGroupDto,
   CreateTextStimulusDto,
@@ -51,14 +52,47 @@ export class AssessmentInstructorController {
 
   @Get('rubrics')
   @ApiOperation({ summary: 'List active grading rubrics' })
-  listRubrics() {
-    return this.assessmentInstructorService.listActiveRubrics();
+  listRubrics(@CurrentUser() user: PublicUser) {
+    return this.assessmentInstructorService.listRubrics(user.id);
   }
 
   @Get('rubrics/:rubricId')
   @ApiOperation({ summary: 'Read an active grading rubric' })
-  getRubric(@Param('rubricId', new ParseUUIDPipe()) rubricId: string) {
-    return this.assessmentInstructorService.getActiveRubric(rubricId);
+  getRubric(
+    @CurrentUser() user: PublicUser,
+    @Param('rubricId', new ParseUUIDPipe()) rubricId: string,
+  ) {
+    return this.assessmentInstructorService.getRubric(user.id, rubricId);
+  }
+
+  @Post('rubrics')
+  createRubric(@CurrentUser() user: PublicUser, @Body() input: CreateRubricDto) {
+    return this.assessmentInstructorService.createRubric(user.id, input);
+  }
+
+  @Patch('rubrics/:rubricId')
+  updateRubric(
+    @CurrentUser() user: PublicUser,
+    @Param('rubricId', new ParseUUIDPipe()) rubricId: string,
+    @Body() input: UpdateRubricDto,
+  ) {
+    return this.assessmentInstructorService.updateRubric(user.id, rubricId, input);
+  }
+
+  @Post('rubrics/:rubricId/deactivate')
+  deactivateRubric(
+    @CurrentUser() user: PublicUser,
+    @Param('rubricId', new ParseUUIDPipe()) rubricId: string,
+  ) {
+    return this.assessmentInstructorService.setRubricActive(user.id, rubricId, false);
+  }
+
+  @Post('rubrics/:rubricId/reactivate')
+  reactivateRubric(
+    @CurrentUser() user: PublicUser,
+    @Param('rubricId', new ParseUUIDPipe()) rubricId: string,
+  ) {
+    return this.assessmentInstructorService.setRubricActive(user.id, rubricId, true);
   }
 
   @Get('courses/:courseId/questions')
@@ -79,8 +113,14 @@ export class AssessmentInstructorController {
     @Res() response: Response,
   ) {
     const file = await this.assessmentInstructorService.questionImportTemplate(user.id, courseId);
-    response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    response.setHeader('Content-Disposition', 'attachment; filename="question-import-template.xlsx"');
+    response.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    response.setHeader(
+      'Content-Disposition',
+      'attachment; filename="question-import-template.xlsx"',
+    );
     response.send(file);
   }
 
@@ -206,12 +246,20 @@ export class AssessmentInstructorController {
   }
 
   @Post('tests/:testId/groups')
-  createTestGroup(@CurrentUser() user: PublicUser, @Param('testId', new ParseUUIDPipe()) testId: string, @Body() dto: CreateTestGroupDto) {
+  createTestGroup(
+    @CurrentUser() user: PublicUser,
+    @Param('testId', new ParseUUIDPipe()) testId: string,
+    @Body() dto: CreateTestGroupDto,
+  ) {
     return this.assessmentInstructorService.createTestGroup(user.id, testId, dto);
   }
 
   @Patch('tests/:testId/groups/reorder')
-  reorderTestGroups(@CurrentUser() user: PublicUser, @Param('testId', new ParseUUIDPipe()) testId: string, @Body() dto: ReorderTestGroupsDto) {
+  reorderTestGroups(
+    @CurrentUser() user: PublicUser,
+    @Param('testId', new ParseUUIDPipe()) testId: string,
+    @Body() dto: ReorderTestGroupsDto,
+  ) {
     return this.assessmentInstructorService.reorderTestGroups(user.id, testId, dto);
   }
 
@@ -331,7 +379,12 @@ export class AssessmentInstructorController {
     @Param('testQuestionId', new ParseUUIDPipe()) testQuestionId: string,
     @Body() dto: MoveTestQuestionGroupDto,
   ) {
-    return this.assessmentInstructorService.moveTestQuestionGroup(user.id, testId, testQuestionId, dto.groupId ?? null);
+    return this.assessmentInstructorService.moveTestQuestionGroup(
+      user.id,
+      testId,
+      testQuestionId,
+      dto.groupId ?? null,
+    );
   }
 
   @Patch('tests/:testId/questions/:testQuestionId')

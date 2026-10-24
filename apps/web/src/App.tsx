@@ -68,6 +68,19 @@ import { StudyRecommendationsPage } from '@/pages/StudyRecommendationsPage';
 import { SystemStatusPage } from '@/pages/SystemStatusPage';
 import { TestEditorPage } from '@/pages/TestEditorPage';
 import { TestManagementPage } from '@/pages/TestManagementPage';
+import { ProfilePage } from '@/pages/ProfilePage';
+import { StudentPaymentPage } from '@/pages/StudentPaymentPage';
+import { StudentConsultationsPage } from '@/pages/StudentConsultationsPage';
+import { LiveClassPage } from '@/pages/LiveClassPage';
+import { LearningReportPage } from '@/pages/LearningReportPage';
+import { CertificatesPage, EnrollmentCertificatePage } from '@/pages/CertificatesPage';
+import { InstructorRubricsPage } from '@/pages/InstructorRubricsPage';
+import { InstructorConsultationsPage } from '@/pages/InstructorConsultationsPage';
+import { InstructorAttendancePage } from '@/pages/InstructorAttendancePage';
+import { AdminPaymentsPage } from '@/pages/AdminPaymentsPage';
+import { AdminCertificatesPage } from '@/pages/AdminCertificatesPage';
+import { AdminCompletionPolicyPage } from '@/pages/AdminCompletionPolicyPage';
+import { AdminPublicContentPage } from '@/pages/AdminPublicContentPage';
 
 const student = (element: ReactNode) => <RoleRoute allowedRoles={['STUDENT']}>{element}</RoleRoute>;
 const instructor = (element: ReactNode) => (
@@ -75,6 +88,9 @@ const instructor = (element: ReactNode) => (
 );
 const admin = (element: ReactNode) => (
   <RoleRoute allowedRoles={['ADMIN_COORDINATOR']}>{element}</RoleRoute>
+);
+const authenticated = (element: ReactNode) => (
+  <RoleRoute allowedRoles={['STUDENT', 'INSTRUCTOR', 'ADMIN_COORDINATOR']}>{element}</RoleRoute>
 );
 
 export function App() {
@@ -96,6 +112,7 @@ export function App() {
         <Route path="register" element={<RegisterPage />} />
         <Route path="forgot-password" element={<ForgotPasswordPage />} />
         <Route path="reset-password" element={<ResetPasswordPage />} />
+        <Route path="profile" element={authenticated(<ProfilePage />)} />
 
         <Route path="instructor/teaching" element={instructor(<InstructorTeachingPage />)} />
         <Route
@@ -123,6 +140,7 @@ export function App() {
           element={instructor(<TestManagementPage />)}
         />
         <Route path="instructor/tests/:testId/edit" element={instructor(<TestEditorPage />)} />
+        <Route path="instructor/rubrics" element={instructor(<InstructorRubricsPage />)} />
         <Route
           path="instructor/classes/:classOfferingId"
           element={instructor(<InstructorClassWorkspaceLayout />)}
@@ -134,6 +152,8 @@ export function App() {
           <Route path="assessments" element={<ClassAssessmentManagementPage />} />
           <Route path="grading" element={<InstructorClassGradingPage />} />
           <Route path="results" element={<InstructorClassResultsPage />} />
+          <Route path="consultations" element={<InstructorConsultationsPage />} />
+          <Route path="attendance" element={<InstructorAttendancePage />} />
           <Route
             path="assessments/:classAssessmentId/grading"
             element={<AssessmentGradingQueuePage />}
@@ -156,6 +176,9 @@ export function App() {
         <Route path="accounts" element={<AdminAccountsPage />} />
         <Route path="accounts/new" element={<AdminAccountCreatePage />} />
         <Route path="accounts/:userId" element={<AdminAccountDetailPage />} />
+        <Route path="payments" element={<AdminPaymentsPage />} />
+        <Route path="certificates" element={<AdminCertificatesPage />} />
+        <Route path="public-content" element={<AdminPublicContentPage />} />
         <Route path="class-offerings/new" element={<AdminClassOfferingEditorPage />} />
         <Route
           path="class-offerings/:classOfferingId/edit"
@@ -164,6 +187,10 @@ export function App() {
         <Route
           path="class-offerings/:classOfferingId/operations"
           element={<AdminClassOfferingOperationsPage />}
+        />
+        <Route
+          path="class-offerings/:classOfferingId/completion"
+          element={<AdminCompletionPolicyPage />}
         />
         <Route path="criteria" element={<AdminCriteriaLayout />}>
           <Route index element={<Navigate replace to="evaluation" />} />
@@ -186,6 +213,8 @@ export function App() {
 
       <Route element={student(<StudentLayout />)}>
         <Route path="student/enrollments" element={<MyEnrollmentsPage />} />
+        <Route path="student/enrollments/:enrollmentId/payment" element={<StudentPaymentPage />} />
+        <Route path="student/certificates" element={<CertificatesPage />} />
       </Route>
       <Route element={student(<PlacementExamLayout />)}>
         <Route path="placement/attempts/:attemptId/exam" element={<PlacementExamPage />} />
@@ -199,6 +228,10 @@ export function App() {
         <Route path="results" element={<ClassResultsPage />} />
         <Route path="recommendations" element={<StudyRecommendationsPage />} />
         <Route path="progress" element={<ProgressPage />} />
+        <Route path="report" element={<LearningReportPage />} />
+        <Route path="consultations" element={<StudentConsultationsPage />} />
+        <Route path="live-class" element={<LiveClassPage />} />
+        <Route path="certificate" element={<EnrollmentCertificatePage />} />
         <Route path="attempts/:attemptId" element={<StudentTestAttemptPage />} />
         <Route path="attempts/:attemptId/result" element={<StudentTestResultPage />} />
       </Route>

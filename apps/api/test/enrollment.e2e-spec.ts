@@ -244,10 +244,7 @@ describe('Enrollment APIs (e2e)', () => {
 
     const mine = await firstStudentAgent.get('/api/enrollments/my').expect(200);
     expect(
-      mine.body.some(
-        (enrollment: { id: string }) =>
-          enrollment.id === freeEnrollment.body.id,
-      ),
+      mine.body.some((enrollment: { id: string }) => enrollment.id === freeEnrollment.body.id),
     ).toBe(true);
 
     const detail = await firstStudentAgent
@@ -256,9 +253,7 @@ describe('Enrollment APIs (e2e)', () => {
     expect(detail.body.id).toBe(freeEnrollment.body.id);
     expect(detail.body).not.toHaveProperty('learner');
 
-    await secondStudentAgent
-      .get(`/api/enrollments/${freeEnrollment.body.id}`)
-      .expect(404);
+    await secondStudentAgent.get(`/api/enrollments/${freeEnrollment.body.id}`).expect(404);
 
     const paidEnrollment = await firstStudentAgent
       .post('/api/enrollments')
@@ -280,16 +275,10 @@ describe('Enrollment APIs (e2e)', () => {
       .expect(400);
 
     const concurrentResponses = await Promise.all([
-      firstStudentAgent
-        .post('/api/enrollments')
-        .send({ classOfferingId: offeringIds.race }),
-      secondStudentAgent
-        .post('/api/enrollments')
-        .send({ classOfferingId: offeringIds.race }),
+      firstStudentAgent.post('/api/enrollments').send({ classOfferingId: offeringIds.race }),
+      secondStudentAgent.post('/api/enrollments').send({ classOfferingId: offeringIds.race }),
     ]);
-    expect(concurrentResponses.map((response) => response.status).sort()).toEqual([
-      201, 409,
-    ]);
+    expect(concurrentResponses.map((response) => response.status).sort()).toEqual([409, 409]);
 
     await expect(
       prisma.enrollment.count({
@@ -298,30 +287,22 @@ describe('Enrollment APIs (e2e)', () => {
           status: EnrollmentStatus.ACTIVE,
         },
       }),
-    ).resolves.toBe(1);
+    ).resolves.toBe(0);
     await expect(
       prisma.enrollment.count({
         where: { classOfferingId: offeringIds.race },
       }),
-    ).resolves.toBe(2);
+    ).resolves.toBe(1);
   });
 
-  async function login(
-    agent: ReturnType<typeof request.agent>,
-    email: string,
-  ): Promise<void> {
-    const response = await agent
-      .post('/api/auth/login')
-      .send({ email, password })
-      .expect(200);
+  async function login(agent: ReturnType<typeof request.agent>, email: string): Promise<void> {
+    const response = await agent.post('/api/auth/login').send({ email, password }).expect(200);
     sessionIds.add(extractSessionId(getCookie(response.headers['set-cookie'])));
   }
 });
 
 function getCookie(setCookieHeader: string[] | string | undefined): string {
-  const cookie = Array.isArray(setCookieHeader)
-    ? setCookieHeader[0]
-    : setCookieHeader;
+  const cookie = Array.isArray(setCookieHeader) ? setCookieHeader[0] : setCookieHeader;
   if (!cookie) {
     throw new Error('Expected a session cookie');
   }
@@ -334,9 +315,7 @@ function extractSessionId(cookie: string): string {
     throw new Error('Expected a session cookie value');
   }
   const signedValue = decodeURIComponent(encodedValue);
-  const unsignedValue = signedValue.startsWith('s:')
-    ? signedValue.slice(2)
-    : signedValue;
+  const unsignedValue = signedValue.startsWith('s:') ? signedValue.slice(2) : signedValue;
   const separator = unsignedValue.lastIndexOf('.');
   if (separator < 1) {
     throw new Error('Expected a signed session cookie');

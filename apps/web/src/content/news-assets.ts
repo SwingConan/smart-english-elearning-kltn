@@ -6,7 +6,7 @@ import readingCover from '@/assets/editorial/reading-strategy.webp';
 import speakingCover from '@/assets/editorial/speaking-practice.webp';
 import guidanceCover from '@/assets/editorial/study-path-guidance.webp';
 import writingCover from '@/assets/editorial/writing-purpose.webp';
-import type { NewsCoverKey, NewsEventItem } from './news-events';
+import type { NewsCoverKey } from './news-events';
 
 const covers: Record<NewsCoverKey, string> = {
   enrollment: enrollmentCover,
@@ -19,6 +19,9 @@ const covers: Record<NewsCoverKey, string> = {
   results: resultsCover,
 };
 
-export function newsCoverUrl(item: Pick<NewsEventItem, 'coverKey'>) {
-  return covers[item.coverKey];
+export function newsCoverUrl(item: { coverKey?: string | null; coverImageUrl?: string | null }) {
+  if (item.coverImageUrl) return item.coverImageUrl;
+  return covers[
+    (item.coverKey && item.coverKey in covers ? item.coverKey : 'results') as NewsCoverKey
+  ];
 }

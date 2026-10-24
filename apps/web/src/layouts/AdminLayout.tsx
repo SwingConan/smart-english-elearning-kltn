@@ -8,6 +8,9 @@ import {
   Menu,
   BarChart3,
   UserCog,
+  CreditCard,
+  Award,
+  Newspaper,
   X,
 } from 'lucide-react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
@@ -19,6 +22,9 @@ const links = [
   [GraduationCap, '/admin/class-offerings', 'Lớp học'],
   [UserCog, '/admin/accounts', 'Tài khoản'],
   [Lightbulb, '/admin/criteria', 'Tiêu chí & quy tắc'],
+  [CreditCard, '/admin/payments', 'Thanh toán'],
+  [Award, '/admin/certificates', 'Chứng chỉ'],
+  [Newspaper, '/admin/public-content', 'Tin tức & sự kiện'],
 ] as const;
 
 export function AdminLayout() {

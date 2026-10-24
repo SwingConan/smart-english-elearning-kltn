@@ -20,6 +20,8 @@ import { AdminModule } from './modules/admin/admin.module';
 import { KnowledgeModelModule } from './modules/knowledge-model/knowledge-model.module';
 import { PlacementModule } from './modules/placement/placement.module';
 import { EmailModule } from './infrastructure/email/email.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { PublicContentModule } from './modules/public-content/public-content.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { EmailModule } from './infrastructure/email/email.module';
     PrismaModule,
     SessionModule,
     EmailModule,
+    PaymentsModule,
+    PublicContentModule,
     HealthModule,
     AuthModule,
     UsersModule,

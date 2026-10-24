@@ -19,12 +19,18 @@ export class LearningService {
     private readonly resourceStorage: LearningResourceStorage,
   ) {}
 
-  private async getEnrollmentForLearning(learnerId: string, enrollmentId: string) {
+  private async getEnrollmentForLearning(
+    learnerId: string,
+    enrollmentId: string,
+    readOnly = false,
+  ) {
     const enrollment = await this.prisma.enrollment.findFirst({
       where: {
         id: enrollmentId,
         learnerId,
-        status: EnrollmentStatus.ACTIVE,
+        status: readOnly
+          ? { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED] }
+          : EnrollmentStatus.ACTIVE,
       },
       select: {
         id: true,
@@ -44,7 +50,7 @@ export class LearningService {
   }
 
   async getContent(learnerId: string, enrollmentId: string) {
-    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId);
+    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId, true);
     const courseId = enrollment.classOffering.courseId;
 
     const course = await this.prisma.course.findUniqueOrThrow({
@@ -260,7 +266,7 @@ export class LearningService {
   }
 
   async getProgress(learnerId: string, enrollmentId: string) {
-    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId);
+    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId, true);
     const courseId = enrollment.classOffering.courseId;
 
     const course = await this.prisma.course.findUniqueOrThrow({
@@ -467,7 +473,7 @@ export class LearningService {
   }
 
   async getResourceDownload(learnerId: string, enrollmentId: string, resourceId: string) {
-    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId);
+    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId, true);
     const resource = await this.prisma.learningResource.findFirst({
       where: {
         id: resourceId,
@@ -512,7 +518,7 @@ export class LearningService {
   }
 
   async getMastery(learnerId: string, enrollmentId: string) {
-    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId);
+    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId, true);
     const courseId = enrollment.classOffering.courseId;
     const skills = await this.prisma.skill.findMany({
       where: { courseId },
@@ -560,7 +566,7 @@ export class LearningService {
   }
 
   async getMasteryHistory(learnerId: string, enrollmentId: string, skillId: string) {
-    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId);
+    const enrollment = await this.getEnrollmentForLearning(learnerId, enrollmentId, true);
     const skill = await this.prisma.skill.findFirst({
       where: { id: skillId, courseId: enrollment.classOffering.courseId },
       select: {

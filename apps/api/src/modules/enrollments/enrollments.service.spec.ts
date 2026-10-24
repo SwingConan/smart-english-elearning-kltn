@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import {
   ClassOfferingStatus,
   EnrollmentStatus,
@@ -59,8 +55,7 @@ describe('EnrollmentsService', () => {
       }),
     );
     prisma.$transaction.mockImplementation(
-      (callback: (client: typeof transaction) => Promise<unknown>) =>
-        callback(transaction),
+      (callback: (client: typeof transaction) => Promise<unknown>) => callback(transaction),
     );
   });
 
@@ -69,9 +64,9 @@ describe('EnrollmentsService', () => {
   });
 
   it('creates FREE enrollment as ACTIVE in a Serializable transaction', async () => {
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).resolves.toMatchObject({ status: EnrollmentStatus.ACTIVE });
+    await expect(service.create(learnerId, { classOfferingId })).resolves.toMatchObject({
+      status: EnrollmentStatus.ACTIVE,
+    });
 
     expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -82,30 +77,37 @@ describe('EnrollmentsService', () => {
           learnerId,
           classOfferingId,
           status: EnrollmentStatus.ACTIVE,
+          pricingTypeSnapshot: PricingType.FREE,
+          tuitionFeeVndSnapshot: null,
         },
       }),
     );
   });
 
-  it('creates PAID enrollment as PENDING_PAYMENT without reserving capacity', async () => {
+  it('creates PAID enrollment as PENDING_PAYMENT and reserves capacity', async () => {
     transaction.classOffering.findUnique.mockResolvedValue({
       ...offering,
       pricingType: PricingType.PAID,
       maxStudents: 1,
     });
 
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).resolves.toMatchObject({ status: EnrollmentStatus.PENDING_PAYMENT });
-    expect(transaction.enrollment.count).not.toHaveBeenCalled();
+    await expect(service.create(learnerId, { classOfferingId })).resolves.toMatchObject({
+      status: EnrollmentStatus.PENDING_PAYMENT,
+    });
+    expect(transaction.enrollment.count).toHaveBeenCalledWith({
+      where: {
+        classOfferingId,
+        status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.PENDING_PAYMENT] },
+      },
+    });
   });
 
   it('rejects a duplicate enrollment with 409', async () => {
     transaction.enrollment.findUnique.mockResolvedValue({ id: enrollmentId });
 
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.create(learnerId, { classOfferingId })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
   });
 
   it('maps a database unique race to 409', async () => {
@@ -116,17 +118,17 @@ describe('EnrollmentsService', () => {
       }),
     );
 
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.create(learnerId, { classOfferingId })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
   });
 
   it('returns 404 when the offering does not exist', async () => {
     transaction.classOffering.findUnique.mockResolvedValue(null);
 
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.create(learnerId, { classOfferingId })).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('rejects an offering that is not OPEN', async () => {
@@ -135,9 +137,9 @@ describe('EnrollmentsService', () => {
       status: ClassOfferingStatus.DRAFT,
     });
 
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.create(learnerId, { classOfferingId })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('rejects an offering for an unpublished course', async () => {
@@ -146,9 +148,9 @@ describe('EnrollmentsService', () => {
       course: { isPublished: false },
     });
 
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.create(learnerId, { classOfferingId })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('rejects enrollment before the inclusive start boundary', async () => {
@@ -157,9 +159,9 @@ describe('EnrollmentsService', () => {
       enrollmentStart: new Date(now.getTime() + 1),
     });
 
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.create(learnerId, { classOfferingId })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('rejects enrollment after the inclusive end boundary', async () => {
@@ -168,9 +170,9 @@ describe('EnrollmentsService', () => {
       enrollmentEnd: new Date(now.getTime() - 1),
     });
 
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.create(learnerId, { classOfferingId })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('accepts enrollment exactly at start and end boundaries', async () => {
@@ -180,9 +182,9 @@ describe('EnrollmentsService', () => {
       enrollmentEnd: now,
     });
 
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).resolves.toMatchObject({ status: EnrollmentStatus.ACTIVE });
+    await expect(service.create(learnerId, { classOfferingId })).resolves.toMatchObject({
+      status: EnrollmentStatus.ACTIVE,
+    });
   });
 
   it('treats null maxStudents as unlimited', async () => {
@@ -190,7 +192,7 @@ describe('EnrollmentsService', () => {
     expect(transaction.enrollment.count).not.toHaveBeenCalled();
   });
 
-  it('creates when ACTIVE capacity remains and counts only ACTIVE rows', async () => {
+  it('creates when reserved capacity remains and counts ACTIVE plus PENDING_PAYMENT rows', async () => {
     transaction.classOffering.findUnique.mockResolvedValue({
       ...offering,
       maxStudents: 2,
@@ -201,7 +203,7 @@ describe('EnrollmentsService', () => {
     expect(transaction.enrollment.count).toHaveBeenCalledWith({
       where: {
         classOfferingId,
-        status: EnrollmentStatus.ACTIVE,
+        status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.PENDING_PAYMENT] },
       },
     });
   });
@@ -213,26 +215,25 @@ describe('EnrollmentsService', () => {
     });
     transaction.enrollment.count.mockResolvedValue(1);
 
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.create(learnerId, { classOfferingId })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
   });
 
   it('retries a serialization conflict with a bounded attempt', async () => {
-    const serializationError = new Prisma.PrismaClientKnownRequestError(
-      'Transaction conflict',
-      { code: 'P2034', clientVersion: '7.10.0' },
-    );
+    const serializationError = new Prisma.PrismaClientKnownRequestError('Transaction conflict', {
+      code: 'P2034',
+      clientVersion: '7.10.0',
+    });
     prisma.$transaction
       .mockRejectedValueOnce(serializationError)
-      .mockImplementationOnce(
-        (callback: (client: typeof transaction) => Promise<unknown>) =>
-          callback(transaction),
+      .mockImplementationOnce((callback: (client: typeof transaction) => Promise<unknown>) =>
+        callback(transaction),
       );
 
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).resolves.toMatchObject({ status: EnrollmentStatus.ACTIVE });
+    await expect(service.create(learnerId, { classOfferingId })).resolves.toMatchObject({
+      status: EnrollmentStatus.ACTIVE,
+    });
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
   });
 
@@ -244,9 +245,9 @@ describe('EnrollmentsService', () => {
       }),
     );
 
-    await expect(
-      service.create(learnerId, { classOfferingId }),
-    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.create(learnerId, { classOfferingId })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
     expect(prisma.$transaction).toHaveBeenCalledTimes(3);
   });
 
@@ -262,9 +263,9 @@ describe('EnrollmentsService', () => {
   it('returns 404 instead of exposing another learner enrollment', async () => {
     prisma.enrollment.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.getMineById(otherLearnerId, enrollmentId),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getMineById(otherLearnerId, enrollmentId)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
     expect(prisma.enrollment.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: enrollmentId, learnerId: otherLearnerId },

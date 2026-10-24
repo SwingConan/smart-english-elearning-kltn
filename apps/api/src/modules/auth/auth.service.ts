@@ -40,6 +40,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
+      phoneNumber: user.phoneNumber,
       role: user.role,
       status: user.status,
     };

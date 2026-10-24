@@ -19,12 +19,14 @@ import { newsCoverUrl } from '@/content/news-assets';
 import { catalogApi } from '@/features/catalog/api';
 import { CourseCard } from '@/features/catalog/CourseCard';
 import type { PublicCourse } from '@/features/catalog/types';
+import { PublicContent, publicContentApi } from '@/features/public-content/api';
 import { PageSkeleton } from '@/components/ui/Feedback';
 import heroImage from '@/assets/marketing/home-hero.webp';
 import placementImage from '@/assets/marketing/placement-assessment.webp';
 
 export function HomePage() {
   const [courses, setCourses] = useState<PublicCourse[]>([]);
+  const [publishedContent, setPublishedContent] = useState<PublicContent[]>([]);
   const [courseState, setCourseState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
@@ -41,6 +43,15 @@ export function HomePage() {
       });
     return () => controller.abort();
   }, [reloadKey]);
+
+  useEffect(() => {
+    void publicContentApi
+      .list()
+      .then((response) => setPublishedContent(response.data))
+      .catch(() => undefined);
+  }, []);
+
+  const latestNews = publishedContent.length > 0 ? publishedContent : newsEvents;
 
   return (
     <>
@@ -286,7 +297,7 @@ export function HomePage() {
           </Link>
         </div>
         <div className="mt-8 grid gap-6 md:grid-cols-3">
-          {newsEvents.slice(0, 3).map((item) => (
+          {latestNews.slice(0, 3).map((item) => (
             <article className="overflow-hidden rounded-2xl border bg-white" key={item.slug}>
               <img
                 alt=""
