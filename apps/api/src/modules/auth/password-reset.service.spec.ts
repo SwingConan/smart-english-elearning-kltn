@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
 import { createHash } from 'crypto';
-import { UserStatus } from '../../generated/prisma/client';
+import { Prisma, UserStatus } from '../../generated/prisma/client';
 import { EmailMessage, EmailSender } from '../../infrastructure/email/email-sender';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PasswordResetService } from './password-reset.service';
@@ -21,6 +21,7 @@ describe('PasswordResetService', () => {
   const emailSender = { send: jest.fn() };
   const tx = {
     $executeRaw: jest.fn(),
+    $queryRaw: jest.fn(),
     passwordResetToken: {
       findFirst: jest.fn(),
       create: jest.fn(),
@@ -48,11 +49,27 @@ describe('PasswordResetService', () => {
       }),
     );
 
+  const requestAndDrain = async (service: PasswordResetService, email = user.email) => {
+    service.request(email);
+    await service.waitForPendingRequests();
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.passwordResetToken.deleteMany.mockResolvedValue({ count: 0 });
     prisma.user.findUnique.mockResolvedValue(user);
     tx.$executeRaw.mockResolvedValue(1);
+    tx.$queryRaw.mockImplementation(async (query: Prisma.Sql) => {
+      const sql = query.strings.join(' ');
+      if (sql.includes('SELECT "email", "status"')) {
+        return [{ email: user.email, status: UserStatus.ACTIVE }];
+      }
+      if (sql.includes('UPDATE "password_reset_tokens"')) {
+        return [{ userId: user.id, usedAt: new Date() }];
+      }
+      if (sql.includes('FROM "password_reset_tokens" AS token')) return [{ id: 'token-id' }];
+      return [{ id: user.id }];
+    });
     tx.passwordResetToken.findFirst.mockResolvedValue(null);
     tx.passwordResetToken.updateMany.mockResolvedValue({ count: 1 });
     tx.passwordResetToken.create.mockResolvedValue({ id: 'reset-id' });
@@ -75,7 +92,7 @@ describe('PasswordResetService', () => {
 
   it('stores only a SHA-256 hash of a cryptographically generated token with configured TTL', async () => {
     const before = Date.now();
-    await makeService('45').request(' User@Example.com ');
+    await requestAndDrain(makeService('45'), ' User@Example.com ');
 
     const message = emailSender.send.mock.calls[0][0] as EmailMessage;
     const rawToken = message.text.match(/#token=([^\s]+)/)?.[1];
@@ -96,7 +113,7 @@ describe('PasswordResetService', () => {
   });
 
   it('normalizes email, revokes prior active tokens, and enforces the 60-second cooldown', async () => {
-    await makeService().request(' User@Example.com ');
+    await requestAndDrain(makeService(), ' User@Example.com ');
     expect(prisma.user.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { email: 'user@example.com' } }),
     );
@@ -110,8 +127,9 @@ describe('PasswordResetService', () => {
     prisma.passwordResetToken.deleteMany.mockResolvedValue({ count: 0 });
     prisma.user.findUnique.mockResolvedValue(user);
     tx.$executeRaw.mockResolvedValue(1);
+    tx.$queryRaw.mockResolvedValue([{ email: user.email, status: UserStatus.ACTIVE }]);
     tx.passwordResetToken.findFirst.mockResolvedValue({ id: 'recent' });
-    await makeService().request(user.email);
+    await requestAndDrain(makeService());
     expect(tx.passwordResetToken.findFirst.mock.calls[0][0].where.createdAt.gte).toBeInstanceOf(
       Date,
     );
@@ -123,7 +141,7 @@ describe('PasswordResetService', () => {
     'does not send mail for a missing or non-ACTIVE account (%s)',
     async (status) => {
       prisma.user.findUnique.mockResolvedValue(status ? { ...user, status } : null);
-      await makeService().request(user.email);
+      await requestAndDrain(makeService());
       expect(emailSender.send).not.toHaveBeenCalled();
       expect(tx.passwordResetToken.create).not.toHaveBeenCalled();
     },
@@ -131,7 +149,9 @@ describe('PasswordResetService', () => {
 
   it('revokes the newly created token when delivery fails without rejecting the public request', async () => {
     emailSender.send.mockRejectedValue(new Error('provider details must stay private'));
-    await expect(makeService().request(user.email)).resolves.toBeUndefined();
+    const service = makeService();
+    service.request(user.email);
+    await expect(service.waitForPendingRequests()).resolves.toBeUndefined();
     expect(prisma.passwordResetToken.updateMany).toHaveBeenCalledWith({
       where: { id: 'reset-id', usedAt: null, revokedAt: null },
       data: { revokedAt: expect.any(Date) },
@@ -140,31 +160,78 @@ describe('PasswordResetService', () => {
 
   it('treats retention cleanup as best effort', async () => {
     prisma.passwordResetToken.deleteMany.mockRejectedValue(new Error('cleanup failure'));
-    await expect(makeService().request(user.email)).resolves.toBeUndefined();
+    const service = makeService();
+    service.request(user.email);
+    await expect(service.waitForPendingRequests()).resolves.toBeUndefined();
     expect(emailSender.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns from dispatch before a blocked provider resolves and tracks the task to completion', async () => {
+    let release!: () => void;
+    const providerBlocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let sendStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      sendStarted = resolve;
+    });
+    emailSender.send.mockImplementationOnce(async () => {
+      sendStarted();
+      await providerBlocked;
+    });
+    const service = makeService();
+
+    expect(service.request(user.email)).toBeUndefined();
+    await started;
+    let drained = false;
+    const draining = service.waitForPendingRequests().then(() => {
+      drained = true;
+    });
+    await Promise.resolve();
+    expect(drained).toBe(false);
+
+    release();
+    await draining;
+    expect(emailSender.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('rechecks ACTIVE status under the issuance lock and immediately before delivery', async () => {
+    tx.$queryRaw.mockResolvedValueOnce([{ email: user.email, status: UserStatus.LOCKED }]);
+    await requestAndDrain(makeService());
+    expect(tx.passwordResetToken.create).not.toHaveBeenCalled();
+    expect(emailSender.send).not.toHaveBeenCalled();
+
+    jest.clearAllMocks();
+    prisma.passwordResetToken.deleteMany.mockResolvedValue({ count: 0 });
+    prisma.user.findUnique
+      .mockResolvedValueOnce(user)
+      .mockResolvedValueOnce({ email: user.email, status: UserStatus.LOCKED });
+    tx.$executeRaw.mockResolvedValue(1);
+    tx.$queryRaw.mockResolvedValue([{ email: user.email, status: UserStatus.ACTIVE }]);
+    tx.passwordResetToken.findFirst.mockResolvedValue(null);
+    tx.passwordResetToken.updateMany.mockResolvedValue({ count: 1 });
+    tx.passwordResetToken.create.mockResolvedValue({ id: 'reset-id' });
+    prisma.passwordResetToken.updateMany.mockResolvedValue({ count: 1 });
+
+    await requestAndDrain(makeService());
+    expect(prisma.passwordResetToken.updateMany).toHaveBeenCalledWith({
+      where: { id: 'reset-id', usedAt: null, revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+    expect(emailSender.send).not.toHaveBeenCalled();
   });
 
   it('atomically consumes a valid token, hashes with Argon2id, revokes siblings, and deletes every user session', async () => {
     await makeService().confirm('raw-reset-token', 'new-password-2026');
 
-    expect(tx.passwordResetToken.updateMany).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        where: expect.objectContaining({
-          id: 'token-id',
-          usedAt: null,
-          revokedAt: null,
-          expiresAt: { gt: expect.any(Date) },
-          user: { status: UserStatus.ACTIVE },
-        }),
-        data: { usedAt: expect.any(Date) },
-      }),
-    );
+    const lockSql = tx.$queryRaw.mock.calls[1][0] as Prisma.Sql;
+    expect(lockSql.strings.join(' ')).toContain('FOR UPDATE');
+    const claimSql = tx.$queryRaw.mock.calls[2][0] as Prisma.Sql;
+    expect(claimSql.strings.join(' ')).toContain('clock_timestamp()');
     const passwordHash = tx.user.updateMany.mock.calls[0][0].data.passwordHash as string;
     expect(passwordHash).toMatch(/^\$argon2id\$/);
     await expect(argon2.verify(passwordHash, 'new-password-2026')).resolves.toBe(true);
-    expect(tx.passwordResetToken.updateMany).toHaveBeenNthCalledWith(
-      2,
+    expect(tx.passwordResetToken.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ userId: user.id, id: { not: 'token-id' } }),
       }),
@@ -186,7 +253,10 @@ describe('PasswordResetService', () => {
       'locked-after-issuance',
       'concurrent-second-consumer',
     ]) {
-      tx.passwordResetToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      tx.$queryRaw
+        .mockResolvedValueOnce([{ id: user.id }])
+        .mockResolvedValueOnce([{ id: 'token-id' }])
+        .mockResolvedValueOnce([]);
       await expect(makeService().confirm(reason, 'new-password-2026')).rejects.toBeInstanceOf(
         BadRequestException,
       );
@@ -204,42 +274,21 @@ describe('PasswordResetService', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('rejects generically when a token expires after precheck but before the authoritative claim', async () => {
+  it('uses a DB wall-clock conditional claim after locking the token', async () => {
     prisma.passwordResetToken.findFirst.mockResolvedValueOnce(null);
     const genericFailure: unknown = await makeService()
       .confirm('unknown-token', 'new-password-2026')
       .catch((error: unknown) => error);
     expect(genericFailure).toBeInstanceOf(BadRequestException);
 
-    const precheckTime = new Date('2026-10-24T10:00:00.000Z');
-    const expiresAt = new Date('2026-10-24T10:00:00.500Z');
-    const claimTime = new Date('2026-10-24T10:00:01.000Z');
-    jest.useFakeTimers();
-    jest.setSystemTime(precheckTime);
-    jest.mocked(argon2.hash).mockImplementationOnce(async () => {
-      jest.setSystemTime(claimTime);
-      return '$argon2id$test-only-hash';
-    });
-    prisma.passwordResetToken.findFirst.mockImplementationOnce(async (query) => {
-      expect(query.where.expiresAt.gt).toEqual(precheckTime);
-      expect(expiresAt.getTime()).toBeGreaterThan(precheckTime.getTime());
-      return { id: 'token-id', userId: user.id };
-    });
-    tx.passwordResetToken.updateMany.mockImplementationOnce(async (query) => {
-      expect(query.where.expiresAt).toEqual({ gt: claimTime });
-      expect(query.data).toEqual({ usedAt: claimTime });
-      expect(expiresAt.getTime()).toBeLessThanOrEqual(claimTime.getTime());
-      return { count: 0 };
-    });
-
-    let expiryRaceFailure: unknown;
-    try {
-      expiryRaceFailure = await makeService()
-        .confirm('expires-during-hash', 'new-password-2026')
-        .catch((error: unknown) => error);
-    } finally {
-      jest.useRealTimers();
-    }
+    prisma.passwordResetToken.findFirst.mockResolvedValueOnce({ id: 'token-id', userId: user.id });
+    tx.$queryRaw
+      .mockResolvedValueOnce([{ id: user.id }])
+      .mockResolvedValueOnce([{ id: 'token-id' }])
+      .mockResolvedValueOnce([]);
+    const expiryRaceFailure: unknown = await makeService()
+      .confirm('expires-before-db-claim', 'new-password-2026')
+      .catch((error: unknown) => error);
 
     expect(expiryRaceFailure).toBeInstanceOf(BadRequestException);
     expect(expiryRaceFailure).toMatchObject({
@@ -248,5 +297,12 @@ describe('PasswordResetService', () => {
     });
     expect(tx.user.updateMany).not.toHaveBeenCalled();
     expect(tx.$executeRaw).not.toHaveBeenCalled();
+
+    const lockSql = tx.$queryRaw.mock.calls[1][0] as Prisma.Sql;
+    expect(lockSql.strings.join(' ')).toContain('FOR UPDATE');
+    const claimSql = tx.$queryRaw.mock.calls[2][0] as Prisma.Sql;
+    const statement = claimSql.strings.join(' ');
+    expect(statement).toContain('token."expiresAt" > clock_timestamp()');
+    expect(statement).toContain('SET "usedAt" = clock_timestamp()');
   });
 });

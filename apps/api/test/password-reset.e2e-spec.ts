@@ -9,18 +9,46 @@ import { configureHttpApplication } from '../src/app.setup';
 import { Prisma, UserRole, UserStatus } from '../src/generated/prisma/client';
 import { EmailMessage, EmailSender } from '../src/infrastructure/email/email-sender';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import { PasswordResetService } from '../src/modules/auth/password-reset.service';
+
+interface BlockedSend {
+  started: Promise<void>;
+  release: () => void;
+}
 
 class CaptureEmailSender extends EmailSender {
   messages: EmailMessage[] = [];
+  private nextBehavior: { started: () => void; gate: Promise<void>; error?: Error } | undefined;
 
   async send(message: EmailMessage): Promise<void> {
+    const behavior = this.nextBehavior;
+    this.nextBehavior = undefined;
+    if (behavior) {
+      behavior.started();
+      await behavior.gate;
+      if (behavior.error) throw behavior.error;
+    }
     this.messages.push(message);
+  }
+
+  blockNextSend(error?: Error): BlockedSend {
+    let markStarted!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.nextBehavior = { started: markStarted, gate, error };
+    return { started, release };
   }
 }
 
 describe('Password recovery (e2e)', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
+  let passwordResetService: PasswordResetService;
   const previousTrustProxy = process.env.TRUST_PROXY;
   const emailSender = new CaptureEmailSender();
   const unique = `${Date.now()}-${process.pid}`;
@@ -31,6 +59,9 @@ describe('Password recovery (e2e)', () => {
     locked: `locked-${unique}@example.com`,
     replacement: `replacement-${unique}@example.com`,
     statusChange: `status-change-${unique}@example.com`,
+    blockedProvider: `blocked-provider-${unique}@example.com`,
+    providerFailure: `provider-failure-${unique}@example.com`,
+    contention: `contention-${unique}@example.com`,
   };
   const oldPassword = 'Old-password-2026';
   const newPassword = 'New-password-2026';
@@ -47,6 +78,7 @@ describe('Password recovery (e2e)', () => {
     expect(app.getHttpAdapter().getInstance().get('trust proxy')).toEqual(['loopback']);
     await app.init();
     prisma = app.get(PrismaService);
+    passwordResetService = app.get(PasswordResetService);
 
     await prisma.user.deleteMany({ where: { email: { in: Object.values(emails) } } });
     const passwordHash = await argon2.hash(oldPassword, { type: argon2.argon2id });
@@ -94,6 +126,27 @@ describe('Password recovery (e2e)', () => {
           role: UserRole.STUDENT,
           status: UserStatus.ACTIVE,
         },
+        {
+          email: emails.blockedProvider,
+          passwordHash,
+          fullName: 'Blocked Provider User',
+          role: UserRole.STUDENT,
+          status: UserStatus.ACTIVE,
+        },
+        {
+          email: emails.providerFailure,
+          passwordHash,
+          fullName: 'Provider Failure User',
+          role: UserRole.STUDENT,
+          status: UserStatus.ACTIVE,
+        },
+        {
+          email: emails.contention,
+          passwordHash,
+          fullName: 'Contention User',
+          role: UserRole.STUDENT,
+          status: UserStatus.ACTIVE,
+        },
       ],
     });
   });
@@ -135,8 +188,52 @@ describe('Password recovery (e2e)', () => {
       expect(response.text).toBe(responses[0].text);
       expect(response.body).not.toHaveProperty('token');
     }
+    await passwordResetService.waitForPendingRequests();
     expect(emailSender.messages).toHaveLength(1);
     expect(emailSender.messages[0]?.to).toBe(emails.active);
+  });
+
+  it('returns generic 202 while ACTIVE provider delivery is still blocked', async () => {
+    emailSender.messages.length = 0;
+    const blocked = emailSender.blockNextSend();
+    const response = await resetRequest({ email: emails.blockedProvider }, '198.51.100.30').expect(
+      202,
+    );
+
+    expect(response.text).toBe('');
+    expect(response.body).not.toHaveProperty('token');
+    await blocked.started;
+    expect(emailSender.messages).toHaveLength(0);
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: emails.blockedProvider } });
+    const issued = await prisma.passwordResetToken.findFirstOrThrow({
+      where: { userId: user.id, usedAt: null, revokedAt: null },
+    });
+    expect(issued.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(JSON.stringify(issued)).not.toContain('#token=');
+
+    blocked.release();
+    await passwordResetService.waitForPendingRequests();
+    expect(emailSender.messages).toHaveLength(1);
+    expect(emailSender.messages[0]?.to).toBe(emails.blockedProvider);
+  });
+
+  it('revokes an issued token when provider failure occurs after public 202', async () => {
+    emailSender.messages.length = 0;
+    const blockedFailure = emailSender.blockNextSend(new Error('test provider failure'));
+    await resetRequest({ email: emails.providerFailure }, '198.51.100.31').expect(202);
+    await blockedFailure.started;
+    blockedFailure.release();
+    await passwordResetService.waitForPendingRequests();
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: emails.providerFailure } });
+    await expect(
+      prisma.passwordResetToken.findFirstOrThrow({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ).resolves.toMatchObject({ usedAt: null, revokedAt: expect.any(Date) });
+    expect(emailSender.messages).toHaveLength(0);
   });
 
   it('stores only a SHA-256 token hash and performs one-time reset with all-session invalidation', async () => {
@@ -158,6 +255,7 @@ describe('Password recovery (e2e)', () => {
       { email: `  ${emails.reset.toUpperCase()}  ` },
       '198.51.100.7',
     ).expect(202);
+    await passwordResetService.waitForPendingRequests();
     const rawToken = tokenFromMessage(emailSender.messages.at(-1));
     expect(publicResponse.text).not.toContain(rawToken);
     const persisted = await prisma.passwordResetToken.findFirstOrThrow({
@@ -209,6 +307,7 @@ describe('Password recovery (e2e)', () => {
     emailSender.messages.length = 0;
     const user = await prisma.user.findUniqueOrThrow({ where: { email: emails.replacement } });
     await resetRequest({ email: emails.replacement }, '198.51.100.8').expect(202);
+    await passwordResetService.waitForPendingRequests();
     const oldRawToken = tokenFromMessage(emailSender.messages.at(-1));
     const oldHash = createHash('sha256').update(oldRawToken).digest('hex');
     await prisma.passwordResetToken.update({
@@ -216,6 +315,7 @@ describe('Password recovery (e2e)', () => {
       data: { createdAt: new Date(Date.now() - 61_000) },
     });
     await resetRequest({ email: emails.replacement }, '198.51.100.9').expect(202);
+    await passwordResetService.waitForPendingRequests();
     const newRawToken = tokenFromMessage(emailSender.messages.at(-1));
     expect(newRawToken).not.toBe(oldRawToken);
     await expect(
@@ -230,6 +330,7 @@ describe('Password recovery (e2e)', () => {
   it('rejects confirmation if the account becomes LOCKED after issuance', async () => {
     emailSender.messages.length = 0;
     await resetRequest({ email: emails.statusChange }, '198.51.100.10').expect(202);
+    await passwordResetService.waitForPendingRequests();
     const rawToken = tokenFromMessage(emailSender.messages.at(-1));
     await prisma.user.update({
       where: { email: emails.statusChange },
@@ -241,6 +342,60 @@ describe('Password recovery (e2e)', () => {
       .expect(400);
   });
 
+  it('rejects a token that expires while its authoritative DB claim is row-lock blocked', async () => {
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: emails.contention } });
+    const agent = request.agent(app.getHttpServer());
+    await agent
+      .post('/api/auth/login')
+      .send({ email: emails.contention, password: oldPassword })
+      .expect(200);
+    expect(await sessionCount(user.id)).toBe(1);
+
+    const rawToken = `contention-${unique}`;
+    const expiresAt = new Date(Date.now() + 4_000);
+    const token = await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: createHash('sha256').update(rawToken).digest('hex'),
+        expiresAt,
+      },
+    });
+
+    let releaseLock!: () => void;
+    let markLocked!: () => void;
+    const locked = new Promise<void>((resolve) => {
+      markLocked = resolve;
+    });
+    const lockGate = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const lockTransaction = prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "password_reset_tokens" WHERE "id" = ${token.id}::uuid FOR UPDATE`,
+      );
+      markLocked();
+      await lockGate;
+    });
+    await locked;
+
+    const confirmation = request(app.getHttpServer())
+      .post('/api/auth/password-reset/confirm')
+      .send({ token: rawToken, newPassword })
+      .then((response) => response);
+    await waitForBlockedClaim();
+    await sleep(Math.max(0, expiresAt.getTime() - Date.now() + 150));
+    releaseLock();
+    await lockTransaction;
+
+    const response = await confirmation;
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.');
+    const unchanged = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    await expect(argon2.verify(unchanged.passwordHash, oldPassword)).resolves.toBe(true);
+    await agent.get('/api/auth/me').expect(200);
+    expect(await sessionCount(user.id)).toBe(1);
+  }, 15_000);
+
   it('throttles the sixth request from one IP without consuming another IP quota', async () => {
     const exhaustedIp = '198.51.100.200';
     const independentIp = '198.51.100.201';
@@ -249,6 +404,7 @@ describe('Password recovery (e2e)', () => {
     }
     await resetRequest({ email: `throttle-${unique}@example.com` }, exhaustedIp).expect(429);
     await resetRequest({ email: `throttle-${unique}@example.com` }, independentIp).expect(202);
+    await passwordResetService.waitForPendingRequests();
   });
 
   function resetRequest(body: object, ip: string): request.Test {
@@ -264,7 +420,31 @@ describe('Password recovery (e2e)', () => {
     );
     return Number(rows[0]?.count ?? 0);
   }
+
+  async function waitForBlockedClaim(): Promise<void> {
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline) {
+      const rows = await prisma.$queryRaw<Array<{ blocked: boolean }>>(Prisma.sql`
+        SELECT EXISTS (
+          SELECT 1
+          FROM pg_stat_activity
+          WHERE datname = current_database()
+            AND pid <> pg_backend_pid()
+            AND wait_event_type = 'Lock'
+            AND query LIKE '%FROM "password_reset_tokens" AS token%'
+            AND query LIKE '%FOR UPDATE%'
+        ) AS blocked
+      `);
+      if (rows[0]?.blocked) return;
+      await sleep(25);
+    }
+    throw new Error('Authoritative token claim did not reach the expected row-lock wait');
+  }
 });
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
 function tokenFromMessage(message: EmailMessage | undefined): string {
   const token = message?.text.match(/#token=([^\s]+)/)?.[1];

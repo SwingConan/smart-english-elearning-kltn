@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { Link } from 'react-router';
 import { LoadingButton } from '@/components/ui/Feedback';
@@ -50,6 +50,15 @@ export function ResetPasswordPage() {
         ? 'Mật khẩu không được vượt quá 128 ký tự.'
         : null;
   const confirmationError = confirmation !== password ? 'Mật khẩu xác nhận chưa khớp.' : null;
+
+  useEffect(() => {
+    if (!token || !window.location.hash) return;
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}${window.location.search}`,
+    );
+  }, [token]);
 
   if (!token || invalidMessage) {
     return (

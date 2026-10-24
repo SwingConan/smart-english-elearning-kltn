@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, BeforeApplicationShutdown, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'crypto';
@@ -12,8 +12,9 @@ const COOLDOWN_MS = 60_000;
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 @Injectable()
-export class PasswordResetService {
+export class PasswordResetService implements BeforeApplicationShutdown {
   private readonly logger = new Logger(PasswordResetService.name);
+  private readonly pendingRequests = new Set<Promise<void>>();
   private readonly ttlMinutes: number;
   private readonly webOrigin: string;
 
@@ -42,7 +43,29 @@ export class PasswordResetService {
     this.webOrigin = origin.origin;
   }
 
-  async request(email: string): Promise<void> {
+  request(email: string): void {
+    const task = new Promise<void>((resolve) => setImmediate(resolve))
+      .then(() => this.processRequest(email))
+      .catch(() => {
+        this.logger.error('Password reset background processing failed');
+      })
+      .finally(() => {
+        this.pendingRequests.delete(task);
+      });
+    this.pendingRequests.add(task);
+  }
+
+  async waitForPendingRequests(): Promise<void> {
+    while (this.pendingRequests.size > 0) {
+      await Promise.allSettled([...this.pendingRequests]);
+    }
+  }
+
+  async beforeApplicationShutdown(): Promise<void> {
+    await this.waitForPendingRequests();
+  }
+
+  private async processRequest(email: string): Promise<void> {
     await this.cleanupExpiredHistory();
 
     const user = await this.prisma.user.findUnique({
@@ -51,14 +74,23 @@ export class PasswordResetService {
     });
     if (!user || user.status !== UserStatus.ACTIVE) return;
 
-    const rawToken = randomBytes(32).toString('base64url');
-    const tokenHash = this.hashToken(rawToken);
     const now = new Date();
     const cooldownStart = new Date(now.getTime() - COOLDOWN_MS);
     const expiresAt = new Date(now.getTime() + this.ttlMinutes * 60_000);
 
     const created = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${user.id}, 0))`;
+
+      const currentUsers = await tx.$queryRaw<Array<{ email: string; status: UserStatus }>>(
+        Prisma.sql`
+          SELECT "email", "status"
+          FROM "users"
+          WHERE "id" = ${user.id}::uuid
+          FOR UPDATE
+        `,
+      );
+      const currentUser = currentUsers[0];
+      if (!currentUser || currentUser.status !== UserStatus.ACTIVE) return null;
 
       const recent = await tx.passwordResetToken.findFirst({
         where: {
@@ -82,30 +114,40 @@ export class PasswordResetService {
         data: { revokedAt: now },
       });
 
-      return tx.passwordResetToken.create({
+      const rawToken = randomBytes(32).toString('base64url');
+      const tokenHash = this.hashToken(rawToken);
+      const token = await tx.passwordResetToken.create({
         data: { userId: user.id, tokenHash, expiresAt },
         select: { id: true },
       });
+      return { ...token, rawToken };
     });
 
     if (!created) return;
 
-    const resetLink = `${this.webOrigin}/reset-password#token=${rawToken}`;
     try {
+      const deliveryUser = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { email: true, status: true },
+      });
+      if (!deliveryUser || deliveryUser.status !== UserStatus.ACTIVE) {
+        if (!(await this.revokeIssuedToken(created.id))) {
+          this.logger.error('Password reset token revocation failed after status changed');
+        }
+        return;
+      }
+
+      const resetLink = `${this.webOrigin}/reset-password#token=${created.rawToken}`;
       await this.emailSender.send({
-        to: user.email,
+        to: deliveryUser.email,
         subject: RESET_SUBJECT,
         text: this.textEmail(resetLink),
         html: this.htmlEmail(resetLink),
       });
     } catch {
-      try {
-        await this.prisma.passwordResetToken.updateMany({
-          where: { id: created.id, usedAt: null, revokedAt: null },
-          data: { revokedAt: new Date() },
-        });
+      if (await this.revokeIssuedToken(created.id)) {
         this.logger.error('Password reset email delivery failed; issued token revoked');
-      } catch {
+      } else {
         this.logger.error('Password reset email delivery and token revocation failed');
       }
     }
@@ -128,22 +170,54 @@ export class PasswordResetService {
     if (!candidate) throw new BadRequestException(INVALID_RESET_MESSAGE);
 
     const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
-    const claimTime = new Date();
-
     try {
       await this.prisma.$transaction(async (tx) => {
-        const claimed = await tx.passwordResetToken.updateMany({
-          where: {
-            id: candidate.id,
-            tokenHash,
-            usedAt: null,
-            revokedAt: null,
-            expiresAt: { gt: claimTime },
-            user: { status: UserStatus.ACTIVE },
-          },
-          data: { usedAt: claimTime },
-        });
-        if (claimed.count !== 1) throw new InvalidResetError();
+        const activeUsers = await tx.$queryRaw<Array<{ id: string }>>(
+          Prisma.sql`
+            SELECT "id"
+            FROM "users"
+            WHERE "id" = ${candidate.userId}::uuid
+              AND "status" = ${UserStatus.ACTIVE}::"UserStatus"
+            FOR UPDATE
+          `,
+        );
+        if (activeUsers.length !== 1) throw new InvalidResetError();
+
+        const lockedTokens = await tx.$queryRaw<Array<{ id: string }>>(
+          Prisma.sql`
+            SELECT token."id"
+            FROM "password_reset_tokens" AS token
+            WHERE token."id" = ${candidate.id}::uuid
+              AND token."userId" = ${candidate.userId}::uuid
+              AND token."tokenHash" = ${tokenHash}
+              AND token."usedAt" IS NULL
+              AND token."revokedAt" IS NULL
+            FOR UPDATE
+          `,
+        );
+        if (lockedTokens.length !== 1) throw new InvalidResetError();
+
+        const claimed = await tx.$queryRaw<Array<{ userId: string; usedAt: Date }>>(
+          Prisma.sql`
+            UPDATE "password_reset_tokens" AS token
+            SET "usedAt" = clock_timestamp() AT TIME ZONE 'UTC'
+            WHERE token."id" = ${candidate.id}::uuid
+              AND token."userId" = ${candidate.userId}::uuid
+              AND token."tokenHash" = ${tokenHash}
+              AND token."expiresAt" > clock_timestamp() AT TIME ZONE 'UTC'
+              AND token."usedAt" IS NULL
+              AND token."revokedAt" IS NULL
+              AND EXISTS (
+                SELECT 1
+                FROM "users" AS owner
+                WHERE owner."id" = token."userId"
+                  AND owner."status" = ${UserStatus.ACTIVE}::"UserStatus"
+              )
+            RETURNING token."userId" AS "userId", token."usedAt" AS "usedAt"
+          `,
+        );
+        const claim = claimed[0];
+        if (!claim) throw new InvalidResetError();
 
         const updatedUser = await tx.user.updateMany({
           where: { id: candidate.userId, status: UserStatus.ACTIVE },
@@ -158,7 +232,7 @@ export class PasswordResetService {
             usedAt: null,
             revokedAt: null,
           },
-          data: { revokedAt: claimTime },
+          data: { revokedAt: claim.usedAt },
         });
 
         await tx.$executeRaw(
@@ -175,6 +249,18 @@ export class PasswordResetService {
 
   private hashToken(rawToken: string): string {
     return createHash('sha256').update(rawToken).digest('hex');
+  }
+
+  private async revokeIssuedToken(id: string): Promise<boolean> {
+    try {
+      await this.prisma.passwordResetToken.updateMany({
+        where: { id, usedAt: null, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async cleanupExpiredHistory(): Promise<void> {

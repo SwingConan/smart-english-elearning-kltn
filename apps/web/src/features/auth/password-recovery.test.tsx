@@ -141,14 +141,17 @@ describe('ResetPasswordPage', () => {
     expect(screen.queryByText('expired')).not.toBeInTheDocument();
   });
 
-  it('posts the hash token only in JSON and performs hard navigation on success', async () => {
-    window.history.replaceState(null, '', '/reset-password#token=test-token');
+  it('captures the fragment token, clears it from history, and still posts it on success', async () => {
+    window.history.replaceState(null, '', '/reset-password?source=email#token=test-token');
     vi.spyOn(authApi, 'confirmPasswordReset').mockResolvedValueOnce(undefined);
     render(
       <MemoryRouter>
         <ResetPasswordPage />
       </MemoryRouter>,
     );
+    await waitFor(() => expect(window.location.hash).toBe(''));
+    expect(window.location.pathname).toBe('/reset-password');
+    expect(window.location.search).toBe('?source=email');
     fireEvent.change(screen.getByLabelText('Mật khẩu mới'), { target: { value: 'new-password' } });
     fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu mới'), {
       target: { value: 'new-password' },

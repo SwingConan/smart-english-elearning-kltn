@@ -45,8 +45,8 @@ export class AuthController {
   @UseGuards(ThrottlerGuard)
   @Throttle({ passwordReset: { limit: 5, ttl: 15 * 60 * 1000 } })
   @ApiOperation({ summary: 'Request a password-reset email' })
-  async requestPasswordReset(@Body() input: RequestPasswordResetDto): Promise<void> {
-    await this.passwordResetService.request(input.email);
+  requestPasswordReset(@Body() input: RequestPasswordResetDto): void {
+    this.passwordResetService.request(input.email);
   }
 
   @Public()
