@@ -11,6 +11,7 @@ const SUCCESS_MESSAGE =
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [touched, setTouched] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -60,8 +61,13 @@ export function ForgotPasswordPage() {
             maxLength={321}
             aria-invalid={touched && Boolean(emailError)}
             aria-describedby={touched && emailError ? 'recovery-email-error' : undefined}
-            onBlur={() => setTouched(true)}
-            onChange={(event) => setEmail(event.target.value)}
+            onBlur={() => {
+              if (hasInteracted) setTouched(true);
+            }}
+            onChange={(event) => {
+              setHasInteracted(true);
+              setEmail(event.target.value);
+            }}
             value={email}
           />
         </label>

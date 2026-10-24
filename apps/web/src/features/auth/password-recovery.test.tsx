@@ -27,6 +27,9 @@ describe('ForgotPasswordPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Quên mật khẩu' })).toBeInTheDocument();
     expect(screen.getByText(/Nếu tài khoản phù hợp/)).toBeInTheDocument();
+    expect(screen.queryByText('Vui lòng nhập email.')).not.toBeInTheDocument();
+    fireEvent.blur(screen.getByLabelText('Email'));
+    expect(screen.queryByText('Vui lòng nhập email.')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Gửi hướng dẫn' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Vui lòng nhập email');
 
