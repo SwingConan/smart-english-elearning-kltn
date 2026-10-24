@@ -11,6 +11,7 @@ async function bootstrap() {
 
   const port = config.get<number>('PORT', 3000);
 
+  app.enableShutdownHooks();
   configureHttpApplication(app, config);
 
   const swaggerConfig = new DocumentBuilder()
