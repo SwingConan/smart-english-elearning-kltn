@@ -203,4 +203,50 @@ describe('PasswordResetService', () => {
     expect(argon2.hash).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
+
+  it('rejects generically when a token expires after precheck but before the authoritative claim', async () => {
+    prisma.passwordResetToken.findFirst.mockResolvedValueOnce(null);
+    const genericFailure: unknown = await makeService()
+      .confirm('unknown-token', 'new-password-2026')
+      .catch((error: unknown) => error);
+    expect(genericFailure).toBeInstanceOf(BadRequestException);
+
+    const precheckTime = new Date('2026-10-24T10:00:00.000Z');
+    const expiresAt = new Date('2026-10-24T10:00:00.500Z');
+    const claimTime = new Date('2026-10-24T10:00:01.000Z');
+    jest.useFakeTimers();
+    jest.setSystemTime(precheckTime);
+    jest.mocked(argon2.hash).mockImplementationOnce(async () => {
+      jest.setSystemTime(claimTime);
+      return '$argon2id$test-only-hash';
+    });
+    prisma.passwordResetToken.findFirst.mockImplementationOnce(async (query) => {
+      expect(query.where.expiresAt.gt).toEqual(precheckTime);
+      expect(expiresAt.getTime()).toBeGreaterThan(precheckTime.getTime());
+      return { id: 'token-id', userId: user.id };
+    });
+    tx.passwordResetToken.updateMany.mockImplementationOnce(async (query) => {
+      expect(query.where.expiresAt).toEqual({ gt: claimTime });
+      expect(query.data).toEqual({ usedAt: claimTime });
+      expect(expiresAt.getTime()).toBeLessThanOrEqual(claimTime.getTime());
+      return { count: 0 };
+    });
+
+    let expiryRaceFailure: unknown;
+    try {
+      expiryRaceFailure = await makeService()
+        .confirm('expires-during-hash', 'new-password-2026')
+        .catch((error: unknown) => error);
+    } finally {
+      jest.useRealTimers();
+    }
+
+    expect(expiryRaceFailure).toBeInstanceOf(BadRequestException);
+    expect(expiryRaceFailure).toMatchObject({
+      status: 400,
+      message: (genericFailure as BadRequestException).message,
+    });
+    expect(tx.user.updateMany).not.toHaveBeenCalled();
+    expect(tx.$executeRaw).not.toHaveBeenCalled();
+  });
 });

@@ -241,12 +241,14 @@ describe('Password recovery (e2e)', () => {
       .expect(400);
   });
 
-  it('throttles the sixth request from one IP with 429', async () => {
-    const ip = '198.51.100.200';
+  it('throttles the sixth request from one IP without consuming another IP quota', async () => {
+    const exhaustedIp = '198.51.100.200';
+    const independentIp = '198.51.100.201';
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      await resetRequest({ email: `throttle-${unique}@example.com` }, ip).expect(202);
+      await resetRequest({ email: `throttle-${unique}@example.com` }, exhaustedIp).expect(202);
     }
-    await resetRequest({ email: `throttle-${unique}@example.com` }, ip).expect(429);
+    await resetRequest({ email: `throttle-${unique}@example.com` }, exhaustedIp).expect(429);
+    await resetRequest({ email: `throttle-${unique}@example.com` }, independentIp).expect(202);
   });
 
   function resetRequest(body: object, ip: string): request.Test {

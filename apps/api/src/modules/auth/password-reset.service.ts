@@ -113,14 +113,14 @@ export class PasswordResetService {
 
   async confirm(rawToken: string, newPassword: string): Promise<void> {
     const tokenHash = this.hashToken(rawToken);
-    const now = new Date();
+    const precheckTime = new Date();
 
     const candidate = await this.prisma.passwordResetToken.findFirst({
       where: {
         tokenHash,
         usedAt: null,
         revokedAt: null,
-        expiresAt: { gt: now },
+        expiresAt: { gt: precheckTime },
         user: { status: UserStatus.ACTIVE },
       },
       select: { id: true, userId: true },
@@ -128,6 +128,7 @@ export class PasswordResetService {
     if (!candidate) throw new BadRequestException(INVALID_RESET_MESSAGE);
 
     const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
+    const claimTime = new Date();
 
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -137,10 +138,10 @@ export class PasswordResetService {
             tokenHash,
             usedAt: null,
             revokedAt: null,
-            expiresAt: { gt: now },
+            expiresAt: { gt: claimTime },
             user: { status: UserStatus.ACTIVE },
           },
-          data: { usedAt: now },
+          data: { usedAt: claimTime },
         });
         if (claimed.count !== 1) throw new InvalidResetError();
 
@@ -157,7 +158,7 @@ export class PasswordResetService {
             usedAt: null,
             revokedAt: null,
           },
-          data: { revokedAt: now },
+          data: { revokedAt: claimTime },
         });
 
         await tx.$executeRaw(
