@@ -19,12 +19,14 @@ import { CertificatesModule } from './modules/certificates/certificates.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { KnowledgeModelModule } from './modules/knowledge-model/knowledge-model.module';
 import { PlacementModule } from './modules/placement/placement.module';
+import { EmailModule } from './infrastructure/email/email.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     SessionModule,
+    EmailModule,
     HealthModule,
     AuthModule,
     UsersModule,
