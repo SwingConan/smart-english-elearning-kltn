@@ -16,32 +16,63 @@ interface BlockedSend {
   release: () => void;
 }
 
+interface SendBehavior {
+  started: () => void;
+  gate: Promise<void>;
+  release: () => void;
+  error?: Error;
+}
+
 class CaptureEmailSender extends EmailSender {
   messages: EmailMessage[] = [];
-  private nextBehavior: { started: () => void; gate: Promise<void>; error?: Error } | undefined;
+  private nextBehavior: SendBehavior | undefined;
+  private readonly blockedBehaviors = new Set<SendBehavior>();
 
   async send(message: EmailMessage): Promise<void> {
     const behavior = this.nextBehavior;
     this.nextBehavior = undefined;
     if (behavior) {
       behavior.started();
-      await behavior.gate;
-      if (behavior.error) throw behavior.error;
+      try {
+        await behavior.gate;
+        if (behavior.error) throw behavior.error;
+      } finally {
+        this.blockedBehaviors.delete(behavior);
+      }
     }
     this.messages.push(message);
   }
 
   blockNextSend(error?: Error): BlockedSend {
+    this.releaseBlockedSends();
     let markStarted!: () => void;
-    let release!: () => void;
+    let unblock!: () => void;
     const started = new Promise<void>((resolve) => {
       markStarted = resolve;
     });
     const gate = new Promise<void>((resolve) => {
-      release = resolve;
+      unblock = resolve;
     });
-    this.nextBehavior = { started: markStarted, gate, error };
-    return { started, release };
+    let released = false;
+    const behavior: SendBehavior = {
+      started: markStarted,
+      gate,
+      error,
+      release: () => {
+        if (released) return;
+        released = true;
+        unblock();
+        this.blockedBehaviors.delete(behavior);
+        if (this.nextBehavior === behavior) this.nextBehavior = undefined;
+      },
+    };
+    this.nextBehavior = behavior;
+    this.blockedBehaviors.add(behavior);
+    return { started, release: behavior.release };
+  }
+
+  releaseBlockedSends(): void {
+    for (const behavior of [...this.blockedBehaviors]) behavior.release();
   }
 }
 
@@ -76,7 +107,7 @@ describe('Password recovery (e2e)', () => {
     app = moduleRef.createNestApplication<NestExpressApplication>();
     configureHttpApplication(app, app.get(ConfigService));
     expect(app.getHttpAdapter().getInstance().get('trust proxy')).toEqual(['loopback']);
-    await app.init();
+    await app.listen(0);
     prisma = app.get(PrismaService);
     passwordResetService = app.get(PasswordResetService);
 
@@ -151,7 +182,14 @@ describe('Password recovery (e2e)', () => {
     });
   });
 
+  afterEach(async () => {
+    emailSender.releaseBlockedSends();
+    if (passwordResetService) await passwordResetService.waitForPendingRequests();
+  });
+
   afterAll(async () => {
+    emailSender.releaseBlockedSends();
+    if (passwordResetService) await passwordResetService.waitForPendingRequests();
     if (prisma) {
       const users = await prisma.user.findMany({
         where: { email: { in: Object.values(emails) } },
@@ -164,7 +202,7 @@ describe('Password recovery (e2e)', () => {
       }
       await prisma.user.deleteMany({ where: { email: { in: Object.values(emails) } } });
     }
-    if (app) await app.close();
+    await app.close();
     if (previousTrustProxy === undefined) delete process.env.TRUST_PROXY;
     else process.env.TRUST_PROXY = previousTrustProxy;
   });
