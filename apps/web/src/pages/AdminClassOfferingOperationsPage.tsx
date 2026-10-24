@@ -128,6 +128,12 @@ export function AdminClassOfferingOperationsPage() {
     <section className="space-y-6">
       <header>
         <Link
+          className="btn-secondary mb-4 inline-flex"
+          to={`/admin/class-offerings/${classOfferingId}/completion`}
+        >
+          Tiêu chí hoàn thành khóa học
+        </Link>
+        <Link
           className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-700"
           to="/admin/class-offerings"
         >
@@ -785,7 +791,9 @@ function RosterCard({
                       <p className="font-semibold">{row.learner.fullName}</p>
                       <p className="text-xs text-slate-500">{row.learner.email}</p>
                     </td>
-                    <td className="px-3 py-3"><EnrollmentStatusBadge status={row.status} /></td>
+                    <td className="px-3 py-3">
+                      <EnrollmentStatusBadge status={row.status} />
+                    </td>
                     <td className="px-3 py-3">
                       {new Date(row.enrolledAt).toLocaleDateString('vi-VN')}
                     </td>

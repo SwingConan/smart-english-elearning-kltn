@@ -5,6 +5,8 @@ export interface Rubric {
   description?: string | null;
   isActive: boolean;
   createdById?: string | null;
+  canEdit?: boolean;
+  isOwnedByCurrentInstructor?: boolean;
   criteria: Array<{
     id?: string;
     code?: string;
@@ -17,9 +19,19 @@ export interface Rubric {
 export const rubricApi = {
   list: () => apiFetch<Rubric[]>('/instructor/rubrics'),
   get: (id: string) => apiFetch<Rubric & { canEdit: boolean }>(`/instructor/rubrics/${id}`),
-  create: (input: Omit<Rubric, 'id' | 'isActive' | 'createdById'>) =>
-    apiFetch<Rubric>('/instructor/rubrics', { method: 'POST', body: JSON.stringify(input) }),
-  update: (id: string, input: Omit<Rubric, 'id' | 'isActive' | 'createdById'>) =>
+  create: (
+    input: Omit<
+      Rubric,
+      'id' | 'isActive' | 'createdById' | 'canEdit' | 'isOwnedByCurrentInstructor'
+    >,
+  ) => apiFetch<Rubric>('/instructor/rubrics', { method: 'POST', body: JSON.stringify(input) }),
+  update: (
+    id: string,
+    input: Omit<
+      Rubric,
+      'id' | 'isActive' | 'createdById' | 'canEdit' | 'isOwnedByCurrentInstructor'
+    >,
+  ) =>
     apiFetch<Rubric>(`/instructor/rubrics/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(input),

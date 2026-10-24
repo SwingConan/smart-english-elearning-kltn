@@ -122,4 +122,26 @@ describe('CertificatesService authoritative issuance', () => {
     expect(tx.courseCompletion.create).toHaveBeenCalledTimes(1);
     expect(tx.certificate.create).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    [ClassOfferingStatus.COMPLETED, [], 'CLASS_COMPLETED'],
+    [ClassOfferingStatus.IN_PROGRESS, [{ id: 'enrollment' }], 'COMPLETION_EXISTS'],
+    [ClassOfferingStatus.IN_PROGRESS, [], null],
+  ])('projects the completion-policy lock state', async (status, enrollments, lockReason) => {
+    const prisma = {
+      classOffering: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'class',
+          status,
+          enrollments,
+          completionPolicy: null,
+        }),
+      },
+    };
+    const service = new CertificatesService(prisma as unknown as PrismaService);
+    await expect(service.getPolicy('class')).resolves.toMatchObject({
+      locked: lockReason !== null,
+      lockReason,
+    });
+  });
 });

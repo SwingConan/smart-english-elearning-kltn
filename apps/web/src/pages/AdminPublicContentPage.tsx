@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { SafeMarkdown } from '@/components/ui/SafeMarkdown';
 import type { PublicContent } from '@/features/public-content/api';
 import { publicContentApi } from '@/features/public-content/api';
+import { datetimeLocalToIso, isoToDatetimeLocal } from '@/features/public-content/datetime';
 
 const emptyForm = {
   id: '',
@@ -14,6 +15,8 @@ const emptyForm = {
   coverKey: '',
   coverImageUrl: '',
   publishedAt: '',
+  publishedAtOriginal: '' as string | null,
+  publishedAtDirty: false,
 };
 
 export function AdminPublicContentPage() {
@@ -42,9 +45,11 @@ export function AdminPublicContentPage() {
       excerpt: form.excerpt,
       bodyMarkdown: form.bodyMarkdown,
       featured: form.featured,
-      coverKey: form.coverKey || undefined,
-      coverImageUrl: form.coverImageUrl || undefined,
-      publishedAt: form.publishedAt ? new Date(form.publishedAt).toISOString() : undefined,
+      coverKey: form.coverKey.trim() || null,
+      coverImageUrl: form.coverImageUrl.trim() || null,
+      ...(!form.id || form.publishedAtDirty
+        ? { publishedAt: datetimeLocalToIso(form.publishedAt) }
+        : {}),
     };
     if (form.id) await publicContentApi.update(form.id, input);
     else await publicContentApi.create(input);
@@ -65,7 +70,9 @@ export function AdminPublicContentPage() {
       featured: item.featured,
       coverKey: item.coverKey ?? '',
       coverImageUrl: item.coverImageUrl ?? '',
-      publishedAt: item.publishedAt ? item.publishedAt.slice(0, 16) : '',
+      publishedAt: item.publishedAt ? isoToDatetimeLocal(item.publishedAt) : '',
+      publishedAtOriginal: item.publishedAt ?? null,
+      publishedAtDirty: false,
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -132,8 +139,7 @@ export function AdminPublicContentPage() {
             <span className="text-sm font-semibold">Cover key</span>
             <input
               className="input-field mt-1"
-              disabled={Boolean(form.coverImageUrl)}
-              onChange={(e) => setForm({ ...form, coverKey: e.target.value })}
+              onChange={(e) => setForm({ ...form, coverKey: e.target.value, coverImageUrl: '' })}
               value={form.coverKey}
             />
           </label>
@@ -141,8 +147,7 @@ export function AdminPublicContentPage() {
             <span className="text-sm font-semibold">Ảnh HTTPS</span>
             <input
               className="input-field mt-1"
-              disabled={Boolean(form.coverKey)}
-              onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value })}
+              onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value, coverKey: '' })}
               type="url"
               value={form.coverImageUrl}
             />
@@ -151,7 +156,9 @@ export function AdminPublicContentPage() {
             <span className="text-sm font-semibold">Lịch xuất bản</span>
             <input
               className="input-field mt-1"
-              onChange={(e) => setForm({ ...form, publishedAt: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, publishedAt: e.target.value, publishedAtDirty: true })
+              }
               type="datetime-local"
               value={form.publishedAt}
             />

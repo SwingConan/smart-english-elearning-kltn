@@ -228,6 +228,11 @@ enum PublicContentStatus {
   ARCHIVED
 }
 
+enum PublicContentOrigin {
+  LEGACY_IMPORT
+  ADMIN_AUTHORED
+}
+
 model User {
   id                     String                @id @default(uuid()) @db.Uuid
   email                  String                @unique
@@ -870,10 +875,11 @@ model PublicContent {
   featured      Boolean             @default(false)
   status        PublicContentStatus @default(DRAFT)
   publishedAt   DateTime?
-  createdById   String              @db.Uuid
-  updatedById   String              @db.Uuid
-  createdBy     User                @relation("PublicContentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy     User                @relation("PublicContentUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  origin        PublicContentOrigin @default(ADMIN_AUTHORED)
+  createdById   String?             @db.Uuid
+  updatedById   String?             @db.Uuid
+  createdBy     User?               @relation("PublicContentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy     User?               @relation("PublicContentUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 

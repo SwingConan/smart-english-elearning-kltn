@@ -78,6 +78,9 @@ export function InstructorTeachingPage() {
         <p className="mt-2 text-slate-500">
           Các lớp được nhóm theo khóa học để thầy cô theo dõi nhanh và không lặp thông tin.
         </p>
+        <Link className="btn-secondary mt-4 inline-flex" to="/instructor/rubrics">
+          Quản lý rubric chấm bài
+        </Link>
       </header>
       <section aria-label="Bộ lọc lớp" className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <input

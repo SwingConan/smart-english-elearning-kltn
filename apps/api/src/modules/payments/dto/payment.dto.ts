@@ -1,5 +1,16 @@
 import { Transform, Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Length, Matches, Max, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  Matches,
+  Max,
+  Min,
+} from 'class-validator';
 import { PaymentStatus } from '../../../generated/prisma/client';
 
 export class SubmitPaymentDto {
@@ -20,7 +31,10 @@ export class RejectPaymentDto {
 
 export class PaymentQueryDto {
   @IsOptional() @IsEnum(PaymentStatus) status?: PaymentStatus;
+  @IsOptional() @IsUUID() classOfferingId?: string;
   @IsOptional() @IsString() @Length(1, 200) search?: string;
+  @IsOptional() @IsDateString() createdFrom?: string;
+  @IsOptional() @IsDateString() createdTo?: string;
   @Type(() => Number) @IsInt() @Min(1) page = 1;
   @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 20;
 

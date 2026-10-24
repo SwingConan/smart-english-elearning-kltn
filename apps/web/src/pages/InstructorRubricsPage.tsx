@@ -250,12 +250,16 @@ export function InstructorRubricsPage() {
                   <strong>{item.name}</strong>
                   <p className="text-sm text-slate-500">
                     {item.criteria.length} tiêu chí ·{' '}
-                    {item.createdById ? 'Rubric của bạn' : 'Rubric hệ thống, chỉ đọc'} ·{' '}
-                    {item.isActive ? 'Đang dùng' : 'Ngừng dùng'}
+                    {(item.isOwnedByCurrentInstructor ?? item.canEdit ?? Boolean(item.createdById))
+                      ? 'Của tôi'
+                      : item.createdById
+                        ? 'Rubric của giảng viên khác, chỉ đọc'
+                        : 'Rubric hệ thống, chỉ đọc'}{' '}
+                    · {item.isActive ? 'Đang dùng' : 'Ngừng dùng'}
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  {item.createdById ? (
+                  {(item.canEdit ?? Boolean(item.createdById)) ? (
                     <>
                       <button className="btn-secondary" onClick={() => void edit(item.id)}>
                         Chỉnh sửa

@@ -101,8 +101,13 @@ export class PublicContentService {
     );
   }
 
-  update(actorId: string, id: string, input: UpdatePublicContentDto) {
-    this.validateCover(input);
+  async update(actorId: string, id: string, input: UpdatePublicContentDto) {
+    const current = await this.adminDetail(id);
+    this.validateCover({
+      coverKey: input.coverKey === undefined ? current.coverKey : input.coverKey,
+      coverImageUrl:
+        input.coverImageUrl === undefined ? current.coverImageUrl : input.coverImageUrl,
+    });
     return this.guardUnique(() =>
       this.prisma.publicContent.update({
         where: { id },
@@ -152,12 +157,14 @@ export class PublicContentService {
       ...(input.title !== undefined ? { title: input.title.trim() } : {}),
       ...(input.excerpt !== undefined ? { excerpt: input.excerpt.trim() } : {}),
       ...(input.bodyMarkdown !== undefined ? { bodyMarkdown: input.bodyMarkdown.trim() } : {}),
-      ...(input.coverKey !== undefined ? { coverKey: input.coverKey.trim() || null } : {}),
+      ...(input.coverKey !== undefined ? { coverKey: input.coverKey?.trim() || null } : {}),
       ...(input.coverImageUrl !== undefined
-        ? { coverImageUrl: input.coverImageUrl.trim() || null }
+        ? { coverImageUrl: input.coverImageUrl?.trim() || null }
         : {}),
       ...(input.featured !== undefined ? { featured: input.featured } : {}),
-      ...(input.publishedAt !== undefined ? { publishedAt: new Date(input.publishedAt) } : {}),
+      ...(input.publishedAt !== undefined
+        ? { publishedAt: input.publishedAt ? new Date(input.publishedAt) : null }
+        : {}),
     };
   }
 
@@ -174,9 +181,11 @@ export class PublicContentService {
     return slug;
   }
 
-  private validateCover(input: Pick<UpdatePublicContentDto, 'coverKey'>) {
+  private validateCover(input: Pick<UpdatePublicContentDto, 'coverKey' | 'coverImageUrl'>) {
     if (input.coverKey && !/^[a-z0-9-]{1,80}$/.test(input.coverKey))
       throw new BadRequestException('coverKey is not allowed');
+    if (input.coverKey && input.coverImageUrl)
+      throw new BadRequestException('Choose either coverKey or coverImageUrl, not both');
   }
 
   private async guardUnique<T>(action: () => Promise<T>): Promise<T> {

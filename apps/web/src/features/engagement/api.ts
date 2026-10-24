@@ -18,12 +18,21 @@ export interface AttendanceSession {
   id: string;
   sessionDate: string;
   title?: string | null;
+  note?: string | null;
+  scheduleSlotId?: string | null;
+  scheduleSlot?: ScheduleSlot | null;
   _count?: { records: number };
   roster?: Array<{
     id: string;
     learner: { fullName: string; email: string };
     attendance: { status: string; note?: string | null } | null;
   }>;
+}
+export interface ScheduleSlot {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
 }
 export const engagementApi = {
   consultations: {
@@ -57,7 +66,12 @@ export const engagementApi = {
   attendance: {
     list: (classId: string) =>
       apiFetch<AttendanceSession[]>(`/instructor/classes/${classId}/attendance/sessions`),
-    create: (classId: string, input: { sessionDate: string; title?: string }) =>
+    slots: (classId: string) =>
+      apiFetch<ScheduleSlot[]>(`/instructor/classes/${classId}/attendance/sessions/schedule-slots`),
+    create: (
+      classId: string,
+      input: { sessionDate: string; scheduleSlotId?: string; title?: string; note?: string },
+    ) =>
       apiFetch<AttendanceSession>(`/instructor/classes/${classId}/attendance/sessions`, {
         method: 'POST',
         body: JSON.stringify(input),

@@ -134,4 +134,43 @@ describe('PaymentsService', () => {
       expect.objectContaining({ data: expect.objectContaining({ amountVnd: 2_000_000 }) }),
     );
   });
+
+  it('allows a new request when rejected history has no actionable payment', async () => {
+    const prisma = {
+      enrollment: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'enrollment',
+          status: EnrollmentStatus.PENDING_PAYMENT,
+          pricingTypeSnapshot: PricingType.PAID,
+          tuitionFeeVndSnapshot: 900_000,
+        }),
+      },
+      tuitionPayment: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'new', status: PaymentStatus.PENDING }),
+      },
+    };
+    const config = {
+      get: jest.fn(
+        (key: string) =>
+          ({
+            PAYMENT_BANK_NAME: 'Bank',
+            PAYMENT_BANK_ACCOUNT: '123',
+            PAYMENT_BANK_ACCOUNT_NAME: 'SMART ENGLISH',
+          })[key],
+      ),
+    };
+    const service = new PaymentsService(
+      prisma as unknown as PrismaService,
+      config as unknown as ConfigService,
+    );
+    await expect(service.create('learner', 'enrollment')).resolves.toMatchObject({ id: 'new' });
+    expect(prisma.tuitionPayment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { in: [PaymentStatus.PENDING, PaymentStatus.SUBMITTED] },
+        }),
+      }),
+    );
+  });
 });

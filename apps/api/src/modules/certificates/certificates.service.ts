@@ -273,17 +273,31 @@ export class CertificatesService {
   async getPolicy(classOfferingId: string) {
     const offering = await this.prisma.classOffering.findUnique({
       where: { id: classOfferingId },
-      select: { id: true, completionPolicy: true },
+      select: {
+        id: true,
+        status: true,
+        completionPolicy: true,
+        enrollments: {
+          where: { courseCompletion: { isNot: null } },
+          take: 1,
+          select: { id: true },
+        },
+      },
     });
     if (!offering) throw new NotFoundException('Class offering not found');
-    return (
-      offering.completionPolicy ?? {
-        classOfferingId,
-        minLessonCompletionPercent: 100,
-        minAttendancePercent: null,
-        requireFinalAssessment: true,
-      }
-    );
+    const policy = offering.completionPolicy ?? {
+      classOfferingId,
+      minLessonCompletionPercent: 100,
+      minAttendancePercent: null,
+      requireFinalAssessment: true,
+    };
+    const lockReason =
+      offering.status === ClassOfferingStatus.COMPLETED
+        ? 'CLASS_COMPLETED'
+        : offering.enrollments.length > 0
+          ? 'COMPLETION_EXISTS'
+          : null;
+    return { ...policy, locked: lockReason !== null, lockReason };
   }
 
   async putPolicy(classOfferingId: string, input: CompletionPolicyDto) {
@@ -366,7 +380,28 @@ export class CertificatesService {
   async adminDetail(id: string) {
     const item = await this.prisma.certificate.findUnique({
       where: { id },
-      include: { completion: true, revokedBy: { select: { id: true, fullName: true } } },
+      include: {
+        completion: {
+          include: {
+            enrollment: {
+              select: {
+                id: true,
+                status: true,
+                learner: { select: { id: true, fullName: true, email: true } },
+                classOffering: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                    course: { select: { id: true, title: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+        revokedBy: { select: { id: true, fullName: true } },
+      },
     });
     if (!item) throw new NotFoundException('Certificate not found');
     return item;

@@ -27,10 +27,11 @@ export class SavePublicContentDto {
   @IsString() @Length(3, 240) title!: string;
   @IsString() @Length(10, 1000) excerpt!: string;
   @IsString() @Length(10, 50000) bodyMarkdown!: string;
-  @IsOptional() @IsString() @Length(1, 80) coverKey?: string;
-  @IsOptional() @IsUrl({ protocols: ['https'], require_protocol: true }) coverImageUrl?: string;
+  @IsOptional() @IsString() @Length(1, 80) coverKey?: string | null;
+  @IsOptional() @IsUrl({ protocols: ['https'], require_protocol: true }) coverImageUrl?:
+    string | null;
   @IsOptional() @IsBoolean() featured?: boolean;
-  @IsOptional() @IsDateString() publishedAt?: string;
+  @IsOptional() @IsDateString() publishedAt?: string | null;
 }
 
 export class UpdatePublicContentDto extends PartialType(SavePublicContentDto) {}

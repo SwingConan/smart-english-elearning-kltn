@@ -3,6 +3,27 @@ import { AssessmentStimulusMediaStorage } from '../placement/assessment-stimulus
 import { AssessmentInstructorService } from './assessment-instructor.service';
 
 describe('Rubric ownership', () => {
+  it('marks another instructor rubric as read-only in the list projection', async () => {
+    const prisma = {
+      rubric: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'mine', createdById: 'current', criteria: [] },
+          { id: 'other', createdById: 'another', criteria: [] },
+          { id: 'legacy', createdById: null, criteria: [] },
+        ]),
+      },
+    };
+    const service = new AssessmentInstructorService(
+      prisma as unknown as PrismaService,
+      {} as AssessmentStimulusMediaStorage,
+    );
+    await expect(service.listRubrics('current')).resolves.toEqual([
+      expect.objectContaining({ id: 'mine', canEdit: true, isOwnedByCurrentInstructor: true }),
+      expect.objectContaining({ id: 'other', canEdit: false, isOwnedByCurrentInstructor: false }),
+      expect.objectContaining({ id: 'legacy', canEdit: false, isOwnedByCurrentInstructor: false }),
+    ]);
+  });
+
   it('deactivates an owned rubric without deleting criteria, questions, or grading history', async () => {
     const prisma = {
       rubric: {

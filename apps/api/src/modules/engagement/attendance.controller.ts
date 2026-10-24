@@ -16,6 +16,12 @@ export class AttendanceController {
   ) {
     return this.service.list(user.id, classOfferingId);
   }
+  @Get('schedule-slots') slots(
+    @CurrentUser() user: PublicUser,
+    @Param('classOfferingId', new ParseUUIDPipe()) classOfferingId: string,
+  ) {
+    return this.service.slots(user.id, classOfferingId);
+  }
   @Post() create(
     @CurrentUser() user: PublicUser,
     @Param('classOfferingId', new ParseUUIDPipe()) classOfferingId: string,

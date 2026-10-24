@@ -1,55 +1,169 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import type { Payment } from '@/features/payments/api';
+import type { Payment, PaymentQuery } from '@/features/payments/api';
 import { paymentApi } from '@/features/payments/api';
 
 const labels: Record<string, string> = {
-  PENDING: 'Chờ học viên chuyển khoản',
+  PENDING: 'Chờ chuyển khoản',
   SUBMITTED: 'Chờ đối soát',
   VERIFIED: 'Đã xác minh',
   REJECTED: 'Đã từ chối',
   CANCELLED: 'Đã hủy',
 };
-
 export function AdminPaymentsPage() {
   const [items, setItems] = useState<Payment[]>([]);
+  const [meta, setMeta] = useState({ total: 0, page: 1, limit: 20, totalPages: 0 });
+  const [draft, setDraft] = useState<PaymentQuery>({});
+  const [query, setQuery] = useState<PaymentQuery>({ page: 1, limit: 20 });
+  const [detail, setDetail] = useState<Payment | null>(null);
   const [rejecting, setRejecting] = useState<Payment | null>(null);
   const [reason, setReason] = useState('');
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const load = useCallback(() => {
-    return paymentApi
-      .admin()
-      .then((response) => {
-        setItems(response.data);
-        setState('ready');
-      })
-      .catch(() => setState('error'));
-  }, []);
-  useEffect(() => void load(), [load]);
+  const classOptions = [
+    ...new Map(
+      items.flatMap((item) =>
+        item.enrollment?.classOffering
+          ? [[item.enrollment.classOffering.id, item.enrollment.classOffering] as const]
+          : [],
+      ),
+    ).values(),
+  ];
+  const load = useCallback(async () => {
+    try {
+      const response = await paymentApi.admin(query);
+      setItems(response.data);
+      setMeta(response.meta ?? { total: response.data.length, page: 1, limit: 20, totalPages: 1 });
+      setState('ready');
+    } catch {
+      setState('error');
+    }
+  }, [query]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+  const filter = (event: FormEvent) => {
+    event.preventDefault();
+    setQuery({ ...draft, search: draft.search?.trim() || undefined, page: 1, limit: 20 });
+  };
   const reject = async (event: FormEvent) => {
     event.preventDefault();
-    if (!rejecting) return;
-    await paymentApi.reject(rejecting.id, reason);
+    if (!rejecting || !reason.trim()) return;
+    await paymentApi.reject(rejecting.id, reason.trim());
     setRejecting(null);
+    setDetail(null);
     setReason('');
     await load();
   };
+  const verify = async (item: Payment) => {
+    if (!window.confirm('Xác nhận thanh toán sẽ kích hoạt quyền học cho đăng ký này.')) return;
+    await paymentApi.verify(item.id);
+    setDetail(null);
+    await load();
+  };
+  const open = async (id: string) => setDetail(await paymentApi.detail(id));
   return (
     <section>
       <h1 className="text-3xl font-black">Đối soát thanh toán</h1>
+      <form
+        className="mt-6 grid gap-3 rounded-2xl border bg-white p-4 sm:grid-cols-2 lg:grid-cols-5"
+        onSubmit={filter}
+      >
+        <label className="sm:col-span-2">
+          <span className="text-sm font-semibold">Tìm kiếm</span>
+          <input
+            className="input-field mt-1"
+            onChange={(e) => setDraft({ ...draft, search: e.target.value })}
+            placeholder="Học viên, email hoặc mã tham chiếu"
+            type="search"
+            value={draft.search ?? ''}
+          />
+        </label>
+        <label>
+          <span className="text-sm font-semibold">Trạng thái</span>
+          <select
+            className="input-field mt-1"
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                status: (e.target.value || undefined) as PaymentQuery['status'],
+              })
+            }
+            value={draft.status ?? ''}
+          >
+            <option value="">Tất cả</option>
+            {Object.entries(labels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span className="text-sm font-semibold">Lớp học</span>
+          <select
+            className="input-field mt-1"
+            onChange={(e) => setDraft({ ...draft, classOfferingId: e.target.value || undefined })}
+            value={draft.classOfferingId ?? ''}
+          >
+            <option value="">Tất cả lớp</option>
+            {classOptions.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.code} — {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span />
+        <label>
+          <span className="text-sm font-semibold">Từ ngày</span>
+          <input
+            className="input-field mt-1"
+            onChange={(e) => setDraft({ ...draft, createdFrom: e.target.value || undefined })}
+            type="date"
+            value={draft.createdFrom ?? ''}
+          />
+        </label>
+        <label>
+          <span className="text-sm font-semibold">Đến ngày</span>
+          <input
+            className="input-field mt-1"
+            onChange={(e) => setDraft({ ...draft, createdTo: e.target.value || undefined })}
+            type="date"
+            value={draft.createdTo ?? ''}
+          />
+        </label>
+        <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3">
+          <button className="btn-primary">Lọc</button>
+          <button
+            className="btn-secondary"
+            onClick={() => {
+              setDraft({});
+              setQuery({ page: 1, limit: 20 });
+            }}
+            type="button"
+          >
+            Xóa bộ lọc
+          </button>
+          <span className="ml-auto text-sm text-slate-500">{meta.total} kết quả</span>
+        </div>
+      </form>
       {state === 'loading' ? (
         <p className="mt-6" role="status">
           Đang tải giao dịch…
         </p>
-      ) : state === 'error' ? (
+      ) : null}
+      {state === 'error' ? (
         <div className="state-error mt-6" role="alert">
           Không thể tải giao dịch.{' '}
-          <button className="btn-secondary ml-2" onClick={() => void load()}>
+          <button className="underline" onClick={() => void load()}>
             Thử lại
           </button>
         </div>
-      ) : items.length === 0 ? (
-        <div className="state-empty mt-6">Chưa có giao dịch cần đối soát.</div>
-      ) : (
+      ) : null}
+      {state === 'ready' && items.length === 0 ? (
+        <div className="state-empty mt-6">Chưa có giao dịch phù hợp.</div>
+      ) : null}
+      {state === 'ready' ? (
         <div className="mt-6 space-y-3">
           {items.map((item) => (
             <article className="rounded-2xl border bg-white p-5" key={item.id}>
@@ -57,49 +171,143 @@ export function AdminPaymentsPage() {
                 <div>
                   <strong>{item.referenceCode}</strong>
                   <p>
-                    {item.enrollment?.learner?.fullName} · {item.amountVnd.toLocaleString('vi-VN')}{' '}
-                    ₫
+                    {item.enrollment?.learner.fullName ?? 'Không rõ học viên'} ·{' '}
+                    {item.enrollment?.learner.email ?? '—'}
                   </p>
-                  {item.payerReference ? (
-                    <p className="text-sm text-slate-600">Mã ngân hàng: {item.payerReference}</p>
-                  ) : null}
-                  {item.status === 'REJECTED' && item.adminNote ? (
-                    <p className="mt-2 text-rose-700">Lý do từ chối: {item.adminNote}</p>
-                  ) : null}
+                  <p>
+                    {item.enrollment?.classOffering?.code ?? '—'} —{' '}
+                    {item.enrollment?.classOffering?.name ?? 'Không rõ lớp'}
+                  </p>
+                  <p>{item.amountVnd.toLocaleString('vi-VN')} ₫</p>
                 </div>
                 <span>{labels[item.status] ?? item.status}</span>
               </div>
-              {item.status === 'SUBMITTED' ? (
-                <div className="mt-4 flex gap-2">
-                  <button
-                    className="btn-primary"
-                    onClick={() => void paymentApi.verify(item.id).then(load)}
-                  >
-                    Xác minh
-                  </button>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => {
-                      setRejecting(item);
-                      setReason('');
-                    }}
-                  >
-                    Từ chối
-                  </button>
-                </div>
-              ) : null}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button className="btn-secondary" onClick={() => void open(item.id)}>
+                  Xem chi tiết
+                </button>
+                {item.status === 'SUBMITTED' ? (
+                  <>
+                    <button className="btn-primary" onClick={() => void verify(item)}>
+                      Xác minh
+                    </button>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => {
+                        setRejecting(item);
+                        setReason('');
+                      }}
+                    >
+                      Từ chối
+                    </button>
+                  </>
+                ) : null}
+              </div>
             </article>
           ))}
         </div>
-      )}
+      ) : null}
+      {meta.totalPages > 1 ? (
+        <nav aria-label="Phân trang" className="mt-5 flex items-center justify-center gap-3">
+          <button
+            className="btn-secondary"
+            disabled={meta.page <= 1}
+            onClick={() => setQuery({ ...query, page: meta.page - 1 })}
+          >
+            Trang trước
+          </button>
+          <span>
+            Trang {meta.page}/{meta.totalPages}
+          </span>
+          <button
+            className="btn-secondary"
+            disabled={meta.page >= meta.totalPages}
+            onClick={() => setQuery({ ...query, page: meta.page + 1 })}
+          >
+            Trang sau
+          </button>
+        </nav>
+      ) : null}
+      {detail ? (
+        <div
+          aria-modal="true"
+          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4"
+          role="dialog"
+        >
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6">
+            <h2 className="text-xl font-bold">Chi tiết thanh toán</h2>
+            <dl className="mt-4 grid gap-2">
+              <div>
+                <dt>Học viên</dt>
+                <dd>
+                  {detail.enrollment?.learner.fullName ?? 'Không rõ'} ·{' '}
+                  {detail.enrollment?.learner.email ?? '—'}
+                </dd>
+              </div>
+              <div>
+                <dt>Lớp</dt>
+                <dd>
+                  {detail.enrollment?.classOffering?.code ?? '—'} —{' '}
+                  {detail.enrollment?.classOffering?.name ?? 'Không rõ'}
+                </dd>
+              </div>
+              <div>
+                <dt>Số tiền</dt>
+                <dd>{detail.amountVnd.toLocaleString('vi-VN')} ₫</dd>
+              </div>
+              <div>
+                <dt>Mã hệ thống</dt>
+                <dd className="break-all">{detail.referenceCode}</dd>
+              </div>
+              <div>
+                <dt>Mã giao dịch người học</dt>
+                <dd>{detail.payerReference || 'Chưa có'}</dd>
+              </div>
+              <div>
+                <dt>Ghi chú người học</dt>
+                <dd>{detail.learnerNote || 'Không có'}</dd>
+              </div>
+              <div>
+                <dt>Trạng thái đăng ký</dt>
+                <dd>{detail.enrollment?.status ?? 'Không rõ'}</dd>
+              </div>
+              <div>
+                <dt>Tạo lúc</dt>
+                <dd>{new Date(detail.createdAt).toLocaleString('vi-VN')}</dd>
+              </div>
+              {detail.submittedAt ? (
+                <div>
+                  <dt>Gửi đối soát</dt>
+                  <dd>{new Date(detail.submittedAt).toLocaleString('vi-VN')}</dd>
+                </div>
+              ) : null}
+              {detail.verifiedAt ? (
+                <div>
+                  <dt>Xác minh</dt>
+                  <dd>{new Date(detail.verifiedAt).toLocaleString('vi-VN')}</dd>
+                </div>
+              ) : null}
+              {detail.adminNote ? (
+                <div>
+                  <dt>Ghi chú/lý do từ chối</dt>
+                  <dd>{detail.adminNote}</dd>
+                </div>
+              ) : null}
+            </dl>
+            <button className="btn-secondary mt-5" onClick={() => setDetail(null)}>
+              Đóng
+            </button>
+          </div>
+        </div>
+      ) : null}
       {rejecting ? (
         <div
           aria-modal="true"
           className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4"
           role="dialog"
         >
-          <form className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl" onSubmit={reject}>
-            <h2 className="text-xl font-bold">Từ chối giao dịch {rejecting.referenceCode}</h2>
+          <form className="w-full max-w-lg rounded-2xl bg-white p-6" onSubmit={reject}>
+            <h2 className="text-xl font-bold">Từ chối giao dịch</h2>
             <label className="mt-4 block">
               <span className="font-semibold">Lý do từ chối</span>
               <textarea

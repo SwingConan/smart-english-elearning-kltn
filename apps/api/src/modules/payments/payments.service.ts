@@ -30,7 +30,15 @@ const paymentInclude = {
       pricingTypeSnapshot: true,
       tuitionFeeVndSnapshot: true,
       learner: { select: { fullName: true, email: true } },
-      classOffering: { select: { id: true, name: true, code: true, maxStudents: true } },
+      classOffering: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          maxStudents: true,
+          course: { select: { title: true } },
+        },
+      },
     },
   },
 } satisfies Prisma.TuitionPaymentInclude;
@@ -84,7 +92,9 @@ export class PaymentsService {
     });
     return {
       data,
-      bank: data.some((item) => item.status === PaymentStatus.PENDING)
+      bank: data.some(
+        (item) => item.status === PaymentStatus.PENDING || item.status === PaymentStatus.SUBMITTED,
+      )
         ? this.bankInstructions()
         : null,
     };
@@ -114,8 +124,20 @@ export class PaymentsService {
   }
 
   async listAdmin(query: PaymentQueryDto) {
+    const createdToExclusive = query.createdTo
+      ? new Date(new Date(query.createdTo).getTime() + 24 * 60 * 60 * 1000)
+      : undefined;
     const where: Prisma.TuitionPaymentWhereInput = {
       ...(query.status ? { status: query.status } : {}),
+      ...(query.classOfferingId ? { enrollment: { classOfferingId: query.classOfferingId } } : {}),
+      ...(query.createdFrom || createdToExclusive
+        ? {
+            createdAt: {
+              ...(query.createdFrom ? { gte: new Date(query.createdFrom) } : {}),
+              ...(createdToExclusive ? { lt: createdToExclusive } : {}),
+            },
+          }
+        : {}),
       ...(query.search
         ? {
             OR: [

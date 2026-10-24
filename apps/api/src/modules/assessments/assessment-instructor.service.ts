@@ -196,8 +196,8 @@ export class AssessmentInstructorService {
     private readonly stimulusStorage: AssessmentStimulusMediaStorage,
   ) {}
 
-  listRubrics(instructorId: string) {
-    return this.prisma.rubric.findMany({
+  async listRubrics(instructorId: string) {
+    const rows = await this.prisma.rubric.findMany({
       where: { OR: [{ isActive: true }, { createdById: instructorId }] },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: {
@@ -221,6 +221,11 @@ export class AssessmentInstructorService {
         },
       },
     });
+    return rows.map((row) => ({
+      ...row,
+      canEdit: row.createdById === instructorId,
+      isOwnedByCurrentInstructor: row.createdById === instructorId,
+    }));
   }
 
   // Kept for internal/backward-compatible callers that only need assignable rubrics.

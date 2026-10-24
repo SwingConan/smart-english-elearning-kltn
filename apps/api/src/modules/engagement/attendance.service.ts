@@ -16,8 +16,19 @@ export class AttendanceService {
     await this.requireAssigned(instructorId, classOfferingId);
     return this.prisma.attendanceSession.findMany({
       where: { classOfferingId },
-      include: { _count: { select: { records: true } } },
+      include: {
+        _count: { select: { records: true } },
+        scheduleSlot: true,
+      },
       orderBy: [{ sessionDate: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  async slots(instructorId: string, classOfferingId: string) {
+    await this.requireAssigned(instructorId, classOfferingId);
+    return this.prisma.classScheduleSlot.findMany({
+      where: { classOfferingId },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
     });
   }
 
@@ -53,7 +64,7 @@ export class AttendanceService {
     await this.requireAssigned(instructorId, classOfferingId);
     const session = await this.prisma.attendanceSession.findFirst({
       where: { id, classOfferingId },
-      include: { records: true },
+      include: { records: true, scheduleSlot: true },
     });
     if (!session) throw new NotFoundException('Attendance session not found');
     const roster = await this.prisma.enrollment.findMany({

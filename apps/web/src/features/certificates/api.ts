@@ -10,6 +10,24 @@ export interface Certificate {
   classCodeSnapshot: string;
   issuedAt: string;
   revokedAt?: string | null;
+  revokeReason?: string | null;
+}
+export interface AdminCertificateDetail extends Certificate {
+  revokedBy?: { id: string; fullName: string } | null;
+  completion: {
+    completedAt: string;
+    enrollment: {
+      id: string;
+      status: string;
+      learner: { id: string; fullName: string; email: string };
+      classOffering: {
+        id: string;
+        code: string;
+        name: string;
+        course: { id: string; title: string };
+      };
+    };
+  };
 }
 export interface CertificateAdminQuery {
   search?: string;
@@ -28,6 +46,18 @@ export interface Readiness {
     finalAssessment: { satisfied: boolean };
   };
   completion?: { certificate?: Certificate | null } | null;
+  policy: {
+    minLessonCompletionPercent: number;
+    minAttendancePercent: number | null;
+    requireFinalAssessment: boolean;
+  };
+}
+export interface CompletionPolicy {
+  minLessonCompletionPercent: number;
+  minAttendancePercent: number | null;
+  requireFinalAssessment: boolean;
+  locked: boolean;
+  lockReason: 'CLASS_COMPLETED' | 'COMPLETION_EXISTS' | null;
 }
 export const certificateApi = {
   readiness: (enrollmentId: string) =>
@@ -48,17 +78,14 @@ export const certificateApi = {
       `/admin/certificates?${params.toString()}`,
     );
   },
+  adminDetail: (id: string) => apiFetch<AdminCertificateDetail>(`/admin/certificates/${id}`),
   revoke: (id: string, reason: string) =>
     apiFetch<Certificate>(`/admin/certificates/${id}/revoke`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),
   policy: (classId: string) =>
-    apiFetch<{
-      minLessonCompletionPercent: number;
-      minAttendancePercent: number | null;
-      requireFinalAssessment: boolean;
-    }>(`/admin/class-offerings/${classId}/completion-policy`),
+    apiFetch<CompletionPolicy>(`/admin/class-offerings/${classId}/completion-policy`),
   savePolicy: (
     classId: string,
     input: {

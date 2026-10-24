@@ -177,6 +177,12 @@ function ClassCard({ enrollment }: { enrollment: EnrollmentView }) {
             <p className="mt-1">
               Nội dung lớp chưa được mở trong khi đăng ký đang chờ xác nhận thanh toán.
             </p>
+            <Link
+              className="mt-3 inline-block font-bold underline"
+              to={`/student/enrollments/${enrollment.id}/payment`}
+            >
+              Xem hướng dẫn thanh toán
+            </Link>
           </div>
         ) : (
           <p className="mt-5 text-sm text-slate-500">
