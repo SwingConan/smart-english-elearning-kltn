@@ -113,20 +113,27 @@ export class PasswordResetService {
 
   async confirm(rawToken: string, newPassword: string): Promise<void> {
     const tokenHash = this.hashToken(rawToken);
-    const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
     const now = new Date();
+
+    const candidate = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        tokenHash,
+        usedAt: null,
+        revokedAt: null,
+        expiresAt: { gt: now },
+        user: { status: UserStatus.ACTIVE },
+      },
+      select: { id: true, userId: true },
+    });
+    if (!candidate) throw new BadRequestException(INVALID_RESET_MESSAGE);
+
+    const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        const token = await tx.passwordResetToken.findUnique({
-          where: { tokenHash },
-          select: { id: true, userId: true },
-        });
-        if (!token) throw new InvalidResetError();
-
         const claimed = await tx.passwordResetToken.updateMany({
           where: {
-            id: token.id,
+            id: candidate.id,
             tokenHash,
             usedAt: null,
             revokedAt: null,
@@ -138,15 +145,15 @@ export class PasswordResetService {
         if (claimed.count !== 1) throw new InvalidResetError();
 
         const updatedUser = await tx.user.updateMany({
-          where: { id: token.userId, status: UserStatus.ACTIVE },
+          where: { id: candidate.userId, status: UserStatus.ACTIVE },
           data: { passwordHash },
         });
         if (updatedUser.count !== 1) throw new InvalidResetError();
 
         await tx.passwordResetToken.updateMany({
           where: {
-            userId: token.userId,
-            id: { not: token.id },
+            userId: candidate.userId,
+            id: { not: candidate.id },
             usedAt: null,
             revokedAt: null,
           },
@@ -154,7 +161,7 @@ export class PasswordResetService {
         });
 
         await tx.$executeRaw(
-          Prisma.sql`DELETE FROM "user_sessions" WHERE "sess" ->> 'userId' = ${token.userId}`,
+          Prisma.sql`DELETE FROM "user_sessions" WHERE "sess" ->> 'userId' = ${candidate.userId}`,
         );
       });
     } catch (error: unknown) {

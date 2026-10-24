@@ -1,9 +1,11 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import * as argon2 from 'argon2';
 import { createHash } from 'crypto';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { configureHttpApplication } from '../src/app.setup';
 import { Prisma, UserRole, UserStatus } from '../src/generated/prisma/client';
 import { EmailMessage, EmailSender } from '../src/infrastructure/email/email-sender';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
@@ -17,8 +19,9 @@ class CaptureEmailSender extends EmailSender {
 }
 
 describe('Password recovery (e2e)', () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
   let prisma: PrismaService;
+  const previousTrustProxy = process.env.TRUST_PROXY;
   const emailSender = new CaptureEmailSender();
   const unique = `${Date.now()}-${process.pid}`;
   const emails = {
@@ -33,17 +36,15 @@ describe('Password recovery (e2e)', () => {
   const newPassword = 'New-password-2026';
 
   beforeAll(async () => {
+    process.env.TRUST_PROXY = 'loopback';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(EmailSender)
       .useValue(emailSender)
       .compile();
 
-    app = moduleRef.createNestApplication();
-    app.getHttpAdapter().getInstance().set('trust proxy', true);
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-    );
+    app = moduleRef.createNestApplication<NestExpressApplication>();
+    configureHttpApplication(app, app.get(ConfigService));
+    expect(app.getHttpAdapter().getInstance().get('trust proxy')).toEqual(['loopback']);
     await app.init();
     prisma = app.get(PrismaService);
 
@@ -111,6 +112,8 @@ describe('Password recovery (e2e)', () => {
       await prisma.user.deleteMany({ where: { email: { in: Object.values(emails) } } });
     }
     if (app) await app.close();
+    if (previousTrustProxy === undefined) delete process.env.TRUST_PROXY;
+    else process.env.TRUST_PROXY = previousTrustProxy;
   });
 
   it('rejects malformed and extra request fields', async () => {

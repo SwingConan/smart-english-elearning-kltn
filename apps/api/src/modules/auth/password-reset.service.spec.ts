@@ -7,6 +7,11 @@ import { EmailMessage, EmailSender } from '../../infrastructure/email/email-send
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PasswordResetService } from './password-reset.service';
 
+jest.mock('argon2', () => {
+  const actual = jest.requireActual<typeof import('argon2')>('argon2');
+  return { ...actual, hash: jest.fn(actual.hash) };
+});
+
 describe('PasswordResetService', () => {
   const user = {
     id: '10000000-0000-4000-8000-000000000001',
@@ -20,13 +25,16 @@ describe('PasswordResetService', () => {
       findFirst: jest.fn(),
       create: jest.fn(),
       updateMany: jest.fn(),
-      findUnique: jest.fn(),
     },
     user: { updateMany: jest.fn() },
   };
   const prisma = {
     user: { findUnique: jest.fn() },
-    passwordResetToken: { deleteMany: jest.fn(), updateMany: jest.fn() },
+    passwordResetToken: {
+      deleteMany: jest.fn(),
+      updateMany: jest.fn(),
+      findFirst: jest.fn(),
+    },
     $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
   };
 
@@ -50,6 +58,7 @@ describe('PasswordResetService', () => {
     tx.passwordResetToken.create.mockResolvedValue({ id: 'reset-id' });
     tx.user.updateMany.mockResolvedValue({ count: 1 });
     prisma.passwordResetToken.updateMany.mockResolvedValue({ count: 1 });
+    prisma.passwordResetToken.findFirst.mockResolvedValue({ id: 'token-id', userId: user.id });
     emailSender.send.mockResolvedValue(undefined);
   });
 
@@ -136,7 +145,6 @@ describe('PasswordResetService', () => {
   });
 
   it('atomically consumes a valid token, hashes with Argon2id, revokes siblings, and deletes every user session', async () => {
-    tx.passwordResetToken.findUnique.mockResolvedValue({ id: 'token-id', userId: user.id });
     await makeService().confirm('raw-reset-token', 'new-password-2026');
 
     expect(tx.passwordResetToken.updateMany).toHaveBeenNthCalledWith(
@@ -165,7 +173,7 @@ describe('PasswordResetService', () => {
   });
 
   it('returns one generic 400 for unknown, expired, used, revoked, status-invalid, and already-claimed tokens', async () => {
-    tx.passwordResetToken.findUnique.mockResolvedValueOnce(null);
+    prisma.passwordResetToken.findFirst.mockResolvedValueOnce(null);
     await expect(makeService().confirm('unknown', 'new-password-2026')).rejects.toMatchObject({
       status: 400,
       message: 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.',
@@ -178,11 +186,21 @@ describe('PasswordResetService', () => {
       'locked-after-issuance',
       'concurrent-second-consumer',
     ]) {
-      tx.passwordResetToken.findUnique.mockResolvedValueOnce({ id: reason, userId: user.id });
       tx.passwordResetToken.updateMany.mockResolvedValueOnce({ count: 0 });
       await expect(makeService().confirm(reason, 'new-password-2026')).rejects.toBeInstanceOf(
         BadRequestException,
       );
     }
+  });
+
+  it('does not run Argon2 for a random or otherwise invalid token', async () => {
+    prisma.passwordResetToken.findFirst.mockResolvedValue(null);
+
+    await expect(
+      makeService().confirm('random-invalid-token', 'new-password-2026'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(argon2.hash).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
