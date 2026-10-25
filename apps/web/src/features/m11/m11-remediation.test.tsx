@@ -115,7 +115,7 @@ describe('M11 Source Gate R1 Web remediation', () => {
       },
       recommendations: [],
     } as never);
-    render(
+    const reportView = render(
       <MemoryRouter initialEntries={['/student/enrollments/e1/report']}>
         <Routes>
           <Route
@@ -125,7 +125,7 @@ describe('M11 Source Gate R1 Web remediation', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(await screen.findByText('Điểm cuối cùng: 82/100')).toBeInTheDocument();
+    expect(await screen.findByText('Điểm cuối: 82/100')).toBeInTheDocument();
     expect(screen.getAllByText('Đang chờ duyệt').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Chưa có dữ liệu').length).toBeGreaterThan(0);
     expect(screen.queryByText(/^0%$/)).not.toBeInTheDocument();
@@ -133,6 +133,11 @@ describe('M11 Source Gate R1 Web remediation', () => {
     expect(
       screen.getByText('Bài cuối khóa chưa hoàn tất hoặc đang chờ duyệt.'),
     ).toBeInTheDocument();
+    expect(reportView.container.querySelector('details')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Xem điểm danh/ })).toHaveAttribute(
+      'href',
+      '/student/enrollments/e1/attendance',
+    );
   });
 
   it('creates a custom multi-criterion rubric and presents assigned-edit recovery', async () => {
@@ -184,7 +189,22 @@ describe('M11 Source Gate R1 Web remediation', () => {
       meetingUrl: 'https://meet.example.com/a',
       learnerNote: 'Cần tư vấn kỹ năng nói',
     };
-    vi.spyOn(engagementApi.consultations, 'mine').mockResolvedValue([confirmed]);
+    vi.spyOn(engagementApi.consultations, 'studentThread').mockResolvedValue({
+      id: 'thread-student',
+      unreadCount: 0,
+      messages: [],
+      appointments: [confirmed],
+      enrollment: {
+        id: 'e1',
+        status: 'ACTIVE',
+        classOffering: {
+          id: 'c1',
+          code: 'C1',
+          name: 'Lớp C1',
+          instructor: { id: 'i1', fullName: 'Giảng viên An' },
+        },
+      },
+    });
     const create = vi.spyOn(engagementApi.consultations, 'create').mockResolvedValue(confirmed);
     const cancel = vi
       .spyOn(engagementApi.consultations, 'cancel')
@@ -204,6 +224,7 @@ describe('M11 Source Gate R1 Web remediation', () => {
       confirmed.meetingUrl,
     );
     expect(student.container).not.toHaveTextContent('Ghi chú riêng');
+    fireEvent.click(screen.getByRole('button', { name: /Đặt lịch tư vấn/ }));
     fireEvent.change(screen.getByLabelText('Chủ đề'), { target: { value: 'Kế hoạch mới' } });
     fireEvent.change(screen.getByLabelText('Thời gian mong muốn'), {
       target: { value: '2026-12-01T10:00' },
@@ -232,10 +253,30 @@ describe('M11 Source Gate R1 Web remediation', () => {
       instructorNote: 'Ghi chú riêng',
       enrollment: { learner: { fullName: 'Nguyễn An', email: 'a@example.com' } },
     };
-    vi.spyOn(engagementApi.consultations, 'instructor').mockResolvedValue([
-      requested,
-      { ...confirmed, instructorNote: 'Ghi chú riêng', enrollment: requested.enrollment },
+    vi.spyOn(engagementApi.consultations, 'inbox').mockResolvedValue([
+      {
+        enrollmentId: 'e1',
+        status: 'ACTIVE',
+        unreadCount: 1,
+        learner: { id: 's1', fullName: 'Nguyễn An', email: 'a@example.com' },
+        lastMessage: null,
+        appointment: null,
+      },
     ]);
+    vi.spyOn(engagementApi.consultations, 'instructorThread').mockResolvedValue({
+      id: 'thread-instructor',
+      messages: [],
+      appointments: [
+        requested,
+        { ...confirmed, instructorNote: 'Ghi chú riêng', enrollment: requested.enrollment },
+      ],
+      enrollment: {
+        id: 'e1',
+        status: 'ACTIVE',
+        learner: { id: 's1', fullName: 'Nguyễn An', email: 'a@example.com' },
+      },
+    });
+    vi.spyOn(engagementApi.consultations, 'markInstructorRead').mockResolvedValue({ read: true });
     const update = vi.spyOn(engagementApi.consultations, 'update').mockResolvedValue(confirmed);
     render(
       <MemoryRouter initialEntries={['/instructor/classes/c1/consultations']}>
@@ -295,7 +336,7 @@ describe('M11 Source Gate R1 Web remediation', () => {
       .spyOn(paymentApi, 'reject')
       .mockResolvedValue({ ...payment, status: 'REJECTED', adminNote: 'Không tìm thấy giao dịch' });
     render(<AdminPaymentsPage />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Từ chối' }));
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Từ chối' }))[0]);
     expect(screen.getByRole('button', { name: 'Xác nhận từ chối' })).toBeDisabled();
     fireEvent.change(screen.getByLabelText('Lý do từ chối'), {
       target: { value: 'Không tìm thấy giao dịch' },

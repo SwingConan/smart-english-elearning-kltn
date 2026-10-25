@@ -114,7 +114,7 @@ describe('M11 Source Gate R3 edge remediation', () => {
     const classFilter = await screen.findByLabelText('Lớp học');
     expect(await screen.findByRole('option', { name: 'B02 — Lớp B' })).toBeInTheDocument();
     fireEvent.change(classFilter, { target: { value: 'class-b' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Lọc' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Áp dụng bộ lọc' }));
     await waitFor(() =>
       expect(admin).toHaveBeenLastCalledWith(
         expect.objectContaining({ classOfferingId: 'class-b', page: 1, limit: 20 }),

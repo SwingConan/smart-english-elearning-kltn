@@ -1,5 +1,5 @@
-import { Check, CheckCircle2, Clipboard, Info, XCircle } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { Check, CheckCircle2, Clipboard, Info, X, XCircle } from 'lucide-react';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 
 export function PageContainer({
   children,
@@ -171,5 +171,78 @@ export function Timeline({
         </li>
       ))}
     </ol>
+  );
+}
+
+export function DetailDrawer({
+  open,
+  title,
+  description,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  title: string;
+  description?: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const titleId = useId();
+  const descriptionId = useId();
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [onClose, open]);
+
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-slate-950/50 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <aside
+        aria-describedby={description ? descriptionId : undefined}
+        aria-labelledby={titleId}
+        aria-modal="true"
+        className="h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl sm:p-8"
+        role="dialog"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-black text-slate-950" id={titleId}>
+              {title}
+            </h2>
+            {description ? (
+              <p className="mt-2 text-sm leading-6 text-slate-600" id={descriptionId}>
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <button
+            aria-label="Đóng"
+            className="rounded-xl border p-2 text-slate-600 hover:bg-slate-50"
+            onClick={onClose}
+            ref={closeRef}
+            type="button"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="mt-7">{children}</div>
+      </aside>
+    </div>
   );
 }
