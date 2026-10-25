@@ -45,5 +45,15 @@
     "@prisma/engines@7.10.1": true,
     "esbuild@0.28.2": true,
     "@scarf/scarf": false
+  },
+  "overrides": {
+    "multer": "2.5.0",
+    "body-parser": "2.4.0",
+    "source-map-js": "1.2.2",
+    "js-yaml": "5.4.3",
+    "fast-uri": "3.1.9",
+    "shell-quote": "1.11.0",
+    "handlebars": "4.7.10",
+    "zod": "4.6.6"
   }
 }
