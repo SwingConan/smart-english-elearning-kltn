@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { EnrollmentStatus, Prisma } from '../../generated/prisma/client';
+import * as argon2 from 'argon2';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { BulkAttendanceDto, CreateAttendanceSessionDto } from './attendance.dto';
 
@@ -14,7 +15,7 @@ export class AttendanceService {
 
   async list(instructorId: string, classOfferingId: string) {
     await this.requireAssigned(instructorId, classOfferingId);
-    return this.prisma.attendanceSession.findMany({
+    const sessions = await this.prisma.attendanceSession.findMany({
       where: { classOfferingId },
       include: {
         _count: { select: { records: true } },
@@ -22,6 +23,7 @@ export class AttendanceService {
       },
       orderBy: [{ sessionDate: 'desc' }, { createdAt: 'desc' }],
     });
+    return sessions.map((session) => this.safeSession(session));
   }
 
   async slots(instructorId: string, classOfferingId: string) {
@@ -48,16 +50,32 @@ export class AttendanceService {
     });
     if (duplicate)
       throw new ConflictException('An attendance session already exists for this date and slot');
-    return this.prisma.attendanceSession.create({
+    const opensAt = input.opensAt ? new Date(input.opensAt) : null;
+    const closesAt = input.closesAt ? new Date(input.closesAt) : null;
+    if (input.selfCheckInEnabled && (!opensAt || !closesAt)) {
+      throw new BadRequestException('Phiên tự điểm danh cần thời gian mở và đóng.');
+    }
+    if (opensAt && closesAt && opensAt >= closesAt) {
+      throw new BadRequestException('Thời gian đóng phải sau thời gian mở.');
+    }
+    const accessCodeHash = input.accessCode?.trim()
+      ? await argon2.hash(input.accessCode.trim(), { type: argon2.argon2id })
+      : null;
+    const created = await this.prisma.attendanceSession.create({
       data: {
         classOfferingId,
         scheduleSlotId: input.scheduleSlotId ?? null,
         sessionDate,
         title: input.title?.trim() || null,
         note: input.note?.trim() || null,
+        opensAt,
+        closesAt,
+        selfCheckInEnabled: input.selfCheckInEnabled ?? false,
+        accessCodeHash,
         createdById: instructorId,
       },
     });
+    return this.safeSession(created);
   }
 
   async detail(instructorId: string, classOfferingId: string, id: string) {
@@ -81,7 +99,7 @@ export class AttendanceService {
     });
     const records = new Map(session.records.map((record) => [record.enrollmentId, record]));
     return {
-      ...session,
+      ...this.safeSession(session),
       roster: roster.map((enrollment) => ({
         ...enrollment,
         attendance: records.get(enrollment.id) ?? null,
@@ -136,11 +154,15 @@ export class AttendanceService {
               status: record.status,
               note: record.note?.trim() || null,
               recordedById: instructorId,
+              source: 'INSTRUCTOR',
+              checkedInAt: null,
             },
             update: {
               status: record.status,
               note: record.note?.trim() || null,
               recordedById: instructorId,
+              source: 'INSTRUCTOR',
+              checkedInAt: null,
             },
           });
         }
@@ -149,17 +171,152 @@ export class AttendanceService {
             where: { attendanceSessionId: id, enrollmentId: { in: clearIds } },
           });
         }
+        const updatedSession = await tx.attendanceSession.findUniqueOrThrow({
+          where: { id },
+          include: { records: true },
+        });
         return {
           updated: input.records.length,
           cleared: clearIds.length,
-          session: await tx.attendanceSession.findUniqueOrThrow({
-            where: { id },
-            include: { records: true },
-          }),
+          session: this.safeSession(updatedSession),
         };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+  }
+
+  async close(instructorId: string, classOfferingId: string, id: string) {
+    await this.requireAssigned(instructorId, classOfferingId);
+    const changed = await this.prisma.attendanceSession.updateMany({
+      where: { id, classOfferingId, closedAt: null },
+      data: { closedAt: new Date() },
+    });
+    if (!changed.count) throw new ConflictException('Phiên điểm danh đã đóng hoặc không tồn tại.');
+    const session = await this.prisma.attendanceSession.findUniqueOrThrow({ where: { id } });
+    return this.safeSession(session);
+  }
+
+  async studentAttendance(learnerId: string, enrollmentId: string) {
+    const enrollment = await this.requireOwnedActiveOrCompleted(learnerId, enrollmentId);
+    const sessions = await this.prisma.attendanceSession.findMany({
+      where: { classOfferingId: enrollment.classOfferingId },
+      include: { records: { where: { enrollmentId } }, scheduleSlot: true },
+      orderBy: [{ sessionDate: 'desc' }, { createdAt: 'desc' }],
+    });
+    const now = new Date();
+    return sessions.map((session) => ({
+      ...this.safeSession(session),
+      record: session.records[0] ?? null,
+      state: this.sessionState(session, now, Boolean(session.records[0])),
+    }));
+  }
+
+  async openSession(learnerId: string, enrollmentId: string) {
+    const enrollment = await this.requireOwnedActiveOrCompleted(learnerId, enrollmentId);
+    const now = new Date();
+    const session = await this.prisma.attendanceSession.findFirst({
+      where: {
+        classOfferingId: enrollment.classOfferingId,
+        selfCheckInEnabled: true,
+        closedAt: null,
+        opensAt: { lte: now },
+        closesAt: { gte: now },
+      },
+      include: { records: { where: { enrollmentId } }, scheduleSlot: true },
+      orderBy: { closesAt: 'asc' },
+    });
+    if (!session) return null;
+    return {
+      ...this.safeSession(session),
+      record: session.records[0] ?? null,
+      state: this.sessionState(session, now, Boolean(session.records[0])),
+    };
+  }
+
+  async checkIn(learnerId: string, enrollmentId: string, sessionId: string, accessCode?: string) {
+    const enrollment = await this.requireOwnedActiveOrCompleted(learnerId, enrollmentId);
+    if (enrollment.status !== EnrollmentStatus.ACTIVE) {
+      throw new BadRequestException('Chỉ học viên đang học mới có thể tự điểm danh.');
+    }
+    const session = await this.prisma.attendanceSession.findFirst({
+      where: { id: sessionId, classOfferingId: enrollment.classOfferingId },
+    });
+    if (!session) throw new NotFoundException('Không tìm thấy phiên điểm danh.');
+    const now = new Date();
+    if (
+      !session.selfCheckInEnabled ||
+      session.closedAt ||
+      !session.opensAt ||
+      !session.closesAt ||
+      now < session.opensAt ||
+      now > session.closesAt
+    ) {
+      throw new ConflictException('Phiên tự điểm danh chưa mở hoặc đã đóng.');
+    }
+    if (session.accessCodeHash) {
+      const valid = accessCode
+        ? await argon2.verify(session.accessCodeHash, accessCode.trim()).catch(() => false)
+        : false;
+      if (!valid) throw new BadRequestException('Mã điểm danh không đúng.');
+    }
+    const existing = await this.prisma.attendanceRecord.findUnique({
+      where: { attendanceSessionId_enrollmentId: { attendanceSessionId: sessionId, enrollmentId } },
+    });
+    if (existing?.source === 'SELF_CHECK_IN' && existing.status === 'PRESENT') {
+      return { idempotent: true, record: existing };
+    }
+    const record = await this.prisma.attendanceRecord.upsert({
+      where: { attendanceSessionId_enrollmentId: { attendanceSessionId: sessionId, enrollmentId } },
+      create: {
+        attendanceSessionId: sessionId,
+        enrollmentId,
+        status: 'PRESENT',
+        source: 'SELF_CHECK_IN',
+        checkedInAt: now,
+        recordedById: learnerId,
+      },
+      update: {
+        status: 'PRESENT',
+        source: 'SELF_CHECK_IN',
+        checkedInAt: now,
+        recordedById: learnerId,
+      },
+    });
+    return { idempotent: false, record };
+  }
+
+  private requireOwnedActiveOrCompleted(learnerId: string, id: string) {
+    return this.prisma.enrollment
+      .findFirst({
+        where: {
+          id,
+          learnerId,
+          status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED] },
+        },
+        select: { id: true, status: true, classOfferingId: true },
+      })
+      .then((row) => {
+        if (!row) throw new NotFoundException('Không tìm thấy ghi danh.');
+        return row;
+      });
+  }
+
+  private safeSession<T extends { accessCodeHash: string | null }>(session: T) {
+    const { accessCodeHash, ...safe } = session;
+    return { ...safe, accessCodeEnabled: Boolean(accessCodeHash) };
+  }
+
+  private sessionState(
+    session: { opensAt: Date | null; closesAt: Date | null; closedAt: Date | null },
+    now: Date,
+    checkedIn: boolean,
+  ) {
+    if (checkedIn) return 'CHECKED_IN';
+    if (session.closedAt || (session.closesAt && now > session.closesAt)) return 'CLOSED';
+    if (session.opensAt && now < session.opensAt) return 'UPCOMING';
+    if (session.opensAt && session.closesAt && now >= session.opensAt && now <= session.closesAt)
+      return 'OPEN';
+    return 'UNAVAILABLE';
   }
 
   private async requireAssigned(instructorId: string, id: string) {

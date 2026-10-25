@@ -29,3 +29,9 @@ export class UpdateConsultationDto {
   @IsOptional() @IsString() @Length(1, 2000) instructorNote?: string;
   @IsOptional() @IsString() @Length(1, 2000) declineReason?: string;
 }
+
+export class SendConsultationMessageDto {
+  @IsString()
+  @Length(1, 4000)
+  body!: string;
+}

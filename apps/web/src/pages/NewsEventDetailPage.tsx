@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { newsCoverUrl } from '@/content/news-assets';
 import { PublicContent, publicContentApi } from '@/features/public-content/api';
 import { SafeMarkdown } from '@/components/ui/SafeMarkdown';
+import { SafeRichHtml } from '@/components/ui/SafeRichHtml';
 import { ApiError } from '@/lib/api-client';
 
 export function NewsEventDetailPage() {
@@ -62,7 +63,11 @@ export function NewsEventDetailPage() {
   const item = remote;
   const related = relatedItems
     .filter((candidate) => candidate.slug !== item.slug)
-    .sort((a, b) => Number(b.category === item.category) - Number(a.category === item.category))
+    .sort(
+      (a, b) =>
+        Number(categoryName(b) === categoryName(item)) -
+        Number(categoryName(a) === categoryName(item)),
+    )
     .slice(0, 3);
 
   return (
@@ -76,7 +81,7 @@ export function NewsEventDetailPage() {
             >
               <ArrowLeft size={16} /> Tin tức & Sự kiện
             </Link>
-            <p className="mt-8 text-sm font-semibold text-indigo-700">{item.category}</p>
+            <p className="mt-8 text-sm font-semibold text-indigo-700">{categoryName(item)}</p>
             <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">{item.title}</h1>
             <p className="mt-5 text-lg leading-8 text-slate-600">{item.excerpt}</p>
             <div className="mt-6 flex flex-wrap gap-5 text-sm font-medium text-slate-500">
@@ -90,7 +95,11 @@ export function NewsEventDetailPage() {
                 <Clock3 size={17} />
                 {Math.max(
                   1,
-                  Math.ceil(((item.bodyMarkdown?.length ?? 0) + item.excerpt.length) / 1000),
+                  Math.ceil(
+                    ((item.bodyMarkdown?.length ?? item.bodyHtml?.length ?? 0) +
+                      item.excerpt.length) /
+                      1000,
+                  ),
                 )}{' '}
                 phút đọc
               </span>
@@ -104,7 +113,11 @@ export function NewsEventDetailPage() {
             src={newsCoverUrl(item)}
           />
           <div className="mx-auto mt-12 max-w-3xl space-y-12">
-            {item.bodyMarkdown ? <SafeMarkdown markdown={item.bodyMarkdown} /> : null}
+            {item.contentFormat === 'RICH_HTML' && item.bodyHtml ? (
+              <SafeRichHtml html={item.bodyHtml} />
+            ) : item.bodyMarkdown ? (
+              <SafeMarkdown markdown={item.bodyMarkdown} />
+            ) : null}
           </div>
           <div className="mx-auto mt-12 max-w-3xl rounded-3xl bg-indigo-950 px-6 py-8 text-white sm:px-8">
             <h2 className="text-2xl font-bold">Biến thông tin thành bước học tiếp theo</h2>
@@ -154,7 +167,7 @@ export function NewsEventDetailPage() {
                   src={newsCoverUrl(candidate)}
                 />
                 <div className="p-5">
-                  <p className="text-sm font-semibold text-indigo-700">{candidate.category}</p>
+                  <p className="text-sm font-semibold text-indigo-700">{categoryName(candidate)}</p>
                   <h3 className="mt-2 font-bold leading-snug">{candidate.title}</h3>
                 </div>
               </Link>
@@ -164,4 +177,8 @@ export function NewsEventDetailPage() {
       </section>
     </main>
   );
+}
+
+function categoryName(item: PublicContent) {
+  return typeof item.category === 'string' ? item.category : item.category.name;
 }

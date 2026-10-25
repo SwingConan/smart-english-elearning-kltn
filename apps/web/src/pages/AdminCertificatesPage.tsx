@@ -172,7 +172,7 @@ export function AdminCertificatesPage() {
                 <dd>{detail.certificateNumber}</dd>
               </div>
               <div>
-                <dt>Thông tin đóng băng</dt>
+                <dt>Thông tin tại thời điểm cấp</dt>
                 <dd>
                   {detail.learnerNameSnapshot} · {detail.courseTitleSnapshot} ·{' '}
                   {detail.classCodeSnapshot} — {detail.classNameSnapshot}

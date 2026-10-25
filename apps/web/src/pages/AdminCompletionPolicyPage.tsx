@@ -57,6 +57,28 @@ export function AdminCompletionPolicyPage() {
         Đây là tiêu chí vận hành để xác định hoàn thành khóa học, không phải tiêu chí cấp điểm TOEIC
         chính thức.
       </p>
+      <section
+        className="mt-6 max-w-3xl rounded-2xl bg-indigo-50 p-5"
+        aria-labelledby="policy-guide"
+      >
+        <h2 className="font-bold text-indigo-950" id="policy-guide">
+          Cách áp dụng tiêu chí
+        </h2>
+        <div className="mt-3 grid gap-3 text-sm text-slate-700 sm:grid-cols-3">
+          <p>
+            <strong className="block text-slate-950">Bài học</strong>
+            Ví dụ đặt 80% nghĩa là học viên phải hoàn thành ít nhất 8 trong 10 bài được tính.
+          </p>
+          <p>
+            <strong className="block text-slate-950">Điểm danh</strong>
+            Để trống nếu lớp không dùng tỷ lệ điểm danh làm điều kiện hoàn thành.
+          </p>
+          <p>
+            <strong className="block text-slate-950">Đánh giá cuối khóa</strong>
+            Khi bật, hệ thống chỉ xét đạt sau khi kết quả cuối đã hoàn tất và được duyệt.
+          </p>
+        </div>
+      </section>
       {form.locked ? (
         <p className="mt-4 rounded-xl bg-amber-50 p-4 text-amber-900">{lockMessage}</p>
       ) : null}
@@ -105,6 +127,18 @@ export function AdminCompletionPolicyPage() {
           Lưu tiêu chí
         </button>
       </fieldset>
+      <div className="mt-4 max-w-xl rounded-xl border border-indigo-200 bg-white p-4 text-sm text-slate-700">
+        <strong className="text-slate-950">Tóm tắt chính sách hiện tại</strong>
+        <p className="mt-1">
+          Hoàn thành tối thiểu {form.minLessonCompletionPercent}% bài học
+          {form.minAttendancePercent === null
+            ? ', không bắt buộc tỷ lệ điểm danh'
+            : `, tham dự tối thiểu ${form.minAttendancePercent}%`}
+          {form.requireFinalAssessment
+            ? ', và phải đạt đánh giá cuối khóa.'
+            : ', không bắt buộc đánh giá cuối khóa.'}
+        </p>
+      </div>
       {message ? (
         <p className="mt-4" role="status">
           {message}

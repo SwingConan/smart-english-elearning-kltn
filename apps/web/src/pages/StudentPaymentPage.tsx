@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
+import { CopyButton, SectionHeader, StatusBadge } from '@/components/ui/ProductPrimitives';
 import {
   BankInstructions,
   Payment,
@@ -77,7 +78,10 @@ export function StudentPaymentPage() {
   return (
     <section className="space-y-6">
       <header>
-        <h2 className="text-2xl font-black">Thanh toán học phí</h2>
+        <SectionHeader
+          title="Thanh toán học phí"
+          description="Chuyển khoản thủ công và gửi thông tin để điều phối viên đối soát. Báo đã chuyển không đồng nghĩa với đã xác minh."
+        />
         {enrollment?.classOffering ? (
           <p className="text-slate-600">
             {enrollment.classOffering.course.title} · {enrollment.classOffering.code} —{' '}
@@ -106,7 +110,10 @@ export function StudentPaymentPage() {
             </div>
             <div>
               <dt className="text-sm text-slate-600">Số tài khoản</dt>
-              <dd>{bank.account}</dd>
+              <dd className="flex items-center gap-2 font-mono font-bold">
+                {bank.account}
+                <CopyButton label="Sao chép STK" value={bank.account} />
+              </dd>
             </div>
             <div>
               <dt className="text-sm text-slate-600">Chủ tài khoản</dt>
@@ -119,14 +126,25 @@ export function StudentPaymentPage() {
         <article className="rounded-2xl border bg-white p-5" key={item.id}>
           <div className="flex flex-wrap justify-between gap-2">
             <strong>{item.amountVnd.toLocaleString('vi-VN')} ₫</strong>
-            <span>
+            <StatusBadge
+              tone={
+                item.status === 'VERIFIED'
+                  ? 'success'
+                  : item.status === 'REJECTED'
+                    ? 'danger'
+                    : item.status === 'SUBMITTED'
+                      ? 'info'
+                      : 'warning'
+              }
+            >
               {labels[item.status as keyof typeof labels] ?? item.status}
               <span className="sr-only">{item.status}</span>
-            </span>
+            </StatusBadge>
           </div>
           <p className="mt-2">
             Nội dung chuyển khoản:{' '}
-            <strong className="break-all font-mono">{item.referenceCode}</strong>
+            <strong className="break-all font-mono">{item.referenceCode}</strong>{' '}
+            <CopyButton label="Sao chép nội dung" value={item.referenceCode} />
           </p>
           {item.payerReference ? <p>Mã giao dịch ngân hàng: {item.payerReference}</p> : null}
           {item.learnerNote ? <p>Ghi chú của bạn: {item.learnerNote}</p> : null}

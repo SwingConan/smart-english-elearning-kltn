@@ -2,11 +2,10 @@ import { ArrowRight, CalendarDays, Clock3, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { newsCoverUrl } from '@/content/news-assets';
-import { newsCategories } from '@/content/news-events';
 import { PublicContent, publicContentApi } from '@/features/public-content/api';
 
 export function NewsEventsPage() {
-  const [category, setCategory] = useState<(typeof newsCategories)[number]>('Tất cả');
+  const [category, setCategory] = useState('Tất cả');
   const [query, setQuery] = useState('');
   const [published, setPublished] = useState<PublicContent[]>([]);
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -25,14 +24,16 @@ export function NewsEventsPage() {
     publishedAt: item.publishedAt ?? '',
     readMinutes: Math.max(
       1,
-      Math.ceil((item.excerpt.length + (item.bodyMarkdown?.length ?? 0)) / 1000),
+      Math.ceil(
+        (item.excerpt.length + (item.bodyMarkdown?.length ?? item.bodyHtml?.length ?? 0)) / 1000,
+      ),
     ),
   }));
   const featured = source.find((item) => item.featured) ?? source[0];
   const normalizedQuery = query.trim().toLocaleLowerCase('vi');
   const filtered = source.filter(
     (item) =>
-      (category === 'Tất cả' || item.category === category) &&
+      (category === 'Tất cả' || categoryName(item) === category) &&
       (!normalizedQuery ||
         `${item.title} ${item.excerpt}`.toLocaleLowerCase('vi').includes(normalizedQuery)),
   );
@@ -114,7 +115,7 @@ export function NewsEventsPage() {
         </div>
 
         <div aria-label="Lọc bài viết theo danh mục" className="mt-7 flex flex-wrap gap-2">
-          {newsCategories.map((item) => (
+          {['Tất cả', ...new Set(source.map(categoryName))].map((item) => (
             <button
               aria-pressed={category === item}
               className={`filter-chip ${category === item ? 'filter-chip-active' : ''}`}
@@ -164,7 +165,7 @@ export function NewsEventsPage() {
                       />
                     </Link>
                     <div className="p-6">
-                      <p className="text-sm font-semibold text-indigo-700">{item.category}</p>
+                      <p className="text-sm font-semibold text-indigo-700">{categoryName(item)}</p>
                       <h3 className="mt-2 text-xl font-bold leading-snug">
                         <Link className="hover:text-indigo-700" to={`/news-events/${item.slug}`}>
                           {item.title}
@@ -210,4 +211,8 @@ export function NewsEventsPage() {
       </section>
     </main>
   );
+}
+
+function categoryName(item: PublicContent) {
+  return typeof item.category === 'string' ? item.category : item.category.name;
 }

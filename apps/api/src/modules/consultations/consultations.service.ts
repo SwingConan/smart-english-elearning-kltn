@@ -136,6 +136,226 @@ export class ConsultationsService {
     return this.prisma.consultationRequest.findUnique({ where: { id } });
   }
 
+  async studentThread(learnerId: string, enrollmentId: string) {
+    const enrollment = await this.requireOwnedEnrollmentDetail(learnerId, enrollmentId);
+    const thread = await this.ensureThread(enrollmentId);
+    const [messages, appointments] = await Promise.all([
+      this.threadMessages(thread.id),
+      this.prisma.consultationRequest.findMany({
+        where: { enrollmentId },
+        select: studentConsultationSelect,
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+    const unreadCount = messages.filter(
+      (message) =>
+        message.senderId !== learnerId &&
+        (!thread.learnerLastReadAt || message.createdAt > thread.learnerLastReadAt),
+    ).length;
+    return {
+      id: thread.id,
+      enrollment: {
+        id: enrollment.id,
+        status: enrollment.status,
+        classOffering: enrollment.classOffering,
+      },
+      messages,
+      appointments: appointments.map((row) => this.studentView(row)),
+      unreadCount,
+    };
+  }
+
+  async sendStudentMessage(learnerId: string, enrollmentId: string, body: string) {
+    const enrollment = await this.requireOwnedEnrollment(learnerId, enrollmentId);
+    if (enrollment.status !== EnrollmentStatus.ACTIVE) {
+      throw new BadRequestException('Chỉ ghi danh đang hoạt động mới có thể gửi tin nhắn.');
+    }
+    return this.createMessage(await this.ensureThread(enrollmentId), learnerId, body);
+  }
+
+  async markStudentRead(learnerId: string, enrollmentId: string) {
+    await this.requireOwnedEnrollment(learnerId, enrollmentId);
+    const thread = await this.ensureThread(enrollmentId);
+    await this.prisma.consultationThread.update({
+      where: { id: thread.id },
+      data: { learnerLastReadAt: new Date() },
+    });
+    return { read: true };
+  }
+
+  async instructorInbox(instructorId: string, classOfferingId: string) {
+    await this.requireAssignedInstructor(instructorId, classOfferingId);
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: {
+        classOfferingId,
+        status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED] },
+      },
+      select: {
+        id: true,
+        status: true,
+        learner: { select: { id: true, fullName: true, email: true, avatarKey: true } },
+        consultationThread: {
+          select: {
+            id: true,
+            instructorLastReadAt: true,
+            messages: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: { body: true, createdAt: true, senderId: true },
+            },
+          },
+        },
+        consultationRequests: {
+          where: { status: { in: [ConsultationStatus.REQUESTED, ConsultationStatus.CONFIRMED] } },
+          orderBy: { requestedStartAt: 'asc' },
+          take: 1,
+          select: { id: true, status: true, requestedStartAt: true, confirmedStartAt: true },
+        },
+      },
+      orderBy: { learner: { fullName: 'asc' } },
+    });
+    return Promise.all(
+      enrollments.map(async (enrollment) => {
+        const thread = enrollment.consultationThread;
+        const unreadCount = thread
+          ? await this.prisma.consultationMessage.count({
+              where: {
+                threadId: thread.id,
+                senderId: enrollment.learner.id,
+                ...(thread.instructorLastReadAt
+                  ? { createdAt: { gt: thread.instructorLastReadAt } }
+                  : {}),
+              },
+            })
+          : 0;
+        return {
+          enrollmentId: enrollment.id,
+          status: enrollment.status,
+          learner: enrollment.learner,
+          lastMessage: thread?.messages[0] ?? null,
+          unreadCount,
+          appointment: enrollment.consultationRequests[0] ?? null,
+        };
+      }),
+    );
+  }
+
+  async instructorThread(instructorId: string, classOfferingId: string, enrollmentId: string) {
+    const enrollment = await this.requireInstructorEnrollment(
+      instructorId,
+      classOfferingId,
+      enrollmentId,
+    );
+    const thread = await this.ensureThread(enrollmentId);
+    const [messages, appointments] = await Promise.all([
+      this.threadMessages(thread.id),
+      this.prisma.consultationRequest.findMany({
+        where: { enrollmentId, instructorId },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+    return { id: thread.id, enrollment, messages, appointments };
+  }
+
+  async sendInstructorMessage(
+    instructorId: string,
+    classOfferingId: string,
+    enrollmentId: string,
+    body: string,
+  ) {
+    await this.requireInstructorEnrollment(instructorId, classOfferingId, enrollmentId);
+    return this.createMessage(await this.ensureThread(enrollmentId), instructorId, body);
+  }
+
+  async markInstructorRead(instructorId: string, classOfferingId: string, enrollmentId: string) {
+    await this.requireInstructorEnrollment(instructorId, classOfferingId, enrollmentId);
+    const thread = await this.ensureThread(enrollmentId);
+    await this.prisma.consultationThread.update({
+      where: { id: thread.id },
+      data: { instructorLastReadAt: new Date() },
+    });
+    return { read: true };
+  }
+
+  private ensureThread(enrollmentId: string) {
+    return this.prisma.consultationThread.upsert({
+      where: { enrollmentId },
+      create: { enrollmentId },
+      update: {},
+    });
+  }
+
+  private threadMessages(threadId: string) {
+    return this.prisma.consultationMessage.findMany({
+      where: { threadId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        senderId: true,
+        body: true,
+        createdAt: true,
+        sender: { select: { id: true, fullName: true, role: true, avatarKey: true } },
+      },
+    });
+  }
+
+  private createMessage(thread: { id: string }, senderId: string, rawBody: string) {
+    const body = rawBody.trim();
+    if (!body) throw new BadRequestException('Tin nhắn không được để trống.');
+    return this.prisma.consultationMessage.create({
+      data: { threadId: thread.id, senderId, body },
+      select: {
+        id: true,
+        senderId: true,
+        body: true,
+        createdAt: true,
+        sender: { select: { id: true, fullName: true, role: true, avatarKey: true } },
+      },
+    });
+  }
+
+  private requireOwnedEnrollmentDetail(learnerId: string, id: string) {
+    return this.prisma.enrollment
+      .findFirst({
+        where: { id, learnerId },
+        select: {
+          id: true,
+          status: true,
+          classOffering: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              instructorId: true,
+              instructor: { select: { id: true, fullName: true, avatarKey: true } },
+            },
+          },
+        },
+      })
+      .then((row) => {
+        if (!row) throw new NotFoundException('Enrollment not found');
+        return row;
+      });
+  }
+
+  private async requireInstructorEnrollment(
+    instructorId: string,
+    classOfferingId: string,
+    enrollmentId: string,
+  ) {
+    await this.requireAssignedInstructor(instructorId, classOfferingId);
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { id: enrollmentId, classOfferingId },
+      select: {
+        id: true,
+        status: true,
+        learner: { select: { id: true, fullName: true, email: true, avatarKey: true } },
+      },
+    });
+    if (!enrollment) throw new NotFoundException('Enrollment not found');
+    return enrollment;
+  }
+
   private requireOwnedEnrollment(learnerId: string, id: string) {
     return this.prisma.enrollment
       .findFirst({

@@ -104,6 +104,25 @@ export function InstructorRubricsPage() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-12">
       <h1 className="text-3xl font-black">Rubric chấm bài</h1>
+      <div className="mt-4 grid gap-4 rounded-3xl bg-indigo-950 p-5 text-white md:grid-cols-[1fr_260px]">
+        <div>
+          <h2 className="text-xl font-bold">Mỗi tiêu chí là một phần của điểm tổng</h2>
+          <p className="mt-2 leading-7 text-indigo-100">
+            Điểm tối đa xác định thang chấm của tiêu chí; trọng số xác định mức đóng góp tương đối.
+            Thứ tự bên dưới cũng là thứ tự giảng viên thấy khi chấm bài.
+          </p>
+        </div>
+        <div className="rounded-2xl bg-white/10 p-4">
+          <p className="text-sm text-indigo-200">Xem trước cấu trúc</p>
+          <p className="mt-1 text-2xl font-black">{form.criteria.length} tiêu chí</p>
+          <p className="mt-1 text-sm">
+            Tổng trọng số:{' '}
+            {form.criteria
+              .reduce((sum, row) => sum + (Number.isFinite(row.weight) ? row.weight : 0), 0)
+              .toFixed(2)}
+          </p>
+        </div>
+      </div>
       <form className="mt-6 space-y-5 rounded-2xl border bg-white p-6" onSubmit={save}>
         <h2 className="text-xl font-bold">{form.id ? 'Chỉnh sửa rubric' : 'Tạo rubric mới'}</h2>
         <div className="grid gap-4 md:grid-cols-2">

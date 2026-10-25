@@ -330,7 +330,7 @@ export function HomePage() {
                 />
                 <div className="p-5">
                   <p className="text-xs font-bold uppercase tracking-wide text-indigo-700">
-                    {item.category}
+                    {typeof item.category === 'string' ? item.category : item.category.name}
                   </p>
                   <h3 className="mt-2 text-lg font-bold">{item.title}</h3>
                   <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">

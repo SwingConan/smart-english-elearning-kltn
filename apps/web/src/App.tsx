@@ -71,6 +71,7 @@ import { TestManagementPage } from '@/pages/TestManagementPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { StudentPaymentPage } from '@/pages/StudentPaymentPage';
 import { StudentConsultationsPage } from '@/pages/StudentConsultationsPage';
+import { StudentAttendancePage } from '@/pages/StudentAttendancePage';
 import { LiveClassPage } from '@/pages/LiveClassPage';
 import { LearningReportPage } from '@/pages/LearningReportPage';
 import { CertificatesPage, EnrollmentCertificatePage } from '@/pages/CertificatesPage';
@@ -230,6 +231,7 @@ export function App() {
         <Route path="progress" element={<ProgressPage />} />
         <Route path="report" element={<LearningReportPage />} />
         <Route path="consultations" element={<StudentConsultationsPage />} />
+        <Route path="attendance" element={<StudentAttendancePage />} />
         <Route path="live-class" element={<LiveClassPage />} />
         <Route path="certificate" element={<EnrollmentCertificatePage />} />
         <Route path="attempts/:attemptId" element={<StudentTestAttemptPage />} />

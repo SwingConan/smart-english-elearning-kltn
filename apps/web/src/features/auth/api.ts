@@ -10,6 +10,8 @@ export interface AuthUser {
   phoneNumber?: string | null;
   role: UserRole;
   status: UserStatus;
+  avatarKey?: string | null;
+  createdAt?: string;
 }
 
 export interface LoginInput {

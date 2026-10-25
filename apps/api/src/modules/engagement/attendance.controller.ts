@@ -4,7 +4,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PublicUser } from '../users/user.types';
 import { AttendanceService } from './attendance.service';
-import { BulkAttendanceDto, CreateAttendanceSessionDto } from './attendance.dto';
+import { BulkAttendanceDto, CheckInDto, CreateAttendanceSessionDto } from './attendance.dto';
 
 @Roles(UserRole.INSTRUCTOR)
 @Controller('instructor/classes/:classOfferingId/attendance/sessions')
@@ -43,5 +43,45 @@ export class AttendanceController {
     @Body() input: BulkAttendanceDto,
   ) {
     return this.service.putRecords(user.id, classOfferingId, sessionId, input);
+  }
+
+  @Post(':sessionId/close') close(
+    @CurrentUser() user: PublicUser,
+    @Param('classOfferingId', new ParseUUIDPipe()) classOfferingId: string,
+    @Param('sessionId', new ParseUUIDPipe()) sessionId: string,
+  ) {
+    return this.service.close(user.id, classOfferingId, sessionId);
+  }
+}
+
+@Roles(UserRole.STUDENT)
+@Controller('enrollments/:enrollmentId/attendance')
+export class StudentAttendanceController {
+  constructor(private readonly service: AttendanceService) {}
+
+  @Get()
+  history(
+    @CurrentUser() user: PublicUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) enrollmentId: string,
+  ) {
+    return this.service.studentAttendance(user.id, enrollmentId);
+  }
+
+  @Get('open-session')
+  open(
+    @CurrentUser() user: PublicUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) enrollmentId: string,
+  ) {
+    return this.service.openSession(user.id, enrollmentId);
+  }
+
+  @Post(':sessionId/check-in')
+  checkIn(
+    @CurrentUser() user: PublicUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) enrollmentId: string,
+    @Param('sessionId', new ParseUUIDPipe()) sessionId: string,
+    @Body() input: CheckInDto,
+  ) {
+    return this.service.checkIn(user.id, enrollmentId, sessionId, input.accessCode);
   }
 }

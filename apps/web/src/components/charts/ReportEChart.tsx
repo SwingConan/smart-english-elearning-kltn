@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { BarChart, PieChart } from 'echarts/charts';
+import { BarChart, LineChart, PieChart } from 'echarts/charts';
 import {
   AriaComponent,
   GridComponent,
@@ -12,6 +12,7 @@ import { SVGRenderer } from 'echarts/renderers';
 
 echarts.use([
   BarChart,
+  LineChart,
   PieChart,
   TooltipComponent,
   GridComponent,
@@ -48,10 +49,14 @@ export function ReportEChart({
     chartRef.current = chart;
     const click = (params: { data?: unknown }) => clickRef.current?.(params.data);
     chart.on('click', click);
-    const observer = new ResizeObserver(() => chart.resize());
-    observer.observe(container);
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => chart.resize());
+    observer?.observe(container);
+    const resize = () => chart.resize();
+    if (!observer) window.addEventListener('resize', resize);
     return () => {
-      observer.disconnect();
+      observer?.disconnect();
+      if (!observer) window.removeEventListener('resize', resize);
       chart.off('click', click);
       chart.dispose();
       chartRef.current = null;
@@ -59,12 +64,16 @@ export function ReportEChart({
   }, []);
 
   useEffect(() => {
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     chartRef.current?.setOption(
       { ...option, animation: !reducedMotion, animationDuration: reducedMotion ? 0 : 250 },
       { notMerge: true },
     );
   }, [option]);
 
-  return <div aria-label={ariaLabel} className={className} ref={containerRef} role="img" />;
+  return (
+    <div aria-label={ariaLabel} role="img">
+      <div className={className} ref={containerRef} />
+    </div>
+  );
 }

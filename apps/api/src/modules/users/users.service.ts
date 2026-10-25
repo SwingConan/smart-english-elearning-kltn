@@ -2,6 +2,7 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { Prisma, UserRole, UserStatus } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PublicUser, publicUserSelect, UserCredentials, userCredentialsSelect } from './user.types';
+import { USER_AVATAR_URL_PREFIX, UserAvatarStorage } from './user-avatar.storage';
 
 interface CreateStudentInput {
   email: string;
@@ -11,7 +12,10 @@ interface CreateStudentInput {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly avatarStorage: UserAvatarStorage,
+  ) {}
 
   normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
@@ -40,6 +44,62 @@ export class UsersService {
       },
       select: publicUserSelect,
     });
+  }
+
+  async getProfile(id: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id },
+      select: publicUserSelect,
+    });
+    const [activeClasses, completedClasses, certificates, teachingClasses] = await Promise.all([
+      this.prisma.enrollment.count({ where: { learnerId: id, status: 'ACTIVE' } }),
+      this.prisma.enrollment.count({ where: { learnerId: id, status: 'COMPLETED' } }),
+      this.prisma.certificate.count({ where: { completion: { enrollment: { learnerId: id } } } }),
+      this.prisma.classOffering.count({ where: { instructorId: id } }),
+    ]);
+    return {
+      ...user,
+      avatarUrl: user.avatarKey ? `${USER_AVATAR_URL_PREFIX}${user.avatarKey}` : null,
+      summary: { activeClasses, completedClasses, certificates, teachingClasses },
+    };
+  }
+
+  async uploadAvatar(
+    id: string,
+    file: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+  ) {
+    const current = await this.prisma.user.findUniqueOrThrow({
+      where: { id },
+      select: { avatarKey: true },
+    });
+    const stored = await this.avatarStorage.put(file);
+    try {
+      await this.prisma.user.update({ where: { id }, data: { avatarKey: stored.key } });
+      if (current.avatarKey)
+        await this.avatarStorage.delete(current.avatarKey).catch(() => undefined);
+      return this.getProfile(id);
+    } catch (error) {
+      await this.avatarStorage.delete(stored.key).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async removeAvatar(id: string) {
+    const current = await this.prisma.user.findUniqueOrThrow({
+      where: { id },
+      select: { avatarKey: true },
+    });
+    await this.prisma.user.update({
+      where: { id },
+      data: { avatarKey: null },
+    });
+    if (current.avatarKey)
+      await this.avatarStorage.delete(current.avatarKey).catch(() => undefined);
+    return this.getProfile(id);
+  }
+
+  openAvatar(key: string) {
+    return this.avatarStorage.open(key);
   }
 
   async createStudent(input: CreateStudentInput): Promise<PublicUser> {

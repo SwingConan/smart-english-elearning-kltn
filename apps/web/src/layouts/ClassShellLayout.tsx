@@ -3,6 +3,7 @@ import {
   Award,
   BarChart3,
   BookOpen,
+  CalendarCheck,
   ClipboardList,
   Home,
   Lightbulb,
@@ -90,6 +91,7 @@ export function ClassShellLayout() {
     [BarChart3, `${base}/progress`, 'Tiến độ', false],
     [BarChart3, `${base}/report`, 'Báo cáo học tập', false],
     [MessagesSquare, `${base}/consultations`, 'Tư vấn', false],
+    [CalendarCheck, `${base}/attendance`, 'Điểm danh', false],
     [Radio, `${base}/live-class`, 'Lớp trực tuyến', false],
     [Award, `${base}/certificate`, 'Chứng chỉ', false],
   ] as const;

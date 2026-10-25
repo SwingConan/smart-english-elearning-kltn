@@ -5,6 +5,8 @@ export const publicUserSelect = {
   email: true,
   fullName: true,
   phoneNumber: true,
+  avatarKey: true,
+  createdAt: true,
   role: true,
   status: true,
 } satisfies Prisma.UserSelect;
@@ -12,7 +14,11 @@ export const publicUserSelect = {
 type SelectedPublicUser = Prisma.UserGetPayload<{
   select: typeof publicUserSelect;
 }>;
-export type PublicUser = Omit<SelectedPublicUser, 'phoneNumber'> & { phoneNumber?: string | null };
+export type PublicUser = Omit<SelectedPublicUser, 'phoneNumber' | 'avatarKey' | 'createdAt'> & {
+  phoneNumber?: string | null;
+  avatarKey?: string | null;
+  createdAt?: Date;
+};
 
 export const userCredentialsSelect = {
   ...publicUserSelect,
@@ -23,5 +29,5 @@ export type UserCredentials = Omit<
   Prisma.UserGetPayload<{
     select: typeof userCredentialsSelect;
   }>,
-  'phoneNumber'
-> & { phoneNumber?: string | null };
+  'phoneNumber' | 'avatarKey' | 'createdAt'
+> & { phoneNumber?: string | null; avatarKey?: string | null; createdAt?: Date };

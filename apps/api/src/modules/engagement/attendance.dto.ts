@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsOptional,
@@ -17,6 +18,14 @@ export class CreateAttendanceSessionDto {
   @IsOptional() @IsUUID() scheduleSlotId?: string;
   @IsOptional() @IsString() @Length(1, 200) title?: string;
   @IsOptional() @IsString() @Length(1, 2000) note?: string;
+  @IsOptional() @IsDateString() opensAt?: string;
+  @IsOptional() @IsDateString() closesAt?: string;
+  @IsOptional() @IsBoolean() selfCheckInEnabled?: boolean;
+  @IsOptional() @IsString() @Length(4, 64) accessCode?: string;
+}
+
+export class CheckInDto {
+  @IsOptional() @IsString() @Length(1, 64) accessCode?: string;
 }
 
 export class AttendanceRecordDto {

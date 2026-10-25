@@ -166,9 +166,15 @@ export function EnrollmentCertificatePage() {
           <p className="mt-4 text-emerald-700">Đã đáp ứng các điều kiện hiện tại.</p>
         )}
         {certificate ? (
-          <a className="btn-primary mt-5" href={certificateApi.downloadUrl(certificate.id)}>
-            Tải chứng chỉ
-          </a>
+          <div className="mt-5 rounded-2xl bg-emerald-50 p-5 text-emerald-950">
+            <p className="text-lg font-black">Bạn đã hoàn thành khóa học</p>
+            <p className="mt-1 text-sm">
+              Chứng chỉ {certificate.certificateNumber} đã được cấp và sẵn sàng để in hoặc lưu.
+            </p>
+            <a className="btn-primary mt-4" href={certificateApi.downloadUrl(certificate.id)}>
+              In / tải chứng chỉ
+            </a>
+          </div>
         ) : (
           <button className="btn-primary mt-5" onClick={() => void evaluate()}>
             Kiểm tra điều kiện hoàn thành

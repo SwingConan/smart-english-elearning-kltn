@@ -222,6 +222,11 @@ enum AttendanceStatus {
   EXCUSED
 }
 
+enum AttendanceRecordSource {
+  INSTRUCTOR
+  SELF_CHECK_IN
+}
+
 enum PublicContentStatus {
   DRAFT
   PUBLISHED
@@ -233,31 +238,41 @@ enum PublicContentOrigin {
   ADMIN_AUTHORED
 }
 
+enum PublicContentFormat {
+  MARKDOWN
+  RICH_HTML
+}
+
 model User {
-  id                     String                @id @default(uuid()) @db.Uuid
-  email                  String                @unique
-  passwordHash           String
-  fullName               String
-  role                   UserRole
-  status                 UserStatus            @default(ACTIVE)
-  phoneNumber            String?               @db.VarChar(32)
-  createdCourses         Course[]              @relation("CourseCreatedBy")
-  assignedClassOfferings ClassOffering[]       @relation("ClassOfferingInstructor")
-  enrollments            Enrollment[]          @relation("LearnerEnrollments")
-  testAttempts           TestAttempt[]         @relation("LearnerTestAttempts")
-  answerEvaluations      AnswerEvaluation[]    @relation("EvaluationInstructor")
-  studyRecommendations   StudyRecommendation[] @relation("LearnerStudyRecommendations")
-  createdRubrics         Rubric[]              @relation("RubricCreatedBy")
-  verifiedPayments       TuitionPayment[]      @relation("PaymentVerifiedBy")
-  consultationRequests   ConsultationRequest[] @relation("ConsultationInstructor")
-  attendanceSessions     AttendanceSession[]   @relation("AttendanceSessionCreatedBy")
-  attendanceRecords      AttendanceRecord[]    @relation("AttendanceRecordRecordedBy")
-  revokedCertificates    Certificate[]         @relation("CertificateRevokedBy")
-  createdPublicContent   PublicContent[]       @relation("PublicContentCreatedBy")
-  updatedPublicContent   PublicContent[]       @relation("PublicContentUpdatedBy")
-  passwordResetTokens    PasswordResetToken[]
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
+  id                       String                  @id @default(uuid()) @db.Uuid
+  email                    String                  @unique
+  passwordHash             String
+  fullName                 String
+  role                     UserRole
+  status                   UserStatus              @default(ACTIVE)
+  phoneNumber              String?                 @db.VarChar(32)
+  avatarKey                String?                 @db.VarChar(128)
+  createdCourses           Course[]                @relation("CourseCreatedBy")
+  assignedClassOfferings   ClassOffering[]         @relation("ClassOfferingInstructor")
+  enrollments              Enrollment[]            @relation("LearnerEnrollments")
+  testAttempts             TestAttempt[]           @relation("LearnerTestAttempts")
+  answerEvaluations        AnswerEvaluation[]      @relation("EvaluationInstructor")
+  studyRecommendations     StudyRecommendation[]   @relation("LearnerStudyRecommendations")
+  createdRubrics           Rubric[]                @relation("RubricCreatedBy")
+  verifiedPayments         TuitionPayment[]        @relation("PaymentVerifiedBy")
+  consultationRequests     ConsultationRequest[]   @relation("ConsultationInstructor")
+  consultationMessages     ConsultationMessage[]   @relation("ConsultationMessageSender")
+  attendanceSessions       AttendanceSession[]     @relation("AttendanceSessionCreatedBy")
+  attendanceRecords        AttendanceRecord[]      @relation("AttendanceRecordRecordedBy")
+  revokedCertificates      Certificate[]           @relation("CertificateRevokedBy")
+  createdPublicContent     PublicContent[]         @relation("PublicContentCreatedBy")
+  updatedPublicContent     PublicContent[]         @relation("PublicContentUpdatedBy")
+  createdContentCategories PublicContentCategory[] @relation("PublicContentCategoryCreatedBy")
+  updatedContentCategories PublicContentCategory[] @relation("PublicContentCategoryUpdatedBy")
+  createdContentAssets     PublicContentAsset[]    @relation("PublicContentAssetCreatedBy")
+  passwordResetTokens      PasswordResetToken[]
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
 
   @@map("users")
 }
@@ -394,6 +409,7 @@ model Enrollment {
   studyRecommendations  StudyRecommendation[]
   tuitionPayments       TuitionPayment[]
   consultationRequests  ConsultationRequest[]
+  consultationThread    ConsultationThread?
   attendanceRecords     AttendanceRecord[]
   courseCompletion      CourseCompletion?
   enrolledAt            DateTime              @default(now())
@@ -770,20 +786,52 @@ model ConsultationRequest {
   @@map("consultation_requests")
 }
 
+model ConsultationThread {
+  id                   String                @id @default(uuid()) @db.Uuid
+  enrollmentId         String                @unique @db.Uuid
+  learnerLastReadAt    DateTime?
+  instructorLastReadAt DateTime?
+  enrollment           Enrollment            @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  messages             ConsultationMessage[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@map("consultation_threads")
+}
+
+model ConsultationMessage {
+  id        String             @id @default(uuid()) @db.Uuid
+  threadId  String             @db.Uuid
+  senderId  String             @db.Uuid
+  body      String             @db.Text
+  thread    ConsultationThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender    User               @relation("ConsultationMessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+  createdAt DateTime           @default(now())
+
+  @@index([threadId, createdAt])
+  @@index([senderId])
+  @@map("consultation_messages")
+}
+
 model AttendanceSession {
-  id              String             @id @default(uuid()) @db.Uuid
-  classOfferingId String             @db.Uuid
-  scheduleSlotId  String?            @db.Uuid
-  sessionDate     DateTime           @db.Date
-  title           String?
-  note            String?            @db.Text
-  createdById     String             @db.Uuid
-  classOffering   ClassOffering      @relation(fields: [classOfferingId], references: [id], onDelete: Restrict)
-  scheduleSlot    ClassScheduleSlot? @relation(fields: [scheduleSlotId], references: [id], onDelete: SetNull)
-  createdBy       User               @relation("AttendanceSessionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  records         AttendanceRecord[]
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  id                 String             @id @default(uuid()) @db.Uuid
+  classOfferingId    String             @db.Uuid
+  scheduleSlotId     String?            @db.Uuid
+  sessionDate        DateTime           @db.Date
+  title              String?
+  note               String?            @db.Text
+  opensAt            DateTime?
+  closesAt           DateTime?
+  selfCheckInEnabled Boolean            @default(false)
+  accessCodeHash     String?            @db.VarChar(255)
+  closedAt           DateTime?
+  createdById        String             @db.Uuid
+  classOffering      ClassOffering      @relation(fields: [classOfferingId], references: [id], onDelete: Restrict)
+  scheduleSlot       ClassScheduleSlot? @relation(fields: [scheduleSlotId], references: [id], onDelete: SetNull)
+  createdBy          User               @relation("AttendanceSessionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  records            AttendanceRecord[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   @@index([classOfferingId, sessionDate])
   @@index([scheduleSlotId])
@@ -792,17 +840,19 @@ model AttendanceSession {
 }
 
 model AttendanceRecord {
-  id                  String            @id @default(uuid()) @db.Uuid
-  attendanceSessionId String            @db.Uuid
-  enrollmentId        String            @db.Uuid
+  id                  String                 @id @default(uuid()) @db.Uuid
+  attendanceSessionId String                 @db.Uuid
+  enrollmentId        String                 @db.Uuid
   status              AttendanceStatus
-  note                String?           @db.Text
-  recordedById        String            @db.Uuid
-  attendanceSession   AttendanceSession @relation(fields: [attendanceSessionId], references: [id], onDelete: Cascade)
-  enrollment          Enrollment        @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
-  recordedBy          User              @relation("AttendanceRecordRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  note                String?                @db.Text
+  source              AttendanceRecordSource @default(INSTRUCTOR)
+  checkedInAt         DateTime?
+  recordedById        String                 @db.Uuid
+  attendanceSession   AttendanceSession      @relation(fields: [attendanceSessionId], references: [id], onDelete: Cascade)
+  enrollment          Enrollment             @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  recordedBy          User                   @relation("AttendanceRecordRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
   @@unique([attendanceSessionId, enrollmentId])
   @@index([enrollmentId, status])
@@ -863,28 +913,70 @@ model Certificate {
   @@map("certificates")
 }
 
+model PublicContentCategory {
+  id          String          @id @default(uuid()) @db.Uuid
+  name        String          @unique
+  slug        String          @unique
+  description String?         @db.Text
+  sortOrder   Int             @default(0)
+  isActive    Boolean         @default(true)
+  createdById String?         @db.Uuid
+  updatedById String?         @db.Uuid
+  createdBy   User?           @relation("PublicContentCategoryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy   User?           @relation("PublicContentCategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  content     PublicContent[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([sortOrder, isActive])
+  @@map("public_content_categories")
+}
+
+model PublicContentAsset {
+  id           String          @id @default(uuid()) @db.Uuid
+  storageKey   String          @unique @db.VarChar(128)
+  originalName String
+  mimeType     String          @db.VarChar(64)
+  sizeBytes    Int
+  createdById  String          @db.Uuid
+  createdBy    User            @relation("PublicContentAssetCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  covers       PublicContent[] @relation("PublicContentCoverAsset")
+  createdAt    DateTime        @default(now())
+  deletedAt    DateTime?
+
+  @@index([createdById, createdAt])
+  @@index([deletedAt])
+  @@map("public_content_assets")
+}
+
 model PublicContent {
-  id            String              @id @default(uuid()) @db.Uuid
-  slug          String              @unique
-  category      String
+  id            String                @id @default(uuid()) @db.Uuid
+  slug          String                @unique
+  categoryId    String                @db.Uuid
   title         String
-  excerpt       String              @db.Text
-  bodyMarkdown  String              @db.Text
+  excerpt       String                @db.Text
+  bodyMarkdown  String?               @db.Text
+  bodyHtml      String?               @db.Text
+  contentFormat PublicContentFormat   @default(MARKDOWN)
   coverKey      String?
   coverImageUrl String?
-  featured      Boolean             @default(false)
-  status        PublicContentStatus @default(DRAFT)
+  coverAssetId  String?               @db.Uuid
+  featured      Boolean               @default(false)
+  status        PublicContentStatus   @default(DRAFT)
   publishedAt   DateTime?
-  origin        PublicContentOrigin @default(ADMIN_AUTHORED)
-  createdById   String?             @db.Uuid
-  updatedById   String?             @db.Uuid
-  createdBy     User?               @relation("PublicContentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy     User?               @relation("PublicContentUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  origin        PublicContentOrigin   @default(ADMIN_AUTHORED)
+  createdById   String?               @db.Uuid
+  updatedById   String?               @db.Uuid
+  createdBy     User?                 @relation("PublicContentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy     User?                 @relation("PublicContentUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  category      PublicContentCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  coverAsset    PublicContentAsset?   @relation("PublicContentCoverAsset", fields: [coverAssetId], references: [id], onDelete: Restrict)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
 
   @@index([status, publishedAt])
-  @@index([category])
+  @@index([categoryId])
+  @@index([coverAssetId])
   @@index([featured, status])
   @@index([createdById])
   @@index([updatedById])
