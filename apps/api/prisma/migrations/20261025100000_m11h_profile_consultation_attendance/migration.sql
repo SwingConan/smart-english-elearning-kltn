@@ -42,4 +42,3 @@ ALTER TABLE "attendance_sessions"
 ALTER TABLE "attendance_records"
   ADD COLUMN "source" "AttendanceRecordSource" NOT NULL DEFAULT 'INSTRUCTOR',
   ADD COLUMN "checkedInAt" TIMESTAMP(3);
-

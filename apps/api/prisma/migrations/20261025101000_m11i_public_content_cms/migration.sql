@@ -67,4 +67,3 @@ ALTER TABLE "public_content" ADD CONSTRAINT "public_content_categoryId_fkey"
   FOREIGN KEY ("categoryId") REFERENCES "public_content_categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "public_content" ADD CONSTRAINT "public_content_coverAssetId_fkey"
   FOREIGN KEY ("coverAssetId") REFERENCES "public_content_assets"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
