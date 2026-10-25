@@ -20,6 +20,6 @@ describe('App', () => {
     );
 
     expect(screen.getAllByText('Smart English E-Learning').length).toBeGreaterThan(0);
-    expect(await screen.findByText('Đăng nhập')).toBeInTheDocument();
+    expect((await screen.findAllByText('Đăng nhập')).length).toBeGreaterThan(0);
   });
 });

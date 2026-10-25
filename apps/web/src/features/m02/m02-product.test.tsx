@@ -42,8 +42,13 @@ describe('M02 public product surface', () => {
         </AuthProvider>
       </MemoryRouter>,
     );
-    const primaryNavigation = screen.getByRole('navigation', { name: 'Điều hướng chính' });
-    expect(primaryNavigation).toHaveClass('hidden', '2xl:flex');
+    const wideTier = screen.getByTestId('wide-desktop-navigation');
+    const compactTier = screen.getByTestId('compact-desktop-navigation');
+    expect(wideTier).toHaveClass('hidden', '2xl:flex');
+    expect(compactTier).toHaveClass('hidden', 'xl:flex', '2xl:hidden');
+    const primaryNavigation = within(wideTier).getByRole('navigation', {
+      name: 'Điều hướng chính đầy đủ',
+    });
     for (const label of [
       'Trang chủ',
       'Khóa học',
@@ -61,18 +66,56 @@ describe('M02 public product surface', () => {
       'href',
       '/placement',
     );
-    expect(screen.getByRole('button', { name: 'Mở menu' })).toHaveClass('2xl:hidden');
-    expect(await screen.findByRole('link', { name: 'Đăng nhập' })).toHaveAttribute(
+    const more = within(compactTier).getByRole('button', { name: 'Thêm' });
+    fireEvent.click(more);
+    const moreMenu = screen.getByRole('menu');
+    expect(within(moreMenu).getByRole('menuitem', { name: 'Tin tức & Sự kiện' })).toHaveAttribute(
+      'href',
+      '/news-events',
+    );
+    expect(within(moreMenu).getByRole('menuitem', { name: 'Về chúng tôi' })).toHaveAttribute(
+      'href',
+      '/about',
+    );
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    fireEvent.click(more);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(more).toHaveFocus();
+
+    const drawerTrigger = screen.getByRole('button', { name: 'Mở menu' });
+    expect(drawerTrigger).toHaveClass('xl:hidden');
+    expect((await screen.findAllByRole('link', { name: 'Đăng nhập' }))[0]).toHaveAttribute(
       'href',
       '/login',
     );
-    expect(screen.getByRole('link', { name: 'Đăng ký' })).toHaveAttribute('href', '/register');
-    fireEvent.click(screen.getByRole('button', { name: 'Mở menu' }));
-    expect(screen.getByRole('navigation', { name: 'Điều hướng di động' })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Đăng ký' })[0]).toHaveAttribute(
+      'href',
+      '/register',
+    );
+    fireEvent.click(drawerTrigger);
+    const drawer = screen.getByRole('dialog', { name: 'Điều hướng di động' });
+    expect(drawer).toHaveClass('fixed', 'xl:hidden', 'w-[min(360px,92vw)]');
+    expect(document.body).toHaveStyle({ overflow: 'hidden' });
+    expect(within(drawer).getByRole('link', { name: 'Tin tức & Sự kiện' })).toBeInTheDocument();
+    expect(within(drawer).getByRole('link', { name: 'Đăng nhập' })).toHaveAttribute(
+      'href',
+      '/login',
+    );
+    expect(within(drawer).getByRole('link', { name: 'Đăng ký' })).toHaveAttribute(
+      'href',
+      '/register',
+    );
+    const drawerClose = within(drawer).getByRole('button', { name: 'Đóng menu' });
+    expect(drawerClose).toHaveFocus();
+    fireEvent.click(drawerClose);
+    expect(screen.queryByRole('dialog', { name: 'Điều hướng di động' })).not.toBeInTheDocument();
+    expect(drawerTrigger).toHaveFocus();
+
+    fireEvent.click(drawerTrigger);
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(
-      screen.queryByRole('navigation', { name: 'Điều hướng di động' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Điều hướng di động' })).not.toBeInTheDocument();
     expect(screen.getByText('Page body')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Trạng thái hệ thống' })).toHaveAttribute(
       'href',
