@@ -151,17 +151,22 @@ describe('AttendanceService learner self-check-in', () => {
             closedAt: null,
             accessCodeHash: null,
           };
-    const prisma = {
-      enrollment: { findFirst: jest.fn().mockResolvedValue(enrollment) },
-      attendanceSession: { findFirst: jest.fn().mockResolvedValue(session), findMany: jest.fn() },
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'session' }]),
+      attendanceSession: { findFirst: jest.fn().mockResolvedValue(session) },
       attendanceRecord: {
         findUnique: jest.fn().mockResolvedValue(options?.existing ?? null),
-        upsert: jest
+        create: jest
           .fn()
-          .mockImplementation(({ create }) => Promise.resolve({ id: 'record', ...create })),
+          .mockImplementation(({ data }) => Promise.resolve({ id: 'record', ...data })),
       },
     };
-    return { service: new AttendanceService(prisma as unknown as PrismaService), prisma };
+    const prisma = {
+      enrollment: { findFirst: jest.fn().mockResolvedValue(enrollment) },
+      attendanceSession: { findMany: jest.fn() },
+      $transaction: jest.fn((callback) => callback(tx)),
+    };
+    return { service: new AttendanceService(prisma as unknown as PrismaService), prisma, tx };
   }
 
   it.each([
@@ -212,12 +217,61 @@ describe('AttendanceService learner self-check-in', () => {
 
   it('returns an existing learner check-in idempotently without rewriting it', async () => {
     const existing = { id: 'record', status: 'PRESENT', source: 'SELF_CHECK_IN' };
-    const { service, prisma } = learnerSetup({ existing });
+    const { service, tx } = learnerSetup({ existing });
     await expect(service.checkIn('learner', 'enrollment', 'session')).resolves.toEqual({
       idempotent: true,
       record: existing,
     });
-    expect(prisma.attendanceRecord.upsert).not.toHaveBeenCalled();
+    expect(tx.attendanceRecord.create).not.toHaveBeenCalled();
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['ABSENT', 'PRESENT'])('rejects learner overwrite of instructor %s', async (status) => {
+    const existing = { id: 'record', status, source: 'INSTRUCTOR' };
+    const { service, tx } = learnerSetup({
+      existing,
+      session: {
+        id: 'session',
+        selfCheckInEnabled: true,
+        opensAt: new Date(Date.now() - 60_000),
+        closesAt: new Date(Date.now() + 60_000),
+        closedAt: null,
+        accessCodeHash,
+      },
+    });
+
+    await expect(service.checkIn('learner', 'enrollment', 'session')).rejects.toThrow(
+      'Giảng viên đã ghi nhận điểm danh',
+    );
+    expect(tx.attendanceRecord.create).not.toHaveBeenCalled();
+  });
+
+  it('locks the session and uses a serializable transaction before creating a learner record', async () => {
+    const { service, prisma, tx } = learnerSetup();
+    await service.checkIn('learner', 'enrollment', 'session');
+
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.attendanceRecord.findUnique.mock.invocationCallOrder[0],
+    );
+    expect(tx.attendanceRecord.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ source: 'SELF_CHECK_IN', status: 'PRESENT' }),
+    });
+    expect(prisma.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ isolationLevel: 'Serializable' }),
+    );
+  });
+
+  it('retries a serializable write conflict before creating the learner record', async () => {
+    const { service, prisma, tx } = learnerSetup();
+    prisma.$transaction.mockRejectedValueOnce({ code: 'P2034' });
+
+    await expect(service.checkIn('learner', 'enrollment', 'session')).resolves.toMatchObject({
+      idempotent: false,
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(tx.attendanceRecord.create).toHaveBeenCalledTimes(1);
   });
 
   it('denies cross-enrollment check-in before resolving a session', async () => {
@@ -225,7 +279,7 @@ describe('AttendanceService learner self-check-in', () => {
     await expect(service.checkIn('learner-a', 'enrollment-b', 'session')).rejects.toBeInstanceOf(
       NotFoundException,
     );
-    expect(prisma.attendanceSession.findFirst).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('keeps legacy instructor records readable without treating missing as absent', async () => {

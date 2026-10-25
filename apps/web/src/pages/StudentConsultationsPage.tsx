@@ -4,6 +4,7 @@ import { useParams } from 'react-router';
 import { Avatar, SectionHeader, StatusBadge, Timeline } from '@/components/ui/ProductPrimitives';
 import { engagementApi, type StudentConsultationThread } from '@/features/engagement/api';
 import { apiUrl } from '@/lib/api-client';
+import { fromDateTimeLocalValue, toDateTimeLocalValue } from '@/lib/datetime-local';
 
 const appointmentLabel: Record<string, string> = {
   REQUESTED: 'Chờ xác nhận',
@@ -29,24 +30,7 @@ export function StudentConsultationsPage() {
         setState('ready');
         if (data.unreadCount) await engagementApi.consultations.markStudentRead(enrollmentId);
       } catch {
-        try {
-          const appointments = await engagementApi.consultations.mine(enrollmentId);
-          setThread({
-            id: 'legacy',
-            unreadCount: 0,
-            messages: [],
-            appointments,
-            enrollment: {
-              id: enrollmentId,
-              status: 'ACTIVE',
-              classOffering: { id: '', name: '', code: '' },
-            },
-          });
-          setAppointmentOpen(true);
-          setState('ready');
-        } catch {
-          if (!quiet) setState('error');
-        }
+        if (!quiet) setState('error');
       }
     },
     [enrollmentId],
@@ -79,7 +63,7 @@ export function StudentConsultationsPage() {
     event.preventDefault();
     await engagementApi.consultations.create(enrollmentId, {
       topic: form.topic,
-      requestedStartAt: new Date(form.start).toISOString(),
+      requestedStartAt: fromDateTimeLocalValue(form.start),
       durationMinutes: form.durationMinutes,
       learnerNote: form.learnerNote || undefined,
     });
@@ -129,7 +113,7 @@ export function StudentConsultationsPage() {
             Thời gian mong muốn
             <input
               className="input-field mt-1"
-              min={new Date().toISOString().slice(0, 16)}
+              min={toDateTimeLocalValue(new Date().toISOString())}
               onChange={(event) => setForm({ ...form, start: event.target.value })}
               required
               type="datetime-local"
@@ -282,7 +266,7 @@ export function StudentConsultationsPage() {
                               : 'warning'
                         }
                       >
-                        {appointmentLabel[item.status] ?? item.status}
+                        {appointmentLabel[item.status] ?? 'Không xác định'}
                       </StatusBadge>
                     ),
                     tone:

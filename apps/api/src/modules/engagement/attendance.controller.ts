@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, UseGuards } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { UserRole } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -76,6 +77,8 @@ export class StudentAttendanceController {
   }
 
   @Post(':sessionId/check-in')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ attendanceCheckIn: { limit: 8, ttl: 60_000 } })
   checkIn(
     @CurrentUser() user: PublicUser,
     @Param('enrollmentId', new ParseUUIDPipe()) enrollmentId: string,

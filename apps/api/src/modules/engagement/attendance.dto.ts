@@ -21,11 +21,11 @@ export class CreateAttendanceSessionDto {
   @IsOptional() @IsDateString() opensAt?: string;
   @IsOptional() @IsDateString() closesAt?: string;
   @IsOptional() @IsBoolean() selfCheckInEnabled?: boolean;
-  @IsOptional() @IsString() @Length(4, 64) accessCode?: string;
+  @IsOptional() @IsString() @Length(6, 64) accessCode?: string;
 }
 
 export class CheckInDto {
-  @IsOptional() @IsString() @Length(1, 64) accessCode?: string;
+  @IsOptional() @IsString() @Length(6, 64) accessCode?: string;
 }
 
 export class AttendanceRecordDto {

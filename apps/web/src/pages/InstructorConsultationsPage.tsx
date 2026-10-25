@@ -8,6 +8,15 @@ import {
   type InstructorConsultationThread,
 } from '@/features/engagement/api';
 import { apiUrl } from '@/lib/api-client';
+import { fromDateTimeLocalValue, toDateTimeLocalValue } from '@/lib/datetime-local';
+
+const appointmentLabel: Record<string, string> = {
+  REQUESTED: 'Chờ xác nhận',
+  CONFIRMED: 'Đã xác nhận',
+  DECLINED: 'Đã từ chối',
+  CANCELLED: 'Đã hủy',
+  COMPLETED: 'Đã hoàn tất',
+};
 
 export function InstructorConsultationsPage() {
   const { classOfferingId = '' } = useParams();
@@ -15,9 +24,6 @@ export function InstructorConsultationsPage() {
   const [selectedId, setSelectedId] = useState('');
   const [thread, setThread] = useState<InstructorConsultationThread | null>(null);
   const [body, setBody] = useState('');
-  const [legacyAppointments, setLegacyAppointments] = useState<
-    InstructorConsultationThread['appointments']
-  >([]);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const loadInbox = useCallback(
     async (quiet = false) => {
@@ -27,32 +33,7 @@ export function InstructorConsultationsPage() {
         setSelectedId((current) => current || rows[0]?.enrollmentId || '');
         setState('ready');
       } catch {
-        try {
-          const appointments = await engagementApi.consultations.instructor(classOfferingId);
-          setLegacyAppointments(appointments);
-          const learner = appointments[0]?.enrollment?.learner ?? {
-            fullName: 'Học viên',
-            email: '',
-          };
-          setInbox(
-            appointments.length
-              ? [
-                  {
-                    enrollmentId: 'legacy',
-                    status: 'ACTIVE',
-                    unreadCount: 0,
-                    learner: { id: 'legacy', ...learner },
-                    lastMessage: null,
-                    appointment: null,
-                  },
-                ]
-              : [],
-          );
-          setSelectedId((current) => current || (appointments.length ? 'legacy' : ''));
-          setState('ready');
-        } catch {
-          if (!quiet) setState('error');
-        }
+        if (!quiet) setState('error');
       }
     },
     [classOfferingId],
@@ -71,21 +52,10 @@ export function InstructorConsultationsPage() {
         setThread(data);
         await engagementApi.consultations.markInstructorRead(classOfferingId, selectedId);
       } catch {
-        if (selectedId === 'legacy' && legacyAppointments.length) {
-          const learner = legacyAppointments[0]?.enrollment?.learner ?? {
-            fullName: 'Học viên',
-            email: '',
-          };
-          setThread({
-            id: 'legacy',
-            messages: [],
-            appointments: legacyAppointments,
-            enrollment: { id: 'legacy', status: 'ACTIVE', learner: { id: 'legacy', ...learner } },
-          });
-        } else if (!quiet) setState('error');
+        if (!quiet) setState('error');
       }
     },
-    [classOfferingId, legacyAppointments, selectedId],
+    [classOfferingId, selectedId],
   );
   useEffect(() => {
     void Promise.resolve().then(() => loadInbox());
@@ -251,7 +221,11 @@ export function InstructorConsultationsPage() {
                 .slice()
                 .reverse()
                 .map((item) => (
-                  <AppointmentCard item={item} key={item.id} onUpdate={updateAppointment} />
+                  <AppointmentCard
+                    item={item}
+                    key={`${item.id}:${item.status}:${item.confirmedStartAt ?? item.requestedStartAt}:${item.meetingUrl ?? ''}`}
+                    onUpdate={updateAppointment}
+                  />
                 ))}
             </div>
           ) : (
@@ -270,7 +244,8 @@ function AppointmentCard({
   item: InstructorConsultationThread['appointments'][number];
   onUpdate: (id: string, status: string, values?: Record<string, unknown>) => Promise<void>;
 }) {
-  const [start, setStart] = useState((item.confirmedStartAt ?? item.requestedStartAt).slice(0, 16));
+  const appointmentStart = item.confirmedStartAt ?? item.requestedStartAt;
+  const [start, setStart] = useState(toDateTimeLocalValue(appointmentStart));
   const [meetingUrl, setMeetingUrl] = useState(item.meetingUrl ?? '');
   const [reason, setReason] = useState('');
   return (
@@ -295,7 +270,7 @@ function AppointmentCard({
                 : 'warning'
           }
         >
-          {item.status}
+          {appointmentLabel[item.status] ?? 'Không xác định'}
         </StatusBadge>
       </div>
       <p className="mt-2 text-xs text-slate-500">
@@ -333,7 +308,7 @@ function AppointmentCard({
               className="btn-primary"
               onClick={() =>
                 void onUpdate(item.id, 'CONFIRMED', {
-                  confirmedStartAt: new Date(start).toISOString(),
+                  confirmedStartAt: fromDateTimeLocalValue(start),
                   durationMinutes: item.durationMinutes,
                   meetingUrl: meetingUrl || undefined,
                 })

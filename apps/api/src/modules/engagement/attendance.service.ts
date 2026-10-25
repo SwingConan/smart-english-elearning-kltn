@@ -125,64 +125,61 @@ export class AttendanceService {
     )
       throw new BadRequestException('Each enrollment may appear only once');
     const referencedIds = new Set([...recordIds, ...clearIds]);
-    return this.prisma.$transaction(
-      async (tx) => {
-        await tx.$queryRaw(
-          Prisma.sql`SELECT id FROM "attendance_sessions" WHERE id = ${id}::uuid FOR UPDATE`,
-        );
-        const session = await tx.attendanceSession.findFirst({
-          where: { id, classOfferingId },
-          select: { id: true },
-        });
-        if (!session) throw new NotFoundException('Attendance session not found');
-        const valid = await tx.enrollment.count({
-          where: { id: { in: [...referencedIds] }, classOfferingId },
-        });
-        if (valid !== referencedIds.size)
-          throw new BadRequestException('Every enrollment must belong to the class');
-        for (const record of input.records) {
-          await tx.attendanceRecord.upsert({
-            where: {
-              attendanceSessionId_enrollmentId: {
-                attendanceSessionId: id,
-                enrollmentId: record.enrollmentId,
-              },
-            },
-            create: {
+    return this.runSerializable(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM "attendance_sessions" WHERE id = ${id}::uuid FOR UPDATE`,
+      );
+      const session = await tx.attendanceSession.findFirst({
+        where: { id, classOfferingId },
+        select: { id: true },
+      });
+      if (!session) throw new NotFoundException('Attendance session not found');
+      const valid = await tx.enrollment.count({
+        where: { id: { in: [...referencedIds] }, classOfferingId },
+      });
+      if (valid !== referencedIds.size)
+        throw new BadRequestException('Every enrollment must belong to the class');
+      for (const record of input.records) {
+        await tx.attendanceRecord.upsert({
+          where: {
+            attendanceSessionId_enrollmentId: {
               attendanceSessionId: id,
               enrollmentId: record.enrollmentId,
-              status: record.status,
-              note: record.note?.trim() || null,
-              recordedById: instructorId,
-              source: 'INSTRUCTOR',
-              checkedInAt: null,
             },
-            update: {
-              status: record.status,
-              note: record.note?.trim() || null,
-              recordedById: instructorId,
-              source: 'INSTRUCTOR',
-              checkedInAt: null,
-            },
-          });
-        }
-        if (clearIds.length > 0) {
-          await tx.attendanceRecord.deleteMany({
-            where: { attendanceSessionId: id, enrollmentId: { in: clearIds } },
-          });
-        }
-        const updatedSession = await tx.attendanceSession.findUniqueOrThrow({
-          where: { id },
-          include: { records: true },
+          },
+          create: {
+            attendanceSessionId: id,
+            enrollmentId: record.enrollmentId,
+            status: record.status,
+            note: record.note?.trim() || null,
+            recordedById: instructorId,
+            source: 'INSTRUCTOR',
+            checkedInAt: null,
+          },
+          update: {
+            status: record.status,
+            note: record.note?.trim() || null,
+            recordedById: instructorId,
+            source: 'INSTRUCTOR',
+            checkedInAt: null,
+          },
         });
-        return {
-          updated: input.records.length,
-          cleared: clearIds.length,
-          session: this.safeSession(updatedSession),
-        };
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+      }
+      if (clearIds.length > 0) {
+        await tx.attendanceRecord.deleteMany({
+          where: { attendanceSessionId: id, enrollmentId: { in: clearIds } },
+        });
+      }
+      const updatedSession = await tx.attendanceSession.findUniqueOrThrow({
+        where: { id },
+        include: { records: true },
+      });
+      return {
+        updated: input.records.length,
+        cleared: clearIds.length,
+        session: this.safeSession(updatedSession),
+      };
+    });
   }
 
   async close(instructorId: string, classOfferingId: string, id: string) {
@@ -238,51 +235,80 @@ export class AttendanceService {
     if (enrollment.status !== EnrollmentStatus.ACTIVE) {
       throw new BadRequestException('Chỉ học viên đang học mới có thể tự điểm danh.');
     }
-    const session = await this.prisma.attendanceSession.findFirst({
-      where: { id: sessionId, classOfferingId: enrollment.classOfferingId },
+    return this.runSerializable(async (tx) => {
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM "attendance_sessions" WHERE id = ${sessionId}::uuid FOR UPDATE`,
+      );
+      const session = await tx.attendanceSession.findFirst({
+        where: { id: sessionId, classOfferingId: enrollment.classOfferingId },
+      });
+      if (!session) throw new NotFoundException('Không tìm thấy phiên điểm danh.');
+
+      const now = new Date();
+      if (
+        !session.selfCheckInEnabled ||
+        session.closedAt ||
+        !session.opensAt ||
+        !session.closesAt ||
+        now < session.opensAt ||
+        now > session.closesAt
+      ) {
+        throw new ConflictException('Phiên tự điểm danh chưa mở hoặc đã đóng.');
+      }
+      const existing = await tx.attendanceRecord.findUnique({
+        where: {
+          attendanceSessionId_enrollmentId: {
+            attendanceSessionId: sessionId,
+            enrollmentId,
+          },
+        },
+      });
+      if (existing?.source === 'SELF_CHECK_IN' && existing.status === 'PRESENT') {
+        return { idempotent: true, record: existing };
+      }
+      if (existing?.source === 'INSTRUCTOR') {
+        throw new ConflictException(
+          'Giảng viên đã ghi nhận điểm danh cho buổi học này. Học viên không thể thay đổi kết quả.',
+        );
+      }
+      if (existing) {
+        throw new ConflictException(
+          'Kết quả điểm danh hiện tại không thể được thay đổi bằng tự điểm danh.',
+        );
+      }
+
+      if (session.accessCodeHash) {
+        const valid = accessCode
+          ? await argon2.verify(session.accessCodeHash, accessCode.trim()).catch(() => false)
+          : false;
+        if (!valid) throw new BadRequestException('Mã điểm danh không đúng.');
+      }
+
+      const record = await tx.attendanceRecord.create({
+        data: {
+          attendanceSessionId: sessionId,
+          enrollmentId,
+          status: 'PRESENT',
+          source: 'SELF_CHECK_IN',
+          checkedInAt: now,
+          recordedById: learnerId,
+        },
+      });
+      return { idempotent: false, record };
     });
-    if (!session) throw new NotFoundException('Không tìm thấy phiên điểm danh.');
-    const now = new Date();
-    if (
-      !session.selfCheckInEnabled ||
-      session.closedAt ||
-      !session.opensAt ||
-      !session.closesAt ||
-      now < session.opensAt ||
-      now > session.closesAt
-    ) {
-      throw new ConflictException('Phiên tự điểm danh chưa mở hoặc đã đóng.');
+  }
+
+  private async runSerializable<T>(work: (tx: Prisma.TransactionClient) => Promise<T>) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(work, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        });
+      } catch (error) {
+        if ((error as { code?: string }).code !== 'P2034' || attempt === 3) throw error;
+      }
     }
-    if (session.accessCodeHash) {
-      const valid = accessCode
-        ? await argon2.verify(session.accessCodeHash, accessCode.trim()).catch(() => false)
-        : false;
-      if (!valid) throw new BadRequestException('Mã điểm danh không đúng.');
-    }
-    const existing = await this.prisma.attendanceRecord.findUnique({
-      where: { attendanceSessionId_enrollmentId: { attendanceSessionId: sessionId, enrollmentId } },
-    });
-    if (existing?.source === 'SELF_CHECK_IN' && existing.status === 'PRESENT') {
-      return { idempotent: true, record: existing };
-    }
-    const record = await this.prisma.attendanceRecord.upsert({
-      where: { attendanceSessionId_enrollmentId: { attendanceSessionId: sessionId, enrollmentId } },
-      create: {
-        attendanceSessionId: sessionId,
-        enrollmentId,
-        status: 'PRESENT',
-        source: 'SELF_CHECK_IN',
-        checkedInAt: now,
-        recordedById: learnerId,
-      },
-      update: {
-        status: 'PRESENT',
-        source: 'SELF_CHECK_IN',
-        checkedInAt: now,
-        recordedById: learnerId,
-      },
-    });
-    return { idempotent: false, record };
+    throw new Error('Serializable transaction retry limit reached');
   }
 
   private requireOwnedActiveOrCompleted(learnerId: string, id: string) {

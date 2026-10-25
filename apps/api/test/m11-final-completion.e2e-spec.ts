@@ -27,6 +27,7 @@ describe('M11 final use-case completion (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
+    app.getHttpAdapter().getInstance().set('trust proxy', ['loopback']);
     app.setGlobalPrefix('api');
     app.useGlobalPipes(
       new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
@@ -428,6 +429,17 @@ describe('M11 final use-case completion (e2e)', () => {
     ).toBeNull();
 
     const selfCheckNow = Date.now();
+    await instructor
+      .post(`/api/instructor/classes/${ids.freeClass}/attendance/sessions`)
+      .send({
+        sessionDate: new Date(selfCheckNow + 3 * 86_400_000).toISOString().slice(0, 10),
+        title: 'M11 short code rejection',
+        selfCheckInEnabled: true,
+        opensAt: new Date(selfCheckNow - 60_000).toISOString(),
+        closesAt: new Date(selfCheckNow + 5 * 60_000).toISOString(),
+        accessCode: '12345',
+      })
+      .expect(400);
     const selfCheckSession = await instructor
       .post(`/api/instructor/classes/${ids.freeClass}/attendance/sessions`)
       .send({
@@ -465,6 +477,113 @@ describe('M11 final use-case completion (e2e)', () => {
       .send({ accessCode: '246810' })
       .expect(201);
     expect(repeatedCheckIn.body.idempotent).toBe(true);
+
+    await instructor
+      .put(
+        `/api/instructor/classes/${ids.freeClass}/attendance/sessions/${selfCheckSession.body.id}/records`,
+      )
+      .send({ records: [{ enrollmentId: ids.freeEnrollment, status: 'ABSENT' }] })
+      .expect(200);
+    await student
+      .post(
+        `/api/enrollments/${ids.freeEnrollment}/attendance/${selfCheckSession.body.id}/check-in`,
+      )
+      .send({ accessCode: '246810' })
+      .expect(409);
+    await instructor
+      .put(
+        `/api/instructor/classes/${ids.freeClass}/attendance/sessions/${selfCheckSession.body.id}/records`,
+      )
+      .send({ records: [{ enrollmentId: ids.freeEnrollment, status: 'PRESENT' }] })
+      .expect(200);
+    expect(
+      await prisma.attendanceRecord.findUnique({
+        where: {
+          attendanceSessionId_enrollmentId: {
+            attendanceSessionId: selfCheckSession.body.id,
+            enrollmentId: ids.freeEnrollment,
+          },
+        },
+      }),
+    ).toMatchObject({ status: 'PRESENT', source: 'INSTRUCTOR', checkedInAt: null });
+
+    const raceNow = Date.now();
+    const raceSession = await instructor
+      .post(`/api/instructor/classes/${ids.freeClass}/attendance/sessions`)
+      .send({
+        sessionDate: new Date(raceNow + 86_400_000).toISOString().slice(0, 10),
+        title: 'M11 attendance race',
+        selfCheckInEnabled: true,
+        opensAt: new Date(raceNow - 60_000).toISOString(),
+        closesAt: new Date(raceNow + 5 * 60_000).toISOString(),
+      })
+      .expect(201);
+    const [learnerRace, instructorRace] = await Promise.all([
+      student
+        .post(`/api/enrollments/${ids.freeEnrollment}/attendance/${raceSession.body.id}/check-in`)
+        .send({}),
+      instructor
+        .put(
+          `/api/instructor/classes/${ids.freeClass}/attendance/sessions/${raceSession.body.id}/records`,
+        )
+        .send({ records: [{ enrollmentId: ids.freeEnrollment, status: 'LATE' }] }),
+    ]);
+    expect([200]).toContain(instructorRace.status);
+    expect([201, 409]).toContain(learnerRace.status);
+    expect(
+      await prisma.attendanceRecord.findUnique({
+        where: {
+          attendanceSessionId_enrollmentId: {
+            attendanceSessionId: raceSession.body.id,
+            enrollmentId: ids.freeEnrollment,
+          },
+        },
+      }),
+    ).toMatchObject({ status: 'LATE', source: 'INSTRUCTOR', checkedInAt: null });
+    await prisma.attendanceRecord.deleteMany({
+      where: { attendanceSessionId: raceSession.body.id },
+    });
+    await prisma.attendanceSession.delete({ where: { id: raceSession.body.id } });
+
+    const throttleNow = Date.now();
+    const throttleSession = await instructor
+      .post(`/api/instructor/classes/${ids.freeClass}/attendance/sessions`)
+      .send({
+        sessionDate: new Date(throttleNow + 2 * 86_400_000).toISOString().slice(0, 10),
+        title: 'M11 attendance throttle',
+        selfCheckInEnabled: true,
+        opensAt: new Date(throttleNow - 60_000).toISOString(),
+        closesAt: new Date(throttleNow + 5 * 60_000).toISOString(),
+        accessCode: '135790',
+      })
+      .expect(201);
+    const throttleUrl = `/api/enrollments/${ids.freeEnrollment}/attendance/${throttleSession.body.id}/check-in`;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      await student
+        .post(throttleUrl)
+        .set('X-Forwarded-For', '198.51.100.23')
+        .send({ accessCode: '000000' })
+        .expect(400);
+    }
+    await student
+      .post(throttleUrl)
+      .set('X-Forwarded-For', '198.51.100.23')
+      .send({ accessCode: '000000' })
+      .expect(429);
+    await student
+      .post(throttleUrl)
+      .set('X-Forwarded-For', '198.51.100.24')
+      .send({ accessCode: '135790' })
+      .expect(201);
+    const throttleStored = await prisma.attendanceSession.findUniqueOrThrow({
+      where: { id: throttleSession.body.id },
+    });
+    expect(throttleStored.accessCodeHash).toMatch(/^\$argon2id\$/);
+    expect(throttleSession.body).not.toHaveProperty('accessCodeHash');
+    await prisma.attendanceRecord.deleteMany({
+      where: { attendanceSessionId: throttleSession.body.id },
+    });
+    await prisma.attendanceSession.delete({ where: { id: throttleSession.body.id } });
     await otherStudent
       .post(
         `/api/enrollments/${ids.freeEnrollment}/attendance/${selfCheckSession.body.id}/check-in`,
@@ -479,7 +598,7 @@ describe('M11 final use-case completion (e2e)', () => {
         expect.objectContaining({
           id: selfCheckSession.body.id,
           state: 'CHECKED_IN',
-          record: expect.objectContaining({ source: 'SELF_CHECK_IN' }),
+          record: expect.objectContaining({ source: 'INSTRUCTOR' }),
         }),
       ]),
     );
