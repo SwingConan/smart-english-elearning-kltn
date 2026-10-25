@@ -16,9 +16,9 @@ import {
   controllers: [
     PublicContentController,
     PublicContentAssetsController,
-    AdminPublicContentController,
     AdminPublicContentCategoriesController,
     AdminPublicContentAssetsController,
+    AdminPublicContentController,
   ],
   providers: [
     PublicContentService,
