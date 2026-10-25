@@ -112,7 +112,7 @@ describe('M11 Source Gate R3 edge remediation', () => {
     ]);
     render(<AdminPaymentsPage />);
     const classFilter = await screen.findByLabelText('Lớp học');
-    expect(screen.getByRole('option', { name: 'B02 — Lớp B' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'B02 — Lớp B' })).toBeInTheDocument();
     fireEvent.change(classFilter, { target: { value: 'class-b' } });
     fireEvent.click(screen.getByRole('button', { name: 'Lọc' }));
     await waitFor(() =>
@@ -154,20 +154,18 @@ describe('M11 Source Gate R3 edge remediation', () => {
     expect(screen.getByText('Chưa có yêu cầu thanh toán.')).toBeInTheDocument();
   });
 
-  it('selects, switches, and clears controlled public-content covers', async () => {
+  it('uses controlled managed covers and does not expose manual image URLs', async () => {
     vi.spyOn(publicContentApi, 'admin').mockResolvedValue([]);
+    vi.spyOn(publicContentApi, 'adminCategories').mockResolvedValue([
+      { id: 'category-1', name: 'Tin tức', slug: 'tin-tuc', sortOrder: 0, isActive: true },
+    ]);
+    vi.spyOn(publicContentApi, 'assets').mockResolvedValue([]);
     render(<AdminPublicContentPage />);
     const key = await screen.findByLabelText('Ảnh minh họa có sẵn');
-    const url = screen.getByLabelText('Ảnh HTTPS');
     expect(screen.getByRole('option', { name: 'Luyện nghe' })).toHaveValue('listening');
     fireEvent.change(key, { target: { value: 'listening' } });
     expect(key).toHaveValue('listening');
-    expect(url).toHaveValue('');
-    fireEvent.change(url, { target: { value: 'https://example.com/cover.webp' } });
-    expect(key).toHaveValue('');
-    expect(url).toHaveValue('https://example.com/cover.webp');
-    fireEvent.change(url, { target: { value: '' } });
-    expect(key).toHaveValue('');
-    expect(url).toHaveValue('');
+    expect(screen.getByLabelText('Ảnh bìa đã tải')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Ảnh HTTPS')).not.toBeInTheDocument();
   });
 });

@@ -1,67 +1,74 @@
 import { BadRequestException } from '@nestjs/common';
+import { PublicContentFormat } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { PUBLIC_CONTENT_COVER_KEYS } from './public-content.dto';
+import { PublicContentAssetStorage } from './public-content-asset.storage';
 import { PublicContentService } from './public-content.service';
 
-describe('PublicContentService R2 semantics', () => {
-  it('clears cover and schedule explicitly and records the real updating actor', async () => {
-    const prisma = {
-      publicContent: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({ id: 'content', coverKey: 'reading', coverImageUrl: null }),
-        update: jest.fn().mockResolvedValue({ id: 'content' }),
-      },
-    };
-    const service = new PublicContentService(prisma as unknown as PrismaService);
-    await service.update('admin-real', 'content', { coverKey: null, publishedAt: null });
-    expect(prisma.publicContent.update).toHaveBeenCalledWith(
+describe('PublicContentService CMS security', () => {
+  const prisma = {
+    publicContentCategory: { findFirst: jest.fn(), update: jest.fn(), delete: jest.fn() },
+    publicContentAsset: { findFirst: jest.fn() },
+    publicContent: { create: jest.fn(), count: jest.fn() },
+  };
+  const storage = { put: jest.fn(), open: jest.fn(), delete: jest.fn() };
+  const service = new PublicContentService(
+    prisma as unknown as PrismaService,
+    storage as unknown as PublicContentAssetStorage,
+  );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    prisma.publicContentCategory.findFirst.mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+    });
+    prisma.publicContent.create.mockImplementation(({ data }) =>
+      Promise.resolve({ ...data, id: 'article', category: {}, coverAsset: null }),
+    );
+  });
+
+  it('rejects executable rich HTML and unsafe image URLs', async () => {
+    await expect(
+      service.create('admin', input('<script>alert(1)</script><p>Safe article body</p>')),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.create('admin', input('<p>Safe article body</p><img src="https://evil.test/a.png">')),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('stores sanitized rich HTML and real audit actors', async () => {
+    await service.create(
+      'admin',
+      input('<h2>Heading</h2><p><strong>Safe</strong> article body.</p>'),
+    );
+    expect(prisma.publicContent.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          coverKey: null,
-          publishedAt: null,
-          updatedById: 'admin-real',
+          createdById: 'admin',
+          updatedById: 'admin',
+          contentFormat: PublicContentFormat.RICH_HTML,
         }),
       }),
     );
   });
 
-  it('rejects two simultaneous cover sources', async () => {
-    const prisma = {
-      publicContent: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({ id: 'content', coverKey: null, coverImageUrl: null }),
-      },
-    };
-    const service = new PublicContentService(prisma as unknown as PrismaService);
-    await expect(
-      service.update('admin', 'content', {
-        coverKey: 'reading',
-        coverImageUrl: 'https://example.com/cover.jpg',
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+  it('deactivates a used category instead of deleting it', async () => {
+    prisma.publicContent.count.mockResolvedValue(2);
+    prisma.publicContentCategory.update.mockResolvedValue({ id: 'category', isActive: false });
+    await expect(service.deleteCategory('admin', 'category')).resolves.toEqual({
+      id: 'category',
+      isActive: false,
+    });
+    expect(prisma.publicContentCategory.delete).not.toHaveBeenCalled();
   });
 
-  it('rejects arbitrary cover keys and accepts every controlled legacy key', async () => {
-    const prisma = {
-      publicContent: { create: jest.fn().mockResolvedValue({ id: 'content' }) },
-    };
-    const service = new PublicContentService(prisma as unknown as PrismaService);
-    const base = {
-      slug: 'controlled-cover',
-      category: 'Cập nhật chương trình',
-      title: 'Controlled cover',
+  function input(bodyHtml: string) {
+    return {
+      slug: 'safe-article',
+      categoryId: '11111111-1111-4111-8111-111111111111',
+      title: 'Safe article',
       excerpt: 'A sufficiently long excerpt.',
-      bodyMarkdown: 'A sufficiently long body.',
+      contentFormat: PublicContentFormat.RICH_HTML,
+      bodyHtml,
     };
-    expect(() => service.create('admin', { ...base, coverKey: 'UNKNOWN' })).toThrow(
-      BadRequestException,
-    );
-    for (const coverKey of PUBLIC_CONTENT_COVER_KEYS) {
-      await expect(service.create('admin', { ...base, coverKey })).resolves.toEqual({
-        id: 'content',
-      });
-    }
-  });
+  }
 });

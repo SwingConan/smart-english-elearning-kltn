@@ -75,7 +75,7 @@ describe('AuthProvider', () => {
 });
 
 describe('AuthNavigation', () => {
-  it('exposes the study recommendation criteria to administrators', async () => {
+  it('exposes a compact admin workspace and an explicit account menu', async () => {
     vi.spyOn(authApi, 'me').mockResolvedValueOnce({
       ...student,
       id: 'admin-1',
@@ -93,12 +93,16 @@ describe('AuthNavigation', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('link', { name: 'Tiêu chí & quy tắc' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'Không gian quản trị' })).toHaveAttribute(
       'href',
-      '/admin/criteria/evaluation',
+      '/admin/courses',
     );
-    expect(screen.getByRole('link', { name: 'Quản lý khóa học' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Quản lý lớp học' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Admin.*Tài khoản/ }));
+    expect(screen.getByRole('menuitem', { name: 'Hồ sơ cá nhân' })).toHaveAttribute(
+      'href',
+      '/profile',
+    );
+    expect(screen.getByRole('menuitem', { name: 'Đăng xuất' })).toBeInTheDocument();
   });
 
   it('confirms logout, exposes a loading state, and announces completion', async () => {
@@ -121,7 +125,8 @@ describe('AuthNavigation', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Đăng xuất' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Test Learner.*Tài khoản/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Đăng xuất' }));
     const dialog = screen.getByRole('dialog', { name: 'Kết thúc phiên đăng nhập?' });
     expect(logout).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Đăng xuất' }));

@@ -75,6 +75,8 @@ describe('M11 final use-case completion (e2e)', () => {
           modality: ClassModality.ONLINE,
           pricingType: PricingType.FREE,
           maxStudents: 10,
+          classStart: new Date('2026-10-01T00:00:00.000Z'),
+          classEnd: new Date('2026-12-31T23:59:59.000Z'),
         },
       }),
       prisma.classOffering.create({
@@ -166,6 +168,12 @@ describe('M11 final use-case completion (e2e)', () => {
     await prisma.consultationRequest.deleteMany({
       where: { enrollment: { classOfferingId: ids.freeClass } },
     });
+    await prisma.consultationMessage.deleteMany({
+      where: { thread: { enrollment: { classOfferingId: ids.freeClass } } },
+    });
+    await prisma.consultationThread.deleteMany({
+      where: { enrollment: { classOfferingId: ids.freeClass } },
+    });
     await prisma.tuitionPayment.deleteMany({
       where: { enrollment: { classOfferingId: { in: [ids.freeClass, ids.paidClass] } } },
     });
@@ -178,6 +186,10 @@ describe('M11 final use-case completion (e2e)', () => {
     });
     await prisma.publicContent.deleteMany({
       where: { slug: { startsWith: `m11-public-${unique}` } },
+    });
+    if (ids.asset) await prisma.publicContentAsset.delete({ where: { id: ids.asset } });
+    await prisma.publicContentCategory.deleteMany({
+      where: { slug: `m11-category-${unique}` },
     });
     await prisma.rubricCriterion.deleteMany({
       where: { rubric: { name: { startsWith: `M11 ${unique}` } } },
@@ -322,12 +334,52 @@ describe('M11 final use-case completion (e2e)', () => {
       .get(`/api/instructor/classes/${ids.freeClass}/consultations`)
       .expect(200);
     expect(instructorConsultations.body[0].instructorNote).toBe('Private instructor preparation');
+
+    const studentMessage = await student
+      .post(`/api/enrollments/${ids.freeEnrollment}/consultation-thread/messages`)
+      .send({ body: '  Em cần hỗ trợ lộ trình học.  ' })
+      .expect(201);
+    expect(studentMessage.body.body).toBe('Em cần hỗ trợ lộ trình học.');
+    await otherStudent
+      .get(`/api/enrollments/${ids.freeEnrollment}/consultation-thread`)
+      .expect(404);
+    const inbox = await instructor
+      .get(`/api/instructor/classes/${ids.freeClass}/consultation-inbox`)
+      .expect(200);
+    expect(inbox.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ enrollmentId: ids.freeEnrollment, unreadCount: 1 }),
+      ]),
+    );
+    await instructor
+      .post(
+        `/api/instructor/classes/${ids.freeClass}/consultation-inbox/${ids.freeEnrollment}/messages`,
+      )
+      .send({ body: 'Thầy đã nhận được câu hỏi.' })
+      .expect(201);
+    const studentThread = await student
+      .get(`/api/enrollments/${ids.freeEnrollment}/consultation-thread`)
+      .expect(200);
+    expect(studentThread.body.messages.map((message: { body: string }) => message.body)).toEqual([
+      'Em cần hỗ trợ lộ trình học.',
+      'Thầy đã nhận được câu hỏi.',
+    ]);
+    expect(studentThread.body.unreadCount).toBe(1);
+    expect(studentThread.body.appointments[0]).not.toHaveProperty('instructorNote');
+    await student
+      .post(`/api/enrollments/${ids.freeEnrollment}/consultation-thread/read`)
+      .expect(201);
+
     const live = await student
       .get(`/api/virtual-classroom/enrollments/${ids.freeEnrollment}`)
       .expect(200);
-    expect(live.body.classOffering.scheduleSlots[0].meetingUrl).toBe(
-      'https://meet.example.com/m11',
-    );
+    expect(live.body.classOffering.scheduleSlots[0]).toMatchObject({ meetingAvailable: true });
+    expect(live.body.classOffering.scheduleSlots[0]).not.toHaveProperty('meetingUrl');
+    expect(
+      live.body.occurrences
+        .filter((occurrence: { status: string }) => occurrence.status !== 'LIVE')
+        .every((occurrence: { joinUrl: string | null }) => occurrence.joinUrl === null),
+    ).toBe(true);
 
     const session = await instructor
       .post(`/api/instructor/classes/${ids.freeClass}/attendance/sessions`)
@@ -375,6 +427,63 @@ describe('M11 final use-case completion (e2e)', () => {
       }),
     ).toBeNull();
 
+    const selfCheckNow = Date.now();
+    const selfCheckSession = await instructor
+      .post(`/api/instructor/classes/${ids.freeClass}/attendance/sessions`)
+      .send({
+        sessionDate: new Date(selfCheckNow).toISOString().slice(0, 10),
+        scheduleSlotId: ids.slot,
+        title: 'M11 learner self check-in',
+        selfCheckInEnabled: true,
+        opensAt: new Date(selfCheckNow - 60_000).toISOString(),
+        closesAt: new Date(selfCheckNow + 5 * 60_000).toISOString(),
+        accessCode: '246810',
+      })
+      .expect(201);
+    expect(selfCheckSession.body).not.toHaveProperty('accessCodeHash');
+    expect(selfCheckSession.body.accessCodeEnabled).toBe(true);
+    await student
+      .post(
+        `/api/enrollments/${ids.freeEnrollment}/attendance/${selfCheckSession.body.id}/check-in`,
+      )
+      .send({ accessCode: '000000' })
+      .expect(400);
+    const checkedIn = await student
+      .post(
+        `/api/enrollments/${ids.freeEnrollment}/attendance/${selfCheckSession.body.id}/check-in`,
+      )
+      .send({ accessCode: ' 246810 ' })
+      .expect(201);
+    expect(checkedIn.body).toMatchObject({
+      idempotent: false,
+      record: { status: 'PRESENT', source: 'SELF_CHECK_IN' },
+    });
+    const repeatedCheckIn = await student
+      .post(
+        `/api/enrollments/${ids.freeEnrollment}/attendance/${selfCheckSession.body.id}/check-in`,
+      )
+      .send({ accessCode: '246810' })
+      .expect(201);
+    expect(repeatedCheckIn.body.idempotent).toBe(true);
+    await otherStudent
+      .post(
+        `/api/enrollments/${ids.freeEnrollment}/attendance/${selfCheckSession.body.id}/check-in`,
+      )
+      .send({ accessCode: '246810' })
+      .expect(404);
+    const studentAttendance = await student
+      .get(`/api/enrollments/${ids.freeEnrollment}/attendance`)
+      .expect(200);
+    expect(studentAttendance.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: selfCheckSession.body.id,
+          state: 'CHECKED_IN',
+          record: expect.objectContaining({ source: 'SELF_CHECK_IN' }),
+        }),
+      ]),
+    );
+
     const rubric = await instructor
       .post('/api/instructor/rubrics')
       .send({
@@ -391,13 +500,52 @@ describe('M11 final use-case completion (e2e)', () => {
       .expect(403);
     await instructor.post(`/api/instructor/rubrics/${ids.rubric}/deactivate`).expect(201);
 
+    const category = await admin
+      .post('/api/admin/public-content/categories')
+      .send({
+        name: 'M11 updates',
+        slug: `m11-category-${unique}`,
+        description: 'Managed E2E category',
+      })
+      .expect(201);
+    ids.category = category.body.id;
+    await admin
+      .post('/api/admin/public-content')
+      .send({
+        slug: `m11-public-${unique}-xss`,
+        categoryId: ids.category,
+        title: 'M11 unsafe rich content',
+        excerpt: 'This draft must reject executable rich content.',
+        contentFormat: 'RICH_HTML',
+        bodyHtml: '<script>alert(1)</script><p>Safe-looking content</p>',
+      })
+      .expect(400);
+    await admin
+      .post('/api/admin/public-content/assets')
+      .attach('file', Buffer.from('not-a-real-png'), {
+        filename: 'spoofed.png',
+        contentType: 'image/png',
+      })
+      .expect(400);
+    const managedAsset = await admin
+      .post('/api/admin/public-content/assets')
+      .attach('file', Buffer.from('89504e470d0a1a0a00000000', 'hex'), {
+        filename: 'managed.png',
+        contentType: 'image/png',
+      })
+      .expect(201);
+    ids.asset = managedAsset.body.id;
+    expect(managedAsset.body.url).toContain('/api/public-content-assets/');
+    await admin.delete(`/api/admin/public-content/assets/${managedAsset.body.id}`).expect(200);
+
     await admin
       .post('/api/admin/public-content')
       .send({
         slug: `m11-public-${unique}-bad-cover`,
-        category: 'Cập nhật chương trình',
+        categoryId: ids.category,
         title: 'M11 invalid cover',
         excerpt: 'This draft must reject an uncontrolled cover key.',
+        contentFormat: 'MARKDOWN',
         bodyMarkdown: '# Invalid cover\n\nThis body is sufficiently long.',
         coverKey: 'UNKNOWN',
       })
@@ -406,10 +554,11 @@ describe('M11 final use-case completion (e2e)', () => {
       .post('/api/admin/public-content')
       .send({
         slug: `m11-public-${unique}`,
-        category: 'Cập nhật chương trình',
+        categoryId: ids.category,
         title: 'M11 public article',
         excerpt: 'This draft must remain private until published.',
-        bodyMarkdown: '# Safe heading\n\n<script>alert(1)</script>',
+        contentFormat: 'RICH_HTML',
+        bodyHtml: '<h2>Safe heading</h2><p><strong>Managed</strong> rich article.</p>',
       })
       .expect(201);
     ids.content = draft.body.id;
@@ -426,16 +575,39 @@ describe('M11 final use-case completion (e2e)', () => {
     const publicItem = await request(app.getHttpServer())
       .get(`/api/public-content/m11-public-${unique}`)
       .expect(200);
-    expect(publicItem.body.bodyMarkdown).toContain('<script>');
+    expect(publicItem.body.bodyHtml).toContain('<strong>Managed</strong>');
+    expect(publicItem.body.bodyHtml).not.toContain('<script>');
+
+    const legacyMarkdown = await admin
+      .post('/api/admin/public-content')
+      .send({
+        slug: `m11-public-${unique}-legacy`,
+        categoryId: ids.category,
+        title: 'M11 legacy Markdown article',
+        excerpt: 'Legacy Markdown remains supported alongside rich HTML.',
+        contentFormat: 'MARKDOWN',
+        bodyMarkdown: '# Legacy heading\n\nMarkdown content remains renderable.',
+      })
+      .expect(201);
+    await admin.post(`/api/admin/public-content/${legacyMarkdown.body.id}/publish`).expect(201);
+    const legacyPublic = await request(app.getHttpServer())
+      .get(`/api/public-content/m11-public-${unique}-legacy`)
+      .expect(200);
+    expect(legacyPublic.body).toMatchObject({
+      contentFormat: 'MARKDOWN',
+      bodyMarkdown: expect.stringContaining('Legacy heading'),
+    });
+
     const scheduledSlug = `m11-public-${unique}-scheduled`;
     const scheduled = await admin
       .post('/api/admin/public-content')
       .send({
         slug: scheduledSlug,
-        category: 'Cập nhật chương trình',
+        categoryId: ids.category,
         title: 'M11 scheduled article',
         excerpt: 'This article must remain hidden until its scheduled time.',
-        bodyMarkdown: '# Scheduled content\n\nThis content is scheduled for the future.',
+        contentFormat: 'RICH_HTML',
+        bodyHtml: '<h2>Scheduled content</h2><p>This content is scheduled for the future.</p>',
         publishedAt: '2099-12-01T10:00:00.000Z',
       })
       .expect(201);
@@ -446,6 +618,12 @@ describe('M11 final use-case completion (e2e)', () => {
       .send({ publishedAt: '2026-01-01T00:00:00.000Z' })
       .expect(200);
     await request(app.getHttpServer()).get(`/api/public-content/${scheduledSlug}`).expect(200);
+    await admin.post(`/api/admin/public-content/${ids.content}/archive`).expect(201);
+    await request(app.getHttpServer()).get(`/api/public-content/m11-public-${unique}`).expect(404);
+    const deactivatedCategory = await admin
+      .delete(`/api/admin/public-content/categories/${ids.category}`)
+      .expect(200);
+    expect(deactivatedCategory.body.isActive).toBe(false);
 
     await admin
       .put(`/api/admin/class-offerings/${ids.freeClass}/completion-policy`)
@@ -462,7 +640,7 @@ describe('M11 final use-case completion (e2e)', () => {
     const report = await student
       .get(`/api/learning/enrollments/${ids.freeEnrollment}/report`)
       .expect(200);
-    expect(report.body.attendance).toMatchObject({ markedSessions: 1, percent: 100 });
+    expect(report.body.attendance).toMatchObject({ markedSessions: 2, percent: 100 });
     const [evaluationA, evaluationB] = await Promise.all([
       student.post(`/api/certificates/enrollments/${ids.freeEnrollment}/evaluate`),
       student.post(`/api/certificates/enrollments/${ids.freeEnrollment}/evaluate`),

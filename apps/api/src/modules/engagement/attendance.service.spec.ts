@@ -1,5 +1,6 @@
-import { BadRequestException } from '@nestjs/common';
-import { AttendanceStatus } from '../../generated/prisma/client';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import * as argon2 from 'argon2';
+import { AttendanceStatus, EnrollmentStatus } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { AttendanceService } from './attendance.service';
 
@@ -83,8 +84,18 @@ describe('AttendanceService explicit clear contract', () => {
     });
     expect(tx.attendanceRecord.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        create: expect.objectContaining({ status: AttendanceStatus.LATE, note: 'Đến muộn' }),
-        update: expect.objectContaining({ status: AttendanceStatus.LATE, note: 'Đến muộn' }),
+        create: expect.objectContaining({
+          status: AttendanceStatus.LATE,
+          note: 'Đến muộn',
+          source: 'INSTRUCTOR',
+          checkedInAt: null,
+        }),
+        update: expect.objectContaining({
+          status: AttendanceStatus.LATE,
+          note: 'Đến muộn',
+          source: 'INSTRUCTOR',
+          checkedInAt: null,
+        }),
       }),
     );
   });
@@ -108,5 +119,139 @@ describe('AttendanceService explicit clear contract', () => {
         clearEnrollmentIds: ['learner-a'],
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('AttendanceService learner self-check-in', () => {
+  let accessCodeHash: string;
+
+  beforeAll(async () => {
+    accessCodeHash = await argon2.hash('246810');
+  });
+
+  function learnerSetup(options?: {
+    enrollment?: { id: string; status: EnrollmentStatus; classOfferingId: string } | null;
+    session?: Record<string, unknown> | null;
+    existing?: Record<string, unknown> | null;
+  }) {
+    const now = Date.now();
+    const enrollment =
+      options && 'enrollment' in options
+        ? options.enrollment
+        : { id: 'enrollment', status: EnrollmentStatus.ACTIVE, classOfferingId: 'class' };
+    const session =
+      options && 'session' in options
+        ? options.session
+        : {
+            id: 'session',
+            classOfferingId: 'class',
+            selfCheckInEnabled: true,
+            opensAt: new Date(now - 60_000),
+            closesAt: new Date(now + 60_000),
+            closedAt: null,
+            accessCodeHash: null,
+          };
+    const prisma = {
+      enrollment: { findFirst: jest.fn().mockResolvedValue(enrollment) },
+      attendanceSession: { findFirst: jest.fn().mockResolvedValue(session), findMany: jest.fn() },
+      attendanceRecord: {
+        findUnique: jest.fn().mockResolvedValue(options?.existing ?? null),
+        upsert: jest
+          .fn()
+          .mockImplementation(({ create }) => Promise.resolve({ id: 'record', ...create })),
+      },
+    };
+    return { service: new AttendanceService(prisma as unknown as PrismaService), prisma };
+  }
+
+  it.each([
+    ['before open', new Date(Date.now() + 60_000), new Date(Date.now() + 120_000)],
+    ['after close', new Date(Date.now() - 120_000), new Date(Date.now() - 60_000)],
+  ])('rejects check-in %s using server time', async (_label, opensAt, closesAt) => {
+    const { service } = learnerSetup({
+      session: {
+        id: 'session',
+        selfCheckInEnabled: true,
+        opensAt,
+        closesAt,
+        closedAt: null,
+        accessCodeHash: null,
+      },
+    });
+    await expect(service.checkIn('learner', 'enrollment', 'session')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it('requires and verifies an Argon2 access code when configured', async () => {
+    const session = {
+      id: 'session',
+      selfCheckInEnabled: true,
+      opensAt: new Date(Date.now() - 60_000),
+      closesAt: new Date(Date.now() + 60_000),
+      closedAt: null,
+      accessCodeHash,
+    };
+    const missing = learnerSetup({ session });
+    const wrong = learnerSetup({ session });
+    const correct = learnerSetup({ session });
+
+    await expect(
+      missing.service.checkIn('learner', 'enrollment', 'session'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      wrong.service.checkIn('learner', 'enrollment', 'session', '000000'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      correct.service.checkIn('learner', 'enrollment', 'session', ' 246810 '),
+    ).resolves.toMatchObject({
+      idempotent: false,
+      record: { status: 'PRESENT', source: 'SELF_CHECK_IN', recordedById: 'learner' },
+    });
+  });
+
+  it('returns an existing learner check-in idempotently without rewriting it', async () => {
+    const existing = { id: 'record', status: 'PRESENT', source: 'SELF_CHECK_IN' };
+    const { service, prisma } = learnerSetup({ existing });
+    await expect(service.checkIn('learner', 'enrollment', 'session')).resolves.toEqual({
+      idempotent: true,
+      record: existing,
+    });
+    expect(prisma.attendanceRecord.upsert).not.toHaveBeenCalled();
+  });
+
+  it('denies cross-enrollment check-in before resolving a session', async () => {
+    const { service, prisma } = learnerSetup({ enrollment: null });
+    await expect(service.checkIn('learner-a', 'enrollment-b', 'session')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(prisma.attendanceSession.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('keeps legacy instructor records readable without treating missing as absent', async () => {
+    const legacyRecord = { id: 'legacy', status: 'PRESENT', source: 'INSTRUCTOR' };
+    const { service, prisma } = learnerSetup();
+    prisma.attendanceSession.findMany.mockResolvedValue([
+      {
+        id: 'session',
+        accessCodeHash: null,
+        opensAt: null,
+        closesAt: null,
+        closedAt: null,
+        records: [legacyRecord],
+      },
+      {
+        id: 'unmarked',
+        accessCodeHash: null,
+        opensAt: null,
+        closesAt: null,
+        closedAt: null,
+        records: [],
+      },
+    ]);
+
+    const result = await service.studentAttendance('learner', 'enrollment');
+    expect(result[0]).toMatchObject({ record: legacyRecord, state: 'CHECKED_IN' });
+    expect(result[1]).toMatchObject({ record: null, state: 'UNAVAILABLE' });
   });
 });
