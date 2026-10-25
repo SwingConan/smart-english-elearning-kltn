@@ -69,9 +69,9 @@ export function AuthNavigation() {
   };
 
   return (
-    <div className="flex w-full flex-col gap-2 lg:w-auto lg:flex-row lg:items-center">
+    <div className="flex w-full min-w-0 flex-col gap-2 md:w-auto md:flex-row md:items-center">
       <Link
-        className="inline-flex items-center gap-2 rounded-xl px-3 py-2 font-semibold text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700"
+        className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 py-2 font-semibold text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700"
         to={workspace[0]}
       >
         {user.role === 'STUDENT' ? <GraduationCap size={17} /> : <LayoutDashboard size={17} />}
@@ -81,14 +81,16 @@ export function AuthNavigation() {
         <button
           aria-expanded={menuOpen}
           aria-haspopup="menu"
-          className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-left shadow-sm transition hover:border-indigo-300 hover:shadow md:min-w-48"
+          className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-left shadow-sm transition hover:border-indigo-300 hover:shadow md:w-auto md:max-w-48"
           onClick={() => setMenuOpen((value) => !value)}
           type="button"
         >
           <Avatar name={user.fullName} size="sm" src={avatarUrl} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-bold text-slate-900">{user.fullName}</span>
-            <span className="block text-xs text-slate-500">Tài khoản</span>
+          <span className="min-w-0 flex-1 md:max-w-32">
+            <span className="block truncate text-sm font-bold text-slate-900" title={user.fullName}>
+              {user.fullName}
+            </span>
+            <span className="block text-xs text-slate-500 md:hidden 2xl:block">Tài khoản</span>
           </span>
           <ChevronDown
             className={`shrink-0 transition ${menuOpen ? 'rotate-180' : ''}`}
@@ -97,7 +99,7 @@ export function AuthNavigation() {
         </button>
         {menuOpen ? (
           <div
-            className="right-0 z-50 mt-2 w-full min-w-56 overflow-hidden rounded-2xl border bg-white p-2 shadow-xl lg:absolute"
+            className="right-0 z-50 mt-2 w-full min-w-56 overflow-hidden rounded-2xl border bg-white p-2 shadow-xl md:absolute md:w-auto"
             role="menu"
           >
             <Link

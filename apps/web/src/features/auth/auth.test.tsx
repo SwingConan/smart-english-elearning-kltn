@@ -75,6 +75,26 @@ describe('AuthProvider', () => {
 });
 
 describe('AuthNavigation', () => {
+  it.each([
+    ['STUDENT', 'Khóa học của tôi', '/student/enrollments'],
+    ['INSTRUCTOR', 'Lớp giảng dạy', '/instructor/teaching'],
+    ['ADMIN_COORDINATOR', 'Không gian quản trị', '/admin/courses'],
+  ] as const)('keeps the %s workspace label on one line', async (role, label, href) => {
+    vi.spyOn(authApi, 'me').mockResolvedValueOnce({ ...student, role });
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <ToastProvider>
+            <AuthNavigation />
+          </ToastProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('link', { name: label })).toHaveAttribute('href', href);
+    expect(screen.getByRole('link', { name: label })).toHaveClass('whitespace-nowrap');
+  });
+
   it('exposes a compact admin workspace and an explicit account menu', async () => {
     vi.spyOn(authApi, 'me').mockResolvedValueOnce({
       ...student,
@@ -103,6 +123,29 @@ describe('AuthNavigation', () => {
       '/profile',
     );
     expect(screen.getByRole('menuitem', { name: 'Đăng xuất' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('truncates a long display name without imposing a fixed minimum width', async () => {
+    const fullName = 'Nguyễn Thị Minh Anh Có Tên Hiển Thị Rất Dài Trong Hệ Thống';
+    vi.spyOn(authApi, 'me').mockResolvedValueOnce({ ...student, fullName });
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <ToastProvider>
+            <AuthNavigation />
+          </ToastProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    const name = await screen.findByText(fullName);
+    expect(name).toHaveClass('truncate');
+    expect(name).toHaveAttribute('title', fullName);
+    expect(name.parentElement).toHaveClass('min-w-0', 'md:max-w-32');
+    expect(name.closest('button')).toHaveClass('min-w-0', 'md:max-w-48');
+    expect(name.closest('button')).not.toHaveClass('md:min-w-48');
   });
 
   it('confirms logout, exposes a loading state, and announces completion', async () => {

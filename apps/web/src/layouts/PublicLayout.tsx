@@ -25,8 +25,8 @@ export function PublicLayout() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-4 py-4 sm:px-6 lg:px-8">
-          <Link className="flex items-center gap-3 font-bold text-slate-950" to="/">
+        <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-5 px-4 py-4 sm:px-6 lg:px-8">
+          <Link className="flex shrink-0 items-center gap-3 font-bold text-slate-950" to="/">
             <span className="grid size-10 place-items-center rounded-xl bg-indigo-600 text-white">
               <BookOpenCheck aria-hidden="true" size={22} />
             </span>
@@ -39,14 +39,14 @@ export function PublicLayout() {
           </Link>
           <nav
             aria-label="Điều hướng chính"
-            className="hidden items-center gap-5 text-sm font-medium lg:flex"
+            className="hidden items-center gap-4 text-sm font-medium 2xl:flex"
           >
             {publicLinks.map(([to, label]) => (
               <NavLink
                 className={({ isActive }) =>
                   isActive && !to.includes('#')
-                    ? 'relative py-2 text-indigo-700 after:absolute after:inset-x-0 after:-bottom-2 after:h-0.5 after:rounded-full after:bg-indigo-600'
-                    : 'py-2 text-slate-600 transition hover:text-indigo-700'
+                    ? 'relative whitespace-nowrap py-2 text-indigo-700 after:absolute after:inset-x-0 after:-bottom-2 after:h-0.5 after:rounded-full after:bg-indigo-600'
+                    : 'whitespace-nowrap py-2 text-slate-600 transition hover:text-indigo-700'
                 }
                 key={to}
                 to={to}
@@ -55,13 +55,13 @@ export function PublicLayout() {
               </NavLink>
             ))}
           </nav>
-          <div className="hidden text-sm lg:block">
+          <div className="hidden shrink-0 text-sm 2xl:block">
             <AuthNavigation />
           </div>
           <button
             aria-expanded={open}
             aria-label={open ? 'Đóng menu' : 'Mở menu'}
-            className="rounded-lg border p-2 lg:hidden"
+            className="rounded-lg border p-2 2xl:hidden"
             onClick={() => setOpen((value) => !value)}
             type="button"
           >
@@ -69,8 +69,11 @@ export function PublicLayout() {
           </button>
         </div>
         {open ? (
-          <div className="border-t bg-white px-4 py-4 lg:hidden">
-            <nav aria-label="Điều hướng di động" className="mx-auto flex max-w-7xl flex-col gap-1">
+          <div className="border-t bg-white px-4 py-4 2xl:hidden">
+            <nav
+              aria-label="Điều hướng di động"
+              className="mx-auto flex max-w-[1600px] flex-col gap-1"
+            >
               {publicLinks.map(([to, label]) => (
                 <NavLink
                   className={({ isActive }) =>

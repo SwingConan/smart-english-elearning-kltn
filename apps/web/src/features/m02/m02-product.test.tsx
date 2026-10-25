@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '@/App';
@@ -42,13 +42,37 @@ describe('M02 public product surface', () => {
         </AuthProvider>
       </MemoryRouter>,
     );
+    const primaryNavigation = screen.getByRole('navigation', { name: 'Điều hướng chính' });
+    expect(primaryNavigation).toHaveClass('hidden', '2xl:flex');
+    for (const label of [
+      'Trang chủ',
+      'Khóa học',
+      'Kiểm tra đầu vào',
+      'Hướng dẫn học',
+      'Tin tức & Sự kiện',
+      'Về chúng tôi',
+    ]) {
+      expect(within(primaryNavigation).getByRole('link', { name: label })).toHaveClass(
+        'whitespace-nowrap',
+      );
+    }
     expect(screen.getAllByRole('link', { name: 'Khóa học' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: 'Kiểm tra đầu vào' })[0]).toHaveAttribute(
       'href',
       '/placement',
     );
+    expect(screen.getByRole('button', { name: 'Mở menu' })).toHaveClass('2xl:hidden');
+    expect(await screen.findByRole('link', { name: 'Đăng nhập' })).toHaveAttribute(
+      'href',
+      '/login',
+    );
+    expect(screen.getByRole('link', { name: 'Đăng ký' })).toHaveAttribute('href', '/register');
     fireEvent.click(screen.getByRole('button', { name: 'Mở menu' }));
     expect(screen.getByRole('navigation', { name: 'Điều hướng di động' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(
+      screen.queryByRole('navigation', { name: 'Điều hướng di động' }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Page body')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Trạng thái hệ thống' })).toHaveAttribute(
       'href',
