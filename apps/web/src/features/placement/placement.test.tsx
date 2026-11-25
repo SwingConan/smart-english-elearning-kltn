@@ -379,6 +379,7 @@ describe('Placement exam and result', () => {
         audioUrl: null,
         stimuli: [
           { id: 'text-1', type: 'TEXT', orderIndex: 0, textContent: 'From: Workshop Team', mediaUrl: null, mimeType: null, altText: null },
+          { id: 'table-1', type: 'TEXT', orderIndex: 3, textContent: JSON.stringify({ kind: 'assessment-table', version: 1, caption: 'Synthetic assessment schedule', columns: ['Time', 'Activity', 'Room', 'Host'], rows: [['08:00', 'Example event', 'X', 'Example host']] }), mediaUrl: null, mimeType: null, altText: null },
           { id: 'image-1', type: 'IMAGE', orderIndex: 1, textContent: null, mediaUrl: '/api/placement/image-1', mimeType: 'image/jpeg', altText: 'Hình minh họa cho bài kiểm tra' },
           { id: 'audio-1', type: 'AUDIO', orderIndex: 2, textContent: null, mediaUrl: '/api/placement/audio-1', mimeType: 'audio/mpeg', altText: null },
         ],
@@ -409,6 +410,8 @@ describe('Placement exam and result', () => {
     );
 
     expect(await screen.findByText('From: Workshop Team')).toBeInTheDocument();
+    expect(screen.getByRole('table', { name: 'Synthetic assessment schedule' })).toBeInTheDocument();
+    expect(screen.getByRole('rowheader', { name: '08:00' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Hình minh họa cho bài kiểm tra' })).toHaveAttribute('src', '/api/placement/image-1');
     expect(document.querySelector('audio[src="/api/placement/audio-1"]')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Câu trả lời Writing'), {
@@ -432,7 +435,7 @@ describe('Placement exam and result', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeEnabled());
   });
 
-  it('records explicitly and uploads a Speaking response under StrictMode', async () => {
+  it('records explicitly, preserves upload errors, and retries a Speaking response under StrictMode', async () => {
     class FakeMediaRecorder {
       static isTypeSupported() { return true; }
       mimeType = 'audio/webm';
@@ -468,7 +471,7 @@ describe('Placement exam and result', () => {
       }],
     };
     vi.spyOn(placementApi, 'exam').mockResolvedValue(speakingExam);
-    const upload = vi.spyOn(placementApi, 'uploadAudio').mockResolvedValue({
+    const upload = vi.spyOn(placementApi, 'uploadAudio').mockRejectedValueOnce(new Error('Storage unavailable')).mockResolvedValue({
       state: 'UPLOADED', savedAt: '2026-10-01T00:01:00Z', playbackUrl: '/api/speaking-playback',
     });
 
@@ -492,6 +495,10 @@ describe('Placement exam and result', () => {
     expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Lưu câu trả lời' }));
     await waitFor(() => expect(upload).toHaveBeenCalledWith('attempt-1', 'speaking-1', expect.any(Blob)));
+    expect(await screen.findByText(/tải lên thất bại/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu câu trả lời' }));
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('Đã lưu câu trả lời')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Nộp bài' })).toBeEnabled();
     expect(stopTrack).toHaveBeenCalled();

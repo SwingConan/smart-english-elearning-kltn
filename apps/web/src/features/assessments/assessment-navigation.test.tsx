@@ -34,7 +34,7 @@ describe('assessment navigation', () => {
       { role: 'INSTRUCTOR' },
     );
     expect((await screen.findAllByText('Assigned Course')).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('link', { name: /Vào lớp/i })[0]).toHaveAttribute('href', '/instructor/classes/offering-a');
+    expect(screen.getAllByRole('link', { name: /Vào lớp/i })[0]).toHaveAttribute('href', '/classroom/offering-a');
     expect(screen.queryByText('Công cụ')).not.toBeInTheDocument();
     expect(screen.getAllByText('Đang mở đăng ký').length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toMatch(/Adaptive Policy|Learner Mastery|Knowledge Model/);

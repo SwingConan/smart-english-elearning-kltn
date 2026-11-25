@@ -129,7 +129,7 @@ function MasteryContent({ data }: { data: InstructorLearnerMasteryResponse }) {
               <thead className="bg-slate-100">
                 <tr>
                   <th className="px-4 py-3" scope="col">Học viên</th>
-                  <th className="px-4 py-3" scope="col">ClassOffering</th>
+                  <th className="px-4 py-3" scope="col">Lớp học</th>
                   {data.skills.map((skill) => (
                     <th className="min-w-64 max-w-64 px-4 py-3" key={skill.skillId} scope="col">
                       <span className="block break-words font-semibold">{skill.code}</span>

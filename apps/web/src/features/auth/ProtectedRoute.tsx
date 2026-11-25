@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useAuth } from './auth-context';
 
@@ -16,5 +16,5 @@ export function ProtectedRoute({ children }: { children?: ReactNode }) {
     return <Navigate to={`/login?${query.toString()}`} replace />;
   }
 
-  return children ?? <Outlet />;
+  return <Fragment key={`${user.id}:${user.role}`}>{children ?? <Outlet />}</Fragment>;
 }

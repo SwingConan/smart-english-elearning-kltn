@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, CalendarDays, ClipboardList, UserRound } from 'lucide-react';
 import { Link, useOutletContext, useParams } from 'react-router';
 import { assessmentTypeLabel } from '@/features/assessments/display';
+import { learnerClassLabel } from '@/features/enrollments/presentation';
 import type { ClassShellContext } from '@/layouts/ClassShellLayout';
 import { learningApi } from '@/features/learning/api';
 import type { CourseContent, CourseProgress } from '@/features/learning/types';
@@ -53,18 +54,25 @@ export function ClassOverviewPage() {
     <div className="space-y-6">
       <section className="rounded-3xl bg-indigo-950 p-7 text-white">
         <p className="text-sm font-semibold text-indigo-200">Tổng quan lớp</p>
-        <h2 className="mt-2 text-3xl font-bold">{enrollment.classOffering.name}</h2>
+        <h2 className="mt-2 break-words text-3xl font-bold">
+          {learnerClassLabel(enrollment.classOffering.name, enrollment.classOffering.code)}
+        </h2>
         <p className="mt-2 text-indigo-100">
           Bạn đã hoàn thành {data.progress.completedLessons}/{data.progress.totalLessons} bài học.
         </p>
-        {next ? (
-          <Link
-            className="btn-light mt-6"
-            to={`/student/enrollments/${enrollmentId}/lessons/${next.id}`}
-          >
-            Tiếp tục: {next.title} <ArrowRight size={17} />
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link className="btn-light" to={`/classroom/${enrollment.classOffering.id}`}>
+            Vào không gian lớp học (LMS) <ArrowRight size={17} />
           </Link>
-        ) : null}
+          {next ? (
+            <Link
+              className="inline-flex items-center gap-2 rounded-xl border border-indigo-300/40 bg-indigo-900/60 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-800"
+              to={`/student/enrollments/${enrollmentId}/lessons/${next.id}`}
+            >
+              Tiếp tục bài: {next.title} <ArrowRight size={17} />
+            </Link>
+          ) : null}
+        </div>
       </section>
       <div className="grid gap-5 md:grid-cols-3">
         <Metric label="Tiến độ tổng" value={`${data.progress.progressPercent}%`} />

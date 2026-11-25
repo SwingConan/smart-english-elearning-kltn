@@ -164,7 +164,7 @@ export function AdminStudyRecommendationPolicyPage() {
         </p>
         <p className="mt-3 text-sm leading-6 text-indigo-900">
           Hệ thống dùng quy tắc xác định, không dùng AI để thay đổi kết quả. Lịch sử đã tạo giữ
-          nguyên snapshot chính sách cũ và không bị tính lại khi lưu.
+          nguyên bản chính sách đã ghi nhận và không bị tính lại khi lưu.
         </p>
       </div>
       <form

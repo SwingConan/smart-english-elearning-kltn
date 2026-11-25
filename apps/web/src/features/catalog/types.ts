@@ -3,12 +3,39 @@ export type CourseSkillScope =
   'LR' | 'FOUR_SKILLS' | 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING';
 export type ClassModality = 'ONLINE' | 'OFFLINE' | 'HYBRID';
 
+export interface RoomSummary {
+  id: string;
+  code: string;
+  name: string;
+  location: string;
+}
+
+export interface RoadmapItem {
+  id?: string;
+  weekNumber: number;
+  sessionNumber: number;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  periods: number;
+  modality: ClassModality;
+  roomId?: string | null;
+  room?: RoomSummary | null;
+  locationText: string | null;
+  meetingUrl?: string | null;
+  topicTitle: string;
+  contentSummary: string;
+  sourceModuleId?: string | null;
+  teachingSessionId?: string | null;
+}
+
 export interface ScheduleSlot {
   id: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
   locationText: string | null;
+  room?: RoomSummary | null;
 }
 
 export interface PublicInstructor {
@@ -17,6 +44,8 @@ export interface PublicInstructor {
 }
 
 export interface PublicClassOffering {
+  dataContext?: 'QA_REFERENCE';
+  w07Managed?: boolean;
   id: string;
   code: string;
   name: string;
@@ -27,6 +56,11 @@ export interface PublicClassOffering {
   maxStudents: number | null;
   totalSessions: number | null;
   totalPeriods: number | null;
+  periodsPerSession?: number | null;
+  durationWeeks?: number | null;
+  minutesPerPeriod?: number;
+  defaultRoom?: RoomSummary | null;
+  roadmapItems?: RoadmapItem[];
   enrollmentStart: string | null;
   enrollmentEnd: string | null;
   classStart: string | null;
@@ -57,6 +91,7 @@ export interface PublicModulePreview {
 }
 
 export interface PublicCourse {
+  dataContext?: 'QA_REFERENCE';
   id: string;
   title: string;
   slug: string;
@@ -71,6 +106,7 @@ export interface PublicCourse {
 }
 
 export interface CatalogMeta {
+  dataContext?: 'QA_REFERENCE';
   total: number;
   page: number;
   limit: number;

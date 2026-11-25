@@ -98,7 +98,7 @@ export function LessonEditorDialog({
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-indigo-600">Curriculum authoring</p>
             <h2 className="mt-1 text-2xl font-bold">{lesson?.id ? 'Chỉnh sửa bài học' : 'Tạo bài học'}</h2>
-            <p className="mt-1 text-sm text-slate-500">Biên soạn mục tiêu, trọng tâm TOEIC và nội dung học tập trong một workspace đầy đủ.</p>
+            <p className="mt-1 text-sm text-slate-500">Biên soạn mục tiêu, trọng tâm TOEIC và nội dung học tập trên cùng một màn hình.</p>
           </div>
           <button aria-label="Đóng trình biên soạn" className="rounded-full p-2 hover:bg-slate-100" onClick={requestClose} type="button"><X /></button>
         </header>

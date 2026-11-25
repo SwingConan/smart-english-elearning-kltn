@@ -74,18 +74,22 @@ export function CatalogPage() {
         ]
       : null,
     state.availability
-      ? ['Lớp học', 'Có lớp đang mở', () => update({ ...state, availability: '', page: 1 })]
+      ? ['Lớp học', 'Có thông tin lớp', () => update({ ...state, availability: '', page: 1 })]
       : null,
   ].filter(Boolean) as Array<[string, string, () => void]>;
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-      <p className="eyebrow">Danh mục khóa học</p>
-      <h1 className="page-title">Chọn chương trình phù hợp</h1>
+      <p className="eyebrow">Chương trình đào tạo</p>
+      <h1 className="page-title">Danh mục khóa học TOEIC</h1>
       <p className="page-lead">
-        Lọc theo kỹ năng, trình độ và khả năng có lớp đang mở. Lịch học và học phí được so sánh ở
-        từng lớp học đang mở.
+        Tìm kiếm khóa học phù hợp với trình độ hiện tại và mục tiêu điểm số của bạn. Xem thông tin chi tiết về nội dung học, thời lượng và các lớp đang mở.
       </p>
+      {response?.meta.dataContext === 'QA_REFERENCE' && (
+        <p role="note" className="mt-3 text-sm text-slate-600">
+          Thông tin khóa học và lịch khai giảng chính thức được cập nhật thường xuyên từ phòng đào tạo.
+        </p>
+      )}
       <Filters
         key={`${state.search}|${state.level}|${state.skillScope}|${state.availability}`}
         initial={state}
@@ -226,7 +230,7 @@ function Filters({
         label="Lớp học"
         value={initial.availability}
         onChange={(value) => onChange({ ...initial, availability: value, page: 1 })}
-        options={[['OPEN', 'Có lớp đang mở']]}
+        options={[['OPEN', 'Có thông tin lớp']]}
       />
       <button className="btn-primary" type="submit">
         <Filter size={17} />

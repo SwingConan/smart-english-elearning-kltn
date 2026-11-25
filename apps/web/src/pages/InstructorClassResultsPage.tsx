@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import { toeicSkillLabel } from '@/features/assessments/display';
 import type { ToeicSkill } from '@/features/assessments/types';
 import { instructorApi } from '@/features/instructor/api';
+import { lmsLocalApi, type UnifiedClassResults } from '@/features/class-lms/lms-local-api';
 import { formatTrendNumber } from '@/components/trend-format';
 import { ResultsDrilldownDrawer, type ResultsDrilldownDetail } from '@/components/ResultsDrilldownDrawer';
 
@@ -31,8 +32,27 @@ export function InstructorClassResultsPage() {
   const [filterLabel, setFilterLabel] = useState('');
   const [notSubmittedFilter, setNotSubmittedFilter] = useState(false);
   const [drawer, setDrawer] = useState<ResultsDrilldownDetail | null>(null);
+  const [unified, setUnified] = useState<UnifiedClassResults | null>(null);
   const [state, setState] = useState('loading');
-  useEffect(() => { const controller = new AbortController(); void instructorApi.classes.results(classOfferingId, controller.signal).then((data) => { const rows = data.assessments as Assessment[]; setAssessments(rows); setHistory(data.assessmentHistory ?? []); setSameTestComparisons(data.sameTestComparisons ?? []); setSelected(rows[0]?.id ?? ''); setState('ready'); }).catch(() => setState('error')); return () => controller.abort(); }, [classOfferingId]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void instructorApi.classes
+      .results(classOfferingId, controller.signal)
+      .then((data) => {
+        const rows = data.assessments as Assessment[];
+        setAssessments(rows);
+        setHistory(data.assessmentHistory ?? []);
+        setSameTestComparisons(data.sameTestComparisons ?? []);
+        setSelected(rows[0]?.id ?? '');
+        setState('ready');
+      })
+      .catch(() => setState('error'));
+    void lmsLocalApi
+      .getUnifiedClassResults(classOfferingId)
+      .then((u) => setUnified(u))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [classOfferingId]);
   const assessment = useMemo(() => assessments.find((item) => item.id === selected), [assessments, selected]);
   const learners = assessment?.learners.filter((row) => (!attemptFilter || attemptFilter.has(row.id)) && `${row.learner.fullName} ${row.learner.email}`.toLowerCase().includes(query.toLowerCase())) ?? [];
   const hasFinalSamples = assessment?.skillAverages.some((item) => item.sampleCount > 0 && item.average !== null) ?? false;
@@ -58,7 +78,48 @@ export function InstructorClassResultsPage() {
       <LearnerMatrix assessment={assessment} learners={learners} query={query} setQuery={setQuery} filterLabel={filterLabel} notSubmittedFilter={notSubmittedFilter} clearFilter={() => { setAttemptFilter(null); setFilterLabel(''); setNotSubmittedFilter(false); }} base={base} />
       <section className="rounded-2xl border bg-white p-5" data-testid="results-assessment-history"><h3 className="font-bold">Lịch sử các bài kiểm tra</h3><p className="text-sm text-slate-500">Các bài kiểm tra có thể khác nội dung và độ khó; vì vậy hệ thống không tự tính mức tăng/giảm giữa các bài khác nhau.</p><div className="mt-4 grid gap-4 lg:grid-cols-2">{history.map((item) => <article className="rounded-xl border p-4" data-testid="class-assessment-card" key={item.assessmentId}><span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold">{stageLabel(item.stage)}</span><h4 className="mt-2 font-bold">{item.title}</h4><time className="text-sm text-slate-500">{formatDate(item.date)}</time><dl className="mt-3 grid grid-cols-2 gap-2">{skills.map((skill) => { const score = item.skills.find((value) => value.skill === skill); return <div className="rounded-lg bg-slate-50 p-2" key={skill}><dt className="text-xs text-slate-500">{toeicSkillLabel[skill]}</dt><dd className="font-bold">{score ? `${formatTrendNumber(score.average)}% · ${score.sampleCount} có điểm` : 'Chưa có'}</dd></div>; })}</dl></article>)}</div></section>
       {sameTestComparisons.map((comparison) => <SameTestClassComparison comparison={comparison} key={`${comparison.testId}-${comparison.after.assessmentId}`} />)}
-    </> : <div className="state-empty">Chưa có bài kiểm tra trong lớp.</div>}
+    </> : (
+      <div className="state-empty space-y-3 text-left">
+        <p className="font-semibold text-slate-900">
+          Chưa có bài kiểm tra chính thức theo lịch (4 kỹ năng) nào trong lớp này.
+        </p>
+        {unified &&
+        unified.summary.quizzesCount +
+          unified.summary.regularExamCount +
+          unified.summary.midtermCount +
+          unified.summary.finalCount +
+          unified.summary.assignmentsCount >
+          0 ? (
+          <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-950">
+            <p>
+              Lớp hiện đang có{' '}
+              <strong>
+                {unified.summary.quizzesCount +
+                  unified.summary.regularExamCount +
+                  unified.summary.midtermCount +
+                  unified.summary.finalCount}{' '}
+                bài kiểm tra / Quiz LMS
+              </strong>{' '}
+              và <strong>{unified.summary.assignmentsCount} bài tập</strong> trong các Section học
+              tập.
+            </p>
+            <div className="flex flex-wrap gap-3 text-xs font-semibold">
+              <Link className="text-[#2d581b] underline" to={`${base}/grading`}>
+                Mở sổ điểm LMS & Chấm bài →
+              </Link>
+              <Link className="text-[#2d581b] underline" to={`/classroom/${classOfferingId}?tab=grades`}>
+                Xem sổ điểm tổng hợp lớp →
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">
+            Bạn có thể thiết lập bài kiểm tra chính thức ở tab <strong>Bài kiểm tra</strong> hoặc tạo
+            Quiz/Bài tập trong Section lớp học.
+          </p>
+        )}
+      </div>
+    )}
     {drawer ? <ResultsDrilldownDrawer detail={drawer} onClose={() => setDrawer(null)} onFilter={applyFilter} /> : null}
   </div>;
 }

@@ -4,12 +4,14 @@ import { Link, useParams } from 'react-router';
 import { CourseRecommendationCard } from '@/features/placement/CourseRecommendationCard';
 import { PlacementEvaluationCard } from '@/features/placement/PlacementEvaluationCard';
 import { placementApi } from '@/features/placement/api';
+import { usePlacementHeaderStatus } from '@/layouts/placement-header-status';
 import type { PlacementResult } from '@/features/placement/types';
 
 const selfLevelLabel = { UNKNOWN: 'Chưa xác định', BEGINNER: 'Mới bắt đầu', BASIC: 'Cơ bản', INTERMEDIATE: 'Trung bình', GOOD: 'Khá' };
 
 export function PlacementResultPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
+  const { setStatus: setHeaderStatus } = usePlacementHeaderStatus();
   const [result, setResult] = useState<PlacementResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
@@ -17,13 +19,22 @@ export function PlacementResultPage() {
     if (!attemptId) return;
     const controller = new AbortController();
     void placementApi.result(attemptId, controller.signal).then((payload) => {
-      if (!controller.signal.aborted) { setError(null); setResult(payload); }
+      if (!controller.signal.aborted) {
+        setError(null);
+        setResult(payload);
+        setHeaderStatus(
+          payload.enhancement.status === 'PENDING_SKILL_EVALUATION'
+            ? 'SUBMITTED_PENDING_REVIEW'
+            : 'PUBLISHED',
+        );
+      }
     }).catch((requestError: unknown) => {
       if (controller.signal.aborted || requestError instanceof DOMException && requestError.name === 'AbortError') return;
+      setHeaderStatus(null);
       setError('Không thể tải kết quả hoặc bài kiểm tra chưa được nộp.');
     });
     return () => controller.abort();
-  }, [attemptId, retry]);
+  }, [attemptId, retry, setHeaderStatus]);
   if (error && !result) return <section className="mx-auto max-w-3xl p-8"><div className="state-error">{error}</div><button className="btn-primary mt-4" onClick={() => setRetry((value) => value + 1)} type="button">Thử lại</button></section>;
   if (!result) return <section className="mx-auto max-w-5xl animate-pulse px-4 py-12" role="status" aria-label="Đang tải kết quả"><div className="h-56 rounded-3xl bg-slate-200" /><div className="mt-7 grid gap-5 md:grid-cols-2"><div className="h-44 rounded-2xl bg-slate-100" /><div className="h-44 rounded-2xl bg-slate-100" /></div></section>;
   result.skillResults ??= result.skillScores.map((score) => ({
@@ -48,7 +59,7 @@ export function PlacementResultPage() {
       <div className="mt-7">{result.evaluation ? <PlacementEvaluationCard evaluation={result.evaluation} /> : null}</div>
       {result.enhancement.status === 'ERROR' ? <div className="state-error mt-7"><p className="font-semibold">Kết quả bài làm đã được lưu, nhưng phần đánh giá và gợi ý khóa học tạm thời chưa khả dụng.</p><button className="btn-secondary mt-4" onClick={() => setRetry((value) => value + 1)} type="button"><RefreshCw className="mr-2 inline" size={16} />Thử tải lại gợi ý</button></div> : null}
       {result.enhancement.status === 'READY' ? <section className="mt-8"><h2 className="text-2xl font-bold text-slate-950">Lộ trình phù hợp với bạn</h2>{result.recommendations.length ? <><div className="mt-5 grid gap-5">{primary.map((item) => <CourseRecommendationCard key={item.course.id} recommendation={item} />)}</div>{supplementary.length ? <><h2 className="mt-9 text-xl font-bold">Lựa chọn bổ sung</h2><div className="mt-4 grid gap-5">{supplementary.map((item) => <CourseRecommendationCard key={item.course.id} recommendation={item} />)}</div></> : null}</> : <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5"><h3 className="font-bold">Chưa có khóa học phù hợp ngay lúc này</h3><p className="mt-2 text-slate-600">Bạn có thể khám phá danh mục để chọn khóa học theo mục tiêu của mình.</p></div>}</section> : null}
-      <div className="mt-7 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950"><h2 className="font-bold">Lưu ý về kết quả</h2><p className="mt-2 leading-7">{result.disclaimer}</p></div>
+      <div className="mt-6 rounded-xl border border-amber-200/80 border-l-4 border-l-amber-500 bg-amber-50/40 p-4 text-amber-950 shadow-2xs"><h2 className="font-bold text-sm text-amber-950">Lưu ý về kết quả</h2><p className="mt-1 text-sm text-amber-900 leading-relaxed">{result.disclaimer}</p></div>
       <div className="mt-8 flex flex-wrap gap-3"><Link className="btn-primary" to="/catalog">Xem các khóa học</Link><Link className="btn-secondary" to="/placement">Xem lịch sử kiểm tra đầu vào</Link></div>
     </section>
   );

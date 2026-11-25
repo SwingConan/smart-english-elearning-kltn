@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { catalogApi } from '@/features/catalog/api';
+import { ClassRoadmapTable } from '@/features/catalog/ClassRoadmapTable';
 import { modalityLabel } from '@/features/catalog/display';
 import type { PublicClassOffering, PublicCourse } from '@/features/catalog/types';
 import { EnrollmentAction } from '@/features/enrollments/EnrollmentAction';
@@ -22,7 +23,7 @@ type State =
   | { status: 'loading' }
   | { status: 'ready'; offering: OfferingDetail }
   | { status: 'not-found' | 'error' };
-const date = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'long' });
+const date = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'long', timeZone: 'Asia/Ho_Chi_Minh' });
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 
 export function ClassOfferingDetailPage() {
@@ -100,6 +101,11 @@ export function ClassOfferingDetailPage() {
             </span>
           </div>
           <h1 className="mt-4 text-4xl font-bold">{offering.name}</h1>
+          {offering.dataContext === 'QA_REFERENCE' && (
+            <p role="note" className="mt-3 text-sm text-slate-600">
+              Lịch khai giảng và học phí được áp dụng theo thông báo tuyển sinh mới nhất của Smart English.
+            </p>
+          )}
           <p className="mt-3 text-lg text-slate-600">
             Thuộc chương trình{' '}
             <Link className="font-semibold text-indigo-700" to={`/catalog/${offering.course.slug}`}>
@@ -121,15 +127,29 @@ export function ClassOfferingDetailPage() {
             <Info
               icon={Clock3}
               label="Thời lượng"
-              value={`${offering.totalSessions ?? '—'} buổi · ${offering.totalPeriods ?? '—'} tiết`}
+              value={`${offering.totalSessions ?? '—'} buổi · ${offering.totalPeriods ?? '—'} tiết (${offering.minutesPerPeriod ?? 45} phút/tiết)${offering.durationWeeks ? ` · ${offering.durationWeeks} tuần` : ''}`}
             />
             <Info
               icon={Users}
               label="Sĩ số"
               value={`${offering.registeredCount}/${offering.maxStudents ?? 'Không giới hạn'} · ${offering.isFull ? 'Đã đầy' : `${offering.remainingSeats ?? '—'} chỗ còn lại`}`}
             />
-            <Info icon={MapPin} label="Lịch học" value={formatSchedule(offering)} />
+            <Info icon={MapPin} label="Lịch tuần dự kiến" value={formatSchedule(offering)} />
+            <p className="text-sm text-slate-600">
+              Giờ Việt Nam; lịch từng buổi được học vụ xác nhận riêng.
+            </p>
           </div>
+          {offering.roadmapItems && offering.roadmapItems.length > 0 && (
+            <div className="mt-8">
+              <ClassRoadmapTable
+                items={offering.roadmapItems}
+                classStart={offering.classStart}
+                classEnd={offering.classEnd}
+                defaultRoom={offering.defaultRoom}
+                minutesPerPeriod={offering.minutesPerPeriod ?? 45}
+              />
+            </div>
+          )}
           <section className="mt-10">
             <h2 className="text-2xl font-bold">Tóm tắt chương trình</h2>
             <p className="mt-3 leading-7 text-slate-600">{offering.course.description}</p>
@@ -137,7 +157,7 @@ export function ClassOfferingDetailPage() {
               className="mt-4 inline-block font-semibold text-indigo-700"
               to={`/catalog/${offering.course.slug}`}
             >
-              Xem curriculum đầy đủ →
+              Xem khung chương trình chi tiết →
             </Link>
           </section>
         </div>
@@ -152,10 +172,14 @@ export function ClassOfferingDetailPage() {
           </p>
           <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
             {offering.pricingType === 'FREE'
-              ? 'Sau khi đăng ký thành công, bạn có thể vào không gian lớp học.'
-              : 'Yêu cầu đăng ký sẽ được ghi nhận ở trạng thái chờ thanh toán; nội dung học chỉ mở sau khi trạng thái được xác nhận.'}
+              ? 'Sau khi đăng ký thành công, bạn có thể vào học ngay lập tức.'
+              : 'Sau khi thanh toán học phí đầy đủ và được hệ thống đối soát hợp lệ, quyền vào lớp sẽ được kích hoạt.'}
           </div>
-          <EnrollmentAction classOfferingId={offering.id} disabledReason={disabledReason} />
+          <EnrollmentAction
+            classOfferingId={offering.id}
+            disabledReason={disabledReason}
+            w07Managed={offering.w07Managed}
+          />
         </aside>
       </div>
     </article>
@@ -188,10 +212,17 @@ function formatSchedule(offering: PublicClassOffering) {
     7: 'Chủ nhật',
   };
   return offering.scheduleSlots
-    .map(
-      (slot) =>
-        `${days[slot.dayOfWeek] ?? `Ngày ${slot.dayOfWeek}`} ${new Date(slot.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}–${new Date(slot.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}${slot.locationText ? ` · ${slot.locationText}` : ''}`,
-    )
+    .map((slot) => {
+      const timeRange = `${days[slot.dayOfWeek] ?? `Ngày ${slot.dayOfWeek}`} ${new Date(slot.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}–${new Date(slot.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}`;
+      const loc = slot.room
+        ? `${slot.room.code} · ${slot.room.name} (${slot.room.location})`
+        : slot.locationText
+          ? slot.locationText
+          : offering.defaultRoom
+            ? `${offering.defaultRoom.code} · ${offering.defaultRoom.name} (${offering.defaultRoom.location})`
+            : '';
+      return loc ? `${timeRange} · ${loc}` : timeRange;
+    })
     .join('; ');
 }
 function Notice({ title, text }: { title: string; text: string }) {

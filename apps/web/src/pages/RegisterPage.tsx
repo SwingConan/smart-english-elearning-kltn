@@ -19,6 +19,7 @@ export function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [touched, setTouched] = useState({
@@ -65,6 +66,10 @@ export function RegisterPage() {
       setFormError('Mật khẩu xác nhận không khớp.');
       return;
     }
+    if (!termsAccepted) {
+      setFormError('Vui lòng đồng ý điều khoản sử dụng và chính sách bảo mật dữ liệu.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -72,6 +77,7 @@ export function RegisterPage() {
         fullName: fullName.trim(),
         email: email.trim(),
         password,
+        termsAccepted,
       });
       navigate(`/login?${new URLSearchParams({ registered: '1', returnUrl }).toString()}`, {
         replace: true,
@@ -85,9 +91,9 @@ export function RegisterPage() {
 
   return (
     <AuthShell
-      description="Tạo tài khoản để đăng ký lớp và theo dõi hành trình học tập của riêng bạn."
-      eyebrow="Bắt đầu hành trình"
-      title="Đăng ký"
+      description="Tạo tài khoản học viên để đăng ký khóa học, làm bài kiểm tra đầu vào và theo dõi kết quả học tập."
+      eyebrow="Đăng ký thành viên"
+      title="Tạo tài khoản học viên"
     >
       <form className="mt-6 space-y-4" onSubmit={(event) => void handleSubmit(event)}>
         <label className="block">
@@ -180,6 +186,17 @@ export function RegisterPage() {
             <span className="mt-1.5 block text-sm text-red-700">Mật khẩu xác nhận chưa khớp.</span>
           ) : null}
         </div>
+        <label className="flex items-start gap-2.5 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={termsAccepted}
+            onChange={(event) => setTermsAccepted(event.target.checked)}
+          />
+          <span>
+            Tôi đồng ý với điều khoản sử dụng và chính sách bảo mật dữ liệu cá nhân của Smart English.
+          </span>
+        </label>
         {formError ? (
           <p className="text-sm text-red-700" role="alert">
             {formError}

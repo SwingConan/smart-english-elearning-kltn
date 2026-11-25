@@ -288,25 +288,30 @@ export function QuestionBankPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold">Ngân hàng câu hỏi</h1>
-          <p className="mt-1 text-sm text-slate-600">Quản lý câu hỏi bốn kỹ năng của khóa học.</p>
+          <h1 className="text-2xl font-bold text-[#e66f2b]">Ngân hàng câu hỏi</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Quản lý câu hỏi bốn kỹ năng của khóa học{courseTitle ? ` · ${courseTitle}` : ''}.
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Link className="rounded border px-4 py-2 text-sm" to={safeReturnTo}>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            to={safeReturnTo}
+          >
             Quay lại
           </Link>
           {courseId && (
             <Link
-              className="rounded border px-4 py-2 text-sm"
+              className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-[#e66f2b] hover:bg-slate-50"
               to={`/instructor/courses/${courseId}/tests?returnTo=${encodeURIComponent(safeReturnTo)}`}
             >
               Đề kiểm tra
             </Link>
           )}
           <button
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded bg-[#76a35e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#658f50] disabled:opacity-50"
             disabled={pendingAction !== null}
             onClick={() => {
               setEditingQuestion(null);
@@ -319,14 +324,14 @@ export function QuestionBankPage() {
           </button>
           {courseId ? (
             <button
-              className="rounded border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700"
+              className="rounded border border-[#76a35e]/60 px-4 py-2 text-sm font-medium text-[#2f5d1e] hover:bg-[#f4f9f1]"
               onClick={() => void assessmentApi.questions.downloadTemplate(courseId)}
               type="button"
             >
               Tải mẫu XLSX
             </button>
           ) : null}
-          <label className="cursor-pointer rounded border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700">
+          <label className="cursor-pointer rounded border border-[#76a35e]/60 px-4 py-2 text-sm font-medium text-[#2f5d1e] hover:bg-[#f4f9f1]">
             {importing ? 'Đang kiểm tra...' : 'Nhập XLSX'}
             <input
               accept=".xlsx"

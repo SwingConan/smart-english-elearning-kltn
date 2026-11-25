@@ -4,14 +4,17 @@ import { useAuth } from '@/features/auth/auth-context';
 import { safeReturnUrl } from '@/features/auth/return-url';
 import { ApiError } from '@/lib/api-client';
 import { enrollmentApi } from './api';
+import { EnrollmentCheckoutModal } from './EnrollmentCheckoutModal';
 import type { EnrollmentView } from './types';
 
 export function EnrollmentAction({
   classOfferingId,
   disabledReason,
+  w07Managed = false,
 }: {
   classOfferingId: string;
   disabledReason?: string;
+  w07Managed?: boolean;
 }) {
   const { user, isLoading, refreshUser } = useAuth();
   const location = useLocation();
@@ -20,8 +23,14 @@ export function EnrollmentAction({
   const [result, setResult] = useState<EnrollmentView | null>(null);
   const [existing, setExisting] = useState<EnrollmentView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [refreshingCheckout, setRefreshingCheckout] = useState(false);
+  const [retryingHold, setRetryingHold] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const inFlight = useRef(false);
   const returnUrl = safeReturnUrl(`${location.pathname}${location.search}${location.hash}`);
+
+  const enrollment = result ?? existing;
 
   useEffect(() => {
     if (user?.role !== 'STUDENT') return;
@@ -29,11 +38,36 @@ export function EnrollmentAction({
     void enrollmentApi
       .listMine(controller.signal)
       .then((items) =>
-        setExisting(items.find((item) => item.classOffering.id === classOfferingId) ?? null),
+        setExisting(
+          items.find(
+            (item) =>
+              item.classOffering.id === classOfferingId &&
+              item.status !== 'CANCELLED' &&
+              item.status !== 'DROPPED',
+          ) ?? null,
+        ),
       )
       .catch(() => undefined);
     return () => controller.abort();
   }, [classOfferingId, user?.role]);
+
+  useEffect(() => {
+    if (!checkoutOpen || enrollment?.status !== 'PENDING_PAYMENT') return;
+    const enrollmentId = enrollment.id;
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      void enrollmentApi
+        .detail(enrollmentId)
+        .then((latest) => {
+          if (!cancelled) setResult(latest);
+        })
+        .catch(() => undefined);
+    }, 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [checkoutOpen, enrollment?.id, enrollment?.status]);
 
   if (isLoading)
     return (
@@ -41,6 +75,7 @@ export function EnrollmentAction({
         Đang kiểm tra...
       </button>
     );
+  if(w07Managed && false)return <div className="mt-5 space-y-3"><Link className="btn-primary" to={user?'/admissions?classId='+classOfferingId:'/login?'+new URLSearchParams({returnUrl:'/admissions?classId='+classOfferingId}).toString()}>Yêu cầu nhập học</Link></div>;
   if (disabledReason)
     return (
       <div className="mt-5">
@@ -68,34 +103,88 @@ export function EnrollmentAction({
         <p className="mt-2 text-sm text-slate-600">Chỉ tài khoản học viên có thể đăng ký lớp.</p>
       </div>
     );
-  const enrollment = result ?? existing;
+  const handleRefreshCheckout = async () => {
+    if (!enrollment) return;
+    setRefreshingCheckout(true);
+    setCheckoutError(null);
+    try {
+      setResult(await enrollmentApi.detail(enrollment.id));
+    } catch {
+      setCheckoutError('Chưa thể kiểm tra trạng thái thanh toán lúc này.');
+    } finally {
+      setRefreshingCheckout(false);
+    }
+  };
+
+  const handleRetryHold = async () => {
+    if (!enrollment) return;
+    setRetryingHold(true);
+    setCheckoutError(null);
+    try {
+      await enrollmentApi.retryHold(enrollment.id);
+      setResult(await enrollmentApi.detail(enrollment.id));
+    } catch (requestError) {
+      setCheckoutError(messageFor(requestError));
+    } finally {
+      setRetryingHold(false);
+    }
+  };
+
   if (enrollment)
     return (
-      <div
-        className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950"
-        role="status"
-      >
-        <p className="font-semibold">
-          {enrollment.status === 'ACTIVE'
-            ? 'Bạn đã đăng ký lớp này.'
-            : 'Đăng ký đang chờ thanh toán.'}
-        </p>
-        <p className="mt-1">
-          {enrollment.status === 'ACTIVE'
-            ? 'Không gian lớp học đã sẵn sàng.'
-            : 'Nội dung lớp chỉ mở sau khi đăng ký được xác nhận.'}
-        </p>
-        <Link
-          className="mt-3 inline-block font-semibold underline"
-          to={
-            enrollment.status === 'ACTIVE'
-              ? `/student/enrollments/${enrollment.id}`
-              : '/student/enrollments'
-          }
+      <>
+        <div
+          className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950"
+          role="status"
         >
-          {enrollment.status === 'ACTIVE' ? 'Vào lớp học' : 'Xem Lớp học của tôi'}
-        </Link>
-      </div>
+          <p className="font-semibold">
+            {enrollment.status === 'ACTIVE'
+              ? 'Bạn đã đăng ký lớp này.'
+              : 'Đăng ký đang chờ thanh toán.'}
+          </p>
+          <p className="mt-1">
+            {enrollment.status === 'ACTIVE'
+              ? 'Không gian lớp học đã sẵn sàng.'
+              : 'Nội dung lớp chỉ mở sau khi đăng ký được xác nhận.'}
+          </p>
+          {enrollment.status === 'ACTIVE' ? (
+            <Link
+              className="mt-3 inline-block font-semibold underline"
+              to={`/classroom/${enrollment.classOffering.id}`}
+            >
+              Vào lớp học
+            </Link>
+          ) : (
+            <div className="mt-3 space-y-2">
+              <button
+                className="btn-primary w-full text-center text-sm"
+                onClick={() => setCheckoutOpen(true)}
+                type="button"
+              >
+                {`Mở pop-up thanh toán${enrollment.activeOrder ? ` (${enrollment.activeOrder.paymentCode})` : ''}`}
+              </button>
+              <Link
+                className="block text-center text-xs font-medium text-emerald-900 underline"
+                to={`/student/finance?enrollmentId=${encodeURIComponent(enrollment.id)}`}
+              >
+                Xem tại trang Tài chính học viên
+              </Link>
+            </div>
+          )}
+        </div>
+        <EnrollmentCheckoutModal
+          open={checkoutOpen}
+          enrollment={enrollment}
+          learnerName={user.fullName}
+          learnerEmail={user.email}
+          onClose={() => setCheckoutOpen(false)}
+          onRefresh={() => void handleRefreshCheckout()}
+          onRetryHold={() => void handleRetryHold()}
+          refreshing={refreshingCheckout}
+          retrying={retryingHold}
+          error={checkoutError}
+        />
+      </>
     );
 
   const enroll = async () => {
@@ -104,7 +193,16 @@ export function EnrollmentAction({
     setSubmitting(true);
     setError(null);
     try {
-      setResult(await enrollmentApi.create(classOfferingId));
+      const created = await enrollmentApi.create(classOfferingId, {
+        entrySource:
+          new URLSearchParams(window.location.search).get('from') === 'placement'
+            ? 'PLACEMENT_MATCH'
+            : 'CATALOG_DIRECT',
+      });
+      setResult(created);
+      if (created.status === 'PENDING_PAYMENT') {
+        setCheckoutOpen(true);
+      }
     } catch (requestError) {
       if (requestError instanceof ApiError && requestError.status === 401) {
         await refreshUser();

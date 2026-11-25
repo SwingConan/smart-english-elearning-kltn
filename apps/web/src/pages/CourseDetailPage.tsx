@@ -3,6 +3,7 @@ import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight } from 'lucide-react
 import { Link, useParams } from 'react-router';
 import { catalogApi } from '@/features/catalog/api';
 import { CourseCover } from '@/features/catalog/CourseCover';
+import { CourseLearningGuide } from '@/features/catalog/CourseLearningGuide';
 import { courseLevelLabel, modalityLabel, skillScopeLabel } from '@/features/catalog/display';
 import type { PublicClassOffering, PublicCourse } from '@/features/catalog/types';
 import { ApiError } from '@/lib/api-client';
@@ -87,8 +88,13 @@ export function CourseDetailPage() {
               <p className="mt-5 max-w-3xl text-lg leading-8 text-indigo-100">
                 {course.description}
               </p>
+              {course.dataContext === 'QA_REFERENCE' && (
+                <p role="note" className="mt-3 text-sm text-indigo-100">
+                  Lịch khai giảng và học phí chính thức được áp dụng theo thông báo tuyển sinh mới nhất của Smart English.
+                </p>
+              )}
               <a className="btn-light mt-7" href="#open-classes">
-                Xem lớp đang mở
+                Xem danh sách lớp
               </a>
             </div>
             <CourseCover
@@ -118,7 +124,7 @@ export function CourseDetailPage() {
             className="whitespace-nowrap text-slate-600 hover:text-indigo-700"
             href="#open-classes"
           >
-            Lớp đang mở
+            Danh sách lớp
           </a>
         </div>
       </nav>
@@ -127,6 +133,7 @@ export function CourseDetailPage() {
           <div>
             <p className="eyebrow">Nội dung chương trình</p>
             <h2 className="section-title">Nội dung chương trình</h2>
+            <CourseLearningGuide course={course} />
             <div className="mt-7 space-y-4">
               {course.modules?.map((module, index) => (
                 <details
@@ -169,14 +176,14 @@ export function CourseDetailPage() {
             <dl className="mt-4 space-y-3 text-sm">
               <Row label="Trình độ" value={courseLevelLabel(course.level)} />
               <Row label="Phạm vi kỹ năng" value={skillScopeLabel(course.skillScope)} />
-              <Row label="Lớp đang mở" value={String(course.openOfferingCount)} />
-              <Row label="Học phần" value={String(course.modules?.length ?? 0)} />
+              <Row label="Lớp trong danh sách" value={String(course.openOfferingCount)} />
+              <Row label="Học phần" value={course.modules?.length ? String(course.modules.length) : 'Nội dung chi tiết đang cập nhật'} />
             </dl>
           </aside>
         </div>
       </section>
       <section className="section-shell scroll-mt-28 pt-0" id="open-classes">
-        <p className="eyebrow">Lớp đang mở</p>
+        <p className="eyebrow">Danh sách lớp</p>
         <h2 className="section-title">So sánh lớp đang mở</h2>
         {course.classOfferings.length === 0 ? (
           <div className="state-empty mt-7">Hiện chưa có lớp nhận đăng ký cho khóa học này.</div>
@@ -292,7 +299,15 @@ function formatSchedule(offering: PublicClassOffering) {
     7: 'CN',
   };
   const first = offering.scheduleSlots[0];
-  return `${offering.scheduleSlots.map((slot) => days[slot.dayOfWeek] ?? `Ngày ${slot.dayOfWeek}`).join('/')} ${new Date(first.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}`;
+  const timeText = `${offering.scheduleSlots.map((slot) => days[slot.dayOfWeek] ?? `Ngày ${slot.dayOfWeek}`).join('/')} ${new Date(first.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}`;
+  const roomText = first.room
+    ? ` · Phòng ${first.room.code}`
+    : first.locationText
+      ? ` · ${first.locationText}`
+      : offering.defaultRoom
+        ? ` · Phòng ${offering.defaultRoom.code}`
+        : '';
+  return timeText + roomText;
 }
 function Message({ title, text }: { title: string; text: string }) {
   return (

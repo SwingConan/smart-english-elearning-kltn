@@ -7,7 +7,7 @@ import { passwordResetRequestErrorMessage } from '@/features/auth/auth-errors';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUCCESS_MESSAGE =
-  'Nếu email này được liên kết với một tài khoản có thể khôi phục, hướng dẫn đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư và thư rác.';
+  'Đã tiếp nhận yêu cầu. Nếu tài khoản phù hợp và dịch vụ email gửi được thư, bạn sẽ nhận hướng dẫn đặt lại mật khẩu. Vui lòng kiểm tra hộp thư và thư rác.';
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');

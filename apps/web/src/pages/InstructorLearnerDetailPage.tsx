@@ -4,20 +4,62 @@ import { toeicSkillLabel } from '@/features/assessments/display';
 import type { ToeicSkill } from '@/features/assessments/types';
 import { instructorApi } from '@/features/instructor/api';
 import type { InstructorLearnerDetail } from '@/features/instructor/types';
+import { lmsLocalApi, type UnifiedClassResults } from '@/features/class-lms/lms-local-api';
 import { SkillTrendChart } from '@/components/SkillTrendChart';
 import { formatTrendNumber } from '@/components/trend-format';
 export function InstructorLearnerDetailPage() {
   const { classOfferingId = '', enrollmentId = '' } = useParams();
   const [data, setData] = useState<InstructorLearnerDetail | null>(null);
+  const [unified, setUnified] = useState<UnifiedClassResults | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
     const c = new AbortController();
-    void instructorApi.classes
-      .learner(classOfferingId, enrollmentId, c.signal)
-      .then((loaded) => { setData(loaded); setError(false); })
-      .catch((cause: unknown) => { if (!(cause instanceof Error && cause.name === 'AbortError')) setError(true); });
+    void Promise.all([
+      instructorApi.classes.learner(classOfferingId, enrollmentId, c.signal),
+      lmsLocalApi.getUnifiedClassResults(classOfferingId).catch(() => null),
+    ])
+      .then(([loaded, unifiedLoaded]) => {
+        setData(loaded);
+        setUnified(unifiedLoaded);
+        setError(false);
+      })
+      .catch((cause: unknown) => {
+        if (!(cause instanceof Error && cause.name === 'AbortError')) setError(true);
+      });
     return () => c.abort();
   }, [classOfferingId, enrollmentId]);
+  const unifiedStudent = useMemo(() => {
+    if (!unified || !data) return null;
+    return (
+      unified.studentRows.find(
+        (row) => row.enrollmentId === enrollmentId || row.email === data.enrollment.learner.email,
+      ) ?? null
+    );
+  }, [unified, data, enrollmentId]);
+  const lmsSummary = useMemo(() => {
+    if (!unified || !unifiedStudent || unified.summary.publishedActivities === 0) return null;
+    const publishedCols = unified.activityColumns.filter((c) => c.state === 'PUBLISHED');
+    let pendingCount = 0;
+    for (const col of publishedCols) {
+      if (col.baseType === 'ASSIGNMENT' && !col.localKind) {
+        const cell = unifiedStudent.assignments[col.activityId];
+        if (cell?.submissionState === 'SUBMITTED' && cell.gradeState !== 'PUBLISHED') {
+          pendingCount += 1;
+        }
+      } else if (col.localKind === 'LOCAL_QUIZ') {
+        const qcell = unifiedStudent.quizzes[col.activityId];
+        if (qcell?.gradingStatus === 'PENDING_MANUAL_GRADE') {
+          pendingCount += 1;
+        }
+      }
+    }
+    const done = unifiedStudent.stats.completedActivitiesCount;
+    const total = unified.summary.publishedActivities;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const submitted =
+      unifiedStudent.stats.submittedAssignments + unifiedStudent.stats.submittedQuizzes;
+    return { done, total, pct, submitted, pendingCount, publishedCols };
+  }, [unified, unifiedStudent]);
   const groups = useMemo(() => {
     const map = new Map<string, { title: string; attempts: InstructorLearnerDetail['attempts'] }>();
     for (const attempt of data?.attempts ?? []) {
@@ -50,12 +92,21 @@ export function InstructorLearnerDetailPage() {
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border bg-white p-6">
-        <Link
-          className="text-sm font-semibold text-indigo-700"
-          to={`/instructor/classes/${classOfferingId}/learners`}
-        >
-          ← Danh sách học viên
-        </Link>
+        <div className="flex flex-wrap items-center gap-4 text-sm font-semibold">
+          <Link
+            className="text-[#446b2f] hover:underline"
+            to={`/classroom/${classOfferingId}?tab=students`}
+          >
+            ← Quay lại danh sách học viên lớp
+          </Link>
+          <span className="text-slate-300">|</span>
+          <Link
+            className="text-indigo-700 hover:underline"
+            to={`/instructor/classes/${classOfferingId}/learners`}
+          >
+            Hồ sơ quản lý lớp
+          </Link>
+        </div>
         <div className="mt-3 flex flex-wrap justify-between gap-3">
           <div>
             <h2 className="text-2xl font-bold">{data.enrollment.learner.fullName}</h2>
@@ -68,13 +119,97 @@ export function InstructorLearnerDetailPage() {
         <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-4">
           <Summary
             label="Hoàn thành"
-            value={`${data.summary.completedLessons}/${data.summary.totalLessons} bài`}
+            value={
+              lmsSummary
+                ? `${lmsSummary.done}/${lmsSummary.total} hoạt động (${lmsSummary.pct}%)`
+                : `${data.summary.completedLessons}/${data.summary.totalLessons} bài`
+            }
           />
-          <Summary label="Bài đã nộp" value={data.summary.submittedAssessmentCount} />
-          <Summary label="Chờ chấm" value={data.summary.pendingGradingCount} />
+          <Summary
+            label="Bài đã nộp"
+            value={
+              lmsSummary
+                ? lmsSummary.submitted + data.summary.submittedAssessmentCount
+                : data.summary.submittedAssessmentCount
+            }
+          />
+          <Summary
+            label="Chờ chấm"
+            value={
+              lmsSummary
+                ? lmsSummary.pendingCount + data.summary.pendingGradingCount
+                : data.summary.pendingGradingCount
+            }
+          />
           <Summary label="Hoạt động gần nhất" value={formatDate(data.summary.lastActivityAt)} />
         </dl>
       </section>
+      {lmsSummary && unifiedStudent && (
+        <Panel
+          title="Tiến độ & kết quả hoạt động LMS trong lớp"
+          caption={`Đã hoàn thành ${lmsSummary.done}/${lmsSummary.total} hoạt động (${lmsSummary.pct}%) · Có mặt ${unifiedStudent.stats.attendancePresentCount + unifiedStudent.stats.attendanceLateCount}/${unifiedStudent.stats.attendanceTotalCount} buổi điểm danh.`}
+        >
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {lmsSummary.publishedCols
+              .filter(
+                (col) =>
+                  (col.baseType === 'ASSIGNMENT' && !col.localKind) ||
+                  col.localKind === 'LOCAL_QUIZ' ||
+                  col.localKind === 'LOCAL_ATTENDANCE',
+              )
+              .map((col) => {
+                let badge = 'Chưa thực hiện';
+                let tone = 'bg-slate-100 text-slate-600';
+                if (col.baseType === 'ASSIGNMENT' && !col.localKind) {
+                  const cell = unifiedStudent.assignments[col.activityId];
+                  if (cell?.score !== null && cell?.score !== undefined) {
+                    badge = `${formatTrendNumber(cell.score)}/${formatTrendNumber(cell.maxScore || col.maxScore || 10)}đ`;
+                    tone = 'bg-emerald-50 text-emerald-800';
+                  } else if (cell?.submissionState === 'SUBMITTED') {
+                    badge = 'Đã nộp · Chờ chấm';
+                    tone = 'bg-amber-50 text-amber-800';
+                  }
+                } else if (col.localKind === 'LOCAL_QUIZ') {
+                  const qcell = unifiedStudent.quizzes[col.activityId];
+                  if (qcell?.score !== null && qcell?.score !== undefined) {
+                    badge = `${formatTrendNumber(qcell.score)}/${formatTrendNumber(qcell.maxScore || col.maxScore || 10)}đ`;
+                    tone = 'bg-emerald-50 text-emerald-800';
+                  } else if (qcell?.gradingStatus === 'PENDING_MANUAL_GRADE') {
+                    badge = 'Chờ chấm tự luận';
+                    tone = 'bg-amber-50 text-amber-800';
+                  } else if (qcell?.attemptStatus === 'IN_PROGRESS') {
+                    badge = 'Đang làm bài';
+                    tone = 'bg-sky-50 text-sky-800';
+                  }
+                } else if (col.localKind === 'LOCAL_ATTENDANCE') {
+                  const acell = unifiedStudent.attendance?.[col.activityId];
+                  if (acell?.status === 'PRESENT') {
+                    badge = 'Có mặt';
+                    tone = 'bg-emerald-50 text-emerald-800';
+                  } else if (acell?.status === 'LATE') {
+                    badge = 'Đi muộn';
+                    tone = 'bg-amber-50 text-amber-800';
+                  }
+                }
+                return (
+                  <Link
+                    key={col.activityId}
+                    to={`/classroom/${classOfferingId}/activities/${col.activityId}`}
+                    className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-xs transition hover:border-[#5e9141]"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-slate-900">{col.title}</p>
+                      <p className="text-[11px] text-slate-500">{col.kindLabel}</p>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 font-semibold ${tone}`}>
+                      {badge}
+                    </span>
+                  </Link>
+                );
+              })}
+          </div>
+        </Panel>
+      )}
       <section className="rounded-2xl border bg-white p-5">
         <h3 className="font-bold">Kết quả 4 kỹ năng gần nhất</h3>
         {data.latestFourSkillSnapshot ? (

@@ -8,6 +8,10 @@ import type {
   ClassAssessmentWorkspace,
 } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
+import { classCodeLabel } from '@/features/demo/presentation';
+import { learnerClassLabel } from '@/features/enrollments/presentation';
+import { schoolTimestamp } from '@/features/class-lms/school-time';
+import { schoolDay, schoolTime } from '@/features/class-lms/month';
 
 const stageLabels: Record<AssessmentStage, string> = {
   PERIODIC: 'Thường kỳ',
@@ -194,17 +198,27 @@ export function ClassAssessmentManagementPage() {
   );
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">
-          Lịch kiểm tra của lớp · {workspace.classOffering.name}
-        </h1>
+        <h2 className="text-2xl font-bold">
+          Lịch kiểm tra chính thức ·{' '}
+          {learnerClassLabel(workspace.classOffering.name, workspace.classOffering.code)}
+        </h2>
         <p className="text-sm text-slate-600">
-          {workspace.classOffering.code} · {workspace.classOffering.course.title}
+          {classCodeLabel(workspace.classOffering.code) || workspace.classOffering.code} ·{' '}
+          {workspace.classOffering.course.title}
         </p>
-        <span className="mt-2 inline-block rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
-          Áp dụng cho lớp này
-        </span>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="inline-block rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
+            Áp dụng cho lớp này
+          </span>
+          <Link
+            to={`/classroom/${classOfferingId}?tab=grades`}
+            className="inline-block rounded-full border border-[#76a35e]/40 bg-[#f4f9f1] px-3 py-1 text-xs font-semibold text-[#2d581b] hover:underline"
+          >
+            Xem Quiz & Bài tập LMS trong lớp →
+          </Link>
+        </div>
       </div>
       <section className="grid gap-3 md:grid-cols-3">
         <FlowStep
@@ -212,14 +226,14 @@ export function ClassAssessmentManagementPage() {
           title="Chuẩn bị câu hỏi"
           description="Tạo câu hỏi, đáp án và rubric dùng lại."
           to={`/instructor/courses/${workspace.classOffering.course.id}/question-bank?returnTo=/instructor/classes/${classOfferingId}/assessments`}
-        cta="Ngân hàng câu hỏi"
+          cta="Ngân hàng câu hỏi"
         />
         <FlowStep
           number="2"
           title="Tạo đề kiểm tra"
           description="Sắp xếp phần thi, ngữ liệu và câu hỏi."
           to={`/instructor/courses/${workspace.classOffering.course.id}/tests?returnTo=/instructor/classes/${classOfferingId}/assessments`}
-        cta="Đề kiểm tra"
+          cta="Đề kiểm tra"
         />
         <FlowStep
           number="3"
@@ -252,23 +266,58 @@ export function ClassAssessmentManagementPage() {
             value={form.testId}
             onChange={(event) => setForm({ ...form, testId: event.target.value })}
           >
-            {formalTests.length ? <optgroup label="Bài kiểm tra lớp">
-              {formalTests.map((test) => <option key={test.id} value={test.id}>{test.title} · {test.timeLimitMinutes ?? '—'} phút</option>)}
-            </optgroup> : null}
-            {lessonPracticeTests.length ? <optgroup label="Bài luyện sau bài học">
-              {lessonPracticeTests.map((test) => <option key={test.id} value={test.id}>{test.title}{test.lesson ? ` · ${test.lesson.title}` : ''} · {test.timeLimitMinutes ?? '—'} phút</option>)}
-            </optgroup> : null}
-            {standalonePracticeTests.length ? <optgroup label="Luyện tập / Thi thử">
-              {standalonePracticeTests.map((test) => <option key={test.id} value={test.id}>{test.title} · {test.timeLimitMinutes ?? '—'} phút</option>)}
-            </optgroup> : null}
+            {formalTests.length ? (
+              <optgroup label="Bài kiểm tra lớp">
+                {formalTests.map((test) => (
+                  <option key={test.id} value={test.id}>
+                    {test.title} · {test.timeLimitMinutes ?? '—'} phút
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+            {lessonPracticeTests.length ? (
+              <optgroup label="Bài luyện sau bài học">
+                {lessonPracticeTests.map((test) => (
+                  <option key={test.id} value={test.id}>
+                    {test.title}
+                    {test.lesson ? ` · ${test.lesson.title}` : ''} · {test.timeLimitMinutes ?? '—'}{' '}
+                    phút
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+            {standalonePracticeTests.length ? (
+              <optgroup label="Luyện tập / Thi thử">
+                {standalonePracticeTests.map((test) => (
+                  <option key={test.id} value={test.id}>
+                    {test.title} · {test.timeLimitMinutes ?? '—'} phút
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
           </select>
         </label>
-        {selectedTest?.purpose === 'IN_CLASS' ? <StageField value={form.stage} onChange={(stage) => setForm({ ...form, stage })} /> : selectedTest ? <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"><strong>{assessmentTypeLabel(selectedTest.purpose, null, selectedTest.lessonId)}</strong>{selectedTest.lesson ? <span className="mt-1 block">Liên kết: {selectedTest.lesson.title}</span> : null}</div> : null}
+        {selectedTest?.purpose === 'IN_CLASS' ? (
+          <StageField value={form.stage} onChange={(stage) => setForm({ ...form, stage })} />
+        ) : selectedTest ? (
+          <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+            <strong>
+              {assessmentTypeLabel(selectedTest.purpose, null, selectedTest.lessonId)}
+            </strong>
+            {selectedTest.lesson ? (
+              <span className="mt-1 block">Liên kết: {selectedTest.lesson.title}</span>
+            ) : null}
+          </div>
+        ) : null}
         <DateField
           label="Mở từ"
           value={form.openAt}
           onChange={(openAt) => setForm({ ...form, openAt })}
         />
+        <p className="text-xs text-slate-600 sm:col-span-2">
+          Ngày mở và đóng tính theo giờ Việt Nam (GMT+7). Có thể để trống cho luyện tập tự do; chỉ
+          ngày đã đặt mới hiện trên lịch học viên.
+        </p>
         <DateField
           label="Đóng lúc"
           value={form.closeAt}
@@ -300,10 +349,27 @@ export function ClassAssessmentManagementPage() {
                 {editingId === assessment.id && editForm ? (
                   <div className="space-y-3">
                     <h3 className="font-bold">Chỉnh sửa lịch · {assessment.test.title}</h3>
-                    {assessment.test.purpose === 'IN_CLASS' ? <StageField
-                      value={editForm.stage}
-                      onChange={(stage) => setEditForm({ ...editForm, stage })}
-                    /> : <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"><strong>{assessmentTypeLabel(assessment.test.purpose, assessment.stage, assessment.test.lessonId)}</strong>{assessment.test.lesson ? <span className="mt-1 block">Liên kết: {assessment.test.lesson.title}</span> : null}</div>}
+                    {assessment.test.purpose === 'IN_CLASS' ? (
+                      <StageField
+                        value={editForm.stage}
+                        onChange={(stage) => setEditForm({ ...editForm, stage })}
+                      />
+                    ) : (
+                      <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+                        <strong>
+                          {assessmentTypeLabel(
+                            assessment.test.purpose,
+                            assessment.stage,
+                            assessment.test.lessonId,
+                          )}
+                        </strong>
+                        {assessment.test.lesson ? (
+                          <span className="mt-1 block">
+                            Liên kết: {assessment.test.lesson.title}
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
                     <DateField
                       label="Mở từ"
                       value={editForm.openAt}
@@ -344,10 +410,18 @@ export function ClassAssessmentManagementPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-800">
-                          {assessmentTypeLabel(assessment.test.purpose, assessment.stage, assessment.test.lessonId)}
+                          {assessmentTypeLabel(
+                            assessment.test.purpose,
+                            assessment.stage,
+                            assessment.test.lessonId,
+                          )}
                         </span>
                         <h3 className="mt-2 font-bold">{assessment.test.title}</h3>
-                        {assessment.test.purpose === 'PRACTICE_MOCK' && assessment.test.lesson ? <p className="mt-1 text-sm text-slate-500">Bài học: {assessment.test.lesson.title}</p> : null}
+                        {assessment.test.purpose === 'PRACTICE_MOCK' && assessment.test.lesson ? (
+                          <p className="mt-1 text-sm text-slate-500">
+                            Bài học: {assessment.test.lesson.title}
+                          </p>
+                        ) : null}
                       </div>
                       <span
                         className={`text-xs font-semibold ${assessment.isActive ? 'text-emerald-700' : 'text-slate-500'}`}
@@ -404,7 +478,7 @@ export function ClassAssessmentManagementPage() {
           </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }
 
@@ -468,14 +542,12 @@ function AttemptsField({ value, onChange }: { value: string; onChange: (value: s
   );
 }
 function isoOrNull(value: string) {
-  return value ? new Date(value).toISOString() : null;
+  return value ? new Date(value + ':00+07:00').toISOString() : null;
 }
 function localDateTime(value: string | null) {
   if (!value) return '';
-  const date = new Date(value);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
+  return schoolDay(value) + 'T' + schoolTime(value);
 }
 function formatWindow(openAt: string | null, closeAt: string | null) {
-  return `${openAt ? new Date(openAt).toLocaleString('vi-VN') : 'Mở ngay'} → ${closeAt ? new Date(closeAt).toLocaleString('vi-VN') : 'Không giới hạn'}`;
+  return `${openAt ? schoolTimestamp(openAt) : 'Mở ngay'} → ${closeAt ? schoolTimestamp(closeAt) : 'Không giới hạn'}`;
 }

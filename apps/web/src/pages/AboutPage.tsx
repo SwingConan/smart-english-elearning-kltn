@@ -14,41 +14,49 @@ import {
 import { Link } from 'react-router';
 
 const journey = [
-  ['Khám phá', 'Tìm chương trình theo kỹ năng và trình độ bạn muốn tập trung.'],
-  ['Placement', 'Thực hiện đánh giá đầu vào nội bộ trước khi chọn lớp và Enrollment.'],
-  ['Evaluation & gợi ý', 'Đọc kết quả theo kỹ năng và gợi ý khóa học/lớp từ dữ liệu hiện có.'],
-  ['Enrollment', 'Chọn lớp phù hợp rồi theo dõi đúng trạng thái đăng ký và quyền truy cập.'],
-  ['LMS & Assessment', 'Học bài, dùng tài liệu và thực hiện đánh giá trong không gian lớp.'],
+  ['Khám phá khóa học', 'Tìm chương trình TOEIC phù hợp theo trình độ hiện tại và mục tiêu điểm số mong muốn.'],
+  ['Kiểm tra đầu vào', 'Làm bài kiểm tra đánh giá năng lực 2 hoặc 4 kỹ năng để xác định chính xác điểm xuất phát.'],
+  ['Kết quả và lớp được gợi ý', 'Đọc kết quả theo kỹ năng và gợi ý khóa học/lớp từ dữ liệu kiểm tra đầu vào.'],
+  ['Đăng ký lớp', 'Chọn lớp phù hợp rồi theo dõi đúng trạng thái đăng ký và quyền truy cập.'],
+  ['Học bài và làm bài kiểm tra', 'Tham gia các buổi học tương tác cùng giảng viên, làm bài tập và làm bài kiểm tra định kỳ.'],
   [
     'Kết quả & bước tiếp theo',
-    'Đọc đúng dữ liệu đã có; trạng thái thiếu hoặc đang chờ không phải 0.',
+    'Nhận kết quả chi tiết từng kỹ năng, phản hồi từ giảng viên và tự tin chinh phục mục tiêu.',
   ],
 ] as const;
 
 const skills = [
   [
     Headphones,
-    'Listening',
-    'Luyện nghe theo tình huống, nhận diện ý chính và thông tin hành động.',
+    'Listening (Kỹ năng Nghe)',
+    'Luyện nghe theo ngữ cảnh thực tế, nhận diện từ khóa, ngữ điệu và phản xạ nhanh với các dạng bài thi Part 1 - Part 4.',
   ],
   [
     BookOpenCheck,
-    'Reading',
-    'Đọc theo mục đích, định vị dữ kiện và kết nối thông tin giữa các văn bản.',
+    'Reading (Kỹ năng Đọc)',
+    'Nắm vững ngữ pháp trọng điểm, mở rộng vốn từ vựng công sở và rèn luyện kỹ năng đọc quét, đọc lướt cho Part 5 - Part 7.',
   ],
-  [MessageCircle, 'Speaking', 'Tổ chức câu trả lời rõ ràng, có lý do và ví dụ phù hợp.'],
-  [PenLine, 'Writing', 'Viết đúng mục đích giao tiếp, đầy đủ ý và có trình tự dễ theo dõi.'],
+  [
+    MessageCircle,
+    'Speaking (Kỹ năng Nói)',
+    'Chuẩn hóa phát âm, ngữ điệu và phản xạ diễn đạt ý kiến mạch lạc, tự tin trong môi trường giao tiếp quốc tế.',
+  ],
+  [
+    PenLine,
+    'Writing (Kỹ năng Viết)',
+    'Rèn luyện kỹ năng viết email công việc, phản hồi yêu cầu và viết bài luận logic, đúng cấu trúc văn phong học thuật.',
+  ],
 ] as const;
 
 export function AboutPage() {
   return (
     <main>
       <section className="overflow-hidden bg-gradient-to-br from-indigo-950 via-indigo-900 to-slate-900 text-white">
-        <div className="mx-auto grid max-w-7xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:px-8 lg:py-28">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:gap-12 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:px-8 lg:py-16">
           <div>
             <p className="eyebrow !text-indigo-200">Về Smart English</p>
             <h1 className="mt-4 max-w-3xl text-4xl font-bold tracking-tight sm:text-6xl">
-              Học tiếng Anh có định hướng, tiến bộ có căn cứ
+              Học TOEIC với mục tiêu rõ ràng và tiến độ đo lường được
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-indigo-100">
               Một không gian học tập kết nối chương trình tại trung tâm với trải nghiệm online, giúp
@@ -59,14 +67,14 @@ export function AboutPage() {
                 Khám phá khóa học <ArrowRight size={18} />
               </Link>
               <Link className="btn-secondary !border-white/30 !bg-white/10 !text-white" to="/guide">
-                Xem cách bắt đầu
+                Xem hướng dẫn học
               </Link>
             </div>
           </div>
           <div className="relative mx-auto w-full max-w-lg rounded-[2rem] border border-white/15 bg-white/10 p-7 shadow-2xl backdrop-blur">
             <Sparkles className="text-amber-300" size={30} />
             <p className="mt-6 text-sm font-semibold uppercase tracking-[.2em] text-indigo-200">
-              Sứ mệnh
+              Mục tiêu đào tạo
             </p>
             <p className="mt-3 text-2xl font-semibold leading-10">
               Giúp mỗi người học xây dựng lộ trình phù hợp và duy trì một nhịp học có thể thực hiện
@@ -166,24 +174,20 @@ export function AboutPage() {
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[.8fr_1.2fr] lg:px-8">
           <div>
             <BrainCircuit className="text-indigo-700" size={36} />
-            <h2 className="mt-4 text-3xl font-bold">Điểm khác biệt nằm ở sự kết nối</h2>
+            <h2 className="mt-4 text-3xl font-bold">Tổ chức học tập tại Smart English</h2>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <p className="rounded-2xl bg-white p-5 leading-7 text-slate-700">
-              Khóa học và lớp học là hai lớp thông tin riêng: chương trình cho biết học gì, lớp cho
-              biết học khi nào và theo điều kiện nào.
+              <strong>Khóa học và lớp học rõ ràng:</strong> Chương trình học thể hiện nội dung và chuẩn đầu ra; lớp học xác định rõ lịch học, giảng viên và điều kiện tham gia.
             </p>
             <p className="rounded-2xl bg-white p-5 leading-7 text-slate-700">
-              Không gian lớp gom bài học, tài liệu, bài kiểm tra, kết quả và tiến độ về một luồng
-              điều hướng nhất quán.
+              <strong>Học tập tập trung:</strong> Bài học, tài liệu, bài tập và bài kiểm tra được sắp xếp theo từng buổi trong không gian lớp học.
             </p>
             <p className="rounded-2xl bg-white p-5 leading-7 text-slate-700">
-              Trạng thái đăng ký và quyền truy cập được trình bày rõ để người học biết mình có thể
-              làm gì ngay lúc này.
+              <strong>Giảng viên đồng hành:</strong> Giảng viên phụ trách lớp theo sát các buổi học, hướng dẫn phương pháp làm bài và nhận xét trực tiếp bài làm tự luận.
             </p>
             <p className="rounded-2xl bg-white p-5 leading-7 text-slate-700">
-              Kết quả được đọc theo từng kỹ năng và độ đầy đủ của dữ liệu, không biến dữ liệu đang
-              chờ thành kết luận.
+              <strong>Ghi nhận tiến độ chính xác:</strong> Kết quả học tập và điểm số được cập nhật theo từng bài làm thực tế, không đưa ra đánh giá khi chưa đủ dữ liệu.
             </p>
           </div>
         </div>

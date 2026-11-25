@@ -27,12 +27,14 @@ export function HomePage() {
   const [courses, setCourses] = useState<PublicCourse[]>([]);
   const [courseState, setCourseState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [reloadKey, setReloadKey] = useState(0);
+  const [catalogContext, setCatalogContext] = useState<string>();
   useEffect(() => {
     const controller = new AbortController();
     void catalogApi
       .list({ page: 1, limit: 3 }, controller.signal)
       .then((response) => {
         setCourses(response.data);
+        setCatalogContext(response.meta.dataContext);
         setCourseState('ready');
       })
       .catch((error: unknown) => {
@@ -44,18 +46,18 @@ export function HomePage() {
 
   return (
     <>
-      <section className="hero-grid overflow-hidden bg-indigo-950 text-white">
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.15fr_.85fr] lg:px-8 lg:py-28">
+      <section className="hero-grid overflow-hidden bg-[#183121] text-white">
+        <div className="mx-auto grid max-w-7xl items-center gap-8 lg:gap-12 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[1.15fr_.85fr] lg:px-8 lg:py-16">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[.22em] text-indigo-200">
-              Học TOEIC với lộ trình rõ ràng
+            <p className="text-sm font-semibold uppercase tracking-[.22em] text-[#cfe7c2]">
+              Chương trình luyện thi TOEIC
             </p>
             <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight sm:text-6xl">
-              Xác định hướng đi. Chọn đúng lớp. Học với tiến độ rõ ràng.
+              Luyện thi TOEIC theo lộ trình phù hợp
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-indigo-100">
-              Khám phá chương trình TOEIC theo kỹ năng, so sánh lớp học thực tế và tiếp tục hành
-              trình trong một không gian học tập tập trung.
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-100">
+              Khám phá các khóa học phù hợp với trình độ và mục tiêu của bạn. Luyện tập từng kỹ
+              năng, làm bài kiểm tra và theo dõi kết quả học tập trên Smart English.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link className="btn-light" to="/catalog">
@@ -66,7 +68,7 @@ export function HomePage() {
               </Link>
             </div>
           </div>
-          <div className="relative aspect-[16/10] overflow-hidden rounded-[2rem] border border-white/15 bg-indigo-900 shadow-2xl shadow-indigo-950/40">
+          <div className="relative aspect-[16/10] overflow-hidden rounded-[2rem] border border-white/15 bg-[#1b3624] shadow-2xl shadow-black/40">
             <img
               alt="Lớp học tiếng Anh hiện đại với giảng viên và học viên đang luyện tập"
               className="size-full object-cover object-center"
@@ -94,14 +96,14 @@ export function HomePage() {
           <JourneyCard
             icon={Search}
             title="Chưa biết trình độ"
-            text="Chọn mục tiêu, tự đánh giá trình độ và làm bài Listening & Reading nội bộ."
+            text="Chọn mục tiêu và làm bài kiểm tra để xác định năng lực từ kết quả thực tế."
             to="/placement"
           />
           <JourneyCard
             icon={BookOpen}
             title="Đã có lớp học"
-            text="Đăng nhập để tiếp tục bài học, bài kiểm tra và theo dõi tiến độ."
-            to="/student/enrollments"
+            text="Đăng nhập để vào trang tổng quan, tiếp tục bài học, bài kiểm tra và theo dõi tiến độ."
+            to="/workspace"
           />
         </div>
       </section>
@@ -109,13 +111,18 @@ export function HomePage() {
       <section className="section-shell pt-0">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="eyebrow">Chương trình đang mở</p>
+            <p className="eyebrow">Chương trình đào tạo</p>
             <h2 className="section-title">Khóa học nổi bật</h2>
           </div>
-          <Link className="font-semibold text-indigo-700" to="/catalog">
-            Xem tất cả →
+          <Link className="font-semibold text-[#4d7439] hover:underline" to="/catalog">
+            Xem tất cả khóa học →
           </Link>
         </div>
+        {catalogContext === 'QA_REFERENCE' && (
+          <p role="note" className="mt-3 text-sm text-slate-600">
+            Thông tin khóa học và lịch khai giảng chính thức được cập nhật thường xuyên từ phòng đào tạo.
+          </p>
+        )}
         {courseState === 'loading' ? (
           <div className="mt-8">
             <PageSkeleton />
@@ -142,7 +149,7 @@ export function HomePage() {
           </div>
         ) : courses.length === 0 ? (
           <div className="state-empty mt-8">
-            <BookOpen aria-hidden="true" className="mx-auto text-indigo-500" size={32} />
+            <BookOpen aria-hidden="true" className="mx-auto text-[#5f8b48]" size={32} />
             <h3 className="mt-3 font-bold text-slate-900">Chưa có khóa học được công bố</h3>
             <p className="mt-1 text-sm">Các chương trình mới sẽ xuất hiện tại đây khi sẵn sàng.</p>
           </div>
@@ -155,23 +162,21 @@ export function HomePage() {
         )}
       </section>
 
-      <section className="bg-indigo-50">
+      <section className="bg-[#f4f8f1]">
         <div className="section-shell grid items-center gap-10 lg:grid-cols-2">
           <div className="aspect-[3/2] overflow-hidden rounded-3xl shadow-lg">
             <img
               alt="Người học xem lại bài đánh giá trình độ trên laptop"
               className="size-full object-cover"
               decoding="async"
-              loading="lazy"
               src={placementImage}
             />
           </div>
           <div>
-            <p className="eyebrow">Kiểm tra đầu vào</p>
-            <h2 className="section-title">Hiểu điểm xuất phát trước khi chọn lộ trình</h2>
+            <p className="eyebrow">Kiểm tra đầu vào miễn phí</p>
+            <h2 className="section-title">Đánh giá chính xác trình độ TOEIC hiện tại</h2>
             <p className="mt-4 leading-7 text-slate-600">
-              Hoàn thành bài Listening & Reading theo thời gian để xem điểm kỹ năng nội bộ trước khi
-              chọn chương trình học.
+              Làm bài kiểm tra ngắn gồm Listening & Reading theo format chuẩn để biết mức điểm hiện tại và nhận gợi ý lộ trình học tập phù hợp nhất.
             </p>
             <Link className="btn-primary mt-6" to="/placement">
               Bắt đầu kiểm tra đầu vào
@@ -182,41 +187,40 @@ export function HomePage() {
 
       <section className="section-shell">
         <div className="text-center">
-          <p className="eyebrow">Hành trình học liền mạch</p>
+          <p className="eyebrow">Phương pháp đào tạo</p>
           <h2 className="section-title">Trải nghiệm học tại Smart English</h2>
           <p className="mx-auto mt-4 max-w-3xl leading-7 text-slate-600">
-            Kết hợp tương tác tại lớp với một không gian số nhất quán để việc chuẩn bị, luyện tập và
-            xem lại không bị tách rời.
+            Kết hợp học trực tiếp cùng giảng viên và hệ thống luyện tập trực tuyến 24/7 giúp học viên nắm chắc kiến thức và tự tin đạt điểm mục tiêu.
           </p>
         </div>
         <div className="mt-10 grid gap-5 md:grid-cols-4">
           {[
             [
               UsersRound,
-              'Tương tác tại lớp',
-              'Thảo luận, thực hành theo cặp và nhận hướng dẫn trong bối cảnh sử dụng tiếng Anh.',
+              'Tương tác cùng giảng viên',
+              'Học trực tiếp, sửa phát âm, luyện phản xạ và giải đáp thắc mắc ngay trong từng buổi học.',
             ],
             [
               Headphones,
-              'Luyện theo kỹ năng',
-              'Tập trung Listening, Reading, Speaking hoặc Writing theo mục tiêu của chương trình.',
+              'Luyện tập 4 kỹ năng',
+              'Thực hành Listening, Reading, Speaking và Writing theo cấu trúc đề thi TOEIC.',
             ],
             [
               MonitorPlay,
-              'Tiếp tục trên LMS',
-              'Mở bài học, tài liệu và bài kiểm tra trong cùng không gian lớp trực tuyến.',
+              'Học trực tuyến tiện lợi',
+              'Theo dõi bài giảng, xem lại tài liệu và làm bài tập mọi lúc, mọi nơi trên cùng một hệ thống.',
             ],
             [
               BarChart3,
-              'Đọc tiến độ có căn cứ',
-              'Xem kết quả theo kỹ năng và đúng trạng thái dữ liệu hiện có.',
+              'Đo lường tiến độ rõ ràng',
+              'Theo dõi điểm số từng kỹ năng qua các bài kiểm tra định kỳ và nhận phân tích chi tiết để cải thiện.',
             ],
           ].map(([Icon, title, text]) => (
             <article
               className="card-interactive rounded-2xl border bg-white p-6"
               key={String(title)}
             >
-              <Icon className="text-indigo-600" />
+              <Icon className="text-[#5f8b48]" />
               <h3 className="mt-4 font-bold">{String(title)}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">{String(text)}</p>
             </article>
@@ -224,26 +228,25 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="bg-slate-950 text-white">
+      <section className="bg-[#1b3624] text-white">
         <div className="section-shell">
-          <p className="eyebrow text-sky-300">Kỹ năng TOEIC</p>
-          <h2 className="section-title">Phát triển theo từng kỹ năng</h2>
+          <p className="eyebrow text-[#cfe7c2]">Rèn luyện 4 kỹ năng</p>
+          <h2 className="section-title">Nâng cao từng kỹ năng TOEIC</h2>
           <p className="mt-4 max-w-3xl text-slate-300">
-            Nền tảng hỗ trợ Listening, Reading, Speaking và Writing. Mỗi khóa học thể hiện rõ các kỹ
-            năng được giảng dạy.
+            Hệ thống bài học và bài kiểm tra được thiết kế chuyên biệt cho từng kỹ năng: Nghe hiểu, Đọc hiểu, Nói và Viết, bám sát cấu trúc bài thi mới nhất.
           </p>
           <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              [Headphones, 'Listening'],
-              [BookOpen, 'Reading'],
-              [MessageSquareText, 'Speaking'],
-              [Sparkles, 'Writing'],
+              [Headphones, 'Listening (Nghe hiểu)'],
+              [BookOpen, 'Reading (Đọc hiểu)'],
+              [MessageSquareText, 'Speaking (Nói)'],
+              [Sparkles, 'Writing (Viết)'],
             ].map(([Icon, label]) => (
               <div
                 className="rounded-2xl border border-white/10 bg-white/5 p-5"
                 key={String(label)}
               >
-                <Icon className="text-sky-300" />
+                <Icon className="text-[#a5d08d]" />
                 <h3 className="mt-4 font-semibold">{String(label)}</h3>
               </div>
             ))}
@@ -253,24 +256,24 @@ export function HomePage() {
 
       <section className="section-shell">
         <div className="text-center">
-          <p className="eyebrow">Năng lực thật</p>
-          <h2 className="section-title">Vì sao chọn nền tảng này?</h2>
+          <p className="eyebrow">Đặc điểm chương trình</p>
+          <h2 className="section-title">Điểm nổi bật của khóa học</h2>
         </div>
         <div className="mt-10 grid gap-6 md:grid-cols-3">
           <ValueCard
             icon={ShieldCheck}
-            title="Trạng thái minh bạch"
-            text="Thông tin miễn phí, có phí, số chỗ còn lại và trạng thái đăng ký được trình bày rõ ràng."
+            title="Lộ trình học rõ ràng"
+            text="Nội dung học, chuẩn đầu ra, học phí và thời khóa biểu được thể hiện minh bạch cho từng lớp học."
           />
           <ValueCard
             icon={BarChart3}
-            title="Tiến độ từ dữ liệu thật"
-            text="Tiến độ bài học và kết quả kiểm tra được tổng hợp theo từng học phần."
+            title="Theo dõi tiến độ học tập"
+            text="Kết quả làm bài và quá trình học được ghi nhận cụ thể, giúp học viên theo dõi mức độ tiến bộ qua từng buổi."
           />
           <ValueCard
             icon={CheckCircle2}
-            title="Một không gian lớp học"
-            text="Tổng quan, bài học, bài kiểm tra, kết quả và tiến độ cùng nằm trong một không gian học tập."
+            title="Học tập trong một không gian"
+            text="Bài học, tài liệu, bài tập và nhận xét từ giảng viên được sắp xếp tập trung, thuận tiện cho việc ôn luyện."
           />
         </div>
       </section>
@@ -278,13 +281,16 @@ export function HomePage() {
       <section className="section-shell pt-0">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="eyebrow">Cập nhật mới</p>
+            <p className="eyebrow">Góc học tập</p>
             <h2 className="section-title">Tin tức & Sự kiện</h2>
           </div>
-          <Link className="font-semibold text-indigo-700" to="/news-events">
-            Xem tất cả →
+          <Link className="font-semibold text-[#4d7439] hover:underline" to="/news-events">
+            Xem tất cả bài viết →
           </Link>
         </div>
+        <p className="mt-3 text-sm text-slate-600">
+          Cập nhật lịch thi TOEIC, thông báo khai giảng và các phương pháp học tập hiệu quả từ đội ngũ giảng viên.
+        </p>
         <div className="mt-8 grid gap-6 md:grid-cols-3">
           {newsEvents.slice(0, 3).map((item) => (
             <article className="overflow-hidden rounded-2xl border bg-white" key={item.slug}>
@@ -292,17 +298,16 @@ export function HomePage() {
                 alt=""
                 className="aspect-[16/10] w-full object-cover transition duration-500 hover:scale-[1.02]"
                 decoding="async"
-                loading="lazy"
                 src={newsCoverUrl(item)}
               />
               <div className="p-5">
-                <p className="text-xs font-bold uppercase tracking-wide text-indigo-700">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#4d7439]">
                   {item.category}
                 </p>
                 <h3 className="mt-2 text-lg font-bold">{item.title}</h3>
                 <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">{item.excerpt}</p>
                 <Link
-                  className="mt-4 inline-block font-semibold text-indigo-700"
+                  className="mt-4 inline-block font-semibold text-[#4d7439] hover:underline"
                   to={`/news-events/${item.slug}`}
                 >
                   Đọc thêm →
@@ -314,14 +319,19 @@ export function HomePage() {
       </section>
 
       <section className="section-shell pt-0">
-        <div className="rounded-[2rem] bg-gradient-to-r from-indigo-600 to-sky-600 px-7 py-12 text-center text-white sm:px-12">
-          <h2 className="text-3xl font-bold">Sẵn sàng chọn lớp phù hợp?</h2>
-          <p className="mx-auto mt-3 max-w-2xl text-indigo-50">
-            Bắt đầu từ khóa học, so sánh các lớp đang mở và chọn lịch học phù hợp.
+        <div className="rounded-[2rem] bg-gradient-to-r from-[#4e773a] via-[#5f8b48] to-[#3f642c] px-7 py-12 text-center text-white sm:px-12">
+          <h2 className="text-3xl font-bold">Bắt đầu hành trình luyện thi TOEIC</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-[#eef6ea]">
+            Chọn khóa học phù hợp với mục tiêu của bạn hoặc làm bài kiểm tra để xác định trình độ xuất phát.
           </p>
-          <Link className="btn-light mt-6" to="/catalog">
-            Khám phá khóa học
-          </Link>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link className="btn-light" to="/catalog">
+              Xem danh sách khóa học
+            </Link>
+            <Link className="btn-ghost-light" to="/placement">
+              Làm bài kiểm tra đầu vào
+            </Link>
+          </div>
         </div>
       </section>
     </>
@@ -341,10 +351,10 @@ function JourneyCard({
 }) {
   return (
     <Link className="card group" to={to}>
-      <Icon className="text-indigo-600" />
-      <h3 className="mt-4 text-xl font-bold group-hover:text-indigo-700">{title}</h3>
+      <Icon className="text-[#5f8b48]" />
+      <h3 className="mt-4 text-xl font-bold group-hover:text-[#4d7439]">{title}</h3>
       <p className="mt-2 leading-7 text-slate-600">{text}</p>
-      <span className="mt-5 inline-flex items-center gap-2 font-semibold text-indigo-700">
+      <span className="mt-5 inline-flex items-center gap-2 font-semibold text-[#4d7439]">
         Bắt đầu <ArrowRight size={17} />
       </span>
     </Link>
@@ -361,7 +371,7 @@ function ValueCard({
 }) {
   return (
     <article className="card">
-      <Icon className="text-indigo-600" />
+      <Icon className="text-[#5f8b48]" />
       <h3 className="mt-4 text-xl font-bold">{title}</h3>
       <p className="mt-2 leading-7 text-slate-600">{text}</p>
     </article>

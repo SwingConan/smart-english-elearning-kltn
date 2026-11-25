@@ -57,19 +57,19 @@ export const newsEvents: NewsEventItem[] = [
         ],
       },
       {
-        heading: 'Từ khám phá đến đăng ký lớp',
+        heading: 'Quy trình chọn lớp và nhập học',
         bullets: [
-          'Khám phá chương trình và xác định mục tiêu kỹ năng trước khi làm Placement.',
-          'Hoàn thành Placement nội bộ trước Enrollment; kết quả này không phải điểm thi TOEIC chính thức.',
-          'Đọc Evaluation theo kỹ năng và Course/Class Recommendation từ dữ liệu hiện có; dữ liệu thiếu hoặc đang chờ không được hiểu là 0.',
-          'Dùng gợi ý làm căn cứ để so sánh lịch học, hình thức, học phí và tình trạng lớp.',
-          'Sau khi chọn lớp phù hợp, đăng nhập và thực hiện bước Enrollment theo trạng thái hệ thống.',
+          'Tìm hiểu chương trình đào tạo và xác định mục tiêu điểm số TOEIC cần đạt.',
+          'Hoàn thành bài kiểm tra trình độ đầu vào (Placement nội bộ trước Enrollment) để biết chính xác năng lực xuất phát.',
+          'Xem phân tích kết quả từng kỹ năng và tham khảo lớp học được hệ thống đề xuất.',
+          'So sánh thời khóa biểu, giảng viên phụ trách, học phí và số lượng chỗ còn nhận.',
+          'Đăng nhập tài khoản học viên, chọn lớp học và hoàn tất thủ tục đăng ký ghi danh.',
         ],
       },
       {
-        heading: 'Sau khi đăng ký',
+        heading: 'Sau khi hoàn tất đăng ký',
         paragraphs: [
-          'Lớp miễn phí có thể được ghi nhận đăng ký ngay theo trạng thái hệ thống. Với lớp có học phí, đăng ký có thể ở trạng thái chờ thanh toán; nội dung học chỉ mở khi điều kiện truy cập đã được đáp ứng.',
+          'Đối với các lớp học miễn phí, bạn có thể tham gia ngay sau khi đăng ký. Đối với lớp có học phí, quyền vào học sẽ được kích hoạt sau khi học phí được thanh toán đầy đủ và hoàn tất đối soát.',
         ],
       },
     ],
@@ -298,7 +298,7 @@ export const newsEvents: NewsEventItem[] = [
       {
         heading: 'Biến kết quả thành hành động học',
         paragraphs: [
-          'Hãy chọn một hoặc hai tín hiệu có thể hành động, chẳng hạn kỹ năng cần luyện thêm hoặc loại câu hỏi thường mất thời gian. Khi dữ liệu đang chờ hoặc còn thiếu, giao diện cần thể hiện đúng trạng thái thay vì suy diễn thành xu hướng.',
+          'Hãy chọn một hoặc hai mục tiêu cụ thể để hành động, chẳng hạn luyện thêm dạng bài nghe thường sai hoặc mở rộng vốn từ vựng Part 7. Tập trung cải thiện từng điểm yếu cụ thể qua mỗi tuần học tập thay vì quá lo lắng về điểm số ban đầu.',
         ],
       },
     ],

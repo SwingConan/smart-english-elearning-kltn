@@ -15,6 +15,11 @@ const courseCovers: Record<PublicCourse['skillScope'], string> = {
   FOUR_SKILLS: fourSkillsCover,
 };
 
-export function courseCoverUrl(course: Pick<PublicCourse, 'thumbnailUrl' | 'skillScope'>) {
-  return course.thumbnailUrl || courseCovers[course.skillScope];
+export function courseCoverUrl(course: Pick<PublicCourse, 'thumbnailUrl' | 'skillScope'> & { title?: string }) {
+  if (course.thumbnailUrl) return course.thumbnailUrl;
+  if (typeof window !== 'undefined' && document.documentElement.dataset.demoEnvironment === 'true') {
+    const skill = /reading|đọc hiểu|ngữ pháp/i.test(course.title ?? '') ? 'reading' : /listening|phản xạ nghe/i.test(course.title ?? '') ? 'listening' : ({LISTENING:'listening',READING:'reading',SPEAKING:'speaking',WRITING:'writing',LR:'lr',FOUR_SKILLS:'four-skills'}[course.skillScope]);
+    return '/images/course-'+skill+'.svg';
+  }
+  return courseCovers[course.skillScope];
 }

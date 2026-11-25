@@ -4,6 +4,13 @@ import { useCallback, useState } from 'react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '@/App';
+// Historical admin component regression only. Production routing/deny policy is
+// exercised without this mock in features/workspace/workspace.test.tsx and PG HTTP.
+vi.mock('@/features/auth/PermissionRoute', async () => {
+  const { RoleRoute } = await import('@/features/auth/RoleRoute');
+  return { PermissionRoute: ({ children }: { children: React.ReactNode }) =>
+    <RoleRoute allowedRoles={['ADMIN_COORDINATOR']}>{children}</RoleRoute> };
+});
 import { authApi, type AuthUser, type UserRole } from '@/features/auth/api';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context';

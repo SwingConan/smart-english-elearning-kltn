@@ -32,9 +32,9 @@ export function InstructorClassOverviewPage() {
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Học viên" value={overview.activeLearnerCount} detail="đang học" />
         <Metric
-          label="Tiến độ lớp"
+          label="Tiến độ giáo trình"
           value={`${overview.lessonProgress.percentage}%`}
-          detail={`${overview.lessonProgress.completed}/${overview.lessonProgress.total} lượt hoàn thành (${overview.activeLearnerCount} học viên × ${overview.activeLearnerCount ? overview.lessonProgress.total / overview.activeLearnerCount : 0} bài)`}
+          detail={`${overview.lessonProgress.completed}/${overview.lessonProgress.total} bài giáo trình (${overview.activeLearnerCount} học viên × ${overview.activeLearnerCount ? overview.lessonProgress.total / overview.activeLearnerCount : 0} bài)`}
         />
         <Metric label="Bài đang/sắp mở" value={activeAssessments} />
         <Link to={`${base}/grading`}>
