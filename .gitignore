@@ -39,9 +39,9 @@ tmp/
 .codex-worktrees/
 .local-storage/
 .venv-toeic/
-artifacts/
-Test/
-UIdemo/
+/artifacts/
+/Test/
+/UIdemo/
 docs/TaiLieu/
 docs/v2/
 docs/*.docx

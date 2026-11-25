@@ -1,0 +1,138 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/admin/accounts"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/accounts/:userId"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/accounts"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/admin/accounts/:userId/role"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/admin/accounts/:userId/status"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/class-offerings"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/class-offerings/instructor-options"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/class-offerings/:id/instructor"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/class-offerings/:id/schedule-slots"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/class-offerings/:id/schedule-slots"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/admin/class-offerings/:id/schedule-slots/:slotId"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/class-offerings/:id/schedule-slots/:slotId"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/class-offerings/:id/roster"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/admin/class-offerings/:id/roster/:enrollmentId/status"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/class-offerings/:id"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/class-offerings"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/admin/class-offerings/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/courses"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/courses/:id"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/courses"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/admin/courses/:id"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/courses/:id/thumbnail"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/courses/:id/thumbnail"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/criteria/placement-evaluation"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/criteria/placement-evaluation"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/criteria/course-recommendations"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/criteria/course-recommendations/:courseId"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/criteria/course-recommendations/:courseId"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/reports/system"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/reports/classes"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/reports/enrollments"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/reports/grading-backlog"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/study-recommendation-policy"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/admin/study-recommendation-policy"
+  }
+]
