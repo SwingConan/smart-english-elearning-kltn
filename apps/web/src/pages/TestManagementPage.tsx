@@ -139,27 +139,27 @@ export function TestManagementPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold">Đề kiểm tra</h1>
+          <h1 className="text-2xl font-bold text-[#e66f2b]">Đề kiểm tra</h1>
           <p className="mt-1 text-sm text-slate-600">
             Tạo và biên soạn nội dung dùng lại trước khi giao cho một lớp cụ thể.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link className="rounded border px-4 py-2 text-sm" to={safeReturnTo}>
-            Quay lại lớp
+        <div className="flex flex-wrap gap-2">
+          <Link className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" to={safeReturnTo}>
+            {safeReturnTo.includes('assessments-hub') ? 'Quay lại Ngân hàng & Đề thi' : 'Quay lại lớp'}
           </Link>
           {courseId && (
             <Link
-              className="rounded border px-4 py-2 text-sm"
+              className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-[#e66f2b] hover:bg-slate-50"
               to={`/instructor/courses/${courseId}/question-bank?returnTo=${encodeURIComponent(safeReturnTo)}`}
             >
               Ngân hàng câu hỏi
             </Link>
           )}
           <button
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded bg-[#76a35e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#658f50] disabled:opacity-50"
             disabled={pendingAction !== null}
             onClick={() => {
               setCreateOpen(true);

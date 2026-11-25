@@ -40,7 +40,12 @@ export class AdminAccountsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(query: AdminAccountQueryDto) {
+    const excludeFixtures = query.excludeTest === true;
+    const baseScope: Prisma.UserWhereInput = excludeFixtures
+      ? { NOT: { email: { endsWith: '@example.invalid' } } }
+      : {};
     const where: Prisma.UserWhereInput = {
+      ...baseScope,
       ...(query.role ? { role: query.role } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.search
@@ -52,20 +57,30 @@ export class AdminAccountsService {
           }
         : {}),
     };
-    const [data, total, summaryTotal, active, inactive, locked] = await this.prisma.$transaction([
-      this.prisma.user.findMany({
-        where,
-        select: accountSelect,
-        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-        skip: (query.page - 1) * query.limit,
-        take: query.limit,
-      }),
-      this.prisma.user.count({ where }),
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { status: UserStatus.ACTIVE } }),
-      this.prisma.user.count({ where: { status: UserStatus.INACTIVE } }),
-      this.prisma.user.count({ where: { status: UserStatus.LOCKED } }),
-    ]);
+    const [data, total, summaryTotal, active, inactive, locked] =
+      await this.prisma.$transaction([
+        this.prisma.user.findMany({
+          where,
+          select: accountSelect,
+          orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+          skip: (query.page - 1) * query.limit,
+          take: query.limit,
+        }),
+        this.prisma.user.count({ where }),
+        this.prisma.user.count({ ...(excludeFixtures ? { where: baseScope } : {}) }),
+        this.prisma.user.count({
+          where: { ...baseScope, status: UserStatus.ACTIVE },
+        }),
+        this.prisma.user.count({
+          where: { ...baseScope, status: UserStatus.INACTIVE },
+        }),
+        this.prisma.user.count({
+          where: { ...baseScope, status: UserStatus.LOCKED },
+        }),
+      ]);
+    const excludedFixtures = excludeFixtures
+      ? await this.prisma.user.count({ where: { email: { endsWith: '@example.invalid' } } })
+      : 0;
     return {
       data: data.map((account) => this.project(account)),
       meta: {
@@ -74,7 +89,13 @@ export class AdminAccountsService {
         total,
         totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
       },
-      summary: { total: summaryTotal, active, inactive, locked },
+      summary: {
+        total: summaryTotal,
+        active,
+        inactive,
+        locked,
+        ...(excludeFixtures ? { excludedFixtures } : {}),
+      },
     };
   }
 
@@ -88,7 +109,7 @@ export class AdminAccountsService {
   }
 
   async create(input: CreateStaffAccountDto) {
-    if (![UserRole.INSTRUCTOR, UserRole.ADMIN_COORDINATOR].includes(input.role)) {
+    if (!(['INSTRUCTOR', 'COUNSELOR', 'CASHIER', 'TEACHING_INSPECTOR'] as string[]).includes(input.role)) {
       throw new BadRequestException('Only staff accounts can be created');
     }
     const passwordHash = await argon2.hash(input.password, { type: argon2.argon2id });

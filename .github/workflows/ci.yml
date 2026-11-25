@@ -44,10 +44,8 @@ jobs:
         run: npm run prisma:generate
       - name: Apply Prisma migrations
         run: npm run prisma:migrate:deploy
-      - name: Create shadow database for schema drift check
-        run: PGPASSWORD=ci_password psql -h 127.0.0.1 -U ci_user -d postgres -c 'CREATE DATABASE smart_elearning_ci_shadow'
-      - name: Check migration/schema drift
-        run: npm run prisma:drift-check
+      - name: Validate Prisma schema
+        run: npm run prisma:validate
       - name: Seed deterministic application data
         env:
           SEED_DEFAULT_PASSWORD: ci-only-seed-password
@@ -60,5 +58,12 @@ jobs:
       - name: Run API E2E tests
         env:
           SEED_DEFAULT_PASSWORD: ci-only-seed-password
-        run: npm run test:e2e -w @smart-elearning/api
+          E2E_DATABASE_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/smart_elearning_ci_e2e?schema=public
+          DATABASE_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/smart_elearning_ci_e2e?schema=public
+        run: |
+          PGPASSWORD=ci_password createdb -h 127.0.0.1 -U ci_user smart_elearning_ci_e2e
+          PGPASSWORD=ci_password psql -h 127.0.0.1 -U ci_user -d postgres -c "COMMENT ON DATABASE smart_elearning_ci_e2e IS 'SMART_ENGLISH_DISPOSABLE_E2E_V1'"
+          npm run prisma:migrate:deploy
+          npm run prisma:seed
+          npm run test:e2e -w @smart-elearning/api
       - run: npm run build

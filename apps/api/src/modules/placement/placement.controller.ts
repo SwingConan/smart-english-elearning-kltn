@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Get,
   Param,
@@ -10,6 +11,7 @@ import {
   StreamableFile,
   UploadedFile,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -17,6 +19,7 @@ import type { Response } from 'express';
 import { UserRole } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { LegacyPlacementFixtureGuard } from './legacy-fixture.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PublicUser } from '../users/user.types';
 import { SavePlacementAnswerDto } from './dto/save-placement-answer.dto';
@@ -26,6 +29,7 @@ import { PlacementService } from './placement.service';
 
 @ApiTags('placement')
 @Controller('placement')
+@UseGuards(LegacyPlacementFixtureGuard)
 export class PlacementController {
   constructor(private readonly placementService: PlacementService) {}
 
@@ -33,14 +37,15 @@ export class PlacementController {
   @Get('config')
   @ApiOperation({ summary: 'Get public-safe Placement configuration' })
   getConfig() {
-    return this.placementService.getConfig();
+    throw new ConflictException('LEGACY_PLACEMENT_RETIRED_USE_V2');
   }
 
   @Roles(UserRole.STUDENT)
   @Post('attempts/start')
   @ApiOperation({ summary: 'Start or resume a learner-owned Placement attempt' })
   start(@CurrentUser() user: PublicUser, @Body() dto: StartPlacementAttemptDto) {
-    return this.placementService.startOrResume(user.id, dto);
+    void user; void dto;
+    throw new ConflictException('FULL_PLACEMENT_SOURCE_AND_POLICY_PENDING');
   }
 
   @Roles(UserRole.STUDENT)
@@ -83,6 +88,7 @@ export class PlacementController {
     @Param('testQuestionId', new ParseUUIDPipe()) testQuestionId: string,
     @Res({ passthrough: true }) response: Response,
   ) {
+    this.privateMediaHeaders(response);
     const media = await this.placementService.openAudioResponse(user.id, id, testQuestionId);
     response.setHeader('Content-Type', media.mimeType);
     response.setHeader('Cache-Control', 'private, no-store');
@@ -97,10 +103,18 @@ export class PlacementController {
     @Param('stimulusId', new ParseUUIDPipe()) stimulusId: string,
     @Res({ passthrough: true }) response: Response,
   ) {
+    this.privateMediaHeaders(response);
     const media = await this.placementService.openStimulusMedia(user.id, id, stimulusId);
     response.setHeader('Content-Type', media.mimeType);
-    response.setHeader('Cache-Control', 'private, max-age=300');
     return new StreamableFile(media.body);
+  }
+
+  private privateMediaHeaders(response: Response) {
+    // Authenticate every request; do not reuse a cached response after logout.
+    response.setHeader('Cache-Control', 'private, no-store');
+    response.setHeader('Pragma', 'no-cache');
+    response.setHeader('Vary', 'Cookie');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
   }
 
   @Roles(UserRole.STUDENT)
@@ -111,20 +125,23 @@ export class PlacementController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: SubmitPlacementAttemptDto,
   ) {
-    return this.placementService.submit(user.id, id, dto);
+    void user; void id; void dto;
+    throw new ConflictException('LEGACY_PLACEMENT_RESULT_RELEASE_PENDING');
   }
 
   @Roles(UserRole.STUDENT)
   @Get('attempts/:id/result')
   @ApiOperation({ summary: 'Get an internal, non-official Placement result' })
   getResult(@CurrentUser() user: PublicUser, @Param('id', new ParseUUIDPipe()) id: string) {
-    return this.placementService.getResult(user.id, id);
+    void user; void id;
+    throw new ConflictException('LEGACY_PLACEMENT_RESULT_RELEASE_PENDING');
   }
 
   @Roles(UserRole.STUDENT)
   @Get('history')
   @ApiOperation({ summary: 'List the current learner Placement history' })
   getHistory(@CurrentUser() user: PublicUser) {
-    return this.placementService.getHistory(user.id);
+    void user;
+    throw new ConflictException('LEGACY_PLACEMENT_RESULT_RELEASE_PENDING');
   }
 }

@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { loginErrorMessage } from '@/features/auth/auth-errors';
 import { useAuth } from '@/features/auth/auth-context';
 import { safeReturnUrl } from '@/features/auth/return-url';
+import { workspaceLanding } from '@/features/auth/business-role';
 import { AuthShell } from '@/features/auth/AuthShell';
 import { LoadingButton } from '@/components/ui/Feedback';
 import { useUnsavedChanges } from '@/components/ui/use-unsaved-changes';
@@ -31,7 +32,7 @@ export function LoginPage() {
   }
 
   if (user && !isSubmitting) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={workspaceLanding(user.role)} replace />;
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -45,8 +46,8 @@ export function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      await login({ email: email.trim(), password });
-      navigate(safeReturnUrl(searchParams.get('returnUrl')));
+      const authenticated = await login({ email: email.trim(), password });
+      navigate(searchParams.get('returnUrl') ? safeReturnUrl(searchParams.get('returnUrl')) : workspaceLanding(authenticated.role));
     } catch (error: unknown) {
       setFormError(loginErrorMessage(error));
       setIsSubmitting(false);
@@ -55,8 +56,8 @@ export function LoginPage() {
 
   return (
     <AuthShell
-      description="Tiếp tục hành trình học, bài kiểm tra và tiến độ trong một không gian tập trung."
-      eyebrow="Chào mừng trở lại"
+      description="Đăng nhập để vào lớp học, làm bài tập và theo dõi tiến độ luyện thi TOEIC của bạn."
+      eyebrow="Cổng thông tin học viên"
       title="Đăng nhập"
     >
       {searchParams.get('registered') === '1' ? (

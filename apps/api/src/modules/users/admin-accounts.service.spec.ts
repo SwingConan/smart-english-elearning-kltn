@@ -211,4 +211,36 @@ describe('AdminAccountsService', () => {
       service.updateStatus('actor', 'missing', UserStatus.LOCKED),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('excludes @example.invalid test fixtures from listing and summary when excludeTest is true', async () => {
+    prisma.user.findMany.mockResolvedValue([account({ email: 'admin@gmail.com' })]);
+    prisma.user.count
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(9)
+      .mockResolvedValueOnce(9)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(19);
+
+    const result = await service.list({
+      page: 1,
+      limit: 50,
+      excludeTest: true,
+    });
+
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          NOT: { email: { endsWith: '@example.invalid' } },
+        }),
+      }),
+    );
+    expect(result.summary).toEqual({
+      total: 9,
+      active: 9,
+      inactive: 0,
+      locked: 0,
+      excludedFixtures: 19,
+    });
+  });
 });

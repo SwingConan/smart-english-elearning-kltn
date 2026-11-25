@@ -471,8 +471,7 @@ function ScheduleCard({
                   {weekdayLabel(slot.dayOfWeek)} · {slot.startTime}–{slot.endTime}
                 </p>
                 <p className="text-sm text-slate-600">
-                  {slot.locationText || 'Học trực tuyến'}
-                  {slot.meetingUrl ? ` · ${slot.meetingUrl}` : ''}
+                  {slot.locationText || 'Học trực tuyến (link Google Meet duyệt theo từng buổi)'}
                 </p>
               </div>
               {!locked ? (
@@ -486,7 +485,7 @@ function ScheduleCard({
                         startTime: slot.startTime,
                         endTime: slot.endTime,
                         locationText: slot.locationText ?? '',
-                        meetingUrl: slot.meetingUrl ?? '',
+                        meetingUrl: '',
                       });
                     }}
                     type="button"
@@ -568,22 +567,13 @@ function ScheduleCard({
               value={form.locationText ?? ''}
             />
           </label>
-          <label>
-            <span className="text-sm font-semibold">Link học trực tuyến</span>
-            <input
-              className={controlClass}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, meetingUrl: event.target.value }))
-              }
-              placeholder="https://..."
-              type="url"
-              value={form.meetingUrl ?? ''}
-            />
-          </label>
+          <p className="text-xs text-slate-500 sm:col-span-2">
+            Với lớp trực tuyến hoặc hybrid, giảng viên sẽ nộp link Google Meet mới cho từng buổi học và Học vụ duyệt trước khi học viên nhìn thấy. Không dùng link cố định cho cả học kỳ.
+          </p>
           <div className="flex gap-2 sm:col-span-2">
             <button
               className={buttonClass}
-              disabled={busy || (!form.locationText?.trim() && !form.meetingUrl?.trim())}
+              disabled={busy || !form.locationText?.trim()}
               type="submit"
             >
               {editingId ? 'Lưu lịch học' : 'Thêm lịch'}

@@ -390,6 +390,43 @@ describe('M06 four-skill assessment UI', () => {
     expect(grade).not.toHaveBeenCalled();
   });
 
+  it('requires a teacher confirmation before FINAL and cancel sends no grading request', async () => {
+    vi.spyOn(classAssessmentApi, 'gradingDetail').mockResolvedValue(gradingDetail());
+    const grade = vi.spyOn(classAssessmentApi, 'gradeAnswer').mockResolvedValue({});
+    renderAssessmentRoute(<AssessmentGradingDetailPage />,
+      '/instructor/classes/c1/assessments/ca1/attempts/a1/grading',
+      '/instructor/classes/:classOfferingId/assessments/:classAssessmentId/attempts/:attemptId/grading', { role: 'INSTRUCTOR' });
+    const inputs = await screen.findAllByLabelText(/Điểm/);
+    fireEvent.change(inputs[0], { target: { value: '1' } });
+    fireEvent.change(inputs[1], { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận điểm cuối' }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('chính bạn đã xem bài làm');
+    expect(grade).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Quay lại kiểm tra' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(grade).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận điểm cuối' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tôi xác nhận điểm đã nhập' }));
+    await waitFor(() => expect(grade).toHaveBeenCalledTimes(1));
+    expect(grade).toHaveBeenCalledWith('c1','ca1','a1','tq1',expect.objectContaining({finalize:true,criteria:[
+      {rubricCriterionId:'r1',score:'1',feedback:null},{rubricCriterionId:'r2',score:'2',feedback:null},
+    ]}));
+  });
+
+  it('blocks duplicate draft saves while the first teacher request is pending', async () => {
+    vi.spyOn(classAssessmentApi, 'gradingDetail').mockResolvedValue(gradingDetail());
+    const pending = deferred<unknown>();
+    const grade = vi.spyOn(classAssessmentApi, 'gradeAnswer').mockReturnValue(pending.promise);
+    renderAssessmentRoute(<AssessmentGradingDetailPage />,
+      '/instructor/classes/c1/assessments/ca1/attempts/a1/grading',
+      '/instructor/classes/:classOfferingId/assessments/:classAssessmentId/attempts/:attemptId/grading', { role: 'INSTRUCTOR' });
+    const save = await screen.findByRole('button', { name: 'Lưu nháp' });
+    fireEvent.click(save); fireEvent.click(save);
+    expect(grade).toHaveBeenCalledTimes(1);
+    await act(async () => { pending.resolve({}); });
+    expect(await screen.findByRole('status')).toHaveTextContent('Đã lưu nháp');
+  });
+
   it('moves to the next unfinished productive response in the same attempt before another learner', async () => {
     const detail = gradingDetail();
     detail.answers.push({
@@ -515,13 +552,15 @@ describe('M06 four-skill assessment UI', () => {
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Chỉnh sửa lịch' }));
     fireEvent.change(screen.getByLabelText('Loại đánh giá'), { target: { value: 'FINAL' } });
+    fireEvent.change(screen.getAllByLabelText('Mở từ')[1], { target: { value: '2026-11-15T08:00' } });
+    fireEvent.change(screen.getAllByLabelText('Đóng lúc')[1], { target: { value: '2026-11-15T10:00' } });
     fireEvent.change(screen.getAllByLabelText('Số lượt tối đa')[1], { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Lưu lịch' }));
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith(
         'c1',
         'ca1',
-        expect.objectContaining({ stage: 'FINAL', maxAttemptsOverride: 2 }),
+        expect.objectContaining({ stage: 'FINAL', maxAttemptsOverride: 2, openAt: '2026-11-15T01:00:00.000Z', closeAt: '2026-11-15T03:00:00.000Z' }),
       ),
     );
   });

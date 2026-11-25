@@ -75,7 +75,33 @@ describe('AuthProvider', () => {
 });
 
 describe('AuthNavigation', () => {
-  it('exposes the study recommendation criteria to administrators', async () => {
+  it.each([
+    '/placement/sittings/owned-attempt',
+    '/placement/attempts/owned-attempt/exam',
+    '/classroom/owned-class/quiz-attempts/owned-attempt',
+    '/student/enrollments/owned-enrollment/attempts/owned-attempt',
+  ])('warns about server-owned attempt state and cancels safely on %s', async (route) => {
+    vi.spyOn(authApi, 'me').mockResolvedValueOnce(student);
+    const logout = vi.spyOn(authApi, 'logout');
+    render(
+      <MemoryRouter initialEntries={[route]}>
+        <AuthProvider>
+          <ToastProvider><AuthNavigation /></ToastProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    const trigger = await screen.findByRole('button', { name: 'Đăng xuất' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAccessibleDescription(/Thời gian và khả năng tiếp tục lượt làm bài phụ thuộc trạng thái trên máy chủ/);
+    expect(within(dialog).getByRole('button', { name: 'Ở lại' })).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(logout).not.toHaveBeenCalled();
+  });
+  it('routes unmapped legacy to a restricted workspace without old admin links', async () => {
     vi.spyOn(authApi, 'me').mockResolvedValueOnce({
       ...student,
       id: 'admin-1',
@@ -93,12 +119,12 @@ describe('AuthNavigation', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('link', { name: 'Tiêu chí & quy tắc' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /Legacy/ })).toHaveAttribute(
       'href',
-      '/admin/criteria/evaluation',
+      '/workspace',
     );
-    expect(screen.getByRole('link', { name: 'Quản lý khóa học' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Quản lý lớp học' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Quản lý khóa học' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Quản lý lớp học' })).not.toBeInTheDocument();
   });
 
   it('confirms logout, exposes a loading state, and announces completion', async () => {
@@ -130,6 +156,32 @@ describe('AuthNavigation', () => {
 
     expect(await screen.findByText('Phiên đăng nhập đã kết thúc an toàn.')).toBeInTheDocument();
     expect(logout).toHaveBeenCalledOnce();
+  });
+
+  it('cancels logout dialog on Ở lại with 0 API calls and restores focus to trigger button (EX-01)', async () => {
+    vi.spyOn(authApi, 'me').mockResolvedValueOnce(student);
+    const logout = vi.spyOn(authApi, 'logout').mockResolvedValueOnce();
+
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <ToastProvider>
+            <AuthNavigation />
+          </ToastProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    const trigger = await screen.findByRole('button', { name: 'Đăng xuất' });
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    const dialog = screen.getByRole('dialog', { name: 'Kết thúc phiên đăng nhập?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ở lại' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(logout).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(trigger);
   });
 });
 
@@ -297,7 +349,40 @@ describe('RegisterPage', () => {
       await screen.findByText('Đăng ký tài khoản thành công. Vui lòng đăng nhập.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Đăng nhập' })).toBeInTheDocument();
-    expect(authApi.register).toHaveBeenCalledOnce();
+    expect(authApi.register).toHaveBeenCalledWith({
+      fullName: student.fullName,
+      email: student.email,
+      password: 'valid-password',
+      termsAccepted: true,
+    });
+  });
+
+  it('requires terms and privacy consent before calling the API (UCV2-01 P1-B)', async () => {
+    vi.spyOn(authApi, 'me').mockRejectedValueOnce(new ApiError(401, null));
+    const register = vi.spyOn(authApi, 'register');
+
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <RegisterPage />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    fireEvent.change(await screen.findByLabelText('Họ và tên'), {
+      target: { value: student.fullName },
+    });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: student.email } });
+    fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'valid-password' } });
+    fireEvent.change(screen.getByLabelText('Xác nhận mật khẩu'), {
+      target: { value: 'valid-password' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng ký' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Vui lòng đồng ý điều khoản sử dụng và chính sách bảo mật dữ liệu.',
+    );
+    expect(register).not.toHaveBeenCalled();
   });
 
   it('validates password confirmation before calling the API', async () => {

@@ -1,3 +1,4 @@
+import { classCodeLabel } from '@/features/demo/presentation';
 import { useEffect, useRef, useState } from 'react';
 import { BarChart3, BookOpen, ClipboardList, Home, Lightbulb, Menu, Trophy } from 'lucide-react';
 import { Link, NavLink, Outlet, useMatch, useParams } from 'react-router';
@@ -5,12 +6,13 @@ import { OverlayDrawer } from '@/components/ui/OverlayDrawer';
 import { enrollmentApi } from '@/features/enrollments/api';
 import type { EnrollmentView } from '@/features/enrollments/types';
 import { ApiError } from '@/lib/api-client';
+import { learnerClassLabel, learnerCourseLabel } from '@/features/enrollments/presentation';
 
 export interface ClassShellContext {
   enrollment: EnrollmentView;
 }
 
-export function ClassShellLayout() {
+export function ClassShellLayout({ embedded = false }: { embedded?: boolean }) {
   const { enrollmentId = '' } = useParams();
   const focusMode = Boolean(
     useMatch({
@@ -56,14 +58,14 @@ export function ClassShellLayout() {
     );
   if (enrollment.status !== 'ACTIVE')
     return (
-      <section className="mx-auto max-w-3xl px-4 py-16">
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8">
-          <h1 className="text-2xl font-bold text-amber-950">Lớp chưa mở quyền học</h1>
-          <p className="mt-3 leading-7 text-amber-900">
+      <section className="mx-auto max-w-3xl px-4 py-10">
+        <div className="rounded-2xl border border-amber-200/80 border-l-4 border-l-amber-500 bg-amber-50/50 p-6 sm:p-7 shadow-2xs">
+          <h1 className="text-xl font-bold text-amber-950">Lớp chưa mở quyền học</h1>
+          <p className="mt-2 text-sm leading-relaxed text-amber-900">
             Đăng ký của bạn chưa được xác nhận để truy cập nội dung lớp. Vui lòng quay lại sau khi
             trạng thái đăng ký được cập nhật.
           </p>
-          <Link className="btn-secondary mt-6" to="/student/enrollments">
+          <Link className="btn-secondary mt-5 text-sm" to="/student/enrollments">
             Về Lớp học của tôi
           </Link>
         </div>
@@ -79,11 +81,14 @@ export function ClassShellLayout() {
     [BarChart3, `${base}/progress`, 'Tiến độ', false],
   ] as const;
   const navigation = (
-    <nav aria-label="Điều hướng lớp học" className="space-y-1">
+    <nav
+      aria-label="Điều hướng lớp học"
+      className={embedded && !focusMode ? 'flex gap-2 overflow-x-auto pb-1' : 'space-y-1'}
+    >
       {links.map(([Icon, to, label, end]) => (
         <NavLink
           className={({ isActive }) =>
-            `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold ${isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'}`
+            `flex shrink-0 items-center gap-3 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold ${isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'}`
           }
           end={end}
           key={to}
@@ -96,6 +101,60 @@ export function ClassShellLayout() {
       ))}
     </nav>
   );
+  if (embedded)
+    return (
+      <div className="workspace-page min-w-0">
+        <section
+          className="workspace-card space-y-4"
+          data-class-shell-mode={focusMode ? 'focus' : 'standard'}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-indigo-700">
+                {learnerCourseLabel(enrollment.classOffering.course.title)}
+              </p>
+              <h1 className="mt-1 break-words text-xl font-bold text-slate-900">
+                {learnerClassLabel(enrollment.classOffering.name, enrollment.classOffering.code)}
+              </h1>
+            </div>
+            <p className="text-sm font-semibold text-slate-600">
+              Tiến độ: {enrollment.progress.progressPercent}%
+            </p>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+            <div
+              className="h-full rounded-full bg-indigo-600"
+              style={{ width: `${enrollment.progress.progressPercent}%` }}
+            />
+          </div>
+          {focusMode ? (
+            <button
+              type="button"
+              ref={drawerTriggerRef}
+              className="btn-secondary text-sm"
+              onClick={() => setDrawer(true)}
+            >
+              <Menu size={18} />
+              Không gian lớp
+            </button>
+          ) : (
+            navigation
+          )}
+        </section>
+        <div className="min-w-0" data-class-shell-workspace={focusMode ? 'focus' : 'standard'}>
+          <Outlet context={{ enrollment } satisfies ClassShellContext} />
+        </div>
+        <OverlayDrawer
+          onClose={() => setDrawer(false)}
+          open={drawer}
+          side="left"
+          title="Không gian lớp"
+          triggerRef={drawerTriggerRef}
+        >
+          {navigation}
+        </OverlayDrawer>
+      </div>
+    );
   return (
     <div className="min-h-screen bg-slate-100">
       <header className="border-b bg-white">
@@ -111,7 +170,8 @@ export function ClassShellLayout() {
               {enrollment.classOffering.name}
             </h1>
             <p className="text-sm text-slate-500">
-              {enrollment.classOffering.code} · {enrollment.classOffering.course.title}
+              {classCodeLabel(enrollment.classOffering.code)} ·{' '}
+              {enrollment.classOffering.course.title}
             </p>
           </div>
           <div className="hidden min-w-52 sm:block">

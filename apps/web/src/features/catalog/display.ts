@@ -1,6 +1,9 @@
 import type { PublicCourse } from './types';
 
 const COURSE_LEVEL_LABELS: Record<string, string> = {
+  A2: 'A2 · Nền tảng',
+  B1: 'B1 · Trung cấp',
+  B2: 'B2 · Nâng cao',
   FOUNDATION: 'Nền tảng',
   BASIC: 'Cơ bản',
   INTERMEDIATE: 'Trung cấp',

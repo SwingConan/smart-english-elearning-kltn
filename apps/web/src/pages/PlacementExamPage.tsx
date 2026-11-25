@@ -2,16 +2,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bookmark, CheckCircle2, Clock3, ListChecks, Mic, Square, X } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 import { placementApi } from '@/features/placement/api';
+import { AssessmentTextStimulus } from '@/features/placement/AssessmentTextStimulus';
+import { resolvePlacementPdfPassages } from '@/features/placement/placement-pdf-passages';
+import { PlacementPdfPassagePane } from '@/features/placement/PlacementPdfPassagePane';
+import { DoublePromptAnswer } from '@/features/placement/DoublePromptAnswer';
 import { announcePlacementSubmitted } from '@/features/placement/handoff';
 import { placementTimerWarning } from '@/features/placement/timer';
+import { usePlacementHeaderStatus } from '@/layouts/placement-header-status';
 import { ApiError } from '@/lib/api-client';
 import type { PlacementExamGroup, PlacementExamResponse } from '@/features/placement/types';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
-type ProductiveSaveState = 'DIRTY' | 'SAVING' | 'ERROR' | 'RECORDING' | 'LOCAL_DRAFT' | 'UPLOADING';
+type ProductiveSaveState = 'DIRTY' | 'SAVING' | 'ERROR' | 'RECORDING' | 'LOCAL_DRAFT' | 'UPLOADING' | 'PLAYING_PROMPT';
 
 export function PlacementExamPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
+  const { setStatus: setHeaderStatus } = usePlacementHeaderStatus();
   const [exam, setExam] = useState<PlacementExamResponse | null>(null);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [marks, setMarks] = useState<Set<string>>(new Set());
@@ -38,7 +44,12 @@ export function PlacementExamPage() {
         if (controller.signal.aborted) return;
         setError(null);
         setExam(payload);
+        setHeaderStatus(
+          payload.state === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'SUBMITTED_PENDING_REVIEW',
+        );
         if (payload.state === 'IN_PROGRESS') {
+          const requested = window.location.hash.replace('#question-', '');
+          setCurrentQuestion(payload.groups.flatMap(g => g.questions).find(q => q.testQuestionId === requested)?.testQuestionId ?? payload.groups[0]?.questions[0]?.testQuestionId ?? null);
           const restored: Record<string, string[]> = {};
           payload.groups.forEach((group) =>
             group.questions.forEach((question) => {
@@ -67,10 +78,11 @@ export function PlacementExamPage() {
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
         if (error instanceof DOMException && error.name === 'AbortError') return;
+        setHeaderStatus(null);
         setError('Không thể tải bài kiểm tra hoặc bạn không có quyền truy cập.');
       });
     return () => controller.abort();
-  }, [attemptId]);
+  }, [attemptId, setHeaderStatus]);
 
   const submit = useCallback(async (reason: 'MANUAL' | 'TIMEOUT') => {
     if (!attemptId || submitting) return;
@@ -236,10 +248,11 @@ export function PlacementExamPage() {
         <Navigator answers={answers} current={currentQuestion} groups={exam.groups} locked={uploading.size > 0} marks={marks} productiveAnswered={productiveAnswered} />
       </details>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,4fr)_minmax(0,1fr)]">
         <div className="space-y-8">
           {exam.groups.map((group) => (
             <GroupCard
+              activeQuestionId={currentQuestion}
               answers={answers}
               group={group}
               key={group.id}
@@ -280,7 +293,8 @@ export function PlacementExamPage() {
   );
 }
 
-function GroupCard({ group, answers, marks, saveStates, onSave, onMark, onFocus, attemptId, onProductiveSaved, onProductiveSaveState, onUploading }: {
+function GroupCard({ group, activeQuestionId, answers, marks, saveStates, onSave, onMark, onFocus, attemptId, onProductiveSaved, onProductiveSaveState, onUploading }: {
+  activeQuestionId: string | null;
   group: PlacementExamGroup;
   answers: Record<string, string[]>;
   marks: Set<string>;
@@ -317,15 +331,41 @@ function GroupCard({ group, answers, marks, saveStates, onSave, onMark, onFocus,
     <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-7">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><span className="text-xs font-bold uppercase tracking-wider text-indigo-600">{skillLabel(group.skill)}</span><h2 className="mt-1 text-xl font-bold">{group.title}</h2><p className="mt-1 text-sm text-slate-600">{group.instructions}</p></div>{group.skill === 'LISTENING' && (group.stimuli?.length ?? 0) === 0 ? <button className="btn-secondary" onClick={playLegacyAudio} type="button">Phát audio</button> : null}</div>
       {audioError ? <p className="mt-3 text-sm text-red-700" role="alert">{audioError}</p> : null}
-      <Stimuli group={group} onError={setAudioError} />
-      {group.skill === 'READING' && group.stimulusText ? <div className="mt-6 whitespace-pre-line rounded-xl bg-slate-50 p-5 leading-7 text-slate-800">{group.stimulusText}</div> : null}
+      {(() => {
+        const pdfPassage = resolvePlacementPdfPassages(group);
+        if (pdfPassage) {
+          const fallback =
+            group.stimulusText ??
+            (group.stimuli ?? []).find((s) => s.type === 'TEXT')?.textContent ??
+            null;
+          return (
+            <div className="mt-6">
+              <PlacementPdfPassagePane passage={pdfPassage} fallbackText={fallback} />
+            </div>
+          );
+        }
+        return (
+          <>
+            <Stimuli
+              group={group}
+              onError={setAudioError}
+              suppressQuestionAudio={group.playbackPolicy?.kind === 'DOUBLE_PROMPT_THEN_RECORD'}
+            />
+            {group.skill === 'READING' && group.stimulusText ? (
+              <div className="mt-6 whitespace-pre-line rounded-xl bg-slate-50 p-5 leading-7 text-slate-800">
+                {group.stimulusText}
+              </div>
+            ) : null}
+          </>
+        );
+      })()}
       <div className="mt-6 space-y-6">
         {group.questions.map((question) => {
           const selected = answers[question.testQuestionId] ?? [];
           const multiple = question.responseType === 'MULTIPLE_CHOICE';
           const saveState = saveStates[question.testQuestionId] ?? 'idle';
           return (
-            <article className="scroll-mt-32 rounded-xl border p-5" id={`question-${question.testQuestionId}`} key={question.testQuestionId} onFocus={() => onFocus(question.testQuestionId)}>
+            <article tabIndex={-1} className="scroll-mt-32 rounded-xl border p-5" id={`question-${question.testQuestionId}`} key={question.testQuestionId} onFocus={() => onFocus(question.testQuestionId)}>
               <div className="flex items-start justify-between gap-4"><h3 className="font-semibold">Câu {question.orderIndex + 1}. {question.content}</h3><button aria-label="Đánh dấu xem lại" aria-pressed={marks.has(question.testQuestionId)} className={marks.has(question.testQuestionId) ? 'text-amber-600' : 'text-slate-400'} onClick={() => onMark(question.testQuestionId)} type="button"><Bookmark fill={marks.has(question.testQuestionId) ? 'currentColor' : 'none'} /></button></div>
               {question.responseType === 'TEXT_RESPONSE' ? (
                 <WritingAnswer
@@ -334,6 +374,14 @@ function GroupCard({ group, answers, marks, saveStates, onSave, onMark, onFocus,
                   onSaved={onProductiveSaved}
                   onSaveState={onProductiveSaveState}
                   testQuestionId={question.testQuestionId}
+                />
+              ) : question.responseType === 'AUDIO_RESPONSE' && group.playbackPolicy?.kind === 'DOUBLE_PROMPT_THEN_RECORD' ? (
+                <DoublePromptAnswer
+                  key={`${attemptId}:${question.testQuestionId}:${(group.stimuli ?? []).find(s => s.type === 'AUDIO')?.mediaUrl ?? ''}`}
+                  attemptId={attemptId} questionId={question.testQuestionId}
+                  source={(group.stimuli ?? []).find(s => s.type === 'AUDIO')?.mediaUrl ?? ''}
+                  active={activeQuestionId === question.testQuestionId} initialAudioUrl={question.audioUrl ?? null}
+                  onSaved={onProductiveSaved} onSaveState={onProductiveSaveState} onUploading={onUploading}
                 />
               ) : question.responseType === 'AUDIO_RESPONSE' ? (
                 <SpeakingAnswer
@@ -365,10 +413,11 @@ function skillLabel(skill: PlacementExamGroup['skill']) {
   return ({ LISTENING: 'Listening', READING: 'Reading', SPEAKING: 'Speaking', WRITING: 'Writing' })[skill];
 }
 
-function Stimuli({ group, onError }: { group: PlacementExamGroup; onError: (message: string | null) => void }) {
+function Stimuli({ group, onError, suppressQuestionAudio = false }: { group: PlacementExamGroup; onError: (message: string | null) => void; suppressQuestionAudio?: boolean }) {
   return <div className="mt-6 space-y-4">{(group.stimuli ?? []).map((stimulus) => {
-    if (stimulus.type === 'TEXT') return <div className="whitespace-pre-line rounded-xl bg-slate-50 p-5 leading-7" key={stimulus.id}>{stimulus.textContent}</div>;
+    if (stimulus.type === 'TEXT') return <AssessmentTextStimulus content={stimulus.textContent} key={stimulus.id} />;
     if (stimulus.type === 'IMAGE') return <img alt={stimulus.altText ?? 'Hình minh họa cho bài kiểm tra'} className="mx-auto max-h-[42rem] max-w-full rounded-xl object-contain" key={stimulus.id} onError={() => onError('Không thể tải hình ảnh. Vui lòng thử lại.')} src={stimulus.mediaUrl ?? ''} />;
+    if (suppressQuestionAudio) return null;
     return <audio className="w-full" controls key={stimulus.id} onError={() => onError('Không thể tải audio chuẩn của bài kiểm tra. Vui lòng thử lại; hệ thống không thay thế bằng giọng đọc tổng hợp.')} preload="metadata" src={stimulus.mediaUrl ?? ''} />;
   })}</div>;
 }

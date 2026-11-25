@@ -22,16 +22,16 @@ export function AuthShell({
           {children}
         </div>
       </div>
-      <div className="relative hidden min-h-[640px] overflow-hidden rounded-r-3xl bg-indigo-950 lg:block">
+      <div className="relative hidden min-h-[640px] overflow-hidden rounded-r-3xl bg-[#183020] lg:block">
         <img
           alt="Người học chuẩn bị cho một buổi học tiếng Anh trực tuyến"
           className="absolute inset-0 size-full object-cover"
           decoding="async"
           src={authStudyImage}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-indigo-950/85 via-indigo-950/10 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#13261a]/90 via-[#13261a]/20 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 p-10 text-white">
-          <p className="text-sm font-bold uppercase tracking-[.18em] text-sky-200">
+          <p className="text-sm font-bold uppercase tracking-[.18em] text-[#cfe7c2]">
             Học tập liền mạch
           </p>
           <p className="mt-3 max-w-md text-2xl font-bold leading-snug">

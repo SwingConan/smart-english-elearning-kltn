@@ -7,8 +7,18 @@ import {
   useRef,
   useState,
 } from 'react';
-import { AlertCircle, CheckCircle2, LoaderCircle, X } from 'lucide-react';
-import { ToastContext, type Notify, type ToastTone } from './feedback-context';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  Copy,
+  LoaderCircle,
+  X,
+} from 'lucide-react';
+import { ToastContext, useToast, type Notify, type ToastTone } from './feedback-context';
+
+export type { Notify, ToastTone };
 
 type Toast = { id: number; message: string; tone: ToastTone };
 
@@ -84,21 +94,30 @@ export function ConfirmDialog({
   open,
   title,
   description,
-  confirmLabel,
-  busyLabel,
+  confirmLabel = 'Xác nhận',
+  cancelLabel = 'Ở lại',
+  busyLabel = 'Đang xử lý…',
   isBusy,
+  busy,
+  tone = 'primary',
+  children,
   onCancel,
   onConfirm,
 }: {
   open: boolean;
   title: string;
   description: string;
-  confirmLabel: string;
-  busyLabel: string;
-  isBusy: boolean;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  busyLabel?: string;
+  isBusy?: boolean;
+  busy?: boolean;
+  tone?: 'primary' | 'danger' | 'warning';
+  children?: ReactNode;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const activeBusy = Boolean(isBusy ?? busy);
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -109,7 +128,7 @@ export function ConfirmDialog({
     const previouslyFocused = document.activeElement as HTMLElement | null;
     cancelRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !isBusy) onCancel();
+      if (event.key === 'Escape' && !activeBusy) onCancel();
       if (event.key !== 'Tab' || !dialogRef.current) return;
       const focusable = Array.from(
         dialogRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]'),
@@ -130,14 +149,22 @@ export function ConfirmDialog({
       document.removeEventListener('keydown', handleKeyDown);
       previouslyFocused?.focus();
     };
-  }, [isBusy, onCancel, open]);
+  }, [activeBusy, onCancel, open]);
 
   if (!open) return null;
+
+  const confirmBtnClass =
+    tone === 'danger'
+      ? 'inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50'
+      : tone === 'warning'
+        ? 'inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50'
+        : 'btn-primary';
+
   return (
     <div
       className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !isBusy) onCancel();
+        if (event.target === event.currentTarget && !activeBusy) onCancel();
       }}
     >
       <div
@@ -148,8 +175,20 @@ export function ConfirmDialog({
         ref={dialogRef}
         role="dialog"
       >
-        <div className="grid size-11 place-items-center rounded-2xl bg-indigo-50 text-indigo-700">
-          <AlertCircle aria-hidden="true" size={22} />
+        <div
+          className={`grid size-11 place-items-center rounded-2xl ${
+            tone === 'danger'
+              ? 'bg-rose-50 text-rose-600'
+              : tone === 'warning'
+                ? 'bg-amber-50 text-amber-600'
+                : 'bg-indigo-50 text-indigo-700'
+          }`}
+        >
+          {tone === 'primary' ? (
+            <AlertCircle aria-hidden="true" size={22} />
+          ) : (
+            <AlertTriangle aria-hidden="true" size={22} />
+          )}
         </div>
         <h2 className="mt-5 text-xl font-bold text-slate-950" id={titleId}>
           {title}
@@ -157,19 +196,24 @@ export function ConfirmDialog({
         <p className="mt-2 leading-7 text-slate-600" id={descriptionId}>
           {description}
         </p>
+        {children && (
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5 text-xs leading-relaxed text-slate-700">
+            {children}
+          </div>
+        )}
         <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button
             className="btn-secondary"
-            disabled={isBusy}
+            disabled={activeBusy}
             onClick={onCancel}
             ref={cancelRef}
             type="button"
           >
-            Hủy
+            {cancelLabel}
           </button>
           <LoadingButton
-            className="btn-primary"
-            isLoading={isBusy}
+            className={confirmBtnClass}
+            isLoading={activeBusy}
             loadingLabel={busyLabel}
             onClick={onConfirm}
             type="button"
@@ -179,6 +223,62 @@ export function ConfirmDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+export function CopyTextButton({
+  text,
+  label = 'Sao chép',
+  copiedLabel = 'Đã sao chép',
+  className = '',
+}: {
+  text: string;
+  label?: string;
+  copiedLabel?: string;
+  className?: string;
+}) {
+  const notify = useToast();
+  const [status, setStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+
+  async function handleCopy() {
+    try {
+      if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+        throw new Error('Clipboard API unavailable');
+      }
+      await navigator.clipboard.writeText(text);
+      setStatus('copied');
+      notify(`${copiedLabel}: ${text}`, 'success');
+      window.setTimeout(() => setStatus('idle'), 2500);
+    } catch {
+      setStatus('error');
+      notify('Không thể sao chép tự động — vui lòng bôi đen để sao chép thủ công.', 'error');
+      window.setTimeout(() => setStatus('idle'), 3200);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleCopy()}
+      className={
+        className ||
+        'inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-indigo-300 hover:bg-indigo-50/60 hover:text-indigo-700'
+      }
+    >
+      {status === 'copied' ? (
+        <>
+          <Check size={13} className="text-emerald-600" aria-hidden="true" />
+          <span className="text-emerald-700">{copiedLabel}</span>
+        </>
+      ) : status === 'error' ? (
+        <span className="text-rose-700">Chưa sao chép được</span>
+      ) : (
+        <>
+          <Copy size={13} className="text-indigo-600" aria-hidden="true" />
+          <span>{label}</span>
+        </>
+      )}
+    </button>
   );
 }
 

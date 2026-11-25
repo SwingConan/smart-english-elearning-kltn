@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { instructorApi } from '@/features/instructor/api';
 import type { InstructorGradingInbox } from '@/features/instructor/types';
+import { lmsLocalApi, type UnifiedClassResults } from '@/features/class-lms/lms-local-api';
+import { UnifiedGradebookPanel } from '@/features/class-lms/UnifiedGradebookPanel';
 
 const labels: Record<string, string> = { WAITING: 'Chờ chấm', PARTIAL: 'Đang chấm dở', FINAL: 'Đã chấm' };
 const stateTone: Record<string, string> = { WAITING: 'bg-amber-100 text-amber-800', PARTIAL: 'bg-indigo-100 text-indigo-800', FINAL: 'bg-emerald-100 text-emerald-800' };
@@ -10,6 +12,7 @@ const stages: Record<string, string> = { PERIODIC: 'Thường kỳ', MIDTERM: 'G
 export function InstructorClassGradingPage() {
   const { classOfferingId = '' } = useParams();
   const [data, setData] = useState<InstructorGradingInbox | null>(null);
+  const [unified, setUnified] = useState<UnifiedClassResults | null>(null);
   const [filter, setFilter] = useState('ALL');
   const [assessmentFilter, setAssessmentFilter] = useState('ALL');
   const [stageFilter, setStageFilter] = useState('ALL');
@@ -20,6 +23,10 @@ export function InstructorClassGradingPage() {
     void instructorApi.classes.grading(classOfferingId, controller.signal)
       .then((loaded) => { setData(loaded); setError(false); })
       .catch((cause: unknown) => { if (!(cause instanceof Error && cause.name === 'AbortError')) setError(true); });
+    void lmsLocalApi
+      .getUnifiedClassResults(classOfferingId)
+      .then((u) => setUnified(u))
+      .catch(() => undefined);
     return () => controller.abort();
   }, [classOfferingId]);
   const rows = useMemo(() => data?.submissions.filter((submission) =>
@@ -47,8 +54,9 @@ export function InstructorClassGradingPage() {
     final: data.submissions.filter((item) => item.gradingState === 'FINAL').length,
   };
   return <div className="space-y-5">
+    {unified && <UnifiedGradebookPanel classId={classOfferingId} unified={unified} />}
     <section className="rounded-2xl border bg-white p-5">
-      <h2 className="text-2xl font-bold">Chấm bài</h2>
+      <h2 className="text-2xl font-bold">Chấm bài đánh giá chính thức (Speaking / Writing)</h2>
       <p className="mt-1 text-sm text-slate-500">Ưu tiên bài nộp sớm nhất. Bộ lọc không thay đổi thứ tự hàng chờ.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <Summary label="Chờ chấm" value={summary.waiting} tone="text-amber-700" />

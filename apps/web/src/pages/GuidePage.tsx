@@ -17,87 +17,87 @@ const steps = [
   [
     UserPlus,
     'Tạo tài khoản và đăng nhập',
-    'Tạo tài khoản để lưu hành trình, sau đó đăng nhập trước khi thực hiện các bước dành cho học viên.',
+    'Đăng ký tài khoản học viên để lưu lại lịch sử làm bài, kết quả kiểm tra và tiến độ học tập trên toàn hệ thống.',
   ],
   [
     Search,
     'Khám phá chương trình và xác định mục tiêu',
-    'Xem phạm vi kỹ năng, trình độ và nội dung để xác định mục tiêu học phù hợp.',
+    'Tìm hiểu các khóa học theo mục tiêu điểm số TOEIC (450, 650, 800+) hoặc theo kỹ năng bạn muốn tập trung phát triển.',
   ],
   [
     ClipboardCheck,
-    'Làm Placement trước Enrollment',
-    'Thực hiện bài đánh giá đầu vào nội bộ trước khi chọn lớp và gửi đăng ký; đây không phải bài thi TOEIC chính thức.',
+    'Kiểm tra đầu vào trước khi đăng ký lớp',
+    'Thực hiện bài kiểm tra trình độ miễn phí để xác định chính xác năng lực hiện tại trước khi chọn khóa học.',
   ],
   [
     BarChart3,
-    'Đọc Evaluation theo kỹ năng',
-    'Đọc kết quả theo từng kỹ năng. Dữ liệu thiếu hoặc đang chờ không được hiểu là 0; Speaking/Writing tại lớp có thể chờ giảng viên review.',
+    'Đọc kết quả theo kỹ năng',
+    'Xem điểm số chi tiết từng phần. Điểm Nghe & Đọc có kết quả ngay; bài Nói & Viết sẽ được giảng viên chấm và gửi nhận xét.',
   ],
   [
     Route,
     'Xem gợi ý khóa học và lớp',
-    'Xem Course/Class Recommendation được xác định từ dữ liệu đánh giá hiện có trước khi quyết định.',
+    'Hệ thống tự động đề xuất khóa học và lớp học phù hợp nhất dựa trên kết quả kiểm tra đầu vào và mục tiêu của bạn.',
   ],
   [
     BookOpen,
     'Chọn lớp phù hợp',
-    'So sánh lịch học, hình thức, giảng viên, học phí và số chỗ còn lại.',
+    'So sánh thời khóa biểu, hình thức học, giảng viên phụ trách và chọn lớp học thuận tiện nhất với thời gian biểu của bạn.',
   ],
   [
     CircleDollarSign,
-    'Enrollment và trạng thái đăng ký',
-    'Gửi đăng ký sau khi chọn lớp. Lớp có học phí có thể ở trạng thái chờ thanh toán trước khi mở quyền học.',
+    'Đăng ký lớp và theo dõi trạng thái',
+    'Xác nhận đăng ký lớp học và hoàn tất nghĩa vụ học phí qua chuyển khoản ngân hàng bằng mã VietQR SePay tiện lợi.',
   ],
   [
     LayoutDashboard,
-    'Học trong Student LMS',
-    'Vào không gian lớp, mở bài học theo cấu trúc và sử dụng tài liệu khi quyền truy cập đã được mở.',
+    'Vào lớp và học bài',
+    'Truy cập không gian lớp học trực tuyến, xem lịch học, bài giảng tương tác và tải tài liệu học tập trước mỗi buổi học.',
   ],
   [
     FileCheck2,
-    'Thực hiện In-class Assessment',
-    'Hoàn thành bài đánh giá trong lớp; một số phần Speaking/Writing có thể cần chờ giảng viên review.',
+    'Làm bài kiểm tra trong lớp',
+    'Hoàn thành các bài tập củng cố, bài mini-test và bài thi thử trong suốt khóa học để đánh giá mức độ tiến bộ.',
   ],
   [
     CheckCircle2,
     'Đọc kết quả, tiến độ và bước tiếp theo',
-    'Đọc dữ liệu theo đúng trạng thái để xác định hành động học tiếp theo; kết quả không thay thế tư vấn chuyên môn.',
+    'Xem biểu đồ tiến độ học tập, nhận xét chi tiết từ giảng viên và tự tin đạt điểm số TOEIC mục tiêu.',
   ],
 ] as const;
 
 const glossary = [
-  ['Khóa học', 'Chương trình mô tả mục tiêu, phạm vi kỹ năng và nội dung học.'],
-  ['Lớp học', 'Một đợt triển khai cụ thể của khóa học, có lịch, hình thức, giảng viên và học phí.'],
-  ['Đăng ký', 'Bản ghi thể hiện quan hệ của người học với một lớp và trạng thái truy cập.'],
-  ['Bài kiểm tra', 'Hoạt động đánh giá trong lớp; một số phần có thể cần chờ giảng viên chấm.'],
-  ['Tiến độ', 'Thông tin tổng hợp từ hoạt động học và đánh giá, phụ thuộc vào dữ liệu hiện có.'],
+  ['Khóa học', 'Chương trình đào tạo tổng thể với mục tiêu điểm số cụ thể (ví dụ: TOEIC 450+, TOEIC 650+, 4 Kỹ năng).'],
+  ['Lớp học', 'Lớp học cụ thể thuộc một khóa học, có lịch học cố định, giảng viên phụ trách và danh sách học viên.'],
+  ['Đăng ký ghi danh', 'Thao tác chọn lớp và hoàn tất thủ tục đăng ký học.'],
+  ['Bài kiểm tra định kỳ', 'Bài test đánh giá kiến thức đã học trong khóa, gồm các câu hỏi trắc nghiệm hoặc bài tập tự luận.'],
+  ['Báo cáo tiến độ', 'Bảng tổng hợp điểm số các bài kiểm tra, mức độ hoàn thành bài học và nhận xét từ giảng viên.'],
   [
-    'Kiểm tra đầu vào',
-    'Bài đánh giá tham khảo trước khi học, không phải chứng chỉ hay kết quả thi chính thức.',
+    'Kiểm tra đầu vào (Placement Test)',
+    'Bài đánh giá năng lực ban đầu giúp học viên và trung tâm chọn đúng lớp học phù hợp với trình độ.',
   ],
 ] as const;
 
 const faqs = [
   [
     'Tôi nên chọn khóa học hay lớp học trước?',
-    'Hãy khám phá chương trình để xác định mục tiêu, hoàn thành Placement và đọc Evaluation/gợi ý phù hợp trước khi chọn lớp.',
+    'Bạn nên tìm hiểu khóa học để xác định mục tiêu và lộ trình trước. Sau đó, làm bài kiểm tra đầu vào để chọn đúng lớp học có lịch học và trình độ phù hợp nhất với bạn.',
   ],
   [
-    'Vì sao đã đăng ký nhưng chưa vào được nội dung?',
-    'Quyền truy cập phụ thuộc vào trạng thái đăng ký. Với lớp có học phí, bạn có thể đang ở trạng thái chờ thanh toán hoặc chờ xác nhận.',
+    'Sau khi thanh toán học phí, khi nào tôi vào học được?',
+    'Sau khi hoàn tất đủ 100% học phí của lớp và giao dịch được hệ thống đối soát thành công, quyền vào học và tài liệu sẽ được mở. Trường hợp thanh toán một phần hoặc đang chờ đối soát, hồ sơ sẽ được ghi nhận và giữ chỗ theo quy định của trung tâm.',
   ],
   [
-    'Kết quả đang chờ có được tính vào tiến độ không?',
-    'Giao diện chỉ tổng hợp dữ liệu đã sẵn sàng. Phần đang chờ hoặc còn thiếu được hiển thị theo trạng thái riêng, không bị suy diễn thành kết quả.',
+    'Bài làm Speaking và Writing bao lâu thì có kết quả?',
+    'Giảng viên chuyên môn sẽ chấm bài theo rubric chuẩn và gửi kèm nhận xét chi tiết cho bạn trong vòng 24–48 giờ.',
   ],
   [
-    'Kiểm tra đầu vào có phải bài thi TOEIC chính thức không?',
-    'Không. Đây là hoạt động đánh giá nội bộ nhằm cung cấp thêm thông tin tham khảo cho việc khám phá chương trình.',
+    'Kết quả kiểm tra đầu vào có thời hạn bao lâu?',
+    'Kết quả kiểm tra đầu vào phản ánh trình độ tại thời điểm làm bài. Bạn nên đăng ký lớp học trong vòng 30 ngày để đảm bảo lộ trình phù hợp nhất.',
   ],
   [
-    'Tôi có thể học trên điện thoại không?',
-    'Các trang chính được thiết kế responsive. Với bài nghe hoặc bài kiểm tra dài, thiết bị có màn hình lớn và kết nối ổn định thường thuận tiện hơn.',
+    'Tôi có thể học trên điện thoại hoặc máy tính bảng không?',
+    'Có. Hệ thống hỗ trợ tốt trên mọi thiết bị. Tuy nhiên, đối với các bài thi thử trọn vẹn 2 tiếng, bạn nên sử dụng máy tính để có trải nghiệm giống phòng thi thật nhất.',
   ],
 ] as const;
 
@@ -106,13 +106,13 @@ export function GuidePage() {
     <main>
       <section className="border-b bg-gradient-to-b from-indigo-50 to-white">
         <div className="mx-auto max-w-5xl px-4 py-16 text-center sm:px-6 lg:py-20">
-          <p className="eyebrow">Bắt đầu thuận lợi</p>
+          <p className="eyebrow">Quy trình học tập</p>
           <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
             Hướng dẫn học trên hệ thống
           </h1>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-slate-600">
-            Mười bước từ tạo tài khoản đến đọc tiến độ, kèm giải thích thuật ngữ và câu trả lời cho
-            những tình huống thường gặp.
+            Mười bước từ tạo tài khoản đến theo dõi tiến độ, kèm giải thích thuật ngữ và câu trả lời cho
+            những thắc mắc thường gặp.
           </p>
           <nav aria-label="Điều hướng nhanh" className="mt-8 flex flex-wrap justify-center gap-2">
             <a className="filter-chip" href="#steps">
@@ -158,9 +158,9 @@ export function GuidePage() {
             <p className="eyebrow">Trước khi chọn lớp</p>
             <h2 className="mt-3 text-3xl font-bold">Kiểm tra đầu vào</h2>
             <p className="mt-4 max-w-3xl leading-7 text-slate-600">
-              Sau khi khám phá chương trình, hãy thực hiện bài Listening & Reading để có dữ liệu
-              Evaluation theo kỹ năng và xem gợi ý khóa học/lớp trước Enrollment. Kết quả nội bộ
-              không phải chứng chỉ hoặc điểm thi TOEIC chính thức.
+              Sau khi đăng nhập, chọn bài Nghe và Đọc hoặc bài bốn kỹ năng, đặt điểm mục tiêu
+              rồi xem hướng dẫn trước khi làm bài. Kết quả và lớp gợi ý phụ thuộc vào dữ liệu
+              đã được xác nhận; kết quả nội bộ không phải điểm thi TOEIC chính thức.
             </p>
           </div>
           <Link className="btn-primary" to="/placement">

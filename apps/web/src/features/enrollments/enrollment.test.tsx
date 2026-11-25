@@ -64,13 +64,46 @@ describe('enrollment contract', () => {
     expect(screen.queryByText(/bắt đầu học|đã kích hoạt/i)).not.toBeInTheDocument();
   });
 
+  it('opens checkout modal with 15-minute countdown, confirmation info, and VietQR on paid enroll', async () => {
+    const paidWithOrder: EnrollmentView = {
+      ...pendingEnrollment,
+      activeOrder: {
+        id: 'order-1',
+        paymentCode: 'SETU500KTEST01',
+        expectedAmountVnd: 500_000,
+        currency: 'VND',
+        bankCode: 'MB',
+        accountNumber: '9120320049999',
+        accountName: 'LE HUU LOI',
+        qrUrl: 'https://img.vietqr.io/image/MB-9120320049999-compact2.png?amount=500000&addInfo=SETU500KTEST01',
+        status: 'ACTIVE_HOLD',
+        expiresAt: new Date(Date.now() + 900_000).toISOString(),
+        remainingSeconds: 900,
+        isTestHarness: false,
+      },
+    };
+    vi.spyOn(authApi, 'me').mockResolvedValueOnce(user('STUDENT'));
+    vi.spyOn(enrollmentApi, 'listMine').mockResolvedValueOnce([]);
+    vi.spyOn(enrollmentApi, 'create').mockResolvedValueOnce(paidWithOrder);
+    renderAction();
+    fireEvent.click(await enabledButton());
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(/Xác nhận đăng ký & Thanh toán học phí/i);
+    expect(dialog).toHaveTextContent('SETU500KTEST01');
+    expect(screen.getByTestId('checkout-countdown')).toHaveTextContent('15:00');
+    expect(screen.getByAltText(/Mã VietQR thanh toán SETU500KTEST01/i)).toHaveAttribute(
+      'src',
+      paidWithOrder.activeOrder!.qrUrl,
+    );
+  });
+
   it('shows existing enrollment instead of a second create action', async () => {
     vi.spyOn(authApi, 'me').mockResolvedValueOnce(user('STUDENT'));
     vi.spyOn(enrollmentApi, 'listMine').mockResolvedValueOnce([activeEnrollment]);
     renderAction('ACTIVE-offering');
     expect(await screen.findByRole('link', { name: /Vào lớp học/i })).toHaveAttribute(
       'href',
-      '/student/enrollments/ACTIVE-enrollment',
+      '/classroom/ACTIVE-offering',
     );
     expect(screen.queryByRole('button', { name: /Đăng ký/i })).not.toBeInTheDocument();
   });

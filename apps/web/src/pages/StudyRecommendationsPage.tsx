@@ -3,6 +3,7 @@ import { BookOpen, CalendarDays, CheckCircle2, Clock3, History, Target } from 'l
 import { Link, useNavigate, useParams } from 'react-router';
 import { studentAssessmentApi } from '@/features/assessments/api';
 import { studentAssessmentErrorMessage } from '@/features/assessments/errors';
+import { demoText } from '@/features/demo/presentation';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { studyRecommendationApi } from '@/features/recommendations/api';
 import {
@@ -19,7 +20,7 @@ import type {
 
 type LoadState =
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; policyMissing?: boolean }
   | { status: 'ready'; data: StudyRecommendationResponse };
 
 export function StudyRecommendationsPage() {
@@ -39,7 +40,11 @@ export function StudyRecommendationsPage() {
       .catch(async (error: unknown) => {
         if (error instanceof Error && error.name === 'AbortError') return;
         if (await redirectExpiredSession(error)) return;
-        setLoadState({ status: 'error' });
+        const status =
+          typeof error === 'object' && error !== null && 'status' in error
+            ? (error as { status?: number }).status
+            : undefined;
+        setLoadState({ status: 'error', policyMissing: status === 409 });
       });
     return () => controller.abort();
   }, [enrollmentId, redirectExpiredSession, reloadKey]);
@@ -67,8 +72,16 @@ export function StudyRecommendationsPage() {
   if (loadState.status === 'error') {
     return (
       <section className="state-error" role="alert">
-        <h1 className="text-xl font-bold">Không thể tải gợi ý tự học</h1>
-        <p className="mt-2">Vui lòng kiểm tra kết nối và thử lại.</p>
+        <h1 className="text-xl font-bold">
+          {loadState.policyMissing
+            ? 'Chưa có cấu hình gợi ý tự học'
+            : 'Không thể tải gợi ý tự học'}
+        </h1>
+        <p className="mt-2">
+          {loadState.policyMissing
+            ? 'Trung tâm đang cập nhật chính sách phân tích gợi ý tự học cho khóa học này.'
+            : 'Vui lòng kiểm tra kết nối và thử lại.'}
+        </p>
         <button
           className="btn-secondary mt-4"
           onClick={() => {
@@ -99,7 +112,7 @@ export function StudyRecommendationsPage() {
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl bg-white/10 p-4 text-sm">
             <div className="min-w-0 flex-1">
-              <p className="font-semibold">Nguồn: {data.source.testTitle}</p>
+              <p className="font-semibold">Nguồn: {demoText(data.source.testTitle)}</p>
               <p className="mt-1 text-indigo-100">
                 {data.source.stage ? stageLabel[data.source.stage] : 'Bài kiểm tra trong lớp'} ·{' '}
                 {formatDate(data.source.submittedAt)}
@@ -124,20 +137,22 @@ export function StudyRecommendationsPage() {
       )}
 
       {data.pendingNewerAttempt && !pendingWithoutPriorFinal ? (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
-          <p className="font-semibold">Kết quả mới nhất đang chờ hoàn tất chấm</p>
-          <p className="mt-1 text-sm leading-6">
-            {data.pendingNewerAttempt.title} còn chờ:{' '}
-            {data.pendingNewerAttempt.pendingSkills.map((skill) => skillLabel[skill]).join(', ') ||
-              'một số kỹ năng'}
-            .{' '}
-            {data.source
-              ? `Gợi ý hiện tại vẫn dựa trên kết quả cuối cùng gần nhất: ${data.source.testTitle}.`
-              : 'Kết quả này chưa được dùng để tạo gợi ý.'}{' '}
-            Điểm đang chờ không được tính là 0.
-          </p>
+        <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-amber-200/80 border-l-4 border-l-amber-500 bg-amber-50/40 p-4 text-amber-950 shadow-2xs">
+          <div className="min-w-0">
+            <p className="font-bold text-sm text-amber-950">Kết quả mới nhất đang chờ hoàn tất chấm</p>
+            <p className="mt-0.5 text-xs text-amber-900 leading-relaxed">
+              <span className="font-semibold">{data.pendingNewerAttempt.title}</span> còn chờ:{' '}
+              {data.pendingNewerAttempt.pendingSkills.map((skill) => skillLabel[skill]).join(', ') ||
+                'một số kỹ năng'}
+              .{' '}
+              {data.source
+                ? `Gợi ý hiện tại vẫn dựa trên kết quả cuối cùng gần nhất: ${demoText(data.source.testTitle)}.`
+                : 'Kết quả này chưa được dùng để tạo gợi ý.'}{' '}
+              Điểm đang chờ không được tính là 0.
+            </p>
+          </div>
           <Link
-            className="mt-3 inline-block text-sm font-semibold underline"
+            className="btn-secondary shrink-0 text-xs py-1.5 px-3 whitespace-nowrap self-start sm:self-center"
             to={data.pendingNewerAttempt.resultPath}
           >
             Xem trạng thái chấm
@@ -171,13 +186,17 @@ function PendingReviewState({
   const pendingSkills =
     attempt.pendingSkills.map((skill) => skillLabel[skill]).join(', ') || 'một số kỹ năng';
   return (
-    <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950 shadow-sm sm:p-8">
-      <Target size={32} />
-      <h2 className="mt-4 text-xl font-bold">Kết quả mới nhất đang chờ hoàn tất chấm.</h2>
-      <p className="mt-3 font-semibold">{attempt.title}</p>
-      <p className="mt-1 text-sm leading-6">Kỹ năng đang chờ: {pendingSkills}.</p>
-      <p className="mt-2 text-sm leading-6">Điểm đang chờ không được tính là 0.</p>
-      <Link className="btn-primary mt-5" to={attempt.resultPath}>
+    <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-amber-200/80 border-l-4 border-l-amber-500 bg-amber-50/50 p-5 text-amber-950 shadow-2xs">
+      <div className="flex items-start gap-3.5">
+        <Target className="shrink-0 text-amber-600 mt-1" size={28} />
+        <div>
+          <h2 className="font-bold text-lg text-amber-950">Kết quả mới nhất đang chờ hoàn tất chấm.</h2>
+          <p className="mt-1 font-semibold">{attempt.title}</p>
+          <p className="mt-1 text-sm leading-6">Kỹ năng đang chờ: {pendingSkills}.</p>
+          <p className="mt-1 text-sm leading-6">Điểm đang chờ không được tính là 0.</p>
+        </div>
+      </div>
+      <Link className="btn-primary shrink-0 self-start sm:self-center text-sm py-2.5 px-4" to={attempt.resultPath}>
         Xem trạng thái chấm
       </Link>
     </section>
@@ -428,7 +447,7 @@ function StrengthSnapshot({
                 : `${skillLabel[item.skill]} hiện là kỹ năng có kết quả cao hơn trong kết quả nguồn.`
               : strongThreshold !== undefined
                 ? `Kết quả này đạt ngưỡng kỹ năng mạnh ${formatPercent(strongThreshold)} tại thời điểm tạo gợi ý.`
-                : 'Kỹ năng này được ghi nhận là điểm mạnh trong snapshot kết quả.'}
+                : 'Kỹ năng này được ghi nhận là điểm mạnh trong bản kết quả đã ghi nhận.'}
           </p>
         </li>
       ))}
@@ -555,7 +574,7 @@ function RecommendationHistory({ history }: { history: StudyRecommendationRespon
             <summary className="cursor-pointer list-none">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="font-semibold">{entry.sourceTitle}</p>
+                  <p className="font-semibold">{demoText(entry.sourceTitle)}</p>
                   <p className="mt-1 text-sm text-slate-500">
                     {formatDate(entry.sourceSubmittedAt)} · {entry.itemCount} gợi ý
                     {entry.mainFocus ? ` · Trọng tâm ${skillLabel[entry.mainFocus]}` : ''}

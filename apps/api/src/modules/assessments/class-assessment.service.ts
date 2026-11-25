@@ -1,3 +1,4 @@
+import { retainedInstructorClassScope } from '../authorization/instructor-scope';
 import {
   BadRequestException,
   ConflictException,
@@ -750,7 +751,7 @@ export class ClassAssessmentService {
     classOfferingId: string,
   ) {
     const offering = await database.classOffering.findFirst({
-      where: { id: classOfferingId, instructorId },
+      where: { id: classOfferingId, ...retainedInstructorClassScope(instructorId) },
       select: {
         id: true,
         code: true,
@@ -773,7 +774,7 @@ export class ClassAssessmentService {
       where: {
         id: classAssessmentId,
         classOfferingId,
-        classOffering: { instructorId },
+        classOffering: retainedInstructorClassScope(instructorId),
       },
       select: {
         id: true,

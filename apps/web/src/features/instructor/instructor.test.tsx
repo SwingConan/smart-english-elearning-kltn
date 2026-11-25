@@ -64,11 +64,7 @@ describe('InstructorTeachingPage', () => {
     expect((await screen.findAllByText(/T2 · 08:00–09:00/)).length).toBe(2);
     expect(screen.getAllByText(/CN · 10:00–11:00/)).toHaveLength(2);
     expect(screen.getByText('2 học viên đang học')).toBeInTheDocument();
-    for (const link of screen.getAllByRole('link', { name: 'Vào lớp trực tuyến' })) {
-      expect(link).toHaveAttribute('href', 'https://meet.example.com/protected');
-      expect(link).toHaveAttribute('target', '_blank');
-      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-    }
+    expect(screen.queryByRole('link', { name: 'Vào lớp trực tuyến' })).not.toBeInTheDocument();
     const filter = screen.getByLabelText('Lọc ngày học');
     expect(within(filter).getByRole('option', { name: 'T2' })).toHaveValue('1');
     expect(within(filter).getByRole('option', { name: 'CN' })).toHaveValue('7');

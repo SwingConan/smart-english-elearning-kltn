@@ -1,9 +1,10 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { UserRole, UserStatus } from '../../generated/prisma/client';
 import { PublicUser, UserCredentials } from '../users/user.types';
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
+import { RegisterDto } from './dto/register.dto';
 
 describe('AuthService', () => {
   const publicUser: PublicUser = {
@@ -28,21 +29,39 @@ describe('AuthService', () => {
     jest.clearAllMocks();
   });
 
-  it('registers with an explicit Argon2id hash and sanitized response', async () => {
+  it('registers with an explicit Argon2id hash, mandatory termsAccepted=true, and sanitized response', async () => {
     usersService.createStudent.mockResolvedValue(publicUser);
 
     const result = await service.register({
       email: ' Student@Example.COM ',
       password: 'password123',
       fullName: 'Student User',
+      termsAccepted: true,
     });
 
     const input = usersService.createStudent.mock.calls[0][0] as {
       passwordHash: string;
+      termsAccepted: boolean;
     };
     expect(input.passwordHash).toMatch(/^\$argon2id\$/);
+    expect(input.termsAccepted).toBe(true);
     expect(result).not.toHaveProperty('passwordHash');
   });
+
+  it.each([undefined, null, false, 'true', 0])(
+    'rejects registration when termsAccepted is %p (not boolean true)',
+    async (badConsent) => {
+      await expect(
+        service.register({
+          email: 'student@example.com',
+          password: 'password123',
+          fullName: 'Student User',
+          termsAccepted: badConsent as unknown as boolean,
+        } as RegisterDto),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(usersService.createStudent).not.toHaveBeenCalled();
+    },
+  );
 
   it('propagates duplicate registration as conflict', async () => {
     usersService.createStudent.mockRejectedValue(new ConflictException());
@@ -52,6 +71,7 @@ describe('AuthService', () => {
         email: 'student@example.com',
         password: 'password123',
         fullName: 'Student User',
+        termsAccepted: true,
       }),
     ).rejects.toBeInstanceOf(ConflictException);
   });

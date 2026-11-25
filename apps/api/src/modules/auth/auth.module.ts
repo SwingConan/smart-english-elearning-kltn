@@ -7,10 +7,13 @@ import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { PasswordResetService } from './password-reset.service';
+import { AuthorizationModule } from '../authorization/authorization.module';
+import { AuthorizationGuard } from '../authorization/authorization.guard';
 
 @Module({
   imports: [
     UsersModule,
+    AuthorizationModule,
     ThrottlerModule.forRoot([{ name: 'passwordReset', ttl: 15 * 60 * 1000, limit: 5 }]),
   ],
   controllers: [AuthController],
@@ -21,6 +24,7 @@ import { PasswordResetService } from './password-reset.service';
       provide: APP_GUARD,
       useClass: AuthGuard,
     },
+    { provide: APP_GUARD, useClass: AuthorizationGuard },
     {
       provide: APP_GUARD,
       useClass: RolesGuard,

@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsIn,
@@ -27,6 +28,11 @@ export class AdminAccountQueryDto {
   @IsOptional()
   @IsEnum(UserStatus)
   status?: UserStatus;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  excludeTest?: boolean;
 
   @Type(() => Number)
   @IsInt()
@@ -58,8 +64,8 @@ export class CreateStaffAccountDto {
   password!: string;
 
   @IsEnum(UserRole)
-  @IsIn([UserRole.INSTRUCTOR, UserRole.ADMIN_COORDINATOR])
-  role!: Extract<UserRole, 'INSTRUCTOR' | 'ADMIN_COORDINATOR'>;
+  @IsIn([UserRole.INSTRUCTOR, UserRole.COUNSELOR, UserRole.CASHIER, UserRole.TEACHING_INSPECTOR])
+  role!: Extract<UserRole, 'INSTRUCTOR' | 'COUNSELOR' | 'CASHIER' | 'TEACHING_INSPECTOR'>;
 }
 
 export class UpdateAccountRoleDto {
@@ -71,4 +77,5 @@ export class UpdateAccountRoleDto {
 export class UpdateAccountStatusDto {
   @IsEnum(UserStatus)
   status!: UserStatus;
+  @IsString() @MinLength(10) @MaxLength(500) reason!: string;
 }

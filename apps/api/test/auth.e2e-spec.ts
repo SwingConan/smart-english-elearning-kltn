@@ -84,6 +84,7 @@ describe('Auth (e2e)', () => {
         email: `  ${email.toUpperCase()}  `,
         password,
         fullName: 'VS01 Student',
+        termsAccepted: true,
       })
       .expect(201);
 
@@ -99,7 +100,7 @@ describe('Auth (e2e)', () => {
 
     const duplicate = await request(app.getHttpServer())
       .post('/api/auth/register')
-      .send({ email, password, fullName: 'Duplicate Student' })
+      .send({ email, password, fullName: 'Duplicate Student', termsAccepted: true })
       .expect(409);
     expect(duplicate.body.message).toBe(
       'An account with this email already exists',

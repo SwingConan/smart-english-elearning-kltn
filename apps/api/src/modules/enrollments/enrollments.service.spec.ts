@@ -31,8 +31,10 @@ describe('EnrollmentsService', () => {
     classOffering: { findUnique: jest.fn() },
     enrollment: {
       findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       count: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
   };
   const prisma = {
@@ -49,6 +51,12 @@ describe('EnrollmentsService', () => {
     jest.clearAllMocks();
     transaction.classOffering.findUnique.mockResolvedValue(offering);
     transaction.enrollment.findUnique.mockResolvedValue(null);
+    transaction.enrollment.findUniqueOrThrow.mockResolvedValue({
+      id: enrollmentId,
+      status: EnrollmentStatus.PENDING_PAYMENT,
+      enrolledAt: now,
+      classOffering: { id: classOfferingId },
+    });
     transaction.enrollment.count.mockResolvedValue(0);
     transaction.enrollment.create.mockImplementation(({ data }) =>
       Promise.resolve({
@@ -87,7 +95,7 @@ describe('EnrollmentsService', () => {
     );
   });
 
-  it('creates PAID enrollment as PENDING_PAYMENT without reserving capacity', async () => {
+  it('creates PAID enrollment as PENDING_PAYMENT while reserving capacity for 15 minutes', async () => {
     transaction.classOffering.findUnique.mockResolvedValue({
       ...offering,
       pricingType: PricingType.PAID,
@@ -97,15 +105,42 @@ describe('EnrollmentsService', () => {
     await expect(
       service.create(learnerId, { classOfferingId }),
     ).resolves.toMatchObject({ status: EnrollmentStatus.PENDING_PAYMENT });
-    expect(transaction.enrollment.count).not.toHaveBeenCalled();
+    expect(transaction.enrollment.count).toHaveBeenCalledTimes(1);
+    expect(transaction.enrollment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          learnerId,
+          classOfferingId,
+          status: EnrollmentStatus.PENDING_PAYMENT,
+          reservedUntil: new Date(now.getTime() + 15 * 60 * 1000),
+        }),
+      }),
+    );
   });
 
-  it('rejects a duplicate enrollment with 409', async () => {
-    transaction.enrollment.findUnique.mockResolvedValue({ id: enrollmentId });
+  it('rejects a duplicate ACTIVE enrollment with 409', async () => {
+    transaction.enrollment.findUnique.mockResolvedValue({
+      id: enrollmentId,
+      status: EnrollmentStatus.ACTIVE,
+      reservedUntil: null,
+    });
 
     await expect(
       service.create(learnerId, { classOfferingId }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('returns idempotently when an active PENDING_PAYMENT hold already exists', async () => {
+    transaction.enrollment.findUnique.mockResolvedValue({
+      id: enrollmentId,
+      status: EnrollmentStatus.PENDING_PAYMENT,
+      reservedUntil: new Date(now.getTime() + 10 * 60 * 1000),
+    });
+
+    await expect(
+      service.create(learnerId, { classOfferingId }),
+    ).resolves.toMatchObject({ id: enrollmentId, status: EnrollmentStatus.PENDING_PAYMENT });
+    expect(transaction.enrollment.create).not.toHaveBeenCalled();
   });
 
   it('maps a database unique race to 409', async () => {
@@ -190,7 +225,7 @@ describe('EnrollmentsService', () => {
     expect(transaction.enrollment.count).not.toHaveBeenCalled();
   });
 
-  it('creates when ACTIVE capacity remains and counts only ACTIVE rows', async () => {
+  it('creates when capacity remains and counts ACTIVE plus unexpired PENDING_PAYMENT holds', async () => {
     transaction.classOffering.findUnique.mockResolvedValue({
       ...offering,
       maxStudents: 2,
@@ -201,7 +236,13 @@ describe('EnrollmentsService', () => {
     expect(transaction.enrollment.count).toHaveBeenCalledWith({
       where: {
         classOfferingId,
-        status: EnrollmentStatus.ACTIVE,
+        OR: [
+          { status: EnrollmentStatus.ACTIVE },
+          {
+            status: EnrollmentStatus.PENDING_PAYMENT,
+            OR: [{ reservedUntil: null }, { reservedUntil: { gt: now } }],
+          },
+        ],
       },
     });
   });
@@ -248,6 +289,20 @@ describe('EnrollmentsService', () => {
       service.create(learnerId, { classOfferingId }),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.$transaction).toHaveBeenCalledTimes(3);
+  });
+
+  it('bounds direct pg adapter serialization retries and preserves 409 capacity semantics', async () => {
+    const raw = Object.assign(new Error('TransactionWriteConflict', {cause:{kind:'TransactionWriteConflict'}}),{name:'DriverAdapterError'});
+    prisma.$transaction.mockRejectedValue(raw);
+    await expect(service.create(learnerId,{classOfferingId})).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not retry or convert unrelated driver/database failures into a successful enrollment', async () => {
+    const raw = Object.assign(new Error('Connection lost', {cause:{kind:'ConnectionClosed'}}),{name:'DriverAdapterError'});
+    prisma.$transaction.mockRejectedValue(raw);
+    await expect(service.create(learnerId,{classOfferingId})).rejects.toBe(raw);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it('lists only the current learner enrollments', async () => {

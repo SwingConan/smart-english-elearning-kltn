@@ -32,6 +32,8 @@ import {
   selectPlacementFormId,
 } from './placement-form.policy';
 import { AssessmentResponseStorage } from './assessment-response.storage';
+import { candidateStimulusText } from './candidate-information-table';
+import { pilotTaskPolicy } from './pilot-task-policy';
 import {
   AssessmentStimulusMediaStorage,
   AssessmentStimulusMediaUnavailableError,
@@ -272,6 +274,7 @@ export class PlacementService {
           title: group.title,
           instructions: group.instructions,
           taskCode: group.taskCode,
+          playbackPolicy: pilotTaskPolicy(group.taskCode),
           preparationSeconds: group.preparationSeconds,
           responseSeconds: group.responseSeconds,
           recommendedSeconds: group.recommendedSeconds,
@@ -282,7 +285,7 @@ export class PlacementService {
             id: stimulus.id,
             type: stimulus.type,
             orderIndex: stimulus.orderIndex,
-            textContent: stimulus.type === 'TEXT' ? stimulus.textContent : null,
+            textContent: stimulus.type === 'TEXT' ? candidateStimulusText(stimulus.textContent) : null,
             mediaUrl:
               stimulus.type === 'TEXT'
                 ? null
@@ -385,6 +388,18 @@ export class PlacementService {
         message: 'Định dạng hoặc dung lượng tệp ghi âm không được hỗ trợ.',
       });
     }
+    // Authenticate the target before creating a blob; recheck at commit for races.
+    await this.runTransaction(async (transaction) => {
+      const attempt = await this.requireAttempt(transaction, learnerId, attemptId);
+      if (attempt.status === TestAttemptStatus.SUBMITTED || this.isExpired(attempt.startedAt, attempt.test.timeLimitMinutes)) {
+        throw new ConflictException({ code: 'ATTEMPT_NOT_WRITABLE', message: 'Bài làm không còn nhận ghi âm.' });
+      }
+      const question = attempt.test.testQuestions.find(({ id }) => id === testQuestionId);
+      if (!question || question.question.responseType !== QuestionResponseType.AUDIO_RESPONSE) this.invalidAnswer();
+      if (attempt.test.questionGroups.some(group => group.id === question.groupId && group.taskCode === 'SE_SW_01_S10_V01')) {
+        throw new ConflictException({code:'S10_DURABLE_ENDPOINT_REQUIRED',message:'S10_DURABLE_ENDPOINT_REQUIRED'});
+      }
+    }, 'Không thể xác minh quyền lưu ghi âm. Vui lòng thử lại.');
     const stored = await this.responseStorage.put(
       { learnerId, attemptId, testQuestionId },
       file.buffer,
@@ -454,7 +469,7 @@ export class PlacementService {
 
   async openAudioResponse(learnerId: string, attemptId: string, testQuestionId: string) {
     const attempt = await this.prisma.$transaction((transaction) =>
-      this.requireAttempt(transaction, learnerId, attemptId),
+      this.requireAttempt(transaction, learnerId, attemptId, true),
     );
     const testQuestion = attempt.test.testQuestions.find(({ id }) => id === testQuestionId);
     const answer = attempt.answers.find(({ testQuestionId: id }) => id === testQuestionId);
@@ -478,8 +493,11 @@ export class PlacementService {
     const stimulus = attempt.test.questionGroups
       .flatMap(({ stimuli }) => stimuli)
       .find(({ id }) => id === stimulusId);
-    if (!stimulus?.storageKey || !stimulus.mimeType) {
+    if (!stimulus?.storageKey || !stimulus.mimeType || stimulus.isProtected) {
       throw new NotFoundException({ code: 'STIMULUS_NOT_FOUND', message: 'Không tìm thấy nội dung.' });
+    }
+    if (stimulus.type === 'AUDIO' && attempt.test.questionGroups.some(group => group.taskCode === 'SE_SW_01_S10_V01' && group.stimuli.some(s => s.id === stimulusId))) {
+      throw new ConflictException({code:'S10_DURABLE_ENDPOINT_REQUIRED',message:'S10_DURABLE_ENDPOINT_REQUIRED'});
     }
     try {
       return {
@@ -646,6 +664,7 @@ export class PlacementService {
     transaction: Prisma.TransactionClient,
     learnerId: string,
     attemptId: string,
+    allowPinnedRecording = false,
   ): Promise<PlacementAttempt> {
     const attempt = await transaction.testAttempt.findFirst({
       where: {
@@ -657,7 +676,7 @@ export class PlacementService {
       },
       include: placementAttemptInclude,
     });
-    if (!attempt) {
+    if (!attempt || (attempt.placementVersionId && (!allowPinnedRecording || process.env.W04A_PREVIEW_ENABLED !== 'DEV_PREVIEW_ONLY' || process.env.NODE_ENV === 'production'))) {
       throw new NotFoundException({ code: 'ATTEMPT_NOT_FOUND', message: 'Không tìm thấy bài làm.' });
     }
     return attempt;
@@ -670,6 +689,11 @@ export class PlacementService {
   ) {
     const attempt = await this.requireAttempt(transaction, learnerId, attemptId);
     if (attempt.status === TestAttemptStatus.SUBMITTED) return this.buildResult(attempt);
+    // Historical S10 fixtures must not be scored by the obsolete whole-exam expiry path.
+    // Full Placement timing/release policy is still pending; the durable S10 kernel owns its task.
+    if (attempt.test.questionGroups.some(group => group.taskCode === 'SE_SW_01_S10_V01')) {
+      throw new ConflictException('S10_TIMING_OR_COMPLETION_REQUIRES_REVIEW');
+    }
 
     const answers = new Map(
       attempt.answers.map((answer) => [answer.testQuestionId, answer.selectedOptionIds]),

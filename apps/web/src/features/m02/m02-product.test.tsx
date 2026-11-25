@@ -142,13 +142,13 @@ describe('M02 public product surface', () => {
     ).toEqual([
       'Tạo tài khoản và đăng nhập',
       'Khám phá chương trình và xác định mục tiêu',
-      'Làm Placement trước Enrollment',
-      'Đọc Evaluation theo kỹ năng',
+      'Kiểm tra đầu vào trước khi đăng ký lớp',
+      'Đọc kết quả theo kỹ năng',
       'Xem gợi ý khóa học và lớp',
       'Chọn lớp phù hợp',
-      'Enrollment và trạng thái đăng ký',
-      'Học trong Student LMS',
-      'Thực hiện In-class Assessment',
+      'Đăng ký lớp và theo dõi trạng thái',
+      'Vào lớp và học bài',
+      'Làm bài kiểm tra trong lớp',
       'Đọc kết quả, tiến độ và bước tiếp theo',
     ]);
     expect(screen.getByRole('link', { name: 'Xem khóa học' })).toHaveAttribute('href', '/catalog');
@@ -162,10 +162,10 @@ describe('M02 public product surface', () => {
         <AboutPage />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Placement')).toBeInTheDocument();
-    expect(screen.getByText('Evaluation & gợi ý')).toBeInTheDocument();
-    expect(screen.getByText('Enrollment')).toBeInTheDocument();
-    expect(screen.getByText('LMS & Assessment')).toBeInTheDocument();
+    expect(screen.getByText('Kiểm tra đầu vào')).toBeInTheDocument();
+    expect(screen.getByText('Kết quả và lớp được gợi ý')).toBeInTheDocument();
+    expect(screen.getByText('Đăng ký lớp')).toBeInTheDocument();
+    expect(screen.getByText('Học bài và làm bài kiểm tra')).toBeInTheDocument();
     expect(screen.getByText('Kết quả & bước tiếp theo')).toBeInTheDocument();
   });
 

@@ -1,7 +1,23 @@
 import { apiFetch } from '@/lib/api-client';
 
-export type UserRole = 'STUDENT' | 'INSTRUCTOR' | 'ADMIN_COORDINATOR';
+export type UserRole = 'STUDENT' | 'INSTRUCTOR' | 'COUNSELOR' | 'ACADEMIC_MANAGER' | 'CASHIER' | 'TEACHING_INSPECTOR' | 'SYSTEM_ADMIN' | 'ADMIN_COORDINATOR';
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED';
+
+export type AcademicTrack = 'TRAINING' | 'STUDENT_AFFAIRS' | null;
+
+export interface AcademicTrackScopes {
+  programs: boolean;
+  planning: boolean;
+  approvals: boolean;
+  sessionEngagement: boolean;
+  inspection: boolean;
+  consultations: boolean;
+  placement: boolean;
+  certificates: boolean;
+  knowledge: boolean;
+  supportReferrals: boolean;
+  admissions: boolean;
+}
 
 export interface AuthUser {
   id: string;
@@ -9,6 +25,9 @@ export interface AuthUser {
   fullName: string;
   role: UserRole;
   status: UserStatus;
+  avatarUrl?: string;
+  academicTrack?: AcademicTrack;
+  academicScopes?: AcademicTrackScopes;
 }
 
 export interface LoginInput {
@@ -18,6 +37,7 @@ export interface LoginInput {
 
 export interface RegisterInput extends LoginInput {
   fullName: string;
+  termsAccepted: boolean;
 }
 
 export interface ConfirmPasswordResetInput {

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { classAssessmentApi } from '@/features/assessments/api';
 import type { GradingDetail, ToeicSkill } from '@/features/assessments/types';
 import { useSessionExpiry } from '@/features/auth/use-session-expiry';
 import { ApiError } from '@/lib/api-client';
 import { instructorApi } from '@/features/instructor/api';
+import { ConfirmDialog } from '@/components/ui/Feedback';
 
 type Scores = Record<string, Record<string, string>>;
 type Feedback = Record<string, string>;
@@ -29,6 +30,11 @@ export function AssessmentGradingDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [notice, setNotice] = useState('');
+  const savingRef = useRef(false);
+  const [confirmation, setConfirmation] = useState<{
+    answer: GradingDetail['answers'][number]; finalize: boolean; goNext: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -46,8 +52,8 @@ export function AssessmentGradingDetailPage() {
     return () => controller.abort();
   }, [attemptId, classAssessmentId, classOfferingId, redirectExpiredSession, reload]);
 
-  const save = async (answer: GradingDetail['answers'][number], finalize: boolean, goNext = false) => {
-    if (!classOfferingId || !classAssessmentId || !attemptId) return;
+  const save = async (answer: GradingDetail['answers'][number], finalize: boolean, goNext = false, confirmed = false) => {
+    if (!classOfferingId || !classAssessmentId || !attemptId || savingRef.current) return;
     const rubric = answer.testQuestion.question.rubric;
     const values = scores[answer.testQuestion.id] ?? {};
     const invalidCriterion = rubric.criteria.find((criterion) =>
@@ -66,6 +72,10 @@ export function AssessmentGradingDetailPage() {
       setError('Vui lòng nhập điểm cho tất cả tiêu chí trước khi xác nhận điểm cuối.');
       return;
     }
+    if ((finalize || answer.evaluation?.status === 'REVIEWED_FINAL') && !confirmed) {
+      setConfirmation({ answer, finalize, goNext });
+      return;
+    }
     const criteria = rubric.criteria.flatMap((criterion) => {
       const score = values[criterion.id]?.trim();
       return score
@@ -78,8 +88,11 @@ export function AssessmentGradingDetailPage() {
           ]
         : [];
     });
+    savingRef.current = true;
     setSaving(answer.testQuestion.id);
     setError(null);
+    setNotice('');
+    let saved = false;
     try {
       await classAssessmentApi.gradeAnswer(
         classOfferingId,
@@ -94,6 +107,8 @@ export function AssessmentGradingDetailPage() {
           editFinal: answer.evaluation?.status === 'REVIEWED_FINAL',
         },
       );
+      saved = true;
+      setNotice(finalize ? 'Đã lưu điểm cuối theo xác nhận của giảng viên.' : 'Đã lưu nháp. Điểm cuối chưa được xác nhận.');
       const data = await classAssessmentApi.gradingDetail(
         classOfferingId,
         classAssessmentId,
@@ -114,12 +129,15 @@ export function AssessmentGradingDetailPage() {
         navigate(next ? `/instructor/classes/${classOfferingId}/assessments/${next.classAssessment.id}/attempts/${next.id}/grading` : `/instructor/classes/${classOfferingId}/grading`);
       }
     } catch (requestError) {
-      if (requestError instanceof ApiError && requestError.status === 409) {
+      if (saved) {
+        setError('Đã lưu đánh giá nhưng chưa tải lại được trạng thái. Tải lại trước khi thực hiện thay đổi tiếp theo.');
+      } else if (requestError instanceof ApiError && requestError.status === 409) {
         setError('Bài chấm đã được cập nhật ở phiên khác. Không có thay đổi nào được ghi. Hãy tải lại trước khi tiếp tục.');
       } else {
         setError('Không thể lưu kết quả chấm. Kiểm tra điểm theo giới hạn từng tiêu chí.');
       }
     } finally {
+      savingRef.current = false;
       setSaving(null);
     }
   };
@@ -160,14 +178,18 @@ export function AssessmentGradingDetailPage() {
         </Link>
         <h1 className="mt-3 text-2xl font-bold">Bài làm của {detail.learner.fullName}</h1>
         <p className="text-sm text-slate-600">
-          {detail.test.title} · {detail.learner.email} · lượt {detail.attemptNumber}
+          {detail.test.title} · lượt {detail.attemptNumber}
         </p>
+        <details className="mt-2 text-sm text-slate-500"><summary className="cursor-pointer">Thông tin học viên</summary><p className="mt-1 break-all">Email đăng nhập: {detail.learner.email}</p></details>
       </div>
       {error && (
         <div className="rounded border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
           {error}
+          <button type="button" className="ml-3 font-semibold underline" disabled={saving !== null} onClick={() => { setError(null); setReload(value => value + 1); }}>Tải lại trạng thái đã lưu</button>
         </div>
       )}
+      {notice && <p role="status" className="rounded border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">{notice}</p>}
+      <p className="text-sm text-slate-600">Nghe Speaking, đọc Writing và nhập điểm theo từng tiêu chí. Lưu nháp không xác nhận điểm cuối; chỉ giảng viên quyết định FINAL.</p>
       <nav className="flex flex-wrap gap-2 rounded-2xl border bg-white p-4" aria-label="Điều hướng câu chấm">{detail.answers.map((answer, index) => <a className={`rounded-full px-3 py-1.5 text-sm font-semibold ${answer.evaluation?.status === 'REVIEWED_FINAL' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`} href={`#grading-answer-${answer.testQuestion.id}`} key={answer.id}>Câu {index + 1} · {answer.evaluation?.status === 'REVIEWED_FINAL' ? 'Đã chấm' : 'Chờ chấm'}</a>)}</nav>
       {detail.answers.map((answer, answerIndex) => {
         const rubric = answer.testQuestion.question.rubric;
@@ -272,6 +294,7 @@ export function AssessmentGradingDetailPage() {
             <label className="mt-4 block text-sm font-medium">
               Nhận xét chung
               <textarea
+                aria-label="Nhận xét chung"
                 className="mt-1 min-h-24 w-full rounded border p-3"
                 value={feedback[answer.testQuestion.id] ?? ''}
                 onChange={(event) =>
@@ -313,6 +336,21 @@ export function AssessmentGradingDetailPage() {
           </article>
         );
       })}
+      <ConfirmDialog
+        open={confirmation !== null}
+        title={confirmation?.finalize ? 'Xác nhận điểm cuối của câu trả lời' : 'Chuyển điểm cuối về bản nháp'}
+        description={confirmation?.finalize ? 'Chỉ xác nhận sau khi chính bạn đã xem bài làm và kiểm tra điểm từng tiêu chí. Điểm cuối sẽ được lưu cho câu trả lời này.' : 'Thao tác này thay đổi đánh giá đã FINAL và đưa câu trả lời về trạng thái chờ chấm. Hãy kiểm tra trước khi tiếp tục.'}
+        confirmLabel={confirmation?.finalize ? 'Tôi xác nhận điểm đã nhập' : 'Xác nhận chuyển về nháp'}
+        cancelLabel="Quay lại kiểm tra"
+        isBusy={saving !== null}
+        onCancel={() => setConfirmation(null)}
+        onConfirm={() => {
+          if (!confirmation || savingRef.current) return;
+          const pending = confirmation;
+          setConfirmation(null);
+          void save(pending.answer, pending.finalize, pending.goNext, true);
+        }}
+      />
     </main>
   );
 }

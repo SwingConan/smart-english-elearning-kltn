@@ -1,4 +1,8 @@
 import { execFileSync } from 'node:child_process';
+import { verifyBrowserFixture } from './lib/e2e-browser-guard.mjs';
+
+// Target safety only; the historical M07 scenario below is retained.
+const origin = await verifyBrowserFixture();
 
 const port = process.env.M07_CDP_PORT ?? '9222';
 const password = process.env.M07_SMOKE_PASSWORD;
@@ -13,8 +17,7 @@ for (let attempt = 0; attempt < 30; attempt += 1) {
   } catch {}
   await delay(250);
 }
-const target = targets?.find((candidate) => candidate.type === 'page' && candidate.url.startsWith('http://localhost:5173'))
-  ?? targets?.find((candidate) => candidate.type === 'page');
+const target = targets?.find((candidate) => candidate.type === 'page' && (candidate.url === origin || candidate.url.startsWith(origin + '/')));
 if (!target?.webSocketDebuggerUrl) throw new Error('No Chromium page target is available');
 
 const socket = new WebSocket(target.webSocketDebuggerUrl);
@@ -53,7 +56,7 @@ async function evaluate(expression) {
 }
 async function navigate(path, expected, width = 1440, height = 900) {
   await command('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 });
-  await command('Page.navigate', { url: `http://localhost:5173${path}` });
+  await command('Page.navigate', { url: `${origin}${path}` });
   const markers = Array.isArray(expected) ? expected : [expected];
   let state;
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -141,7 +144,7 @@ async function editVisibleStoredResourceTitle(classId, currentTitle, nextTitle) 
 await command('Page.enable');
 await command('Runtime.enable');
 await command('Network.enable');
-await command('Page.navigate', { url: 'http://localhost:5173/login' });
+await command('Page.navigate', { url: origin + '/login' });
 await delay(500);
 await login('instructor.demo@smart-elearning.local');
 

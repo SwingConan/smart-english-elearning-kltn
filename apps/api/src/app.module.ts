@@ -1,3 +1,5 @@
+import { KnowledgeLibraryModule } from './modules/knowledge-library/knowledge.module';
+import { SupportModule } from './modules/support/support.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { HealthModule } from './health/health.module';
@@ -20,9 +22,26 @@ import { AdminModule } from './modules/admin/admin.module';
 import { KnowledgeModelModule } from './modules/knowledge-model/knowledge-model.module';
 import { PlacementModule } from './modules/placement/placement.module';
 import { EmailModule } from './infrastructure/email/email.module';
+import { AcademicModule } from './modules/academic/academic.module';
+import { ClassLmsModule } from './modules/class-lms/class-lms.module';
+import { SessionEngagementModule } from './modules/session-engagement/session-engagement.module';
+import { AdmissionsFinanceModule } from './modules/admissions-finance/admissions-finance.module';
+import { InspectionModule } from './modules/inspection/inspection.module';
+import { OperationsRuntimeModule } from './modules/operations/operations-runtime.module';
+import { LearnerFinanceModule } from './modules/learner/learner-finance.module';
+import { TuitionModule } from './modules/tuition/tuition.module';
+import { PracticeTestsModule } from './modules/practice-tests/practice-tests.module';
 
 @Module({
   imports: [
+    TuitionModule,
+    LearnerFinanceModule,
+    OperationsRuntimeModule,
+    InspectionModule,
+    SessionEngagementModule,
+    AdmissionsFinanceModule,
+    SupportModule,
+    KnowledgeLibraryModule,
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     SessionModule,
@@ -44,6 +63,9 @@ import { EmailModule } from './infrastructure/email/email.module';
     AdminModule,
     KnowledgeModelModule,
     PlacementModule,
+    AcademicModule,
+    ClassLmsModule,
+    PracticeTestsModule,
   ],
 })
 export class AppModule {}

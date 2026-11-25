@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import {
@@ -29,7 +29,7 @@ function question() {
     question: {
       id: QUESTION_ID,
       content: 'Choose the best answer.',
-      responseType: QuestionResponseType.SINGLE_CHOICE,
+      responseType: QuestionResponseType.SINGLE_CHOICE as QuestionResponseType,
       toeicSkill: ToeicSkill.LISTENING,
       explanation: 'Answer-key explanation must stay server-side.',
       options: [
@@ -298,6 +298,19 @@ describe('PlacementService', () => {
     );
   });
 
+  it('denies direct protected or foreign stimulus access before reading storage', async () => {
+    const { service, transaction, stimulusMediaStorage } = harness();
+    const value = attempt();
+    value.test.questionGroups[0].stimuli = [
+      { id: 'private-media', type: 'AUDIO', storageKey: 'authored/private.wav', mimeType: 'audio/wav', isProtected: true },
+    ] as never;
+    transaction.testAttempt.findFirst.mockResolvedValue(value);
+    await expect(service.openStimulusMedia('learner-1', ATTEMPT_ID, 'private-media')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.openStimulusMedia('learner-1', ATTEMPT_ID, 'foreign-media')).rejects.toBeInstanceOf(NotFoundException);
+    expect(stimulusMediaStorage.read).not.toHaveBeenCalled();
+    expect(transaction.testAttempt.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: ATTEMPT_ID, learnerId: 'learner-1' }) }));
+  });
+
   it('rejects an option that does not belong to the attempt question', async () => {
     const { service, transaction } = harness();
     transaction.testAttempt.findFirst.mockResolvedValue(attempt());
@@ -376,9 +389,27 @@ describe('PlacementService', () => {
     );
   });
 
+  it('does not save an answer, award zero, or finalize when audio storage fails', async () => {
+    const { service, transaction, responseStorage, sideEffectCreate } = harness();
+    const failure = new Error('storage unavailable');
+    const value = attempt();
+    value.test.testQuestions[0].question.responseType = QuestionResponseType.AUDIO_RESPONSE;
+    transaction.testAttempt.findFirst.mockResolvedValue(value);
+    responseStorage.put.mockRejectedValue(failure);
+    await expect(service.uploadAudio('learner-1', ATTEMPT_ID, TEST_QUESTION_ID, {
+      buffer: Buffer.from('webm'), mimetype: 'audio/webm', size: 4,
+    })).rejects.toBe(failure);
+    expect(transaction.testAnswer.upsert).not.toHaveBeenCalled();
+    expect(transaction.attemptSkillScore.upsert).not.toHaveBeenCalled();
+    expect(transaction.testAttempt.update).not.toHaveBeenCalled();
+    expect(sideEffectCreate).not.toHaveBeenCalled();
+  });
+
   it('deletes a late Speaking blob and leaves a submitted attempt unchanged', async () => {
     const { service, transaction, responseStorage } = harness();
-    transaction.testAttempt.findFirst.mockResolvedValue(
+    const before = attempt();
+    before.test.testQuestions[0].question.responseType = QuestionResponseType.AUDIO_RESPONSE;
+    transaction.testAttempt.findFirst.mockResolvedValueOnce(before).mockResolvedValue(
       attempt({ status: TestAttemptStatus.SUBMITTED, submittedAt: new Date() }),
     );
     responseStorage.put.mockResolvedValue({ key: 'orphan.webm', bytes: 4, mimeType: 'audio/webm' });
@@ -391,6 +422,14 @@ describe('PlacementService', () => {
 
     expect(transaction.testAnswer.upsert).not.toHaveBeenCalled();
     expect(responseStorage.delete).toHaveBeenCalledWith('orphan.webm');
+  });
+  it('rejects foreign ownership, wrong task and expiry before writing storage', async () => {
+    const { service, transaction, responseStorage } = harness();
+    const upload = () => service.uploadAudio('learner-1', ATTEMPT_ID, TEST_QUESTION_ID, { buffer: Buffer.from('webm'),mimetype:'audio/webm',size:4 });
+    transaction.testAttempt.findFirst.mockResolvedValue(null);await expect(upload()).rejects.toBeInstanceOf(NotFoundException);
+    transaction.testAttempt.findFirst.mockResolvedValue(attempt());await expect(upload()).rejects.toBeInstanceOf(BadRequestException);
+    transaction.testAttempt.findFirst.mockResolvedValue(attempt({startedAt:new Date(0)}));await expect(upload()).rejects.toBeInstanceOf(ConflictException);
+    expect(responseStorage.put).not.toHaveBeenCalled();expect(transaction.testAnswer.upsert).not.toHaveBeenCalled();expect(transaction.testAttempt.update).not.toHaveBeenCalled();
   });
 
   it('scores by skill deterministically, keeps BKT isolated, then enriches the result', async () => {

@@ -56,6 +56,7 @@ export interface PlacementStimulus {
 }
 
 export interface PlacementExamGroup {
+  playbackPolicy?: { kind: 'DOUBLE_PROMPT_THEN_RECORD'; version: 1; plays: 2; responseSeconds: 30 } | null;
   id: string;
   skill: 'LISTENING' | 'READING' | 'SPEAKING' | 'WRITING';
   orderIndex: number;

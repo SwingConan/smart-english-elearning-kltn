@@ -123,8 +123,7 @@ export function AdminAccountCreatePage() {
           </label>
         </div>
         <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-          Email được dùng để đăng nhập và không thể chỉnh sửa trong M09-C. Mật khẩu sẽ không được
-          hiển thị lại sau khi gửi.
+          Email được dùng để đăng nhập và không thể chỉnh sửa trong M09-C. Mật khẩu sẽ không được hiển thị lại sau khi gửi.
         </p>
         <div className="flex flex-wrap gap-3">
           <button

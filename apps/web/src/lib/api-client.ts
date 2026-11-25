@@ -1,3 +1,4 @@
+import { confirmDemoEnvironment, presentDemoResponse } from '@/features/demo/presentation';
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 const baseUrl = configuredBaseUrl || '/api';
 
@@ -5,12 +6,30 @@ export function apiUrl(path: string): string {
   return `${baseUrl}${path}`;
 }
 
+function extractApiErrorMessage(status: number, body: unknown): string {
+  if (body && typeof body === 'object' && 'message' in body) {
+    const raw = (body as { message?: unknown }).message;
+    if (Array.isArray(raw)) {
+      const joined = raw
+        .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        .join('; ');
+      if (joined) return joined;
+    } else if (typeof raw === 'string' && raw.trim().length > 0) {
+      return raw;
+    }
+  }
+  if (typeof body === 'string' && body.trim().length > 0) {
+    return body;
+  }
+  return `Request failed with status ${status}`;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly body: unknown,
   ) {
-    super(`Request failed with status ${status}`);
+    super(extractApiErrorMessage(status, body));
     this.name = 'ApiError';
   }
 }
@@ -33,6 +52,10 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     throw new ApiError(response.status, body);
   }
 
+  if (response.headers.get('X-Smart-English-Environment') === 'demo') {
+    confirmDemoEnvironment();
+    return presentDemoResponse(body) as T;
+  }
   return body as T;
 }
 

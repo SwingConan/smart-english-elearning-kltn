@@ -1,166 +1,157 @@
-import { useEffect, useRef, useState } from 'react';
-import {
-  BookOpen,
-  ExternalLink,
-  GraduationCap,
-  Lightbulb,
-  LogOut,
-  Menu,
-  BarChart3,
-  UserCog,
-  X,
-} from 'lucide-react';
+import { useState } from 'react';
+import { Menu, X } from 'lucide-react';
+import { MobileNavigationDrawer } from '@/components/ui/MobileNavigationDrawer';
+import { useMobileNavigation } from '@/components/ui/use-mobile-navigation';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
+import { ConfirmDialog } from '@/components/ui/Feedback';
+import { useToast } from '@/components/ui/feedback-context';
 import { useAuth } from '@/features/auth/auth-context';
+import { businessRoleLabels } from '@/features/auth/business-role';
+import { OperationsNavigationLink } from '@/features/operations/OperationsNavigationLink';
 
-const links = [
-  [BarChart3, '/admin/reports', 'Báo cáo hệ thống'],
-  [BookOpen, '/admin/courses', 'Khóa học'],
-  [GraduationCap, '/admin/class-offerings', 'Lớp học'],
-  [UserCog, '/admin/accounts', 'Tài khoản'],
-  [Lightbulb, '/admin/criteria', 'Tiêu chí & quy tắc'],
-] as const;
+const navItems = [
+  { to: '/admin/courses', label: 'Khóa học' },
+  { to: '/admin/classes', label: 'Lớp học' },
+  { to: '/admin/enrollments', label: 'Đăng ký' },
+  { to: '/admin/learners', label: 'Học viên' },
+  { to: '/admin/accounts', label: 'Tài khoản' },
+  { to: '/admin/criteria', label: 'Tiêu chí & quy tắc' },
+  { to: '/admin/reports', label: 'Báo cáo' },
+];
 
 export function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const closeButton = useRef<HTMLButtonElement>(null);
-  const openButton = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!drawerOpen) return;
-    closeButton.current?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setDrawerOpen(false);
-        window.setTimeout(() => openButton.current?.focus(), 0);
-      }
-    };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [drawerOpen]);
-
-  const closeDrawer = () => {
-    setDrawerOpen(false);
-    window.setTimeout(() => openButton.current?.focus(), 0);
-  };
-
-  const navigation = (
-    <nav aria-label="Điều hướng quản trị" className="space-y-1">
-      {links.map(([Icon, to, label]) => (
-        <NavLink
-          className={({ isActive }) =>
-            `flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition ${isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'}`
-          }
-          key={to}
-          onClick={closeDrawer}
-          to={to}
-        >
-          <Icon aria-hidden="true" size={18} />
-          {label}
-        </NavLink>
-      ))}
-    </nav>
-  );
+  const notify = useToast();
+  const mobile = useMobileNavigation();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/');
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      setConfirmOpen(false);
+      notify('Đã đăng xuất an toàn.', 'success');
+      navigate('/login');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-100 text-slate-950">
-      <header className="admin-shell-header sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <button
-              aria-controls="admin-mobile-navigation"
-              aria-expanded={drawerOpen}
-              aria-label="Mở điều hướng quản trị"
-              className="rounded-xl border border-slate-200 p-2 lg:hidden"
-              onClick={() => setDrawerOpen(true)}
-              ref={openButton}
-              type="button"
-            >
-              <Menu />
-            </button>
-            <div>
-              <Link
-                className="text-lg font-black tracking-tight text-indigo-700"
-                to="/admin/reports"
-              >
-                Smart English
-              </Link>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Không gian quản trị
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-semibold">{user?.fullName}</p>
-              <p className="text-xs text-slate-500">Điều phối viên</p>
-            </div>
-            <Link
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              to="/"
-            >
-              <ExternalLink size={16} />
-              <span className="hidden md:inline">Trang công khai</span>
-            </Link>
-            <button
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
-              onClick={() => void handleLogout()}
-              type="button"
-            >
-              <LogOut size={16} />
-              <span className="hidden md:inline">Đăng xuất</span>
-            </button>
-          </div>
+  const sidebar = (
+    <>
+      <div className="flex items-center justify-between lg:block">
+        <div>
+          <p className="text-xs font-semibold tracking-wider text-indigo-300 uppercase">
+            Smart English
+          </p>
+          <h1 className="mt-1 text-xl font-bold text-white">Quản trị đào tạo</h1>
         </div>
-      </header>
-      <div className="admin-shell-content mx-auto grid max-w-7xl gap-7 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8">
-        <aside className="admin-shell-sidebar sticky top-24 hidden self-start rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
-          {navigation}
-        </aside>
-        <main className="min-w-0">
-          <Outlet />
-        </main>
-      </div>
-      {drawerOpen ? (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/50 lg:hidden"
-          onClick={closeDrawer}
-          role="presentation"
+        <Link
+          to="/"
+          className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white lg:mt-4 lg:inline-block"
         >
-          <aside
-            aria-label="Điều hướng quản trị trên thiết bị di động"
-            aria-modal="true"
-            className="h-full w-[min(20rem,88vw)] bg-white p-5 shadow-2xl"
-            id="admin-mobile-navigation"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
+          Về cổng học viên
+        </Link>
+      </div>
+
+      <nav aria-label="Điều hướng quản trị" className="mt-6 grid gap-2">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              `rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
+                isActive
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-300 hover:bg-slate-900 hover:text-white'
+              }`
+            }
           >
-            <div className="mb-7 flex items-center justify-between">
-              <div>
-                <strong>Smart English</strong>
-                <p className="text-sm text-slate-500">Không gian quản trị</p>
-              </div>
-              <button
-                aria-label="Đóng điều hướng quản trị"
-                className="rounded-lg border p-2"
-                onClick={closeDrawer}
-                ref={closeButton}
-                type="button"
-              >
-                <X />
-              </button>
-            </div>
-            {navigation}
-          </aside>
+            {item.label}
+          </NavLink>
+        ))}
+        <OperationsNavigationLink />
+      </nav>
+
+      {user && (
+        <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-300">
+          <p className="font-semibold text-white">{user.fullName}</p>
+          <p className="mt-1 break-all text-slate-400">{user.email}</p>
+          <p className="mt-2 inline-flex rounded-full bg-indigo-950 px-2.5 py-1 font-semibold text-indigo-200">
+            {businessRoleLabels[user.role]}
+          </p>
+          <button
+            type="button"
+            disabled={isLoggingOut}
+            onClick={() => {
+              mobile.closeMenu();
+              setConfirmOpen(true);
+            }}
+            className="mt-4 w-full rounded-lg border border-slate-700 px-3 py-2 font-semibold text-slate-100 transition hover:border-slate-500 disabled:opacity-50"
+          >
+            {isLoggingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
+          </button>
         </div>
-      ) : null}
+      )}
+    </>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-900">
+      <div className="mx-auto grid min-h-screen max-w-7xl lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <aside className="hidden border-b border-slate-200 bg-slate-950 p-6 text-slate-100 lg:block lg:border-r lg:border-b-0">
+          {sidebar}
+        </aside>
+
+        <div className="min-w-0 p-4 sm:p-6 lg:p-8">
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 lg:hidden">
+            <p className="font-bold text-slate-950">Quản trị đào tạo</p>
+            <button
+              type="button"
+              aria-label="Mở điều hướng quản trị"
+              aria-expanded={mobile.open}
+              onClick={mobile.openMenu}
+              className="rounded-lg border border-slate-200 p-2 text-slate-700"
+            >
+              <Menu size={20} aria-hidden="true" />
+            </button>
+          </div>
+          <Outlet />
+        </div>
+      </div>
+
+      <MobileNavigationDrawer
+        open={mobile.open}
+        onClose={mobile.closeMenu}
+        title="Điều hướng quản trị trên thiết bị di động"
+        className="relative z-10 h-dvh w-76 max-w-[85vw] overflow-y-auto overscroll-contain bg-slate-950 p-6 text-slate-100 shadow-2xl"
+      >
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            data-drawer-close
+            aria-label="Đóng điều hướng quản trị"
+            onClick={mobile.closeMenu}
+            className="rounded-lg border border-slate-700 p-2 text-slate-100"
+          >
+            <X size={20} aria-hidden="true" />
+          </button>
+        </div>
+        {sidebar}
+      </MobileNavigationDrawer>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Kết thúc phiên đăng nhập?"
+        description="Bạn sắp đăng xuất khỏi không gian quản trị. Mọi dữ liệu nháp chưa lưu trên biểu mẫu sẽ bị đóng."
+        confirmLabel="Đăng xuất"
+        cancelLabel="Ở lại"
+        busy={isLoggingOut}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => void handleLogout()}
+      />
     </div>
   );
 }

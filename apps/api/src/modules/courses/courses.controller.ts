@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseInterceptors } from '@nestjs/common';
+import {CatalogDiagnosticsInterceptor} from './catalog-diagnostics.interceptor';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { CoursesService } from './courses.service';
@@ -11,6 +12,7 @@ export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
   @Get()
+  @UseInterceptors(CatalogDiagnosticsInterceptor)
   @ApiOperation({ summary: 'List published courses' })
   list(@Query() query: CatalogQueryDto) {
     return this.coursesService.listPublic(query);

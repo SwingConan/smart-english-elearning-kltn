@@ -40,4 +40,49 @@ export interface EnrollmentView {
     completedLessons: number;
     progressPercent: number;
   };
+  reservedUntil?: string | null;
+  seatReleasedAt?: string | null;
+  releaseReason?: string | null;
+  entrySource?: string | null;
+  placementAttemptId?: string | null;
+  receivable?: {
+    id: string;
+    receivableCode: string;
+    amountVnd: number;
+    paidAmountVnd: number;
+    status: string;
+    dueAt: string | null;
+    paidAt: string | null;
+    isTestHarness: boolean;
+    receipt?: {
+      id: string;
+      receiptNumber: string;
+      amountVnd: number;
+      verificationMethod: string;
+      isTestHarness: boolean;
+      issuedAt: string;
+    } | null;
+  } | null;
+  activeOrder?: {
+    id: string;
+    paymentCode: string;
+    expectedAmountVnd: number;
+    currency: string;
+    bankCode: string | null;
+    accountNumber: string | null;
+    accountName: string | null;
+    qrUrl: string | null;
+    status: string;
+    expiresAt: string;
+    remainingSeconds: number;
+    isTestHarness: boolean;
+  } | null;
+  latestOrder?: {
+    id: string;
+    paymentCode: string;
+    expectedAmountVnd: number;
+    status: string;
+    expiresAt: string;
+    remainingSeconds: number;
+  } | null;
 }

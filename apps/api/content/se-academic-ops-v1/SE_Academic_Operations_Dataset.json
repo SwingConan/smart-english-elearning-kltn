@@ -1,0 +1,310 @@
+{
+  "schemaVersion": 1,
+  "datasetCode": "SE-ACADEMIC-OPS-V1",
+  "origin": "SMART_ENGLISH_ORIGINAL_ACADEMIC_OPERATIONS",
+  "generatedAt": "2026-11-09T17:45:00+07:00",
+  "programsAndCourses": [
+    {
+      "courseCode": "SE-CRS-LR-450",
+      "slug": "toeic-lr-foundation-450",
+      "title": "TOEIC Listening & Reading Foundation 450+",
+      "level": "A2",
+      "targetBand": "450–550 LR",
+      "versionCode": "CV-LR-FOUNDATION-2026-V1",
+      "deliveryModes": [
+        "OFFLINE",
+        "HYBRID"
+      ],
+      "totalSessions": 16,
+      "sessionDurationMinutes": 120,
+      "description": "Chương trình nền tảng củng cố ngữ pháp trọng tâm Part 5–6 và phản xạ nghe hiểu câu hỏi ngắn Part 1–2 dành cho học viên chuẩn bị đi làm."
+    },
+    {
+      "courseCode": "SE-CRS-LR-650",
+      "slug": "toeic-lr-accelerator-650",
+      "title": "TOEIC Listening & Reading Accelerator 650+",
+      "level": "B1",
+      "targetBand": "650–785 LR",
+      "versionCode": "CV-LR-ACCELERATOR-2026-V1",
+      "deliveryModes": [
+        "ONLINE",
+        "HYBRID"
+      ],
+      "totalSessions": 20,
+      "sessionDurationMinutes": 120,
+      "description": "Chương trình tăng tốc kỹ năng suy luận hội thoại dài Part 3–4 và đọc lướt đa văn bản (Double/Triple Passages) Part 7 trong bối cảnh doanh nghiệp."
+    },
+    {
+      "courseCode": "SE-CRS-4SK-750",
+      "slug": "toeic-four-skills-workplace-pro",
+      "title": "TOEIC Four-Skills Workplace Communication Pro",
+      "level": "B2",
+      "targetBand": "750+ LR & 150+ SW",
+      "versionCode": "CV-4SK-WORKPLACE-2026-V1",
+      "deliveryModes": [
+        "OFFLINE",
+        "ONLINE",
+        "HYBRID"
+      ],
+      "totalSessions": 24,
+      "sessionDurationMinutes": 120,
+      "description": "Chương trình toàn diện 4 kỹ năng Nghe – Đọc – Nói – Viết ứng dụng trong thuyết trình, xử lý sự cố vận hành và viết email thương mại quốc tế."
+    }
+  ],
+  "rooms": [
+    {
+      "code": "D3-P301",
+      "name": "Phòng Học Đa Phương Tiện 301 — Cơ sở Quận 3",
+      "capacity": 30,
+      "capabilities": [
+        "PROJECTOR",
+        "AUDIO_SYSTEM"
+      ],
+      "campus": "Cơ sở Quận 3, TP.HCM"
+    },
+    {
+      "code": "D3-P302",
+      "name": "Phòng Luyện Nghe Nói Cabin 302 — Cơ sở Quận 3",
+      "capacity": 24,
+      "capabilities": [
+        "PROJECTOR",
+        "AUDIO_SYSTEM",
+        "LAB"
+      ],
+      "campus": "Cơ sở Quận 3, TP.HCM"
+    },
+    {
+      "code": "D1-P405",
+      "name": "Phòng Hội Thảo Thương Mại 405 — Cơ sở Quận 1",
+      "capacity": 35,
+      "capabilities": [
+        "PROJECTOR",
+        "AUDIO_SYSTEM",
+        "STREAMING"
+      ],
+      "campus": "Cơ sở Quận 1, TP.HCM"
+    }
+  ],
+  "classSections": [
+    {
+      "sectionCode": "SEC-W01-LISTENING-WORKPLACE",
+      "orderIndex": 0,
+      "title": "Tuần 1: Chiến lược Nghe Hiểu Hội Thoại Công Sở (Part 2 & Part 3)",
+      "introduction": "Nắm vững cấu trúc câu hỏi gián tiếp trong Part 2 và kỹ thuật bắt từ khóa chuyển ý (However, Actually, As soon as) trong hội thoại 2–3 người nói ở Part 3.",
+      "activities": [
+        {
+          "activityCode": "ACT-LESSON-W01-01",
+          "type": "LESSON",
+          "title": "Bài học 1.1: Phản xạ Câu trả lời Gián tiếp & Bẫy Đồng âm trong TOEIC Part 2",
+          "introduction": "Phân tích 5 mẫu câu trả lời gián tiếp thường gặp nhất trong môi trường văn phòng và kho vận.",
+          "contentMarkdown": "### 1. Mục tiêu bài học (Learning Objectives)\n- Nhận diện câu trả lời gián tiếp (**Indirect Responses**) cho câu hỏi `When`, `Where`, `Who` và `Yes/No`.\n- Loại trừ phương án bẫy lặp từ (**Word Repetition Trap**) hoặc đồng âm khác nghĩa (**Homophones**).\n\n### 2. Cấu trúc trọng tâm\n| Loại câu hỏi | Bẫy thường gặp | Mẫu câu trả lời đúng thực tế |\n|---|---|---|\n| `Where should I put the signed invoices?` | Lặp động từ *sign* ở ngữ cảnh khác | `Leave them on Ms. Pham's desk in Accounting.` |\n| `Have the replacement toner cartridges arrived?` | Trả lời `Yes/No` kèm thông tin sai chủ ngữ | `The reception desk just signed for the parcel.` |\n| `Why was the supplier meeting moved to Friday?` | Trả lời bằng mốc giờ thay vì nguyên nhân | `Because our lead engineer is visiting the Binh Duong plant.` |\n\n### 3. Ghi chú thực hành trên lớp\nHọc viên nghe 10 câu hỏi ngắn tốc độ chuẩn và ghi lại **động từ chính + danh từ đích** trước khi chọn đáp án A/B/C."
+        },
+        {
+          "activityCode": "ACT-RESOURCE-W01-02",
+          "type": "RESOURCE",
+          "title": "Tài nguyên 1.2: Bảng Tổng hợp 120 Cụm Từ Đồng Nghĩa Paraphrase Part 3–4 (HTTPS)",
+          "introduction": "Tài liệu tra cứu các cặp từ thay thế (Paraphrasing Pairs) giữa lời thoại âm thanh và câu hỏi in trên đề.",
+          "resourceUrl": "https://smartenglish.edu.vn/resources/toeic-part3-paraphrase-handbook-v2.pdf",
+          "contentMarkdown": "Tài liệu chuẩn hóa danh mục 120 cụm từ đồng nghĩa thương mại: *postpone = push back = reschedule*, *complimentary = free of charge*, *inspect = check over*."
+        },
+        {
+          "activityCode": "ACT-ASSIGNMENT-W01-03",
+          "type": "ASSIGNMENT",
+          "title": "Bài tập 1.3: Viết Email Điều chỉnh Lịch Giao Thiết Bị Văn Phòng (120–150 từ)",
+          "introduction": "Đóng vai Điều phối viên Mua hàng viết email phản hồi nhà cung cấp ModuWork về việc dời lịch lắp đặt 12 bàn làm việc.",
+          "contentMarkdown": "### Đề bài thực hành (Workplace Writing Scenario)\nBạn là **Chuyên viên Điều phối Văn phòng** tại Công ty Luật Veritas (Quận 1). Nhà cung cấp nội thất **ModuWork** vừa gửi thông báo giao 12 bàn làm việc vào sáng thứ Năm (09:00–11:30).\n\nHãy viết một email hoàn chỉnh (120–150 từ) gửi `orders@moduwork.vn` bao gồm đủ 3 ý:\n1. Xác nhận đã nhận thông báo đơn hàng `#MW-4829`.\n2. Đề nghị đổi khung giờ lắp đặt sang **14:00–16:30 cùng ngày** vì thang máy tải hàng tòa nhà bảo trì buổi sáng.\n3. Hỏi rõ tên kỹ thuật viên trưởng để đăng ký thẻ ra vào tại quầy an ninh tầng trệt.",
+          "sampleSubmissionText": "Subject: Delivery Window Adjustment for Order #MW-4829 — Veritas Legal District 1\n\nDear ModuWork Dispatch Team,\n\nThank you for confirming the shipment of our twelve ModuWork Sit-Stand Desks under Order #MW-4829 scheduled for Thursday, November 6.\n\nBecause our building management is conducting mandatory maintenance on the freight elevator between 8:30 A.M. and 12:00 P.M. that morning, we kindly request moving the delivery and Room 602 assembly window to 2:00 P.M.–4:30 P.M. on the same day. The loading bay will be reserved exclusively for your truck during the afternoon slot.\n\nAdditionally, could you please share the full names and ID numbers of your two installation technicians by Wednesday afternoon so our reception desk can issue visitor access badges in advance?\n\nBest regards,\nNguyen Minh Khang\nOperations Coordinator, Veritas Legal",
+          "rubric": {
+            "title": "Rubric Chấm Bài Viết Email Thương Mại Chuẩn TOEIC Writing W6–W7",
+            "criteria": [
+              {
+                "title": "Mức độ hoàn thành 3 yêu cầu công việc (Task Fulfillment)",
+                "description": "Nêu đủ mã đơn hàng, lý do đổi khung giờ chiều và yêu cầu thông tin kỹ thuật viên.",
+                "maxScore": 40
+              },
+              {
+                "title": "Tổ chức bố cục & Từ nối mạch lạc (Organization & Coherence)",
+                "description": "Có dòng tiêu đề rõ ràng, lời chào, chia đoạn hợp lý và kết thư lịch sự.",
+                "maxScore": 30
+              },
+              {
+                "title": "Từ vựng thương mại & Độ chính xác ngữ pháp (Vocabulary & Grammar)",
+                "description": "Sử dụng đúng cấu trúc câu đề nghị lịch sự và thì tương lai/hiện tại tiếp diễn.",
+                "maxScore": 30
+              }
+            ]
+          }
+        },
+        {
+          "activityCode": "ACT-QUIZ-W01-04",
+          "type": "QUIZ",
+          "title": "Quiz 1.4: Kiểm tra Ngữ pháp & Từ vựng Hợp đồng Thương mại (Part 5–6)",
+          "introduction": "Bài trắc nghiệm 1 đáp án đúng có tính giờ, gắn nhãn kiến thức (KnowledgeTag) và được Học vụ độc lập duyệt trước khi mở cho lớp.",
+          "timeLimitSeconds": 900,
+          "maxAttempts": 2,
+          "knowledgeTag": {
+            "code": "KT-WORKPLACE-CONTRACT-GRAMMAR",
+            "title": "Ngữ pháp & Từ vựng Hợp đồng Thương mại (Part 5–6)",
+            "articleSlug": "ngu-phap-tu-vung-hop-dong-thuong-mai-part-5-6"
+          },
+          "questions": [
+            {
+              "stem": "All supplier invoices must be approved by the department head _______ payment can be released by accounting.",
+              "options": [
+                {
+                  "content": "before",
+                  "isCorrect": true
+                },
+                {
+                  "content": "during",
+                  "isCorrect": false
+                },
+                {
+                  "content": "despite",
+                  "isCorrect": false
+                },
+                {
+                  "content": "rapidly",
+                  "isCorrect": false
+                }
+              ],
+              "explanation": "Cần liên từ phụ thuộc chỉ thời gian “before” đứng trước mệnh đề “payment can be released”."
+            },
+            {
+              "stem": "The updated warehouse safety manual provides _______ instructions on operating electric pallet jacks.",
+              "options": [
+                {
+                  "content": "detail",
+                  "isCorrect": false
+                },
+                {
+                  "content": "detailed",
+                  "isCorrect": true
+                },
+                {
+                  "content": "detailing",
+                  "isCorrect": false
+                },
+                {
+                  "content": "details",
+                  "isCorrect": false
+                }
+              ],
+              "explanation": "Cần tính từ “detailed” (chi tiết) đứng trước danh từ số nhiều “instructions”."
+            },
+            {
+              "stem": "Should you require technical assistance during the webinar, please _______ our support team via the live chat box.",
+              "options": [
+                {
+                  "content": "contact",
+                  "isCorrect": true
+                },
+                {
+                  "content": "contacted",
+                  "isCorrect": false
+                },
+                {
+                  "content": "contacting",
+                  "isCorrect": false
+                },
+                {
+                  "content": "to contact",
+                  "isCorrect": false
+                }
+              ],
+              "explanation": "Sau “please” trong câu mệnh lệnh dùng động từ nguyên mẫu “contact”."
+            }
+          ]
+        },
+        {
+          "activityCode": "ACT-ATTENDANCE-W01-05",
+          "type": "ATTENDANCE",
+          "title": "Điểm danh 1.5: Điểm danh theo TeachingSession chính thức (Mã phiên 20-hex)",
+          "introduction": "Liên kết trực tiếp tới phiên điểm danh của buổi học chính thức; học viên nhập mã phiên 20 ký tự hex trong khung giờ mở."
+        },
+        {
+          "activityCode": "ACT-ONLINE-SESSION-W01-06",
+          "type": "ONLINE_SESSION",
+          "title": "Buổi học online 1.6: Đề xuất & Công bố Google Meet HTTPS cho buổi học kết hợp",
+          "introduction": "Giảng viên đề xuất đường dẫn Google Meet HTTPS cho buổi học; Học vụ độc lập phê duyệt trước khi hiển thị cho học viên và Thanh tra.",
+          "proposedMeetUrl": "https://meet.google.com/seh-wave-two"
+        }
+      ]
+    },
+    {
+      "sectionCode": "SEC-W02-READING-MULTI-PASSAGE",
+      "orderIndex": 1,
+      "title": "Tuần 2: Đọc Hiểu Đa Văn Bản (Double & Triple Passages) trong TOEIC Part 7",
+      "introduction": "Thực hành kỹ năng đối chiếu thông tin chéo (Cross-Reference) giữa thông báo, email phản hồi và bảng biểu lịch trình.",
+      "activities": [
+        {
+          "activityCode": "ACT-LESSON-W02-01",
+          "type": "LESSON",
+          "title": "Bài học 2.1: Kỹ thuật Liên kết Dữ kiện Chéo (Cross-Referencing) trong Part 7",
+          "introduction": "Phương pháp giải nhanh các câu hỏi kết hợp thông tin từ 2 hoặc 3 văn bản liên quan.",
+          "contentMarkdown": "### Quy trình 3 bước xử lý câu hỏi Cross-Reference\n1. **Xác định thực thể chung (Anchor Entity)**: Mã đơn hàng, tên nhân sự, ngày sự kiện hoặc mã phòng họp xuất hiện ở cả hai văn bản.\n2. **Đối chiếu sự thay đổi (Delta Check)**: So sánh lịch gốc ở Văn bản 1 với thông báo điều chỉnh ở Văn bản 2.\n3. **Kiểm tra điều kiện loại trừ (Exclusion Clause)**: Đặc biệt lưu ý các dòng ghi chú (*Note*, *Warranty Exclusion*, *Exception*) ở cuối biểu mẫu."
+        },
+        {
+          "activityCode": "ACT-RESOURCE-W02-02",
+          "type": "RESOURCE",
+          "title": "Tài nguyên 2.2: Bộ Mẫu Biểu Hóa Đơn, Lịch Hội Thảo & Biên Bản Bảo Hành (HTTPS)",
+          "introduction": "Tập hợp 15 mẫu văn bản doanh nghiệp chuẩn hóa phục vụ luyện đọc tốc độ cao.",
+          "resourceUrl": "https://smartenglish.edu.vn/resources/toeic-part7-multi-passage-pack-v2.pdf",
+          "contentMarkdown": "Bao gồm 10 văn bản đơn, 2 cặp văn bản kép và 3 cụm ba văn bản có giải thích chi tiết bằng tiếng Việt."
+        }
+      ]
+    }
+  ],
+  "teachingSessionsAndOps": [
+    {
+      "sessionCode": "SESS-01-NORMAL-ONLINE",
+      "modality": "ONLINE",
+      "startsAtLocal": "2026-11-12T18:30:00+07:00",
+      "endsAtLocal": "2026-11-12T20:30:00+07:00",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "approvedMeetUrl": "https://meet.google.com/seh-wave-two",
+      "attendanceScenario": "Buổi học chính thức #1: GV kích hoạt điểm danh lớp, mở cửa sổ điểm danh, xoay mã 20-hex; HV1 điểm danh hợp lệ PRESENT; HV2 gửi yêu cầu đính chính có minh chứng và được duyệt.",
+      "inspectionScenario": "HVU phân công Thanh tra (TT) ca trực buổi #1; TT check-in/out ca trực, bấm giờ quan sát thực tế, nộp biên bản TT-REPORTED; HVU độc lập nghiệm thu APPROVE 120 phút."
+    },
+    {
+      "sessionCode": "SESS-02-RESCHEDULED-HYBRID",
+      "modality": "HYBRID",
+      "startsAtLocal": "2026-11-14T18:30:00+07:00",
+      "endsAtLocal": "2026-11-14T20:30:00+07:00",
+      "rescheduledToStartsAtLocal": "2026-11-16T18:30:00+07:00",
+      "rescheduledToEndsAtLocal": "2026-11-16T20:30:00+07:00",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "approvedMeetUrl": "https://meet.google.com/seh-make-upx",
+      "attendanceScenario": "Buổi học chính thức #2: GV gửi ngoại lệ RESCHEDULE do công tác đột xuất; HVU độc lập phê duyệt và định tuyến sang buổi học thay thế revision mới mà không làm mất danh sách lớp.",
+      "inspectionScenario": "Buổi học sau khi đổi lịch: TT nộp báo cáo giám sát, GV gửi phản hồi DISPUTE có lý giải, HVU độc lập nghiệm thu PARTIAL (100 phút) kèm quyết định xử lý khiếu nại."
+    }
+  ],
+  "completionPolicyPack": {
+    "policyCode": "POL-TOEIC-4SK-TEST-V1",
+    "title": "Chuẩn Hoàn Thành Khóa Học TOEIC Workplace Pro (W09 Test Governance Policy)",
+    "isTestPolicy": true,
+    "governanceNote": "Chính sách gắn nhãn isTestPolicy=true phục vụ kiểm thử E2E trên DB cô lập; mọi lớp/ghi danh chưa đủ dữ liệu thật ở môi trường chuẩn vẫn giữ nguyên PENDING_POLICY / NOT_ELIGIBLE.",
+    "criteria": [
+      {
+        "criterionId": "CRIT_W03_GRADE",
+        "domain": "W03_GRADE",
+        "required": true,
+        "minimumNumericValue": 70,
+        "description": "Điểm trung bình các bài Assignment/Quiz đã công bố (W03) đạt tối thiểu 70%."
+      },
+      {
+        "criterionId": "CRIT_W06_ATTENDANCE",
+        "domain": "W06_ATTENDANCE",
+        "required": true,
+        "minimumNumericValue": 80,
+        "description": "Tỷ lệ có mặt tại các buổi học TeachingSession chính thức (W06) đạt từ 80% trở lên."
+      },
+      {
+        "criterionId": "CRIT_W07_ENTITLEMENT",
+        "domain": "W07_ENTITLEMENT",
+        "required": true,
+        "description": "Trạng thái ghi danh và quyền lợi học vụ/tài chính (W07) đang ACTIVE hợp lệ."
+      }
+    ]
+  }
+}

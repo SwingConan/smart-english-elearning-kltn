@@ -28,6 +28,11 @@ import type {
   OfferingStatus,
 } from '@/features/admin/types';
 import { useAdminSessionExpiry } from '@/features/admin/use-admin-session-expiry';
+import {
+  formatPrintTimestampVn,
+  PrintableReportFooter,
+  PrintableReportHeader,
+} from '@/features/operations/PrintableReportChrome';
 
 export function AdminReportsPage() {
   const onSessionExpired = useAdminSessionExpiry();
@@ -105,7 +110,28 @@ export function AdminReportsPage() {
 
   return (
     <div className="report-print-root space-y-6">
-      <header className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <PrintableReportHeader
+        department="Smart English LMS · Quản trị hệ thống"
+        documentCode="BC-QTHT"
+        title="Báo cáo hệ thống & vận hành trung tâm"
+        subtitle="Tổng hợp số liệu tuyển sinh, lớp học và tài khoản phục vụ vận hành trung tâm."
+        metaRows={[
+          {
+            label: 'Kỳ ghi danh lọc',
+            value: `Từ ${formatReportDate(report.period.from)} đến ${formatReportDate(report.period.to)}`,
+          },
+          {
+            label: 'Tổng lớp / Khóa học',
+            value: `${report.classes.total} lớp · ${report.courses.total} khóa học`,
+          },
+          {
+            label: 'Dữ liệu cập nhật',
+            value: formatVietnamReportDateTime(report.generatedAt),
+          },
+          { label: 'Xuất bản lúc', value: `${formatPrintTimestampVn()} (GMT+7)` },
+        ]}
+      />
+      <header className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm print:hidden">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-indigo-600">
@@ -115,7 +141,7 @@ export function AdminReportsPage() {
               Báo cáo hệ thống
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Các hàng đợi và chỉ số phục vụ quyết định vận hành hiện tại.
+              Tổng hợp số liệu tuyển sinh, lớp học và tài khoản phục vụ vận hành trung tâm.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -243,7 +269,7 @@ export function AdminReportsPage() {
                     <span className="text-slate-600">
                       {row.activeEnrollments}
                       {row.maxStudents === null
-                        ? ' · Không giới hạn cấu hình'
+                        ? ' học viên (chưa đặt giới hạn)'
                         : `/${row.maxStudents} học viên`}
                     </span>
                   </button>
@@ -514,11 +540,16 @@ export function AdminReportsPage() {
         </div>
       </section>
 
-      <footer className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+      <footer className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600 print:rounded-lg print:p-3 print:text-xs">
         <strong className="text-slate-900">Cách đọc báo cáo:</strong> Hàng đợi, sĩ số lớp, trạng
         thái lớp và tài khoản là ảnh chụp hiện tại. Khoảng ngày chỉ thay đổi nhu cầu ghi danh. Đăng
         ký có phí chờ xử lý không được xem là đã thanh toán hoặc giữ chỗ. Giờ Việt Nam (UTC+7).
       </footer>
+
+      <PrintableReportFooter
+        leftTitle="Người lập báo cáo"
+        rightTitle="Xác nhận của Ban giám đốc"
+      />
 
       {drawer ? (
         <ReportDrilldownDrawer
