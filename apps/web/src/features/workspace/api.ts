@@ -1,5 +1,4 @@
 import { apiFetch } from '@/lib/api-client';
-import type { UserRole } from '@/features/auth/api';
 import type { AcademicTrack, AcademicTrackScopes, UserRole } from '../auth/api';
 
 export type Workspace = {

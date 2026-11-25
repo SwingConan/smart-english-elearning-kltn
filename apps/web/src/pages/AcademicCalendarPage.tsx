@@ -964,7 +964,10 @@ function CalendarResults() {
                     : 'Trực tuyến / Chưa gắn phòng'}
                 </span>
               </p>
-              <SourceRecord label="Mã buổi" value={selectedSession.id} />
+              <SourceRecord
+                name={selectedSession.classOffering.name}
+                code={selectedSession.classOffering.code}
+              />
             </div>
 
             <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">

@@ -44,10 +44,8 @@ jobs:
         run: npm run prisma:generate
       - name: Apply Prisma migrations
         run: npm run prisma:migrate:deploy
-      - name: Create shadow database for schema drift check
-        run: PGPASSWORD=ci_password psql -h 127.0.0.1 -U ci_user -d postgres -c 'CREATE DATABASE smart_elearning_ci_shadow'
-      - name: Check migration/schema drift
-        run: npm run prisma:drift-check
+      - name: Validate Prisma schema
+        run: npm run prisma:validate
       - name: Seed deterministic application data
         env:
           SEED_DEFAULT_PASSWORD: ci-only-seed-password

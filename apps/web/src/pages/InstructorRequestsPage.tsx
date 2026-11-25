@@ -49,7 +49,11 @@ export function InstructorRequestsPage() {
         setClasses(list);
         if (!urlClassId && list.length > 0) {
           const preferred =
-            list.find((c) => c.status === 'ACTIVE' && (c.upcomingSessionCount ?? 0) > 0) ??
+            list.find(
+              (c) =>
+                c.status === 'ACTIVE' &&
+                ((c as { upcomingSessionCount?: number }).upcomingSessionCount ?? 0) > 0,
+            ) ??
             list.find((c) => c.status === 'ACTIVE') ??
             list[0];
           setSelectedClassId(preferred.id);

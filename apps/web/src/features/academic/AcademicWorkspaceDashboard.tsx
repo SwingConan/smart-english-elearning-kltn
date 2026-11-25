@@ -104,7 +104,14 @@ export function AcademicWorkspaceDashboard() {
                     pendingAttendance?: number;
                   };
                 }>('/v2/session-engagement/reviews')
-              : Promise.resolve({ data: [], summary: {} }),
+              : Promise.resolve({
+                  data: [],
+                  summary: {} as {
+                    pendingMeetLinks?: number;
+                    pendingExceptions?: number;
+                    pendingAttendance?: number;
+                  },
+                }),
             canFetchTraining
               ? apiFetch<{
                   data?: Array<{ valid?: boolean }>;

@@ -364,17 +364,19 @@ function buildDashboardTasks(work: ClassWork[], nowMs: number): DashboardTaskIte
     // Legacy / course-level assessments from /learning/enrollments/:id/progress or mocked class progress
     const rawLegacyAssessments = w.progress?.assessments ?? [];
     for (const a of rawLegacyAssessments) {
-      if (seenActivityIds.has(a.assessmentId) || isLeftoverQaTitle(a.title)) continue;
-      seenActivityIds.add(a.assessmentId);
+      const legacyItem = a as typeof a & { assessmentId?: string; attemptStatus?: string };
+      const resolvedAssessmentId = legacyItem.assessmentId ?? a.id;
+      if (seenActivityIds.has(resolvedAssessmentId) || isLeftoverQaTitle(a.title)) continue;
+      seenActivityIds.add(resolvedAssessmentId);
       const isDone =
-        a.attemptStatus === 'SUBMITTED' ||
-        a.attemptStatus === 'GRADED' ||
+        legacyItem.attemptStatus === 'SUBMITTED' ||
+        legacyItem.attemptStatus === 'GRADED' ||
         a.status === 'COMPLETED';
       const due = a.closeAt ?? null;
       const dueMs = due ? new Date(due).getTime() : NaN;
       const isOverdue = !isDone && Number.isFinite(dueMs) && dueMs < nowMs;
       tasks.push({
-        id: `legacy-test:${w.enrollment.id}:${a.assessmentId}`,
+        id: `legacy-test:${w.enrollment.id}:${resolvedAssessmentId}`,
         classId,
         className,
         sectionTitle: 'Đánh giá học phần',
@@ -528,7 +530,10 @@ export function StudentDashboard() {
     () =>
       work.filter(
         (w) =>
-          w.activityProgress?.q05Completion?.certificateIssued ||
+          Boolean(
+            w.activityProgress?.q05Completion?.certificateCode &&
+              w.activityProgress?.q05Completion?.certificateState === 'ISSUED',
+          ) ||
           w.activityProgress?.certificateIssued ||
           w.enrollment.status === 'COMPLETED',
       ).length,
@@ -1040,7 +1045,9 @@ export function StudentDashboard() {
                     const sum = resolveClassSummary(w);
                     const q05 = w.activityProgress?.q05Completion;
                     const isCompleted = w.enrollment.status === 'COMPLETED';
-                    const hasCert = Boolean(q05?.certificateIssued && q05.certificateCode);
+                    const hasCert = Boolean(
+                      q05?.certificateCode && q05.certificateState === 'ISSUED',
+                    );
                     return (
                       <article
                         key={w.enrollment.id}

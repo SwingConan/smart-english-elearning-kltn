@@ -2250,7 +2250,14 @@ function EvaluationSummaryView({ body, skill }: { body: Record<string, unknown>;
       string,
       { skill: string; part: string; correct: number; samples: number }
     >();
-    const totals = rawParts.reduce(
+    const totals = rawParts.reduce<{
+      correct: number;
+      samples: number;
+      lCorrect: number;
+      lSamples: number;
+      rCorrect: number;
+      rSamples: number;
+    }>(
       (acc, p, idx) => {
         const samples = Number(p.samples ?? 0);
         const correct = Number(p.correct ?? 0);

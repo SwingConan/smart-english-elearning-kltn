@@ -261,6 +261,7 @@ describe('Unified post-login overview & IUH navigation across all 6 actors', () 
         code: classId === 'cls-open' ? 'SE-LIST-550' : 'SE-READ-K24',
         name: classId === 'cls-open' ? 'TOEIC Listening Focus 550+' : 'TOEIC Reading K24',
         courseId: 'c1',
+        courseTitle: 'TOEIC Listening Focus',
       },
       editable: true,
       activityColumns:
@@ -315,10 +316,10 @@ describe('Unified post-login overview & IUH navigation across all 6 actors', () 
                   publishedAssignmentGrades: 0,
                   submittedQuizzes: 0,
                   publishedQuizGrades: 0,
-                  presentCount: 0,
-                  lateCount: 0,
-                  openedAttendanceCount: 0,
-                  averagePercent: null,
+                  attendancePresentCount: 0,
+                  attendanceLateCount: 0,
+                  attendanceTotalCount: 0,
+                  completedActivitiesCount: 0,
                 },
               },
             ]

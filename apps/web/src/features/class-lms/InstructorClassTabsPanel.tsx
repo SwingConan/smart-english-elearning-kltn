@@ -339,7 +339,7 @@ export function InstructorClassInfoTab({
               </th>
               <td className="flex flex-wrap items-center gap-2 px-4 py-3">
                 {statusInfo && (
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusInfo.tone}`}>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusInfo.className}`}>
                     {statusInfo.label}
                   </span>
                 )}

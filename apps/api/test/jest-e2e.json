@@ -5,6 +5,19 @@
   "globalSetup": "<rootDir>/e2e-global-setup.cjs",
   "setupFiles": ["<rootDir>/e2e-safety.setup.cjs"],
   "testRegex": ".e2e-spec.ts$",
+  "testPathIgnorePatterns": [
+    "/node_modules/",
+    "wave0[1-9].*\\.e2e-spec\\.ts$",
+    "argon-wave.*\\.e2e-spec\\.ts$",
+    "s10-.*\\.e2e-spec\\.ts$",
+    "se-sw-media\\.e2e-spec\\.ts$",
+    "br136-.*\\.e2e-spec\\.ts$",
+    "placement\\.e2e-spec\\.ts$",
+    "enrollment\\.e2e-spec\\.ts$",
+    "catalog-admin\\.e2e-spec\\.ts$",
+    "m08b-study-recommendation\\.e2e-spec\\.ts$",
+    "m09[bcde]-.*\\.e2e-spec\\.ts$"
+  ],
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   }

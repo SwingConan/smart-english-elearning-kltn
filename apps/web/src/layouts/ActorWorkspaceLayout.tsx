@@ -523,7 +523,7 @@ export function ActorWorkspaceLayout() {
 
           {/* Workspace Main Content */}
           <div id="main-content" className="admin-shell-content flex-1">
-            {user.role === 'STUDENT' && <LearnerBreadcrumbs />}
+            {(user.role as UserRole) === 'STUDENT' && <LearnerBreadcrumbs />}
             <Outlet />
           </div>
         </div>

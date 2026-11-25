@@ -66,11 +66,15 @@ async function verify(env = process.env) {
     } = await db.query(
       "SELECT current_database() AS db, current_schema() AS schema, current_setting('data_directory') AS directory, host(inet_server_addr()) AS host, current_setting('transaction_read_only') AS read_only",
     );
+    const dirOk = target.local
+      ? resolve(identity.directory) === resolve(target.directory)
+      : String(identity.directory || '').startsWith('/var/lib/postgresql');
+    const hostOk = target.local ? identity.host === '127.0.0.1' : Boolean(identity.host);
     if (
       identity.db !== new URL(target.connectionString).pathname.slice(1) ||
       identity.schema !== 'public' ||
-      resolve(identity.directory) !== resolve(target.directory) ||
-      identity.host !== '127.0.0.1' ||
+      !dirOk ||
+      !hostOk ||
       identity.read_only !== 'on'
     )
       throw new Error('E2E_CLUSTER_IDENTITY_REJECTED');

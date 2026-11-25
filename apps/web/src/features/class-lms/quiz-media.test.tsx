@@ -275,6 +275,8 @@ describe('LocalQuiz Media, Shared Passage Groups & AttemptStimuli Zoom', () => {
           {
             id: 's-1',
             type: 'IMAGE',
+            orderIndex: 1,
+            mimeType: 'image/png',
             mediaUrl: '/uploads/part6-sample.png',
             altText: 'Đoạn văn Part 6',
             textContent: null,

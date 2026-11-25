@@ -441,6 +441,7 @@ function StatusBadge({ status }: { status: EnrollmentStatus }) {
   const label: Record<EnrollmentStatus, string> = {
     ACTIVE: 'Đang học',
     PENDING_PAYMENT: 'Chờ thanh toán',
+    DROPPED: 'Đã rút lớp',
     CANCELLED: 'Đã hủy',
     COMPLETED: 'Hoàn thành',
   };

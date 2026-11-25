@@ -72,12 +72,14 @@ function formatSupportText(text?: string | null): string {
 function shortTicketCode(reference: string) {
   return reference.length > 20 ? `${reference.slice(0, 14)}…` : reference;
 }
-const stamp = (s: string) =>
-  new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Asia/Ho_Chi_Minh',
-  }).format(new Date(s));
+const stamp = (s?: string | null) =>
+  s
+    ? new Intl.DateTimeFormat('vi-VN', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+        timeZone: 'Asia/Ho_Chi_Minh',
+      }).format(new Date(s))
+    : '—';
 function useRequest(onSuccess: () => Promise<void>) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),

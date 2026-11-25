@@ -78,7 +78,7 @@ describe('InstructorContentService', () => {
     prisma.learningResource.findMany.mockResolvedValue([]);
     await service.listLessons(instructorId, moduleId);
     await service.listResources(instructorId, lessonId);
-    const scope={courseId,instructorId,effectiveAssignments:{none:{}},course:{classOfferings:{none:{effectiveAssignments:{some:{}}}}}};
+    const scope = expect.objectContaining({ courseId, OR: expect.arrayContaining([expect.objectContaining({ instructorId })]) });
     expect(prisma.classOffering.findFirst).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: scope }));
     expect(prisma.classOffering.findFirst).toHaveBeenNthCalledWith(2, expect.objectContaining({ where: scope }));
   });

@@ -902,7 +902,7 @@ function SePayPaymentWorkspace() {
                       <dt className="text-xs font-medium text-slate-500">Nội dung chuyển khoản</dt>
                       <dd className="mt-0.5 flex items-center justify-between gap-2 font-mono font-bold text-indigo-700">
                         <span>{active.code}</span>
-                        <CopyTextButton value={active.code} label="Sao chép mã" />
+                        <CopyTextButton text={active.code} label="Sao chép mã" />
                       </dd>
                     </div>
                     <div className="workspace-subcard bg-white py-2.5">
@@ -977,7 +977,7 @@ function SePayPaymentWorkspace() {
                           <span className="rounded bg-slate-100 px-2 py-0.5 font-mono font-semibold text-slate-800">
                             {order.code}
                           </span>
-                          <CopyTextButton value={order.code} label="Sao chép nội dung CK" />
+                          <CopyTextButton text={order.code} label="Sao chép nội dung CK" />
                         </div>
                       </div>
                       {order.qrUrl && (

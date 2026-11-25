@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context';
-import type { PublicUser } from '@/lib/api-client';
+import type { AuthUser as PublicUser } from '@/features/auth/api';
 import { RoleReportsPage } from './RoleReportsPage';
 import type { PeriodAnalyticsReport } from './RolePeriodAnalyticsReport';
 
@@ -112,10 +112,12 @@ function authCtx(role: PublicUser['role']): AuthContextValue {
       role,
       status: 'ACTIVE',
     },
-    loading: false,
+    isLoading: false,
+    error: null,
     login: vi.fn(),
+    register: vi.fn(),
     logout: vi.fn(),
-    refresh: vi.fn(),
+    refreshUser: vi.fn(),
   };
 }
 
