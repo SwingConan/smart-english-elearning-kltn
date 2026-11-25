@@ -26,6 +26,8 @@ Mọi bước xem, lọc, tìm kiếm, mở drawer, preview và tải tài liệ
 7. `Cần theo dõi` phải mở đúng 3 học viên từ timestamp seed.
 8. Nếu FAIL, chụp toàn bộ KPI và drawer đang mở, kèm tên control đã click.
 
+Tạm Pass
+
 ## 3. R3-04 — Hồ sơ học viên
 
 Mở một học viên có kết quả → kiểm tra `Hoạt động gần đây` và `Xu hướng kỹ năng`.
@@ -37,12 +39,16 @@ Mở một học viên có kết quả → kiểm tra `Hoạt động gần đâ
 
 Nếu FAIL, chụp phần activity/trend và ghi tên học viên.
 
+Fail, phần Xu hướng kỹ năng bị gì mà nhìn kì vậy
+
 ## 4. R3-07 — Ngân hàng câu hỏi
 
 1. Mở `Ngân hàng câu hỏi`, tìm `M07-VG-W-01`, rồi thử thêm `M07-VG-S-01` và `M07-VG-L-01`.
 2. Phải thấy nội dung workplace tự đủ bối cảnh, loại trả lời, kỹ năng, độ khó, rubric hoặc hướng dẫn ngữ liệu cần thiết.
 3. Kiểm tra filter skill/type/difficulty/usage và phân trang 20 câu/trang.
 4. Nếu FAIL, chụp card câu hỏi cùng search/filter đang dùng.
+
+Tạm pass
 
 ## 5. R3-08/R3-09 — XLSX
 
@@ -60,6 +66,8 @@ Error:
 
 Nếu FAIL, chụp preview và dialog/disabled CTA. Không click nút `Nhập N câu` trong retest an toàn.
 
+Tạm pass
+
 ## 6. R3-10 — Test Builder residual retest
 
 1. Mở `Đề kiểm tra` → `VG-R3 — Đề demo hướng dẫn` → `Chỉnh sửa`.
@@ -71,6 +79,7 @@ Nếu FAIL, chụp preview và dialog/disabled CTA. Không click nút `Nhập N 
 7. Bước 5 phải là preview chỉ đọc giống học viên: hiển thị ngữ liệu, nội dung câu và đúng hình thức radio/checkbox/text/audio; tuyệt đối không lộ đáp án đúng. Không click `Xuất bản`.
 8. Nếu FAIL, chụp toàn trang, Console và Network response đã lược bỏ token/cookie.
 
+Fail, lần này bước 3 làm rất tốt và tôi hiểu, nhưng bước 2 chúng ta nên tái thiết kế lại, việc thêm cụm làm tôi hiểu được cách hoạt động, nhưng khi tôi thêm một cụm mà muốn đổi tên hay gì đó thì tôi lại back lại bước 2 để chỉnh rồi qua bước 3, bạn hiểu không ?
 Sau thao tác reorder, reset:
 
 ```powershell
@@ -88,6 +97,8 @@ Mở `Kết quả` → `Kiểm tra thường kỳ 01`.
 - Click bucket phải lọc ra đúng tên; `Mở hồ sơ` phải đi đúng learner.
 - Biểu đồ trend có đúng một mốc Periodic rồi đến Midterm từ trái sang phải, ngày tăng dần, trục 0–100, bốn chuỗi kỹ năng, chú giải, ngày, giá trị và sample count; assessment không có mẫu điểm không xuất hiện và dữ liệu kỹ năng thiếu không được đổi thành 0.
 
+Fail, một thảm họa thật sự, bạn tự xem trên ảnh đi nhé
+
 ## 8. Residual checks — status, demo answers, activity and XLSX
 
 - Trong `Lớp giảng dạy`, lớp `TOEIC-REA-02` phải hiển thị `Đã hủy`; bộ lọc có `Đã hủy`, không có pseudo-status `Đã đóng`. Lớp hoàn tất vẫn hiển thị `Đã kết thúc`.
@@ -96,6 +107,8 @@ Mở `Kết quả` → `Kiểm tra thường kỳ 01`.
 - Trong xác nhận XLSX, `Khóa học đích` phải là tên khóa học dễ đọc, không phải UUID.
 
 Nếu FAIL, chụp completion, bucket đã click và learner matrix đã lọc.
+
+Tạm pass
 
 ## 9. R3-12 — Pending/missing evidence
 
@@ -108,6 +121,8 @@ Mở `Kiểm tra giữa kỳ`, tìm `Đặng Bảo Long`.
 
 Nếu FAIL, chụp cả completion, denominator và dòng Đặng Bảo Long. Đây là bằng chứng riêng bắt buộc cho R3-12.
 
+tôi không biết tìm ở đâu cả
+
 ## 10. R3-15 — Student resource
 
 Đăng xuất Instructor, đăng nhập `student.demo@smart-elearning.local`, mở lớp `TOEIC-LR-2609-EVE` → `Nội dung học tập` → `Welcome & Course Overview`.
@@ -118,6 +133,8 @@ Nếu FAIL, chụp cả completion, denominator và dòng Đặng Bảo Long. Đ
 - `Tài nguyên TOEIC tham khảo` mở như external link, không iframe.
 
 Nếu FAIL, chụp danh sách resource ở trạng thái thu gọn và video sau khi mở.
+
+Tạm pass
 
 ## 11. Responsive và kết thúc
 

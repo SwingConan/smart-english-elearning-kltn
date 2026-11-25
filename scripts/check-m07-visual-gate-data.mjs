@@ -1,17 +1,10 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Pool } from 'pg';
+import { pathToFileURL } from 'node:url';
+import target from './lib/m07-checker-target.cjs';
 import readXlsxFile from 'read-excel-file/node';
 
-const envText = readFileSync(resolve('apps/api/.env'), 'utf8');
-const envValue = (name) => {
-  const line = envText.split(/\r?\n/).find((item) => item.startsWith(`${name}=`));
-  if (!line) return undefined;
-  return line.slice(name.length + 1).trim().replace(/^['"]|['"]$/g, '');
-};
-const connectionString = process.env.DATABASE_URL ?? envValue('DATABASE_URL');
-if (!connectionString) throw new Error('DATABASE_URL is required');
-const pool = new Pool({ connectionString });
+async function checkM07Data(pool) {
 const failures = [];
 const expect = (condition, message) => {
   if (!condition) failures.push(message);
@@ -50,7 +43,9 @@ try {
   expect(primary?.name === 'TOEIC L&R Foundation — Tối T3/T5', 'Primary class identity is invalid');
   expect(primary?.title === 'TOEIC Workplace Foundations', 'Primary Course identity is invalid');
   expect(primary?.status === 'IN_PROGRESS', 'Primary class must remain IN_PROGRESS');
-  if (!primary) throw new Error('Primary class not found');
+  if (!primary) {
+    throw new target.M07SafetyError('M07_FIXTURE_PRIMARY_CLASS_MISSING');
+  }
 
   const curriculum = await one(`
     SELECT count(DISTINCT m.id)::int modules, count(DISTINCT l.id)::int lessons
@@ -258,7 +253,6 @@ try {
   if (failures.length) {
     console.error('M07 Visual Gate data manifest FAIL');
     for (const failure of failures) console.error(`- ${failure}`);
-    process.exitCode = 1;
   } else {
     console.log('M07 Visual Gate data manifest PASS');
     console.log('');
@@ -277,6 +271,28 @@ try {
     console.log(`Scale-fixture leak: ${scaleLeak.count}`);
     console.log(`Midterm states: ${stateNames.rows.map((row) => `${row['fullName']}=${row.state}`).join(', ')}`);
   }
-} finally {
-  await pool.end();
+  return { success: failures.length === 0, failures };
+} catch (error) {
+  console.error('M07 Visual Gate data manifest INCOMPLETE');
+  for (const failure of failures) console.error(`- ${failure}`);
+  throw error instanceof target.M07SafetyError ? error : new target.M07SafetyError('M07_DATA_CHECK_INCOMPLETE');
+}
+}
+
+// Both the launcher and direct checker invoke the same mandatory boundary.
+// The unguarded business function above is deliberately not exported.
+export async function runM07Checker(options = {}) {
+  try {
+    const result = await target.withM07ReadOnlyTarget(checkM07Data, {
+      onVerified: (identity) => console.log('M07_VERIFIED_DISPOSABLE_IDENTITY ' + JSON.stringify(identity)),
+      ...options,
+    });
+    return result.success ? 0 : 1;
+  } catch (error) {
+    console.error(error instanceof target.M07SafetyError ? error.code : 'M07_CHECKER_EXECUTION_FAILED');
+    return 1;
+  }
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  process.exitCode = await runM07Checker({ argv: process.argv.slice(2) });
 }
