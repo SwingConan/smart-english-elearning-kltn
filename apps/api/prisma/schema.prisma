@@ -8,10 +8,156 @@ datasource db {
   provider = "postgresql"
 }
 
+// Additive S10 recovery ledger. No historical assessment columns repurposed.
+model ExamTaskProgress {
+  protocolVersion Int @default(1)
+  capture ExamTaskCapture?
+  audioValidation ExamTaskAudioValidation?
+  id               String             @id @default(uuid()) @db.Uuid
+  attemptId        String             @db.Uuid
+  testQuestionId   String             @db.Uuid
+  learnerId        String             @db.Uuid
+  epoch            String             @unique @default(uuid()) @db.Uuid
+  parentEpoch      String?            @db.Uuid
+  resetCount       Int                @default(0)
+  contentVersion   String
+  assetVersion     String
+  mediaSha256      String
+  mediaStorageKey  String
+  mediaDurationMs  Int
+  phase            String             @default("NOT_STARTED")
+  revision         Int                @default(0)
+  started          Int                @default(0)
+  completed        Int                @default(0)
+  leaseSessionHash String?
+  leaseTabHash     String?
+  leaseTokenHash   String?
+  leaseExpiresAt   DateTime?
+  playNonceHash    String?
+  playIssuedAt     DateTime?
+  mediaRead        Boolean            @default(false)
+  responseDeadline DateTime?
+  uploadDigest     String?
+  savedAnswerId    String?            @db.Uuid
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  attempt          TestAttempt        @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  testQuestion     TestQuestion       @relation(fields: [testQuestionId], references: [id], onDelete: Restrict)
+  events           ExamTaskEvent[]
+  receipts         ExamTaskReceipt[]
+  uploads          ExamTaskUpload[]
+  parent           ExamTaskProgress?  @relation("S10EpochHistory", fields: [parentEpoch], references: [epoch], onDelete: Restrict)
+  children         ExamTaskProgress[] @relation("S10EpochHistory")
+  savedAnswer      TestAnswer?        @relation("S10SavedAnswer", fields: [savedAnswerId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, testQuestionId, resetCount])
+  @@index([attemptId, testQuestionId, createdAt])
+  @@map("exam_task_progress")
+}
+
+model ExamTaskEvent {
+  id         String           @id @default(uuid()) @db.Uuid
+  progressId String           @db.Uuid
+  actorId    String?          @db.Uuid
+  actorKind  String           @default("USER")
+  action     String
+  accepted   Boolean
+  code       String?
+  reason     String?          @db.VarChar(500)
+  revision   Int
+  createdAt  DateTime         @default(now())
+  progress   ExamTaskProgress @relation(fields: [progressId], references: [id], onDelete: Restrict)
+
+  @@index([progressId, createdAt])
+  @@map("exam_task_events")
+}
+
+model ExamTaskReceipt {
+  id          String           @id @default(uuid()) @db.Uuid
+  progressId  String           @db.Uuid
+  actorHash   String
+  key         String           @db.Uuid
+  fingerprint String
+  outcome     Json
+  createdAt   DateTime         @default(now())
+  progress    ExamTaskProgress @relation(fields: [progressId], references: [id], onDelete: Restrict)
+
+  @@unique([progressId, actorHash, key])
+  @@map("exam_task_receipts")
+}
+
+// Reserve a storage key before file creation; commit answer/reference atomically.
+model ExamTaskUpload {
+  id         String           @id @default(uuid()) @db.Uuid
+  progressId String           @db.Uuid
+  key        String           @db.Uuid
+  digest     String
+  storageKey String           @unique
+  mimeType   String
+  bytes      Int
+  status     String           @default("STAGED")
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  progress   ExamTaskProgress @relation(fields: [progressId], references: [id], onDelete: Restrict)
+
+  @@unique([progressId, key])
+  @@index([status, createdAt])
+  @@map("exam_task_uploads")
+}
+
+// DEC-045: version2 is opt-in on newly created attempts. Originals stay protected.
+model ExamTaskCapture {
+  progressId String @id @db.Uuid
+  prepareKey String @unique @db.Uuid
+  nonceHash String @unique
+  phase String @default("ARMED")
+  armedAt DateTime
+  armExpiresAt DateTime
+  startedAt DateTime?
+  deadline DateTime?
+  stoppedAt DateTime?
+  stopDigest String?
+  progress ExamTaskProgress @relation(fields: [progressId], references: [id], onDelete: Restrict)
+  @@map("exam_task_captures")
+}
+model ExamTaskAudioValidation {
+  progressId String @id @db.Uuid
+  digest String
+  storageKey String?
+  bytes Int
+  status String
+  code String?
+  codec String?
+  sampleRate Int?
+  sampleCount Int?
+  channels Int?
+  decoderIdentity String
+  sourceSha256 String
+  createdAt DateTime @default(now())
+  progress ExamTaskProgress @relation(fields: [progressId], references: [id], onDelete: Restrict)
+  @@map("exam_task_audio_validations")
+}
+
+// Must accompany ADMIN_COORDINATOR. No automatic grants or new actors.
+model ExamRecoveryPermission {
+  userId    String    @id @db.Uuid
+  grantedBy String    @db.Uuid
+  grantedAt DateTime  @default(now())
+  revokedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("exam_recovery_permissions")
+}
+
 enum UserRole {
   STUDENT
   INSTRUCTOR
   ADMIN_COORDINATOR
+  COUNSELOR
+  ACADEMIC_MANAGER
+  CASHIER
+  TEACHING_INSPECTOR
+  SYSTEM_ADMIN
 }
 
 enum UserStatus {
@@ -195,22 +341,332 @@ enum StudyRecommendationTarget {
   PRACTICE
 }
 
+// Immutable audit is enforced by a PostgreSQL trigger, including direct SQL.
+enum AcademicDecisionState {
+  DRAFT
+  PENDING_APPROVAL
+  PUBLISHED
+  SUPERSEDED
+  CANCELLED
+}
+
+enum RoomStatus {
+  ACTIVE
+  MAINTENANCE
+  UNAVAILABLE
+}
+
+enum RoomCapability {
+  PROJECTOR
+  WHITEBOARD
+  SPEAKERS
+  COMPUTER
+  ACCESSIBLE
+}
+
+enum SessionIntent {
+  PUBLISH
+  RESCHEDULE
+  CANCEL
+}
+
+// W02B metadata/price versions; Module/Lesson versioning remains W03.
+model CourseVersion {
+  w07ApplicationVersion W07Application[] @relation("W07Application_version")
+  w07ObligationVersion W07Obligation[] @relation("W07Obligation_version")
+  id String @id @default(uuid()) @db.Uuid
+  courseId String @db.Uuid
+  number Int
+  title String
+  description String @db.Text
+  level String
+  skillScope CourseSkillScope
+  standardPricingType PricingType?
+  standardTuitionFeeVnd Int?
+  effectiveFrom DateTime @db.Timestamptz(3)
+  state AcademicDecisionState @default(DRAFT)
+  proposedBy String @db.Uuid
+  approvedBy String? @db.Uuid
+  reason String @db.VarChar(500)
+  decisionReason String? @db.VarChar(500)
+  lockVersion Int @default(0)
+  submittedAt DateTime? @db.Timestamptz(3)
+  approvedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  course Course @relation(fields:[courseId], references:[id], onDelete:Restrict)
+  proposer User @relation("VersionProposer",fields:[proposedBy], references:[id], onDelete:Restrict)
+  approver User? @relation("VersionApprover",fields:[approvedBy], references:[id], onDelete:Restrict)
+  offerings ClassOffering[]
+  @@unique([courseId,number])
+  @@index([state,effectiveFrom])
+  @@map("course_versions")
+}
+
+model Room {
+  w06ExceptionRoom W06Exception[] @relation("W06Exception_room")
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  name String
+  location String
+  capacity Int
+  capabilities RoomCapability[]
+  status RoomStatus @default(ACTIVE)
+  createdBy String @db.Uuid
+  lockVersion Int @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  creator User @relation("RoomCreator",fields:[createdBy], references:[id], onDelete:Restrict)
+  sessions TeachingSession[]
+  defaultForClasses ClassOffering[] @relation("ClassDefaultRoom")
+  scheduleSlots ClassScheduleSlot[]
+  roadmapItems ClassRoadmapItem[]
+  @@map("rooms")
+}
+
+model ClassInstructorAssignment {
+  w06ExceptionAssignment W06Exception[] @relation("W06Exception_assignment")
+  id String @id @default(uuid()) @db.Uuid
+  classOfferingId String @db.Uuid
+  instructorId String @db.Uuid
+  effectiveFrom DateTime @db.Timestamptz(3)
+  effectiveTo DateTime @db.Timestamptz(3)
+  // Original approved interval is immutable; only approved supersession closes this reservation.
+  reservedUntil DateTime @db.Timestamptz(3)
+  replacesId String? @unique @db.Uuid
+  state AcademicDecisionState @default(DRAFT)
+  proposedBy String @db.Uuid
+  approvedBy String? @db.Uuid
+  eligibilityConfirmed Boolean @default(false)
+  reason String @db.VarChar(500)
+  decisionReason String? @db.VarChar(500)
+  lockVersion Int @default(0)
+  submittedAt DateTime? @db.Timestamptz(3)
+  approvedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  classOffering ClassOffering @relation(fields:[classOfferingId], references:[id], onDelete:Restrict)
+  instructor User @relation("AssignmentInstructor",fields:[instructorId], references:[id], onDelete:Restrict)
+  proposer User @relation("AssignmentProposer",fields:[proposedBy], references:[id], onDelete:Restrict)
+  approver User? @relation("AssignmentApprover",fields:[approvedBy], references:[id], onDelete:Restrict)
+  replaces ClassInstructorAssignment? @relation("AssignmentHistory",fields:[replacesId], references:[id], onDelete:Restrict)
+  replacement ClassInstructorAssignment? @relation("AssignmentHistory")
+  sessions TeachingSession[]
+  @@index([classOfferingId,state,effectiveFrom], map:"assignment_class_state_from_idx")
+  @@map("class_instructor_assignments")
+}
+
+model TeachingSession {
+  w06MeetSession W06Meet[] @relation("W06Meet_session")
+  w06WindowSession W06Window[] @relation("W06Window_session")
+  w06ExceptionSession W06Exception[] @relation("W06Exception_session")
+  w06ExceptionRoutedsession W06Exception[] @relation("W06Exception_routedSession")
+  w06NotificationSession W06Notification[] @relation("W06Notification_session")
+  id String @id @default(uuid()) @db.Uuid
+  occurrenceId String @default(uuid()) @db.Uuid
+  revision Int @default(1)
+  supersedesId String? @db.Uuid
+  classOfferingId String @db.Uuid
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt DateTime @db.Timestamptz(3)
+  timezone String
+  modality ClassModality
+  roomId String? @db.Uuid
+  instructorId String? @db.Uuid
+  assignmentId String? @db.Uuid
+  requiredCapabilities RoomCapability[]
+  sourceTemplateId String? @db.Uuid
+  sourceTemplateUpdatedAt DateTime?
+  generationKey String? @unique
+  generatedFrom DateTime? @db.Date
+  generatedThrough DateTime? @db.Date
+  state AcademicDecisionState @default(DRAFT)
+  intent SessionIntent @default(PUBLISH)
+  proposedBy String @db.Uuid
+  approvedBy String? @db.Uuid
+  reason String @db.VarChar(500)
+  decisionReason String? @db.VarChar(500)
+  lockVersion Int @default(0)
+  submittedAt DateTime? @db.Timestamptz(3)
+  approvedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  classOffering ClassOffering @relation(fields:[classOfferingId], references:[id], onDelete:Restrict)
+  room Room? @relation(fields:[roomId], references:[id], onDelete:Restrict)
+  instructor User? @relation("SessionInstructor",fields:[instructorId], references:[id], onDelete:Restrict)
+  assignment ClassInstructorAssignment? @relation(fields:[assignmentId], references:[id], onDelete:Restrict)
+  sourceTemplate ClassScheduleSlot? @relation(fields:[sourceTemplateId], references:[id], onDelete:Restrict)
+  proposer User @relation("SessionProposer",fields:[proposedBy], references:[id], onDelete:Restrict)
+  approver User? @relation("SessionApprover",fields:[approvedBy], references:[id], onDelete:Restrict)
+  supersedes TeachingSession? @relation("SessionHistory",fields:[supersedesId], references:[id], onDelete:Restrict)
+  replacements TeachingSession[] @relation("SessionHistory")
+  notifications AcademicNotificationIntent[]
+  @@unique([occurrenceId,revision])
+  @@index([classOfferingId,state,startsAt])
+  @@index([instructorId,state,startsAt])
+  @@map("teaching_sessions")
+}
+
+// Durable intent only. No outbound delivery or W06/attendance claim.
+model AcademicNotificationIntent {
+  id String @id @default(uuid()) @db.Uuid
+  sessionId String @db.Uuid
+  recipientId String @db.Uuid
+  kind SessionIntent
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  session TeachingSession @relation(fields:[sessionId],references:[id],onDelete:Restrict)
+  recipient User @relation("AcademicNotificationRecipient",fields:[recipientId],references:[id],onDelete:Restrict)
+  @@unique([sessionId,recipientId])
+  @@map("academic_notification_intents")
+}
+
+model DomainAuditEvent {
+  id String @id @default(uuid()) @db.Uuid
+  actorId String @db.Uuid
+  action String
+  objectType String
+  objectId String
+  decision String
+  reason String @db.VarChar(500)
+  createdAt DateTime @default(dbgenerated("timezone('UTC'::text, CURRENT_TIMESTAMP)"))
+  @@index([objectType, objectId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("domain_audit_events")
+}
+
+model PermissionGrant {
+  w07AcademicDecisionGrant W07AcademicDecision[] @relation("W07AcademicDecision_grant")
+  w07PaymentEventGrant W07PaymentEvent[] @relation("W07PaymentEvent_grant")
+  w07AdjustmentDecisionGrant W07AdjustmentDecision[] @relation("W07AdjustmentDecision_grant")
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  capability String
+  scopeType String
+  scopeId String?
+  requestedBy String @db.Uuid
+  approvedBy String? @db.Uuid
+  approvedAt DateTime?
+  effectiveAt DateTime
+  expiresAt DateTime
+  revokedAt DateTime?
+  revokedBy String? @db.Uuid
+  reason String @db.VarChar(500)
+  revokeReason String? @db.VarChar(500)
+  createdAt DateTime @default(dbgenerated("timezone('UTC'::text, CURRENT_TIMESTAMP)"))
+  @@index([userId, capability, expiresAt])
+  @@map("permission_grants")
+}
+
+model AccountRoleDecision {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  previousRole UserRole
+  nextRole UserRole
+  requestedBy String @db.Uuid
+  approvedBy String? @db.Uuid
+  effectiveAt DateTime?
+  reason String @db.VarChar(500)
+  createdAt DateTime @default(dbgenerated("timezone('UTC'::text, CURRENT_TIMESTAMP)"))
+  @@index([userId, createdAt])
+  @@map("account_role_decisions")
+}
+
 model User {
-  id                     String                @id @default(uuid()) @db.Uuid
-  email                  String                @unique
+  W05BProfile_teacherId W05BProfile[] @relation("W05BProfile_teacherId")
+  W05BProfileRevision_makerId W05BProfileRevision[] @relation("W05BProfileRevision_makerId")
+  W05BProfileRevision_reviewerId W05BProfileRevision[] @relation("W05BProfileRevision_reviewerId")
+  W05BAvailability_teacherId W05BAvailability[] @relation("W05BAvailability_teacherId")
+  W05BBooking_teacherId W05BBooking[] @relation("W05BBooking_teacherId")
+  W05BBooking_learnerId W05BBooking[] @relation("W05BBooking_learnerId")
+  W05BLink_makerId W05BLink[] @relation("W05BLink_makerId")
+  W05BLink_reviewerId W05BLink[] @relation("W05BLink_reviewerId")
+  W05BChange_makerId W05BChange[] @relation("W05BChange_makerId")
+  W05BChange_reviewerId W05BChange[] @relation("W05BChange_reviewerId")
+  W05BReport_makerId W05BReport[] @relation("W05BReport_makerId")
+  W05BCommand_actorId W05BCommand[] @relation("W05BCommand_actorId")
+  W05BEvent_actorId W05BEvent[] @relation("W05BEvent_actorId")
+  W05BOutbox_recipientId W05BOutbox[] @relation("W05BOutbox_recipientId")
+  w07ClassControlActor W07ClassControl[] @relation("W07ClassControl_actor")
+  w07ApplicationLearner W07Application[] @relation("W07Application_learner")
+  w07AcademicDecisionReviewer W07AcademicDecision[] @relation("W07AcademicDecision_reviewer")
+  w07EvidenceLearner W07Evidence[] @relation("W07Evidence_learner")
+  w07PaymentEventActor W07PaymentEvent[] @relation("W07PaymentEvent_actor")
+  w07AdjustmentMaker W07Adjustment[] @relation("W07Adjustment_maker")
+  w07AdjustmentDecisionReviewer W07AdjustmentDecision[] @relation("W07AdjustmentDecision_reviewer")
+  w07EntitlementLearner W07Entitlement[] @relation("W07Entitlement_learner")
+  w07CaseLearner W07Case[] @relation("W07Case_learner")
+  w07NotificationRecipient W07Notification[] @relation("W07Notification_recipient")
+  w06MeetMaker W06Meet[] @relation("W06Meet_maker")
+  w06MeetReviewer W06Meet[] @relation("W06Meet_reviewer")
+  w06AttendanceActivityCreator W06AttendanceActivity[] @relation("W06AttendanceActivity_creator")
+  w06CodeCreator W06Code[] @relation("W06Code_creator")
+  w06ReceiptLearner W06Receipt[] @relation("W06Receipt_learner")
+  w06CorrectionLearner W06Correction[] @relation("W06Correction_learner")
+  w06CorrectionMaker W06Correction[] @relation("W06Correction_maker")
+  w06CorrectionReviewer W06Correction[] @relation("W06Correction_reviewer")
+  w06ExceptionMaker W06Exception[] @relation("W06Exception_maker")
+  w06ExceptionRoutedby W06Exception[] @relation("W06Exception_routedBy")
+  w06NotificationRecipient W06Notification[] @relation("W06Notification_recipient")
+  w06RateLearner W06Rate[] @relation("W06Rate_learner")
+ placementPoliciesAuthored PlacementWorkflowPolicy[] @relation("PlacementPolicyAuthor")
+ placementPoliciesApproved PlacementWorkflowPolicy[] @relation("PlacementPolicyApprover")
+ placementGradingAssignments PlacementGraderAssignment[] @relation("PlacementAssignedGrader")
+ placementGradingAppointed PlacementGraderAssignment[] @relation("PlacementAssigner")
+ placementHumanEvaluations PlacementHumanEvaluation[] @relation("PlacementEvaluationGrader")
+ placementResultPublications PlacementResultRelease[] @relation("PlacementResultPublisher")
+ placementWorkflowRequests PlacementWorkflowRequest[] @relation("PlacementRequestActor")
+  knowledgeEntryCreator KnowledgeEntry[] @relation("KnowledgeEntryCreator")
+  knowledgeEntryWithdrawer KnowledgeEntry[] @relation("KnowledgeEntryWithdrawer")
+  knowledgeRevisionCreator KnowledgeRevision[] @relation("KnowledgeRevisionCreator")
+  knowledgeRevisionReviewer KnowledgeRevision[] @relation("KnowledgeRevisionReviewer")
+  knowledgeRevisionPublisher KnowledgeRevision[] @relation("KnowledgeRevisionPublisher")
+  knowledgeLinkAuthor QuizKnowledgeLink[] @relation("KnowledgeLinkAuthor")
+  knowledgeLinkReviewer QuizKnowledgeLink[] @relation("KnowledgeLinkReviewer")
+  knowledgeLinkPublisher QuizKnowledgeLink[] @relation("KnowledgeLinkPublisher")
+  knowledgeLinkWithdrawer QuizKnowledgeLink[] @relation("KnowledgeLinkWithdrawer")
+  authoredQuizzes Test[] @relation("QuizAuthor")
+  approvedQuizzes Test[] @relation("QuizApprover")
+  publishedQuizzes TestAttempt[] @relation("QuizPublisher")
+  assignmentRubricsAuthored Rubric[] @relation("AssignmentRubricAuthor")
+  assignmentRubricsApproved Rubric[] @relation("AssignmentRubricApprover")
+  assignmentGradesCreated AssignmentGrade[] @relation("AssignmentGradeCreator")
+  assignmentGradesGraded AssignmentGrade[] @relation("AssignmentGradeGrader")
+  assignmentGradesPublished AssignmentGrade[] @relation("AssignmentGradePublisher")
+  assignmentSubmissions ClassAssignmentSubmission[]
+  classSectionPublications ClassSectionRevision[] @relation("SectionPublisher")
+  classSectionsCreated ClassSection[] @relation("SectionCreator")
+  classSectionsUpdated ClassSection[] @relation("SectionUpdater")
+  classActivitiesCreated ClassActivity[] @relation("ActivityCreator")
+  classActivitiesUpdated ClassActivity[] @relation("ActivityUpdater")
+  classRevisionsPublished ClassActivityRevision[] @relation("ActivityPublisher")
+  proposedVersions CourseVersion[] @relation("VersionProposer")
+  approvedVersions CourseVersion[] @relation("VersionApprover")
+  createdRooms Room[] @relation("RoomCreator")
+  proposedAssignments ClassInstructorAssignment[] @relation("AssignmentProposer")
+  approvedAssignments ClassInstructorAssignment[] @relation("AssignmentApprover")
+  effectiveAssignments ClassInstructorAssignment[] @relation("AssignmentInstructor")
+  proposedSessions TeachingSession[] @relation("SessionProposer")
+  approvedSessions TeachingSession[] @relation("SessionApprover")
+  datedSessions TeachingSession[] @relation("SessionInstructor")
+  academicNotifications AcademicNotificationIntent[] @relation("AcademicNotificationRecipient")
+  examRecoveryPermission ExamRecoveryPermission?
+  id                     String                  @id @default(uuid()) @db.Uuid
+  email                  String                  @unique
   passwordHash           String
   fullName               String
   role                   UserRole
-  status                 UserStatus            @default(ACTIVE)
-  createdCourses         Course[]              @relation("CourseCreatedBy")
-  assignedClassOfferings ClassOffering[]       @relation("ClassOfferingInstructor")
-  enrollments            Enrollment[]          @relation("LearnerEnrollments")
-  testAttempts           TestAttempt[]         @relation("LearnerTestAttempts")
-  answerEvaluations      AnswerEvaluation[]    @relation("EvaluationInstructor")
-  studyRecommendations   StudyRecommendation[] @relation("LearnerStudyRecommendations")
+  status                 UserStatus              @default(ACTIVE)
+  createdCourses         Course[]                @relation("CourseCreatedBy")
+  assignedClassOfferings ClassOffering[]         @relation("ClassOfferingInstructor")
+  enrollments            Enrollment[]            @relation("LearnerEnrollments")
+  tuitionReceivables     TuitionReceivable[]     @relation("TuitionReceivableLearner")
+  tuitionPaymentOrders   TuitionPaymentOrder[]   @relation("TuitionPaymentOrderLearner")
+  sepayTuitionResolved   SePayTuitionTransaction[] @relation("SePayTuitionResolvedBy")
+  tuitionReceipts        TuitionReceipt[]        @relation("TuitionReceiptLearner")
+  tuitionReceiptsIssued  TuitionReceipt[]        @relation("TuitionReceiptIssuedBy")
+  tuitionReconActions    TuitionReconciliationAction[] @relation("TuitionReconActor")
+  testAttempts           TestAttempt[]           @relation("LearnerTestAttempts")
+  answerEvaluations      AnswerEvaluation[]      @relation("EvaluationInstructor")
+  studyRecommendations   StudyRecommendation[]   @relation("LearnerStudyRecommendations")
   passwordResetTokens    PasswordResetToken[]
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
 
   @@map("users")
 }
@@ -241,6 +697,7 @@ model UserSession {
 }
 
 model Course {
+  versions CourseVersion[]
   id                    String                       @id @default(uuid()) @db.Uuid
   title                 String
   slug                  String                       @unique
@@ -248,6 +705,11 @@ model Course {
   level                 String
   skillScope            CourseSkillScope             @default(LR)
   thumbnailUrl          String?
+  defaultDurationWeeks  Int?
+  defaultSessionsCount  Int?
+  defaultPeriodsPerSession Int?
+  defaultPricingType    PricingType?
+  defaultTuitionFeeVnd  Int?
   isPublished           Boolean                      @default(false)
   createdById           String                       @db.Uuid
   createdBy             User                         @relation("CourseCreatedBy", fields: [createdById], references: [id])
@@ -281,6 +743,27 @@ model CourseAdaptivePolicy {
 }
 
 model ClassOffering {
+  w07ClassControlClass W07ClassControl[] @relation("W07ClassControl_class")
+  tuitionReceivables     TuitionReceivable[]     @relation("TuitionReceivableClass")
+  tuitionPaymentOrders   TuitionPaymentOrder[]   @relation("TuitionPaymentOrderClass")
+  tuitionReceipts        TuitionReceipt[]        @relation("TuitionReceiptClass")
+  w07ApplicationClass W07Application[] @relation("W07Application_class")
+  w07CaseTargetclass W07Case[] @relation("W07Case_targetClass")
+  w06AttendanceActivityClass W06AttendanceActivity[] @relation("W06AttendanceActivity_class")
+  assignmentSubmissions ClassAssignmentSubmission[]
+  lmsSections ClassSection[]
+  lmsRevisions ClassActivityRevision[]
+  versionId String? @db.Uuid
+  termsTitle String?
+  termsDescription String? @db.Text
+  termsLevel String?
+  termsSkillScope CourseSkillScope?
+  approvedPricingType PricingType?
+  approvedTuitionFeeVnd Int?
+  termsApprovedAt DateTime? @db.Timestamptz(3)
+  version CourseVersion? @relation(fields:[versionId],references:[id],onDelete:Restrict)
+  effectiveAssignments ClassInstructorAssignment[]
+  datedSessions TeachingSession[]
   id               String              @id @default(uuid()) @db.Uuid
   courseId         String              @db.Uuid
   instructorId     String?             @db.Uuid
@@ -293,14 +776,19 @@ model ClassOffering {
   maxStudents      Int?
   totalSessions    Int?
   totalPeriods     Int?
+  periodsPerSession Int?
+  durationWeeks    Int?
+  defaultRoomId    String?             @db.Uuid
   enrollmentStart  DateTime?
   enrollmentEnd    DateTime?
   classStart       DateTime?
   classEnd         DateTime?
   course           Course              @relation(fields: [courseId], references: [id])
   instructor       User?               @relation("ClassOfferingInstructor", fields: [instructorId], references: [id])
+  defaultRoom      Room?               @relation("ClassDefaultRoom", fields: [defaultRoomId], references: [id], onDelete: SetNull)
   enrollments      Enrollment[]
   scheduleSlots    ClassScheduleSlot[]
+  roadmapItems     ClassRoadmapItem[]
   classAssessments ClassAssessment[]
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
@@ -312,14 +800,17 @@ model ClassOffering {
 }
 
 model ClassScheduleSlot {
+  datedSessions TeachingSession[]
   id              String        @id @default(uuid()) @db.Uuid
   classOfferingId String        @db.Uuid
   dayOfWeek       Int           @db.SmallInt
   startTime       DateTime      @db.Time
   endTime         DateTime      @db.Time
+  roomId          String?       @db.Uuid
   locationText    String?
   meetingUrl      String?
   classOffering   ClassOffering @relation(fields: [classOfferingId], references: [id], onDelete: Restrict)
+  room            Room?         @relation(fields: [roomId], references: [id], onDelete: SetNull)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -328,7 +819,37 @@ model ClassScheduleSlot {
   @@map("class_schedule_slots")
 }
 
+model ClassRoadmapItem {
+  id                String        @id @default(uuid()) @db.Uuid
+  classOfferingId   String        @db.Uuid
+  weekNumber        Int
+  sessionNumber     Int
+  sessionDate       DateTime      @db.Date
+  startTime         String        @db.VarChar(5)
+  endTime           String        @db.VarChar(5)
+  periods           Int           @default(3)
+  modality          ClassModality @default(OFFLINE)
+  roomId            String?       @db.Uuid
+  locationText      String?       @db.VarChar(300)
+  meetingUrl        String?       @db.VarChar(500)
+  topicTitle        String        @db.VarChar(300)
+  contentSummary    String        @default("") @db.VarChar(1000)
+  sourceModuleId    String?       @db.Uuid
+  teachingSessionId String?       @db.Uuid
+  orderIndex        Int
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt
+  classOffering     ClassOffering @relation(fields: [classOfferingId], references: [id], onDelete: Cascade)
+  room              Room?         @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  @@index([classOfferingId, orderIndex])
+  @@map("class_roadmap_items")
+}
+
 model Enrollment {
+  w07EntitlementEnrollment W07Entitlement[] @relation("W07Entitlement_enrollment")
+  assignmentSubmissions ClassAssignmentSubmission[]
+  classActivityProgress ClassActivityProgress[]
   id                   String                @id @default(uuid()) @db.Uuid
   learnerId            String                @db.Uuid
   classOfferingId      String                @db.Uuid
@@ -341,12 +862,21 @@ model Enrollment {
   masteryHistory       MasteryHistory[]
   studyRecommendations StudyRecommendation[]
   enrolledAt           DateTime              @default(now())
+  reservedUntil        DateTime?
+  seatReleasedAt       DateTime?
+  releaseReason        String?
+  entrySource          String?
+  placementAttemptId   String?               @db.Uuid
+  isTestHarness        Boolean               @default(false)
+  receivable           TuitionReceivable?    @relation("TuitionReceivableEnrollment")
+  paymentOrders        TuitionPaymentOrder[] @relation("TuitionPaymentOrderEnrollment")
   updatedAt            DateTime              @updatedAt
 
   @@unique([learnerId, classOfferingId])
   @@index([learnerId])
   @@index([classOfferingId])
   @@index([classOfferingId, status])
+  @@index([classOfferingId, status, reservedUntil])
   @@map("enrollments")
 }
 
@@ -367,6 +897,8 @@ model Module {
 }
 
 model Lesson {
+  classDrafts ClassActivity[] @relation("ActivitySourceLesson")
+  classSnapshots ClassActivityRevision[] @relation("RevisionSourceLesson")
   id                   String                @id @default(uuid()) @db.Uuid
   moduleId             String                @db.Uuid
   title                String
@@ -392,6 +924,8 @@ model Lesson {
 }
 
 model LearningResource {
+  classDrafts ClassActivity[] @relation("ActivitySourceResource")
+  classSnapshots ClassActivityRevision[] @relation("RevisionSourceResource")
   id                   String                @id @default(uuid()) @db.Uuid
   lessonId             String                @db.Uuid
   title                String
@@ -431,6 +965,8 @@ model LessonProgress {
 }
 
 model Question {
+  quizSourceId String? @db.Uuid
+  quizSource Test? @relation("QuizQuestionOwner",fields:[quizSourceId],references:[id],onDelete:Restrict)
   id            String               @id @default(uuid()) @db.Uuid
   courseId      String?              @db.Uuid
   responseType  QuestionResponseType
@@ -473,6 +1009,22 @@ model QuestionOption {
 }
 
 model Test {
+  placementVersion PlacementSourceVersion?
+  quizActivityId String? @db.Uuid
+  quizVersion Int?
+  quizState String? @db.VarChar(16)
+  quizAuthorId String? @db.Uuid
+  quizMakerIds String[] @default([]) @db.Uuid
+  quizApprovedById String? @db.Uuid
+  quizApprovedAt DateTime? @db.Timestamptz(3)
+  quizSourceHash String? @db.VarChar(64)
+  quizLockVersion Int @default(0)
+  quizActivity ClassActivity? @relation(fields:[quizActivityId],references:[id],onDelete:Restrict)
+  quizAuthor User? @relation("QuizAuthor",fields:[quizAuthorId],references:[id],onDelete:Restrict)
+  quizApprover User? @relation("QuizApprover",fields:[quizApprovedById],references:[id],onDelete:Restrict)
+  quizQuestions Question[] @relation("QuizQuestionOwner")
+  quizRevisions ClassActivityRevision[]
+  @@unique([quizActivityId,quizVersion])
   id                    String              @id @default(uuid()) @db.Uuid
   courseId              String?             @db.Uuid
   lessonId              String?             @db.Uuid
@@ -525,17 +1077,21 @@ model ClassAssessment {
 }
 
 model TestQuestion {
-  id         String             @id @default(uuid()) @db.Uuid
-  testId     String             @db.Uuid
-  questionId String             @db.Uuid
-  groupId    String?            @db.Uuid
-  orderIndex Int
-  points     Int                @default(1)
-  test       Test               @relation(fields: [testId], references: [id], onDelete: Restrict)
-  question   Question           @relation(fields: [questionId], references: [id], onDelete: Restrict)
-  group      TestQuestionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  answers    TestAnswer[]
-  createdAt  DateTime           @default(now())
+ placementEvidenceReads PlacementEvidenceRead[]
+ placementTaskRecordings PlacementTaskRecording[]
+  knowledgeLinks QuizKnowledgeLink[]
+  taskProgress ExamTaskProgress[]
+  id           String             @id @default(uuid()) @db.Uuid
+  testId       String             @db.Uuid
+  questionId   String             @db.Uuid
+  groupId      String?            @db.Uuid
+  orderIndex   Int
+  points       Int                @default(1)
+  test         Test               @relation(fields: [testId], references: [id], onDelete: Restrict)
+  question     Question           @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  group        TestQuestionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  answers      TestAnswer[]
+  createdAt    DateTime           @default(now())
 
   @@unique([testId, questionId])
   @@unique([testId, orderIndex])
@@ -590,6 +1146,29 @@ model AssessmentStimulus {
 }
 
 model TestAttempt {
+  s10ProtocolVersion Int @default(1)
+ placementSitting PlacementSitting?
+ placementGraderAssignments PlacementGraderAssignment[]
+ placementHumanEvaluations PlacementHumanEvaluation[]
+ placementTaskRecordings PlacementTaskRecording[]
+  placementVersionId String? @db.Uuid
+  placementVersion PlacementSourceVersion? @relation(fields:[placementVersionId],references:[id],onDelete:Restrict)
+  placementGoalSpeaking Int?
+  placementGoalWriting Int?
+  placementLockVersion Int @default(0)
+  placementMarked String[] @default([]) @db.Uuid
+  placementReceipt String? @unique @db.Uuid
+  quizRevisionId String? @db.Uuid
+  quizRevision ClassActivityRevision? @relation(fields:[quizRevisionId],references:[id],onDelete:Restrict)
+  quizDeadline DateTime? @db.Timestamptz(3)
+  quizLockVersion Int @default(0)
+  quizMarked String[] @default([]) @db.Uuid
+  quizReceipt String? @unique @db.Uuid
+  quizFinalReason String? @db.VarChar(16)
+  quizPublishedById String? @db.Uuid
+  quizPublishedAt DateTime? @db.Timestamptz(3)
+  quizPublisher User? @relation("QuizPublisher",fields:[quizPublishedById],references:[id],onDelete:Restrict)
+  taskProgress          ExamTaskProgress[]
   id                    String                 @id @default(uuid()) @db.Uuid
   testId                String                 @db.Uuid
   learnerId             String                 @db.Uuid
@@ -601,6 +1180,7 @@ model TestAttempt {
   maxScore              Int?
   placementSelfLevel    PlacementSelfLevel?
   placementGoalScore    Int?
+  practiceState         Json?
   startedAt             DateTime               @default(now())
   submittedAt           DateTime?
   test                  Test                   @relation(fields: [testId], references: [id], onDelete: Restrict)
@@ -625,6 +1205,7 @@ model TestAttempt {
 }
 
 model TestAnswer {
+  savedTaskProgress ExamTaskProgress[] @relation("S10SavedAnswer")
   id                String             @id @default(uuid()) @db.Uuid
   attemptId         String             @db.Uuid
   testQuestionId    String             @db.Uuid
@@ -647,6 +1228,19 @@ model TestAnswer {
 }
 
 model Rubric {
+  assignmentActivityId String? @db.Uuid
+  assignmentVersion Int?
+  assignmentState String? @db.VarChar(24)
+  authoredById String? @db.Uuid
+  makerIds String[] @default([]) @db.Uuid
+  approvedById String? @db.Uuid
+  approvedAt DateTime? @db.Timestamptz(3)
+  lockVersion Int @default(0)
+  assignmentActivity ClassActivity? @relation(fields:[assignmentActivityId],references:[id],onDelete:Restrict)
+  assignmentAuthor User? @relation("AssignmentRubricAuthor",fields:[authoredById],references:[id],onDelete:Restrict)
+  assignmentApprover User? @relation("AssignmentRubricApprover",fields:[approvedById],references:[id],onDelete:Restrict)
+  assignmentGrades AssignmentGrade[]
+  @@unique([assignmentActivityId,assignmentVersion])
   id          String            @id @default(uuid()) @db.Uuid
   name        String
   description String?           @db.Text
@@ -703,15 +1297,18 @@ model AnswerEvaluation {
 
 model RubricCriterionScore {
   id                 String           @id @default(uuid()) @db.Uuid
-  answerEvaluationId String           @db.Uuid
+  answerEvaluationId String?          @db.Uuid
+  assignmentGradeId String? @db.Uuid
+  assignmentGrade AssignmentGrade? @relation(fields:[assignmentGradeId],references:[id],onDelete:Restrict)
   rubricCriterionId  String           @db.Uuid
   score              Decimal          @db.Decimal(8, 2)
   feedback           String?          @db.Text
-  answerEvaluation   AnswerEvaluation @relation(fields: [answerEvaluationId], references: [id], onDelete: Restrict)
+  answerEvaluation   AnswerEvaluation? @relation(fields: [answerEvaluationId], references: [id], onDelete: Restrict)
   rubricCriterion    RubricCriterion  @relation(fields: [rubricCriterionId], references: [id], onDelete: Restrict)
   createdAt          DateTime         @default(now())
 
   @@unique([answerEvaluationId, rubricCriterionId])
+  @@unique([assignmentGradeId, rubricCriterionId])
   @@index([answerEvaluationId])
   @@index([rubricCriterionId])
   @@map("rubric_criterion_scores")
@@ -1013,4 +1610,1487 @@ model MasteryHistory {
   @@index([skillId])
   @@index([testAttemptId])
   @@map("mastery_history")
+}
+
+
+// W03A class-local content; no implicit shared Course editor or legacy backfill.
+enum ClassActivityType {
+  QUIZ
+  LESSON
+  RESOURCE
+  ASSIGNMENT
+}
+enum ClassActivityState {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+}
+model ClassSection {
+  publishedRevisionId String? @unique @db.Uuid
+  revisionNumber Int @default(0)
+  publishedRevision ClassSectionRevision? @relation("CurrentSectionRevision",fields:[publishedRevisionId],references:[id],onDelete:Restrict)
+  revisions ClassSectionRevision[] @relation("SectionRevisions")
+  id String @id @default(uuid()) @db.Uuid
+  classOfferingId String @db.Uuid
+  title String @db.VarChar(250)
+  introduction String @default("") @db.Text
+  orderIndex Int
+  lockVersion Int @default(0)
+  createdById String @db.Uuid
+  updatedById String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  classOffering ClassOffering @relation(fields:[classOfferingId],references:[id],onDelete:Restrict)
+  creator User @relation("SectionCreator",fields:[createdById],references:[id],onDelete:Restrict)
+  updater User @relation("SectionUpdater",fields:[updatedById],references:[id],onDelete:Restrict)
+  activities ClassActivity[]
+  @@unique([classOfferingId,orderIndex],map:"class_section_order")
+  @@map("class_sections")
+}
+model ClassActivity {
+  quizzes Test[]
+  assignmentRubrics Rubric[]
+  assignmentSubmissions ClassAssignmentSubmission[]
+  id String @id @default(uuid()) @db.Uuid
+  sectionId String @db.Uuid
+  type ClassActivityType
+  title String @db.VarChar(250)
+  introduction String @default("") @db.Text
+  contentMarkdown String @default("") @db.Text
+  resourceUrl String?
+  storageKey String?
+  originalFileName String?
+  mimeType String?
+  fileBytes Int?
+  fileSha256 String? @db.VarChar(64)
+  sourceLessonId String? @db.Uuid
+  sourceResourceId String? @db.Uuid
+  sourceUpdatedAt DateTime? @db.Timestamptz(3)
+  availableFrom DateTime? @db.Timestamptz(3)
+  availableUntil DateTime? @db.Timestamptz(3)
+  state ClassActivityState @default(DRAFT)
+  orderIndex Int
+  lockVersion Int @default(0)
+  revisionNumber Int @default(0)
+  publishedRevisionId String? @unique @db.Uuid
+  createdById String @db.Uuid
+  updatedById String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  section ClassSection @relation(fields:[sectionId],references:[id],onDelete:Restrict)
+  creator User @relation("ActivityCreator",fields:[createdById],references:[id],onDelete:Restrict)
+  updater User @relation("ActivityUpdater",fields:[updatedById],references:[id],onDelete:Restrict)
+  sourceLesson Lesson? @relation("ActivitySourceLesson",fields:[sourceLessonId],references:[id],onDelete:Restrict)
+  sourceResource LearningResource? @relation("ActivitySourceResource",fields:[sourceResourceId],references:[id],onDelete:Restrict)
+  publishedRevision ClassActivityRevision? @relation("CurrentActivityRevision",fields:[publishedRevisionId],references:[id],onDelete:Restrict)
+  revisions ClassActivityRevision[] @relation("ActivityRevisions")
+  @@unique([sectionId,orderIndex],map:"class_activity_order")
+  @@map("class_activities")
+}
+model ClassActivityRevision {
+  quizTestId String? @db.Uuid
+  quizTest Test? @relation(fields:[quizTestId],references:[id],onDelete:Restrict)
+  quizAttempts TestAttempt[]
+  assignmentSubmissions ClassAssignmentSubmission[]
+  id String @id @default(uuid()) @db.Uuid
+  activityId String @db.Uuid
+  classOfferingId String @db.Uuid
+  number Int
+  type ClassActivityType
+  title String @db.VarChar(250)
+  introduction String @db.Text
+  contentMarkdown String @db.Text
+  resourceUrl String?
+  storageKey String?
+  originalFileName String?
+  mimeType String?
+  fileBytes Int?
+  fileSha256 String? @db.VarChar(64)
+  sourceLessonId String? @db.Uuid
+  sourceResourceId String? @db.Uuid
+  sourceUpdatedAt DateTime? @db.Timestamptz(3)
+  availableFrom DateTime? @db.Timestamptz(3)
+  availableUntil DateTime? @db.Timestamptz(3)
+  publishedById String @db.Uuid
+  publishedAt DateTime @default(now()) @db.Timestamptz(3)
+  activity ClassActivity @relation("ActivityRevisions",fields:[activityId],references:[id],onDelete:Restrict)
+  currentOf ClassActivity? @relation("CurrentActivityRevision")
+  classOffering ClassOffering @relation(fields:[classOfferingId],references:[id],onDelete:Restrict)
+  publisher User @relation("ActivityPublisher",fields:[publishedById],references:[id],onDelete:Restrict)
+  sourceLesson Lesson? @relation("RevisionSourceLesson",fields:[sourceLessonId],references:[id],onDelete:Restrict)
+  sourceResource LearningResource? @relation("RevisionSourceResource",fields:[sourceResourceId],references:[id],onDelete:Restrict)
+  progress ClassActivityProgress[]
+  @@unique([activityId,number])
+  @@index([classOfferingId,publishedAt])
+  @@map("class_activity_revisions")
+}
+model ClassActivityProgress {
+  id String @id @default(uuid()) @db.Uuid
+  enrollmentId String @db.Uuid
+  revisionId String @db.Uuid
+  status LessonProgressStatus @default(IN_PROGRESS)
+  openedAt DateTime @default(now()) @db.Timestamptz(3)
+  completedAt DateTime? @db.Timestamptz(3)
+  enrollment Enrollment @relation(fields:[enrollmentId],references:[id],onDelete:Restrict)
+  revision ClassActivityRevision @relation(fields:[revisionId],references:[id],onDelete:Restrict)
+  @@unique([enrollmentId,revisionId])
+  @@map("class_activity_progress")
+}
+
+
+// W03A-CF01: learner metadata comes only from an explicit immutable Section publication.
+model ClassSectionRevision {
+  id String @id @default(uuid()) @db.Uuid
+  sectionId String @db.Uuid
+  number Int
+  title String @db.VarChar(250)
+  introduction String @db.Text
+  sourceLockVersion Int
+  publishedById String @db.Uuid
+  publishedAt DateTime @default(now()) @db.Timestamptz(3)
+  section ClassSection @relation("SectionRevisions",fields:[sectionId],references:[id],onDelete:Restrict)
+  currentOf ClassSection? @relation("CurrentSectionRevision")
+  publisher User @relation("SectionPublisher",fields:[publishedById],references:[id],onDelete:Restrict)
+  @@unique([sectionId,number])
+  @@map("class_section_revisions")
+}
+
+// W03B-A: one mutable draft becomes one immutable successful submission, never a grade.
+model ClassAssignmentSubmission {
+  gradeVersions AssignmentGrade[]
+  id String @id @default(uuid()) @db.Uuid
+  activityId String @db.Uuid
+  enrollmentId String @db.Uuid
+  revisionId String @db.Uuid
+  learnerId String @db.Uuid
+  classOfferingId String @db.Uuid
+  state String @default("DRAFT") @db.VarChar(16)
+  text String @default("") @db.Text
+  storageKey String?
+  originalFileName String?
+  mimeType String?
+  fileBytes Int?
+  fileSha256 String? @db.VarChar(64)
+  lockVersion Int @default(1)
+  idempotencyKey String? @db.Uuid
+  requestHash String? @db.VarChar(64)
+  submittedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  activity ClassActivity @relation(fields:[activityId],references:[id],onDelete:Restrict)
+  enrollment Enrollment @relation(fields:[enrollmentId],references:[id],onDelete:Restrict)
+  revision ClassActivityRevision @relation(fields:[revisionId],references:[id],onDelete:Restrict)
+  learner User @relation(fields:[learnerId],references:[id],onDelete:Restrict)
+  classOffering ClassOffering @relation(fields:[classOfferingId],references:[id],onDelete:Restrict)
+  @@unique([activityId,enrollmentId])
+  @@index([classOfferingId,activityId,state])
+  @@map("class_assignment_submissions")
+}
+
+// W03B-B: mutable draft → teacher final → independent publication; published rows stay immutable.
+model AssignmentGrade {
+  id String @id @default(uuid()) @db.Uuid
+  submissionId String @db.Uuid
+  rubricId String @db.Uuid
+  number Int
+  state String @default("DRAFT") @db.VarChar(24)
+  lockVersion Int @default(0)
+  createdById String @db.Uuid
+  gradedById String @db.Uuid
+  makerIds String[] @default([]) @db.Uuid
+  reason String @default("") @db.VarChar(1000)
+  feedback String @default("") @db.Text
+  confirmedAt DateTime? @db.Timestamptz(3)
+  publishedById String? @db.Uuid
+  publishedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  submission ClassAssignmentSubmission @relation(fields:[submissionId],references:[id],onDelete:Restrict)
+  rubric Rubric @relation(fields:[rubricId],references:[id],onDelete:Restrict)
+  creator User @relation("AssignmentGradeCreator",fields:[createdById],references:[id],onDelete:Restrict)
+  grader User @relation("AssignmentGradeGrader",fields:[gradedById],references:[id],onDelete:Restrict)
+  publisher User? @relation("AssignmentGradePublisher",fields:[publishedById],references:[id],onDelete:Restrict)
+  criterionScores RubricCriterionScore[]
+  @@unique([submissionId,number])
+  @@index([state,submissionId])
+  @@map("assignment_grades")
+}
+
+model KnowledgeEntry {
+  createdById String @db.Uuid
+  createdBy User @relation("KnowledgeEntryCreator",fields:[createdById],references:[id],onDelete:Restrict)
+  withdrawnById String? @db.Uuid
+  withdrawnBy User? @relation("KnowledgeEntryWithdrawer",fields:[withdrawnById],references:[id],onDelete:Restrict)
+  id String @id @default(uuid()) @db.Uuid
+  kind String @db.VarChar(12)
+  slug String @unique @db.VarChar(160)
+  tagCode String? @unique @db.VarChar(80)
+  latestNumber Int @default(0)
+  lockVersion Int @default(0)
+  visibility String @default("HIDDEN") @db.VarChar(16)
+  publishedRevisionId String? @unique @db.Uuid
+  publishedRevision KnowledgeRevision? @relation("CurrentKnowledgeRevision",fields:[publishedRevisionId],references:[id],onDelete:Restrict)
+  revisions KnowledgeRevision[] @relation("KnowledgeRevisions")
+  withdrawnAt DateTime? @db.Timestamptz(3)
+  withdrawalReason String @default("") @db.VarChar(1000)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@map("knowledge_entries")
+}
+
+model KnowledgeRevision {
+  createdById String @db.Uuid
+  createdBy User @relation("KnowledgeRevisionCreator",fields:[createdById],references:[id],onDelete:Restrict)
+  reviewedById String? @db.Uuid
+  reviewedBy User? @relation("KnowledgeRevisionReviewer",fields:[reviewedById],references:[id],onDelete:Restrict)
+  publishedById String? @db.Uuid
+  publishedBy User? @relation("KnowledgeRevisionPublisher",fields:[publishedById],references:[id],onDelete:Restrict)
+  id String @id @default(uuid()) @db.Uuid
+  entryId String @db.Uuid
+  entry KnowledgeEntry @relation("KnowledgeRevisions",fields:[entryId],references:[id],onDelete:Restrict)
+  publishedFor KnowledgeEntry? @relation("CurrentKnowledgeRevision")
+  number Int
+  state String @default("DRAFT") @db.VarChar(16)
+  lockVersion Int @default(0)
+  title String @db.VarChar(250)
+  objectives String[] @default([])
+  bodyMarkdown String @default("") @db.Text
+  examples Json @default("[]")
+  practice Json @default("[]")
+  rights Json @default("{}")
+  references Json @default("[]")
+  skills ToeicSkill[] @default([])
+  part Int?
+  synonyms String[] @default([])
+  makerIds String[] @default([]) @db.Uuid
+  reviewReason String @default("") @db.VarChar(1000)
+  reviewedAt DateTime? @db.Timestamptz(3)
+  publishedAt DateTime? @db.Timestamptz(3)
+  sourceHash String? @db.VarChar(64)
+  articleTags KnowledgeRevisionTag[] @relation("ArticleKnowledgeTags")
+  tagArticles KnowledgeRevisionTag[] @relation("TagKnowledgeArticles")
+  quizArticleLinks QuizKnowledgeLink[] @relation("LinkedKnowledgeArticle")
+  quizTagLinks QuizKnowledgeLink[] @relation("LinkedKnowledgeTag")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([entryId,number])
+  @@index([state,entryId])
+  @@map("knowledge_revisions")
+}
+
+model KnowledgeRevisionTag {
+  articleRevisionId String @db.Uuid
+  tagRevisionId String @db.Uuid
+  articleRevision KnowledgeRevision @relation("ArticleKnowledgeTags",fields:[articleRevisionId],references:[id],onDelete:Restrict)
+  tagRevision KnowledgeRevision @relation("TagKnowledgeArticles",fields:[tagRevisionId],references:[id],onDelete:Restrict)
+  @@id([articleRevisionId,tagRevisionId])
+  @@index([tagRevisionId])
+  @@map("knowledge_revision_tags")
+}
+
+model QuizKnowledgeLink {
+  authoredById String @db.Uuid
+  authoredBy User @relation("KnowledgeLinkAuthor",fields:[authoredById],references:[id],onDelete:Restrict)
+  reviewedById String? @db.Uuid
+  reviewedBy User? @relation("KnowledgeLinkReviewer",fields:[reviewedById],references:[id],onDelete:Restrict)
+  publishedById String? @db.Uuid
+  publishedBy User? @relation("KnowledgeLinkPublisher",fields:[publishedById],references:[id],onDelete:Restrict)
+  withdrawnById String? @db.Uuid
+  withdrawnBy User? @relation("KnowledgeLinkWithdrawer",fields:[withdrawnById],references:[id],onDelete:Restrict)
+  id String @id @default(uuid()) @db.Uuid
+  testQuestionId String @db.Uuid
+  testQuestion TestQuestion @relation(fields:[testQuestionId],references:[id],onDelete:Restrict)
+  tagRevisionId String @db.Uuid
+  tagRevision KnowledgeRevision @relation("LinkedKnowledgeTag",fields:[tagRevisionId],references:[id],onDelete:Restrict)
+  articleRevisionId String @db.Uuid
+  articleRevision KnowledgeRevision @relation("LinkedKnowledgeArticle",fields:[articleRevisionId],references:[id],onDelete:Restrict)
+  sourceHash String @db.VarChar(64)
+  state String @default("DRAFT") @db.VarChar(16)
+  lockVersion Int @default(0)
+  makerIds String[] @default([]) @db.Uuid
+  reason String @db.VarChar(1000)
+  reviewedAt DateTime? @db.Timestamptz(3)
+  publishedAt DateTime? @db.Timestamptz(3)
+  withdrawnAt DateTime? @db.Timestamptz(3)
+  withdrawalReason String @default("") @db.VarChar(1000)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([testQuestionId,tagRevisionId,articleRevisionId])
+  @@index([state,tagRevisionId])
+  @@map("quiz_knowledge_links")
+}
+
+model PlacementSourceVersion {
+ workflowPolicies PlacementWorkflowPolicy[]
+ id String @id @default(uuid()) @db.Uuid
+ testId String @unique @db.Uuid
+ mode PlacementMode
+ version Int
+ purpose String @db.VarChar(16)
+ snapshot Json
+ sourceHash String @db.VarChar(64)
+ provenance Json
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ test Test @relation(fields:[testId],references:[id],onDelete:Restrict)
+ attempts TestAttempt[]
+ @@map("placement_source_versions")
+}
+
+// W04B isolated DEV operational workflow. No real source publication.
+model PlacementWorkflowPolicy {
+ id String @id @default(uuid()) @db.Uuid
+ kind String @db.VarChar(24)
+ mode PlacementMode
+ sourceId String? @db.Uuid
+ source PlacementSourceVersion? @relation(fields:[sourceId],references:[id],onDelete:Restrict)
+ body Json
+ digest String @db.VarChar(64)
+ authorId String @db.Uuid
+ author User @relation("PlacementPolicyAuthor",fields:[authorId],references:[id],onDelete:Restrict)
+ approvedById String? @db.Uuid
+ approver User? @relation("PlacementPolicyApprover",fields:[approvedById],references:[id],onDelete:Restrict)
+ approvedAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ reason String @db.VarChar(500)
+ sittings PlacementSitting[]
+ evaluations PlacementHumanEvaluation[]
+ @@index([kind,mode,createdAt])
+ @@map("placement_workflow_policies")
+}
+model PlacementSitting {
+ attemptId String @id @db.Uuid
+ attempt TestAttempt @relation(fields:[attemptId],references:[id],onDelete:Restrict)
+ policyId String @db.Uuid
+ policy PlacementWorkflowPolicy @relation(fields:[policyId],references:[id],onDelete:Restrict)
+ phase String @db.VarChar(24)
+ taskIndex Int @default(0)
+ phaseStartedAt DateTime @db.Timestamptz(3)
+ deadline DateTime? @db.Timestamptz(3)
+ lockVersion Int @default(0)
+ receipt String? @unique @db.Uuid
+ blockedReason String? @db.VarChar(500)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ @@map("placement_sittings")
+}
+model PlacementGraderAssignment {
+ id String @id @default(uuid()) @db.Uuid
+ attemptId String @db.Uuid
+ attempt TestAttempt @relation(fields:[attemptId],references:[id],onDelete:Restrict)
+ number Int
+ graderId String @db.Uuid
+ grader User @relation("PlacementAssignedGrader",fields:[graderId],references:[id],onDelete:Restrict)
+ assignedById String @db.Uuid
+ assigner User @relation("PlacementAssigner",fields:[assignedById],references:[id],onDelete:Restrict)
+ reason String @db.VarChar(500)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ evaluations PlacementHumanEvaluation[]
+ evidence PlacementEvidenceRead[]
+ @@unique([attemptId,number])
+ @@map("placement_grader_assignments")
+}
+model PlacementHumanEvaluation {
+ id String @id @default(uuid()) @db.Uuid
+ attemptId String @db.Uuid
+ attempt TestAttempt @relation(fields:[attemptId],references:[id],onDelete:Restrict)
+ skill String @db.VarChar(16)
+ number Int
+ rubricId String? @db.Uuid
+ rubric PlacementWorkflowPolicy? @relation(fields:[rubricId],references:[id],onDelete:Restrict)
+ assignmentId String? @db.Uuid
+ assignment PlacementGraderAssignment? @relation(fields:[assignmentId],references:[id],onDelete:Restrict)
+ graderId String? @db.Uuid
+ grader User? @relation("PlacementEvaluationGrader",fields:[graderId],references:[id],onDelete:Restrict)
+ body Json
+ reason String @db.VarChar(500)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ release PlacementResultRelease?
+ @@unique([attemptId,skill,number])
+ @@map("placement_human_evaluations")
+}
+model PlacementResultRelease {
+ evaluationId String @id @db.Uuid
+ evaluation PlacementHumanEvaluation @relation(fields:[evaluationId],references:[id],onDelete:Restrict)
+ publishedById String @db.Uuid
+ publisher User @relation("PlacementResultPublisher",fields:[publishedById],references:[id],onDelete:Restrict)
+ reason String @db.VarChar(500)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ @@map("placement_result_releases")
+}
+model PlacementEvidenceRead {
+ id String @id @default(uuid()) @db.Uuid
+ assignmentId String @db.Uuid
+ assignment PlacementGraderAssignment @relation(fields:[assignmentId],references:[id],onDelete:Restrict)
+ questionId String @db.Uuid
+ question TestQuestion @relation(fields:[questionId],references:[id],onDelete:Restrict)
+ digest String @db.VarChar(64)
+ kind String @db.VarChar(16)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ @@unique([assignmentId,questionId,digest])
+ @@map("placement_evidence_reads")
+}
+model PlacementWorkflowRequest {
+ id String @id @default(uuid()) @db.Uuid
+ actorId String @db.Uuid
+ actor User @relation("PlacementRequestActor",fields:[actorId],references:[id],onDelete:Restrict)
+ key String @db.Uuid
+ action String
+ digest String @db.VarChar(64)
+ response Json
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ @@unique([actorId,key])
+ @@map("placement_workflow_requests")
+}
+model PlacementTaskRecording {
+ id String @id @default(uuid()) @db.Uuid
+ attemptId String @db.Uuid
+ attempt TestAttempt @relation(fields:[attemptId],references:[id],onDelete:Restrict)
+ questionId String @db.Uuid
+ question TestQuestion @relation(fields:[questionId],references:[id],onDelete:Restrict)
+ state String @default("STARTED") @db.VarChar(24)
+ tabId String @db.Uuid
+ tokenHash String @db.VarChar(64)
+ sessionHash String @db.VarChar(64)
+ startedAt DateTime @db.Timestamptz(3)
+ deadline DateTime @db.Timestamptz(3)
+ uploadDeadline DateTime @db.Timestamptz(3)
+ storageKey String?
+ digest String? @db.VarChar(64)
+ durationMs Int?
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ @@unique([attemptId,questionId])
+ @@map("placement_task_recordings")
+}
+
+// W05A bounded DEV domain, not admissions/payment approval.
+model SupportTopic {
+ id String @id @default(uuid()) @db.Uuid
+ code String @db.VarChar(40)
+ version Int
+ title String @db.VarChar(120)
+ routes String[]
+ authorId String @db.Uuid
+ approvedById String? @db.Uuid
+ approvedAt DateTime? @db.Timestamptz(3)
+ reason String @db.VarChar(500)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ tickets SupportTicket[]
+ @@unique([code,version])
+ @@map("support_topics")
+}
+ model SupportTicket {
+ id String @id @default(uuid()) @db.Uuid
+ reference String @unique @db.VarChar(48)
+ topicId String @db.Uuid
+ learnerId String? @db.Uuid
+ guestName String? @db.VarChar(100)
+ claimedContact String? @db.VarChar(160)
+ contactVerified Boolean @default(false)
+ contactMethod String @db.VarChar(16)
+ description String @db.VarChar(2000)
+ consentVersion String @db.VarChar(40)
+ ownerId String? @db.Uuid
+ state String @default("NEW") @db.VarChar(24)
+ lockVersion Int @default(0)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @default(now()) @db.Timestamptz(3)
+ topic SupportTopic @relation(fields:[topicId],references:[id],onDelete:Restrict)
+ messages SupportMessage[]
+ events SupportEvent[]
+ referrals SupportReferral[]
+ consents SupportConsent[]
+ applications CounselingApplication[]
+ attachments SupportTicketAttachment[]
+ @@index([ownerId,state,createdAt])
+ @@index([learnerId,createdAt])
+ @@map("support_tickets")
+}
+model SupportTicketAttachment {
+ id String @id @default(uuid()) @db.Uuid
+ ticketId String @db.Uuid
+ uploaderId String @db.Uuid
+ originalName String @db.VarChar(255)
+ storedKey String @unique @db.VarChar(128)
+ mimeType String @db.VarChar(128)
+ byteSize Int
+ sha256 String @db.VarChar(64)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ ticket SupportTicket @relation(fields:[ticketId],references:[id],onDelete:Restrict)
+ @@index([ticketId,createdAt])
+ @@map("support_ticket_attachments")
+}
+model SupportMessage {
+ id String @id @default(uuid()) @db.Uuid
+ ticketId String @db.Uuid
+ actorId String @db.Uuid
+ visibility String @db.VarChar(16)
+ body String @db.VarChar(2000)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ ticket SupportTicket @relation(fields:[ticketId],references:[id],onDelete:Restrict)
+ @@index([ticketId,createdAt])
+ @@map("support_messages")
+}
+model SupportEvent {
+ id String @id @default(uuid()) @db.Uuid
+ ticketId String @db.Uuid
+ actorId String? @db.Uuid
+ kind String @db.VarChar(32)
+ publicLabel String @db.VarChar(120)
+ reason String @db.VarChar(500)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ ticket SupportTicket @relation(fields:[ticketId],references:[id],onDelete:Restrict)
+ @@index([ticketId,createdAt])
+ @@map("support_events")
+}
+model SupportReferral {
+ id String @id @default(uuid()) @db.Uuid
+ ticketId String @db.Uuid
+ category String @db.VarChar(24)
+ specialistId String @db.Uuid
+ createdById String @db.Uuid
+ summary String @db.VarChar(1000)
+ state String @default("OPEN") @db.VarChar(16)
+ response String? @db.VarChar(1500)
+ reason String @db.VarChar(500)
+ lockVersion Int @default(0)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ respondedAt DateTime? @db.Timestamptz(3)
+ ticket SupportTicket @relation(fields:[ticketId],references:[id],onDelete:Restrict)
+ @@index([specialistId,state])
+ @@map("support_referrals")
+}
+model SupportConsent {
+  w07ApplicationConsent W07Application[] @relation("W07Application_consent")
+ id String @id @default(uuid()) @db.Uuid
+ ticketId String @db.Uuid
+ learnerId String @db.Uuid
+ purpose String @db.VarChar(24)
+ attemptId String? @db.Uuid
+ granted Boolean
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ ticket SupportTicket @relation(fields:[ticketId],references:[id],onDelete:Restrict)
+ @@index([ticketId,purpose,createdAt])
+ @@map("support_consents")
+}
+model CounselingApplication {
+  w07ApplicationReferral W07Application[] @relation("W07Application_referral")
+ id String @id @default(uuid()) @db.Uuid
+ ticketId String @db.Uuid
+ number Int
+ learnerId String @db.Uuid
+ authorId String @db.Uuid
+ reviewerId String @db.Uuid
+ consentId String @db.Uuid
+ state String @default("DRAFT") @db.VarChar(24)
+ needs String @db.VarChar(2000)
+ target String @db.VarChar(500)
+ goalLR Int?
+ goalSpeaking Int?
+ goalWriting Int?
+ classId String? @db.Uuid
+ courseVersionId String? @db.Uuid
+ placementAttemptId String? @db.Uuid
+ provenance Json
+ snapshot Json?
+ reason String @db.VarChar(500)
+ reviewReason String? @db.VarChar(500)
+ lockVersion Int @default(0)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ submittedAt DateTime? @db.Timestamptz(3)
+ reviewedAt DateTime? @db.Timestamptz(3)
+ ticket SupportTicket @relation(fields:[ticketId],references:[id],onDelete:Restrict)
+ @@unique([ticketId,number])
+ @@index([reviewerId,state])
+ @@map("counseling_applications")
+}
+model SupportRequest {
+ id String @id @default(uuid()) @db.Uuid
+ principal String @db.VarChar(80)
+ key String @db.Uuid
+ digest String @db.VarChar(64)
+ response Json
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ @@unique([principal,key])
+ @@map("support_requests")
+}
+model SupportAbuseBucket {
+ id String @id @db.VarChar(64)
+ windowStart DateTime @db.Timestamptz(3)
+ count Int
+ @@map("support_abuse_buckets")
+}
+
+model W06Meet {
+id String @id @default(uuid()) @db.Uuid
+sessionId String @db.Uuid
+number Int
+url String @db.VarChar(100)
+makerId String @db.Uuid
+reason String @db.VarChar(1000)
+key String @db.Uuid
+state String @default("PENDING_APPROVAL") @db.VarChar(24)
+reviewerId String? @db.Uuid
+reviewReason String? @db.VarChar(1000)
+decisionKey String? @db.Uuid
+createdAt DateTime @default(now()) @db.Timestamptz(6)
+reviewedAt DateTime? @db.Timestamptz(6)
+@@unique([sessionId,number])
+@@unique([makerId,key])
+session TeachingSession @relation("W06Meet_session",fields:[sessionId],references:[id],onDelete:Restrict)
+maker User @relation("W06Meet_maker",fields:[makerId],references:[id],onDelete:Restrict)
+reviewer User? @relation("W06Meet_reviewer",fields:[reviewerId],references:[id],onDelete:Restrict)
+
+@@map("w06_meet")
+}
+
+model W06AttendanceActivity {
+id String @id @default(uuid()) @db.Uuid
+classId String @unique @db.Uuid
+creatorId String @db.Uuid
+createdAt DateTime @default(now()) @db.Timestamptz(6)
+class ClassOffering @relation("W06AttendanceActivity_class",fields:[classId],references:[id],onDelete:Restrict)
+creator User @relation("W06AttendanceActivity_creator",fields:[creatorId],references:[id],onDelete:Restrict)
+w06WindowActivity W06Window[] @relation("W06Window_activity")
+@@map("w06_attendance_activities")
+}
+
+model W06Window {
+id String @id @default(uuid()) @db.Uuid
+sessionId String @unique @db.Uuid
+activityId String @db.Uuid
+startsAt DateTime @db.Timestamptz(6)
+endsAt DateTime @db.Timestamptz(6)
+timezone String @db.VarChar(100)
+revision Int
+createdAt DateTime @default(now()) @db.Timestamptz(6)
+session TeachingSession @relation("W06Window_session",fields:[sessionId],references:[id],onDelete:Restrict)
+activity W06AttendanceActivity @relation("W06Window_activity",fields:[activityId],references:[id],onDelete:Restrict)
+w06CodeWindow W06Code[] @relation("W06Code_window")
+w06ReceiptWindow W06Receipt[] @relation("W06Receipt_window")
+w06CorrectionWindow W06Correction[] @relation("W06Correction_window")
+w06RateWindow W06Rate[] @relation("W06Rate_window")
+@@map("w06_windows")
+}
+
+model W06Code {
+id String @id @default(uuid()) @db.Uuid
+windowId String @db.Uuid
+number Int
+verifier String @db.VarChar(64)
+expiresAt DateTime @db.Timestamptz(6)
+creatorId String @db.Uuid
+key String @db.Uuid
+createdAt DateTime @default(now()) @db.Timestamptz(6)
+@@unique([windowId,number])
+@@unique([creatorId,key])
+window W06Window @relation("W06Code_window",fields:[windowId],references:[id],onDelete:Restrict)
+creator User @relation("W06Code_creator",fields:[creatorId],references:[id],onDelete:Restrict)
+w06ReceiptCode W06Receipt[] @relation("W06Receipt_code")
+@@map("w06_codes")
+}
+
+model W06Receipt {
+id String @id @default(uuid()) @db.Uuid
+windowId String @db.Uuid
+learnerId String @db.Uuid
+codeId String @db.Uuid
+key String @db.Uuid
+status String @db.VarChar(24)
+acceptedAt DateTime @default(now()) @db.Timestamptz(6)
+@@unique([windowId,learnerId])
+@@unique([learnerId,key])
+window W06Window @relation("W06Receipt_window",fields:[windowId],references:[id],onDelete:Restrict)
+learner User @relation("W06Receipt_learner",fields:[learnerId],references:[id],onDelete:Restrict)
+code W06Code @relation("W06Receipt_code",fields:[codeId],references:[id],onDelete:Restrict)
+
+@@map("w06_receipts")
+}
+
+model W06Correction {
+id String @id @default(uuid()) @db.Uuid
+windowId String @db.Uuid
+learnerId String @db.Uuid
+makerId String @db.Uuid
+baseVersion Int
+beforeStatus String @db.VarChar(24)
+requestedStatus String @db.VarChar(24)
+evidence String @db.VarChar(2000)
+reason String @db.VarChar(1000)
+key String @db.Uuid
+state String @default("PENDING_APPROVAL") @db.VarChar(24)
+reviewerId String? @db.Uuid
+reviewReason String? @db.VarChar(1000)
+decisionKey String? @db.Uuid
+revision Int?
+createdAt DateTime @default(now()) @db.Timestamptz(6)
+reviewedAt DateTime? @db.Timestamptz(6)
+@@unique([makerId,key])
+@@unique([windowId,learnerId,revision])
+@@index([windowId,learnerId,state])
+window W06Window @relation("W06Correction_window",fields:[windowId],references:[id],onDelete:Restrict)
+learner User @relation("W06Correction_learner",fields:[learnerId],references:[id],onDelete:Restrict)
+maker User @relation("W06Correction_maker",fields:[makerId],references:[id],onDelete:Restrict)
+reviewer User? @relation("W06Correction_reviewer",fields:[reviewerId],references:[id],onDelete:Restrict)
+
+@@map("w06_corrections")
+}
+
+model W06Exception {
+id String @id @default(uuid()) @db.Uuid
+sessionId String @db.Uuid
+makerId String @db.Uuid
+kind String @db.VarChar(16)
+startLocal String? @db.VarChar(30)
+endLocal String? @db.VarChar(30)
+timezone String @default("Asia/Ho_Chi_Minh") @db.VarChar(100)
+startOffsetMinutes Int?
+endOffsetMinutes Int?
+roomId String? @db.Uuid
+assignmentId String? @db.Uuid
+modality String @db.VarChar(16)
+requiredCapabilities RoomCapability[]
+reason String @db.VarChar(1000)
+key String @db.Uuid
+state String @default("PENDING_APPROVAL") @db.VarChar(24)
+routedSessionId String? @unique @db.Uuid
+routedById String? @db.Uuid
+decisionKey String? @db.Uuid
+reviewReason String? @db.VarChar(1000)
+createdAt DateTime @default(now()) @db.Timestamptz(6)
+@@unique([makerId,key])
+session TeachingSession @relation("W06Exception_session",fields:[sessionId],references:[id],onDelete:Restrict)
+maker User @relation("W06Exception_maker",fields:[makerId],references:[id],onDelete:Restrict)
+room Room? @relation("W06Exception_room",fields:[roomId],references:[id],onDelete:Restrict)
+assignment ClassInstructorAssignment? @relation("W06Exception_assignment",fields:[assignmentId],references:[id],onDelete:Restrict)
+routedSession TeachingSession? @relation("W06Exception_routedSession",fields:[routedSessionId],references:[id],onDelete:Restrict)
+routedBy User? @relation("W06Exception_routedBy",fields:[routedById],references:[id],onDelete:Restrict)
+
+@@map("w06_exceptions")
+}
+
+model W06Notification {
+id String @id @default(uuid()) @db.Uuid
+sessionId String @db.Uuid
+recipientId String @db.Uuid
+kind String @db.VarChar(32)
+sourceId String @db.Uuid
+createdAt DateTime @default(now()) @db.Timestamptz(6)
+@@unique([kind,sourceId,recipientId])
+@@index([recipientId,createdAt])
+session TeachingSession @relation("W06Notification_session",fields:[sessionId],references:[id],onDelete:Restrict)
+recipient User @relation("W06Notification_recipient",fields:[recipientId],references:[id],onDelete:Restrict)
+
+@@map("w06_notifications")
+}
+
+model W06Rate {
+id String @id @default(uuid()) @db.Uuid
+windowId String @db.Uuid
+learnerId String @db.Uuid
+count Int @default(0)
+resetAt DateTime @db.Timestamptz(6)
+@@unique([windowId,learnerId])
+window W06Window @relation("W06Rate_window",fields:[windowId],references:[id],onDelete:Restrict)
+learner User @relation("W06Rate_learner",fields:[learnerId],references:[id],onDelete:Restrict)
+
+@@map("w06_rates")
+}
+
+model W07ClassControl {
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+classId String @unique @db.Uuid
+actorId String @db.Uuid
+reason String @db.VarChar(1000)
+createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+class ClassOffering @relation("W07ClassControl_class",fields:[classId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+actor User @relation("W07ClassControl_actor",fields:[actorId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+
+@@map("w07_class_controls")
+}
+
+model W07Application {
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+classId String @db.Uuid
+learnerId String @db.Uuid
+number Int
+parentId String? @db.Uuid
+courseVersionId String? @db.Uuid
+versionNumber Int?
+termsTitle String? @db.VarChar(300)
+pricingType String? @db.VarChar(16)
+amountVnd Int?
+termsApprovedAt DateTime? @db.Timestamptz(3)
+referralId String? @db.Uuid
+referralNumber Int?
+referralConsentId String? @db.Uuid
+consentVersion String @db.VarChar(40)
+consentedAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+state String @db.VarChar(24)
+blockReason String? @db.VarChar(80)
+lockVersion Int @default(0)
+key String @db.Uuid
+createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+@@unique([learnerId,key])
+@@unique([learnerId,classId,number])
+@@index([classId,state])
+class ClassOffering @relation("W07Application_class",fields:[classId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+learner User @relation("W07Application_learner",fields:[learnerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+parent W07Application? @relation("W07Application_parent",fields:[parentId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+version CourseVersion? @relation("W07Application_version",fields:[courseVersionId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+referral CounselingApplication? @relation("W07Application_referral",fields:[referralId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+consent SupportConsent? @relation("W07Application_consent",fields:[referralConsentId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+w07ApplicationParent W07Application[] @relation("W07Application_parent")
+w07AcademicDecisionApplication W07AcademicDecision[] @relation("W07AcademicDecision_application")
+w07ObligationApplication W07Obligation[] @relation("W07Obligation_application")
+w07EntitlementApplication W07Entitlement[] @relation("W07Entitlement_application")
+w07CaseApplication W07Case[] @relation("W07Case_application")
+w07NotificationApplication W07Notification[] @relation("W07Notification_application")
+@@map("w07_applications")
+}
+
+model W07AcademicDecision {
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+applicationId String @db.Uuid
+number Int
+kind String @db.VarChar(16)
+reviewerId String @db.Uuid
+grantId String @db.Uuid
+caseId String? @unique @db.Uuid
+reason String @db.VarChar(1000)
+key String @db.Uuid
+createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+@@unique([applicationId,number])
+@@unique([reviewerId,key])
+application W07Application @relation("W07AcademicDecision_application",fields:[applicationId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+reviewer User @relation("W07AcademicDecision_reviewer",fields:[reviewerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+grant PermissionGrant @relation("W07AcademicDecision_grant",fields:[grantId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+case W07Case? @relation("W07AcademicDecision_case",fields:[caseId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+w07ObligationDecision W07Obligation[] @relation("W07Obligation_decision")
+@@map("w07_academic_decisions")
+}
+
+model W07Obligation {
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+applicationId String @unique @db.Uuid
+decisionId String @unique @db.Uuid
+courseVersionId String @db.Uuid
+amountVnd Int
+currency String @default("VND") @db.VarChar(3)
+dueAt DateTime? @db.Timestamptz(6)
+createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+application W07Application @relation("W07Obligation_application",fields:[applicationId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+decision W07AcademicDecision @relation("W07Obligation_decision",fields:[decisionId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+version CourseVersion @relation("W07Obligation_version",fields:[courseVersionId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+w07EvidenceObligation W07Evidence[] @relation("W07Evidence_obligation")
+w07PaymentEventObligation W07PaymentEvent[] @relation("W07PaymentEvent_obligation")
+w07AllocationObligation W07Allocation[] @relation("W07Allocation_obligation")
+@@map("w07_obligations")
+}
+
+model W07Evidence {
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+obligationId String @db.Uuid
+learnerId String @db.Uuid
+amountVnd Int
+sourceRef String @unique @db.VarChar(80)
+sha256 String @unique @db.VarChar(64)
+fileKey String @unique @db.VarChar(80)
+mimeType String @db.VarChar(80)
+bytes Int
+synthetic Boolean @default(true)
+key String @db.Uuid
+createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+@@unique([learnerId,key])
+@@index([obligationId,createdAt])
+obligation W07Obligation @relation("W07Evidence_obligation",fields:[obligationId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+learner User @relation("W07Evidence_learner",fields:[learnerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+w07PaymentEventEvidence W07PaymentEvent[] @relation("W07PaymentEvent_evidence")
+@@map("w07_payment_evidence")
+}
+
+model W07PaymentEvent {
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+obligationId String @db.Uuid
+evidenceId String? @db.Uuid
+parentId String? @db.Uuid
+adjustmentDecisionId String? @unique @db.Uuid
+kind String @db.VarChar(16)
+amountVnd Int
+excessVnd Int @default(0)
+actorId String @db.Uuid
+grantId String @db.Uuid
+reason String @db.VarChar(1000)
+key String @db.Uuid
+synthetic Boolean @default(true)
+createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+@@unique([actorId,key])
+@@index([obligationId,createdAt])
+obligation W07Obligation @relation("W07PaymentEvent_obligation",fields:[obligationId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+evidence W07Evidence? @relation("W07PaymentEvent_evidence",fields:[evidenceId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+parent W07PaymentEvent? @relation("W07PaymentEvent_parent",fields:[parentId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+adjustmentDecision W07AdjustmentDecision? @relation("W07PaymentEvent_adjustmentDecision",fields:[adjustmentDecisionId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+actor User @relation("W07PaymentEvent_actor",fields:[actorId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+grant PermissionGrant @relation("W07PaymentEvent_grant",fields:[grantId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+w07PaymentEventParent W07PaymentEvent[] @relation("W07PaymentEvent_parent")
+w07AllocationEvent W07Allocation[] @relation("W07Allocation_event")
+w07AdjustmentEvent W07Adjustment[] @relation("W07Adjustment_event")
+@@map("w07_payment_events")
+}
+
+model W07Allocation {
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+obligationId String @db.Uuid
+eventId String @unique @db.Uuid
+amountVnd Int
+createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+@@index([obligationId])
+obligation W07Obligation @relation("W07Allocation_obligation",fields:[obligationId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+event W07PaymentEvent @relation("W07Allocation_event",fields:[eventId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+
+@@map("w07_allocations")
+}
+
+model W07Adjustment {
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+eventId String @db.Uuid
+makerId String @db.Uuid
+kind String @db.VarChar(16)
+amountVnd Int
+reason String @db.VarChar(1000)
+evidence String @db.VarChar(2000)
+state String @db.VarChar(24)
+blockReason String? @db.VarChar(100)
+key String @db.Uuid
+createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+@@unique([makerId,key])
+@@index([eventId])
+event W07PaymentEvent @relation("W07Adjustment_event",fields:[eventId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+maker User @relation("W07Adjustment_maker",fields:[makerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+w07AdjustmentDecisionRequest W07AdjustmentDecision[] @relation("W07AdjustmentDecision_request")
+@@map("w07_adjustments")
+}
+
+model W07AdjustmentDecision {
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+requestId String @unique @db.Uuid
+reviewerId String @db.Uuid
+grantId String @db.Uuid
+decision String @db.VarChar(16)
+reason String @db.VarChar(1000)
+key String @db.Uuid
+createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+@@unique([reviewerId,key])
+request W07Adjustment @relation("W07AdjustmentDecision_request",fields:[requestId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+reviewer User @relation("W07AdjustmentDecision_reviewer",fields:[reviewerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+grant PermissionGrant @relation("W07AdjustmentDecision_grant",fields:[grantId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+w07PaymentEventAdjustmentdecision W07PaymentEvent[] @relation("W07PaymentEvent_adjustmentDecision")
+@@map("w07_adjustment_decisions")
+}
+
+model W07Entitlement {
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+applicationId String @db.Uuid
+learnerId String @db.Uuid
+enrollmentId String? @db.Uuid
+outcome String @db.VarChar(24)
+reasonCode String @db.VarChar(80)
+previousStatus String? @db.VarChar(24)
+key String @db.Uuid
+createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+@@unique([applicationId,key])
+@@index([enrollmentId])
+application W07Application @relation("W07Entitlement_application",fields:[applicationId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+learner User @relation("W07Entitlement_learner",fields:[learnerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+enrollment Enrollment? @relation("W07Entitlement_enrollment",fields:[enrollmentId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+
+@@map("w07_entitlements")
+}
+
+model W07Case {
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+applicationId String @db.Uuid
+learnerId String @db.Uuid
+kind String @db.VarChar(16)
+targetClassId String? @db.Uuid
+state String @db.VarChar(24)
+blockReason String? @db.VarChar(100)
+reason String @db.VarChar(1000)
+key String @db.Uuid
+createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+@@unique([learnerId,key])
+@@index([applicationId])
+application W07Application @relation("W07Case_application",fields:[applicationId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+learner User @relation("W07Case_learner",fields:[learnerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+targetClass ClassOffering? @relation("W07Case_targetClass",fields:[targetClassId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+w07AcademicDecisionCase W07AcademicDecision[] @relation("W07AcademicDecision_case")
+@@map("w07_cases")
+}
+
+model W07Notification {
+id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+applicationId String @db.Uuid
+recipientId String @db.Uuid
+kind String @db.VarChar(32)
+sourceId String @db.Uuid
+createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+@@unique([recipientId,kind,sourceId])
+application W07Application @relation("W07Notification_application",fields:[applicationId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+recipient User @relation("W07Notification_recipient",fields:[recipientId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+
+@@map("w07_notifications")
+}
+
+// DEC053 W08 additive typed records. Foreign keys and immutable guards also live in migration32.
+model W08Revision {
+ id String @id @default(uuid()) @db.Uuid
+ assignmentId String @db.Uuid
+ actorId String? @db.Uuid
+ origin String
+ before Json
+ after Json
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ @@map("w08_revision")
+}
+model W08Assignment {
+ id String @id @default(uuid()) @db.Uuid
+ sessionId String @db.Uuid
+ classId String @db.Uuid
+ teacherId String @db.Uuid
+ inspectorId String @db.Uuid
+ dispatcherId String @db.Uuid
+ meetId String @db.Uuid
+ revision Int
+ startsAt DateTime @db.Timestamptz(6)
+ endsAt DateTime @db.Timestamptz(6)
+ state String
+ version Int
+ reason String
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ @@map("w08_assignment")
+}
+model W08Segment {
+ id String @id @default(uuid()) @db.Uuid
+ assignmentId String @db.Uuid
+ inspectorId String @db.Uuid
+ startedAt DateTime @db.Timestamptz(6)
+ stoppedAt DateTime? @db.Timestamptz(6)
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ @@map("w08_segment")
+}
+model W08Report {
+ id String @id @default(uuid()) @db.Uuid
+ assignmentId String @db.Uuid
+ reporterId String @db.Uuid
+ number Int
+ presence String
+ conditions String
+ reason String
+ attestation String
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ @@unique([assignmentId,number])
+ @@map("w08_report")
+}
+model W08Decision {
+ id String @id @default(uuid()) @db.Uuid
+ assignmentId String @db.Uuid
+ reportId String @db.Uuid
+ reviewerId String @db.Uuid
+ number Int
+ disposition String
+ approvedSeconds Int?
+ reason String
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ @@unique([assignmentId,number])
+ @@map("w08_decision")
+}
+model W08Dispute {
+ id String @id @default(uuid()) @db.Uuid
+ assignmentId String @db.Uuid
+ teacherId String @db.Uuid
+ reason String
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ @@map("w08_dispute")
+}
+model W08Clock {
+ id String @id @default(uuid()) @db.Uuid
+ assignmentId String @db.Uuid
+ inspectorId String @db.Uuid
+ kind String
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ @@map("w08_clock")
+}
+model W08Correction {
+ id String @id @default(uuid()) @db.Uuid
+ assignmentId String @db.Uuid
+ inspectorId String @db.Uuid
+ kind String
+ revision Int
+ proposedOutAt DateTime? @db.Timestamptz(6)
+ supersedesId String? @db.Uuid
+ evidence String
+ reason String
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ @@map("w08_correction")
+ @@unique([assignmentId,revision])
+}
+model W08CorrectionDecision {
+ id String @id @default(uuid()) @db.Uuid
+ correctionId String @db.Uuid
+ reviewerId String @db.Uuid
+ disposition String
+ revision Int
+ correctedOutAt DateTime? @db.Timestamptz(6)
+ approvedShiftSeconds Int?
+ reason String
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ @@unique([correctionId])
+ @@map("w08_correction_decision")
+}
+model W08Receipt {
+ id String @id @default(uuid()) @db.Uuid
+ actorId String @db.Uuid
+ key String @db.Uuid
+ digest String
+ assignmentId String? @db.Uuid
+ action String
+ result Json
+ before Json?
+ after Json?
+ reason String
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ @@unique([actorId,key])
+ @@map("w08_receipt")
+}
+model W08Notification {
+ id String @id @default(uuid()) @db.Uuid
+ recipientId String @db.Uuid
+ assignmentId String @db.Uuid
+ kind String
+ sourceId String @db.Uuid
+ createdAt DateTime @default(now()) @db.Timestamptz(6)
+ @@unique([recipientId,sourceId,kind])
+ @@map("w08_notification")
+}
+
+
+model W05BProfile {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherId String @unique @db.Uuid
+  teacherIdRef User @relation("W05BProfile_teacherId",fields:[teacherId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  currentRevision Int @default(0)
+  enabled Boolean @default(true)
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  W05BProfileRevision_profileId W05BProfileRevision[] @relation("W05BProfileRevision_profileId")
+  @@map("w05b_profiles")
+}
+
+
+model W05BProfileRevision {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId String @db.Uuid
+  profileIdRef W05BProfile @relation("W05BProfileRevision_profileId",fields:[profileId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  number Int
+  displayName String @db.VarChar(120)
+  bio String @db.VarChar(2000)
+  specialties String @db.VarChar(500)
+  makerId String @db.Uuid
+  makerIdRef User @relation("W05BProfileRevision_makerId",fields:[makerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  state String @default("DRAFT") @db.VarChar(24)
+  reviewerId String? @db.Uuid
+  reviewerIdRef User? @relation("W05BProfileRevision_reviewerId",fields:[reviewerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  reviewReason String? @db.VarChar(1000)
+  reviewedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  @@unique([profileId,number])
+  W05BBooking_profileRevisionId W05BBooking[] @relation("W05BBooking_profileRevisionId")
+  @@map("w05b_profile_revisions")
+}
+
+
+model W05BAvailability {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherId String @db.Uuid
+  teacherIdRef User @relation("W05BAvailability_teacherId",fields:[teacherId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  kind String @db.VarChar(16)
+  weekday Int?
+  startMinute Int?
+  endMinute Int?
+  startsAt DateTime? @db.Timestamptz(3)
+  endsAt DateTime? @db.Timestamptz(3)
+  active Boolean @default(true)
+  reason String @db.VarChar(1000)
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  @@map("w05b_availability")
+}
+
+
+model W05BBooking {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherId String @db.Uuid
+  teacherIdRef User @relation("W05BBooking_teacherId",fields:[teacherId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  learnerId String @db.Uuid
+  learnerIdRef User @relation("W05BBooking_learnerId",fields:[learnerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  profileRevisionId String @db.Uuid
+  profileRevisionIdRef W05BProfileRevision @relation("W05BBooking_profileRevisionId",fields:[profileRevisionId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt DateTime @db.Timestamptz(3)
+  reservedFrom DateTime @db.Timestamptz(3)
+  reservedUntil DateTime @db.Timestamptz(3)
+  state String @default("HOLD") @db.VarChar(24)
+  expiresAt DateTime? @db.Timestamptz(3)
+  topic String @default("") @db.VarChar(1000)
+  version Int @default(0)
+  linkRevision Int @default(0)
+  replacesId String? @db.Uuid
+  replacesIdRef W05BBooking? @relation("W05BBooking_replacesId",fields:[replacesId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  W05BBooking_replacesId W05BBooking[] @relation("W05BBooking_replacesId")
+  W05BLink_bookingId W05BLink[] @relation("W05BLink_bookingId")
+  W05BChange_bookingId W05BChange[] @relation("W05BChange_bookingId")
+  W05BReport_bookingId W05BReport[] @relation("W05BReport_bookingId")
+  @@index([learnerId,state,startsAt],map:"w05b_learner_state")
+  @@map("w05b_bookings")
+}
+
+
+model W05BLink {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId String @db.Uuid
+  bookingIdRef W05BBooking @relation("W05BLink_bookingId",fields:[bookingId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  number Int
+  url String @db.VarChar(500)
+  makerId String @db.Uuid
+  makerIdRef User @relation("W05BLink_makerId",fields:[makerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  state String @default("PENDING") @db.VarChar(24)
+  reviewerId String? @db.Uuid
+  reviewerIdRef User? @relation("W05BLink_reviewerId",fields:[reviewerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  reason String @db.VarChar(1000)
+  reviewReason String? @db.VarChar(1000)
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  reviewedAt DateTime? @db.Timestamptz(3)
+  @@unique([bookingId,number])
+  @@map("w05b_links")
+}
+
+
+model W05BChange {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId String @db.Uuid
+  bookingIdRef W05BBooking @relation("W05BChange_bookingId",fields:[bookingId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  makerId String @db.Uuid
+  makerIdRef User @relation("W05BChange_makerId",fields:[makerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  kind String @db.VarChar(16)
+  newStartsAt DateTime? @db.Timestamptz(3)
+  baseVersion Int
+  reason String @db.VarChar(1000)
+  state String @default("PENDING") @db.VarChar(24)
+  reviewerId String? @db.Uuid
+  reviewerIdRef User? @relation("W05BChange_reviewerId",fields:[reviewerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  reviewReason String? @db.VarChar(1000)
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  reviewedAt DateTime? @db.Timestamptz(3)
+  @@map("w05b_changes")
+}
+
+
+model W05BReport {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId String @db.Uuid
+  bookingIdRef W05BBooking @relation("W05BReport_bookingId",fields:[bookingId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  makerId String @db.Uuid
+  makerIdRef User @relation("W05BReport_makerId",fields:[makerId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  parentId String? @db.Uuid
+  parentIdRef W05BReport? @relation("W05BReport_parentId",fields:[parentId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  kind String @db.VarChar(16)
+  evidence String @db.VarChar(2000)
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  W05BReport_parentId W05BReport[] @relation("W05BReport_parentId")
+  @@map("w05b_reports")
+}
+
+
+model W05BCommand {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId String @db.Uuid
+  actorIdRef User @relation("W05BCommand_actorId",fields:[actorId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  key String @db.Uuid
+  payload Json
+  result Json
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  @@unique([actorId,key])
+  @@map("w05b_commands")
+}
+
+
+model W05BEvent {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId String? @db.Uuid
+  actorIdRef User? @relation("W05BEvent_actorId",fields:[actorId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  objectId String @db.Uuid
+  kind String @db.VarChar(48)
+  reason String @db.VarChar(2000)
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  W05BOutbox_eventId W05BOutbox[] @relation("W05BOutbox_eventId")
+  @@map("w05b_events")
+}
+
+
+model W05BOutbox {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId String @db.Uuid
+  eventIdRef W05BEvent @relation("W05BOutbox_eventId",fields:[eventId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  recipientId String @db.Uuid
+  recipientIdRef User @relation("W05BOutbox_recipientId",fields:[recipientId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  @@unique([eventId,recipientId])
+  @@map("w05b_outbox")
+}
+
+// Unified Q01 + Q07 Tuition Receivables, 15m Seat Hold Orders, SePay Transactions & Receipts
+model TuitionReceivable {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enrollmentId    String                @unique @db.Uuid
+  learnerId       String                @db.Uuid
+  classOfferingId String                @db.Uuid
+  receivableCode  String                @unique
+  amountVnd       Int
+  paidAmountVnd   Int                   @default(0)
+  currency        String                @default("VND")
+  status          String
+  dueAt           DateTime?
+  paidAt          DateTime?
+  isTestHarness   Boolean               @default(false)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @default(now()) @updatedAt
+  enrollment      Enrollment            @relation("TuitionReceivableEnrollment", fields: [enrollmentId], references: [id], onDelete: Restrict)
+  learner         User                  @relation("TuitionReceivableLearner", fields: [learnerId], references: [id], onDelete: Restrict)
+  classOffering   ClassOffering         @relation("TuitionReceivableClass", fields: [classOfferingId], references: [id], onDelete: Restrict)
+  paymentOrders   TuitionPaymentOrder[]
+  transactions    SePayTuitionTransaction[]
+  receipt         TuitionReceipt?
+  reconciliationActions TuitionReconciliationAction[]
+
+  @@index([learnerId, status])
+  @@index([classOfferingId, status])
+  @@map("tuition_receivables")
+}
+
+model TuitionPaymentOrder {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receivableId      String            @db.Uuid
+  enrollmentId      String            @db.Uuid
+  learnerId         String            @db.Uuid
+  classOfferingId   String            @db.Uuid
+  paymentCode       String            @unique
+  expectedAmountVnd Int
+  currency          String            @default("VND")
+  bankCode          String?
+  accountNumber     String?
+  accountName       String?
+  qrUrl             String?
+  status            String
+  expiresAt         DateTime
+  releasedAt        DateTime?
+  paidAt            DateTime?
+  isTestHarness     Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @default(now()) @updatedAt
+  receivable        TuitionReceivable @relation(fields: [receivableId], references: [id], onDelete: Restrict)
+  enrollment        Enrollment        @relation("TuitionPaymentOrderEnrollment", fields: [enrollmentId], references: [id], onDelete: Restrict)
+  learner           User              @relation("TuitionPaymentOrderLearner", fields: [learnerId], references: [id], onDelete: Restrict)
+  classOffering     ClassOffering     @relation("TuitionPaymentOrderClass", fields: [classOfferingId], references: [id], onDelete: Restrict)
+  transactions      SePayTuitionTransaction[]
+  receipts          TuitionReceipt[]
+  reconciliationActions TuitionReconciliationAction[]
+
+  @@index([receivableId, status])
+  @@index([enrollmentId, status])
+  @@index([status, expiresAt])
+  @@map("tuition_payment_orders")
+}
+
+model SePayTuitionTransaction {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider              String               @default("SEPAY")
+  bankAccountId         String
+  providerTransactionId String
+  orderId               String?              @db.Uuid
+  receivableId          String?              @db.Uuid
+  paymentCodeExtracted  String?
+  amountVnd             Int
+  currency              String               @default("VND")
+  transferType          String               @default("in")
+  content               String
+  referenceCode         String?
+  gateway               String?
+  transactionDate       DateTime
+  classification        String
+  reconciliationState   String
+  verificationSource    String
+  verifiedBankApi       Boolean              @default(false)
+  isTestHarness         Boolean              @default(false)
+  rawHash               String
+  semanticHash          String
+  rawPayload            Json
+  resolutionNote        String?
+  resolvedById          String?              @db.Uuid
+  resolvedGrantId       String?              @db.Uuid
+  resolvedAt            DateTime?
+  createdAt             DateTime             @default(now())
+  order                 TuitionPaymentOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  receivable            TuitionReceivable?   @relation(fields: [receivableId], references: [id], onDelete: SetNull)
+  resolvedBy            User?                @relation("SePayTuitionResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  receipt               TuitionReceipt?
+  reconciliationActions TuitionReconciliationAction[]
+
+  @@unique([bankAccountId, providerTransactionId])
+  @@index([reconciliationState, createdAt])
+  @@index([orderId])
+  @@map("sepay_tuition_transactions")
+}
+
+model TuitionReceipt {
+  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receiptNumber      String                  @unique
+  receivableId       String                  @unique @db.Uuid
+  orderId            String?                 @db.Uuid
+  transactionId      String                  @unique @db.Uuid
+  learnerId          String                  @db.Uuid
+  classOfferingId    String                  @db.Uuid
+  amountVnd          Int
+  currency           String                  @default("VND")
+  issuedById         String?                 @db.Uuid
+  verificationMethod String
+  isTestHarness      Boolean                 @default(false)
+  issuedAt           DateTime                @default(now())
+  receivable         TuitionReceivable       @relation(fields: [receivableId], references: [id], onDelete: Restrict)
+  order              TuitionPaymentOrder?    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  transaction        SePayTuitionTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  learner            User                    @relation("TuitionReceiptLearner", fields: [learnerId], references: [id], onDelete: Restrict)
+  classOffering      ClassOffering           @relation("TuitionReceiptClass", fields: [classOfferingId], references: [id], onDelete: Restrict)
+  issuedBy           User?                   @relation("TuitionReceiptIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  @@index([learnerId, issuedAt])
+  @@map("tuition_receipts")
+}
+
+model TuitionReconciliationAction {
+  id            String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transactionId String?                  @db.Uuid
+  receivableId  String?                  @db.Uuid
+  orderId       String?                  @db.Uuid
+  actorId       String?                  @db.Uuid
+  grantId       String?                  @db.Uuid
+  action        String
+  previousState String?
+  nextState     String
+  note          String?
+  metadata      Json?
+  createdAt     DateTime                 @default(now())
+  transaction   SePayTuitionTransaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  receivable    TuitionReceivable?       @relation(fields: [receivableId], references: [id], onDelete: Cascade)
+  order         TuitionPaymentOrder?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  actor         User?                    @relation("TuitionReconActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([transactionId, createdAt])
+  @@map("tuition_reconciliation_actions")
 }

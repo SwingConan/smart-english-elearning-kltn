@@ -1,0 +1,198 @@
+{
+  "version": "S-W-RUBRIC-0.1",
+  "status": "DRAFT",
+  "scale": "INTERNAL_0_100",
+  "criterionRange": [
+    0,
+    4
+  ],
+  "instructorFinalRequired": true,
+  "acousticEvidence": "ORIGINAL_LEARNER_AUDIO_ONLY",
+  "officialEtsConversion": false,
+  "taskWeights": {
+    "speaking": [
+      6,
+      6,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      24
+    ],
+    "writing": [
+      5,
+      5,
+      5,
+      5,
+      5,
+      20,
+      20,
+      35
+    ]
+  },
+  "bandDescriptors": {
+    "0": "No response, unintelligible, off-topic, or not in English.",
+    "1": "Limited: major inaccuracies or omissions impede comprehension; minimal vocabulary/grammar control.",
+    "2": "Developing: partially fulfills the task with noticeable grammar, lexical, or delivery limitations.",
+    "3": "Competent: fulfills the task clearly with generally accurate grammar, vocabulary, and delivery.",
+    "4": "Strong: fully addresses all task requirements with natural delivery/organization, precise vocabulary, and high grammatical control."
+  },
+  "criteria": {
+    "READ_ALOUD": [
+      [
+        "Pronunciation intelligibility",
+        60
+      ],
+      [
+        "Stress/intonation/pauses",
+        40
+      ]
+    ],
+    "PICTURE_DESCRIPTION": [
+      [
+        "Pronunciation/delivery",
+        20
+      ],
+      [
+        "Stress/intonation",
+        15
+      ],
+      [
+        "Grammar",
+        20
+      ],
+      [
+        "Vocabulary",
+        15
+      ],
+      [
+        "Coherence",
+        15
+      ],
+      [
+        "Visual relevance",
+        15
+      ]
+    ],
+    "RESPOND": [
+      [
+        "Content relevance/completeness",
+        35
+      ],
+      [
+        "Grammar",
+        20
+      ],
+      [
+        "Vocabulary",
+        15
+      ],
+      [
+        "Pronunciation/delivery",
+        20
+      ],
+      [
+        "Discourse clarity",
+        10
+      ]
+    ],
+    "PROVIDED_INFORMATION": [
+      [
+        "Factual/task accuracy",
+        35
+      ],
+      [
+        "Completeness",
+        20
+      ],
+      [
+        "Pronunciation/delivery",
+        20
+      ],
+      [
+        "Grammar/vocabulary",
+        15
+      ],
+      [
+        "Clarity",
+        10
+      ]
+    ],
+    "OPINION": [
+      [
+        "Reasons/examples and stance",
+        35
+      ],
+      [
+        "Logical organization",
+        20
+      ],
+      [
+        "Grammar",
+        15
+      ],
+      [
+        "Vocabulary",
+        10
+      ],
+      [
+        "Pronunciation/intonation/fluency",
+        20
+      ]
+    ],
+    "PICTURE_SENTENCE": [
+      [
+        "Grammatical accuracy",
+        60
+      ],
+      [
+        "Relevance to depicted situation",
+        40
+      ]
+    ],
+    "EMAIL": [
+      [
+        "Fulfillment of requested actions",
+        35
+      ],
+      [
+        "Coherence/organization",
+        20
+      ],
+      [
+        "Grammar",
+        20
+      ],
+      [
+        "Vocabulary",
+        15
+      ],
+      [
+        "Politeness/register",
+        10
+      ]
+    ],
+    "ESSAY": [
+      [
+        "Position and developed reasons/examples",
+        35
+      ],
+      [
+        "Organization/cohesion",
+        25
+      ],
+      [
+        "Grammar",
+        20
+      ],
+      [
+        "Vocabulary",
+        20
+      ]
+    ]
+  }
+}

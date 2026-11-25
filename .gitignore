@@ -32,7 +32,22 @@ Thumbs.db
 !.vscode/extensions.json
 !.vscode/settings.json
 
-# Temporary
+# Temporary & local workspaces / heavy raw media / private operator scripts
 .tmp/
 tmp/
+.audit_tmp/
+.codex-worktrees/
 .local-storage/
+.venv-toeic/
+artifacts/
+Test/
+UIdemo/
+docs/TaiLieu/
+docs/v2/
+docs/*.docx
+~$*
+*.dump
+*.tar.gz
+*.private
+*.private.*
+/*.bat

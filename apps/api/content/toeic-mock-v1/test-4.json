@@ -1,0 +1,3691 @@
+{
+  "testNumber": 4,
+  "id": "91000000-0000-4000-8000-000000000004",
+  "slug": "test-4",
+  "title": "TOEIC Practice Test 4 — Full 200 câu L&R",
+  "description": "Bộ đề mô phỏng thi thật TOEIC Listening & Reading số 4 (200 câu · 120 phút), audio phát tuần tự 1 lần và cắt ảnh gốc Part 6–7.",
+  "timeLimitMinutes": 120,
+  "listeningQuestions": 100,
+  "readingQuestions": 100,
+  "totalQuestions": 200,
+  "groups": [
+    {
+      "groupOrder": 1,
+      "part": 1,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_1",
+      "title": "Part 1 · Câu 1",
+      "instructions": "Listen and choose the statement that best describes what you see in the picture.",
+      "audioKey": "test-4/audio/g001_q001-001.mp3",
+      "imageKeys": [
+        "test-4/images/p1_q001.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 1,
+          "text": "Question 1 — Listen and choose the statement (A), (B), (C), or (D) that best describes the picture.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)",
+            "D": "(D)"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 2,
+      "part": 1,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_1",
+      "title": "Part 1 · Câu 2",
+      "instructions": "Listen and choose the statement that best describes what you see in the picture.",
+      "audioKey": "test-4/audio/g002_q002-002.mp3",
+      "imageKeys": [
+        "test-4/images/p1_q002.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 2,
+          "text": "Question 2 — Listen and choose the statement (A), (B), (C), or (D) that best describes the picture.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)",
+            "D": "(D)"
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 3,
+      "part": 1,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_1",
+      "title": "Part 1 · Câu 3",
+      "instructions": "Listen and choose the statement that best describes what you see in the picture.",
+      "audioKey": "test-4/audio/g003_q003-003.mp3",
+      "imageKeys": [
+        "test-4/images/p1_q003.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 3,
+          "text": "Question 3 — Listen and choose the statement (A), (B), (C), or (D) that best describes the picture.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)",
+            "D": "(D)"
+          },
+          "correctOption": "D",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 4,
+      "part": 1,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_1",
+      "title": "Part 1 · Câu 4",
+      "instructions": "Listen and choose the statement that best describes what you see in the picture.",
+      "audioKey": "test-4/audio/g004_q004-004.mp3",
+      "imageKeys": [
+        "test-4/images/p1_q004.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 4,
+          "text": "Question 4 — Listen and choose the statement (A), (B), (C), or (D) that best describes the picture.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)",
+            "D": "(D)"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 5,
+      "part": 1,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_1",
+      "title": "Part 1 · Câu 5",
+      "instructions": "Listen and choose the statement that best describes what you see in the picture.",
+      "audioKey": "test-4/audio/g005_q005-005.mp3",
+      "imageKeys": [
+        "test-4/images/p1_q005.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 5,
+          "text": "Question 5 — Listen and choose the statement (A), (B), (C), or (D) that best describes the picture.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)",
+            "D": "(D)"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 6,
+      "part": 1,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_1",
+      "title": "Part 1 · Câu 6",
+      "instructions": "Listen and choose the statement that best describes what you see in the picture.",
+      "audioKey": "test-4/audio/g006_q006-006.mp3",
+      "imageKeys": [
+        "test-4/images/p1_q006.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 6,
+          "text": "Question 6 — Listen and choose the statement (A), (B), (C), or (D) that best describes the picture.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)",
+            "D": "(D)"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 7,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 7",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g007_q007-007.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 7,
+          "text": "Question 7 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 8,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 8",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g008_q008-008.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 8,
+          "text": "Question 8 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 9,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 9",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g009_q009-009.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 9,
+          "text": "Question 9 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 10,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 10",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g010_q010-010.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 10,
+          "text": "Question 10 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 11,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 11",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g011_q011-011.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 11,
+          "text": "Question 11 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 12,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 12",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g012_q012-012.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 12,
+          "text": "Question 12 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 13,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 13",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g013_q013-013.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 13,
+          "text": "Question 13 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 14,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 14",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g014_q014-014.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 14,
+          "text": "Question 14 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 15,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 15",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g015_q015-015.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 15,
+          "text": "Question 15 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 16,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 16",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g016_q016-016.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 16,
+          "text": "Question 16 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 17,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 17",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g017_q017-017.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 17,
+          "text": "Question 17 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 18,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 18",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g018_q018-018.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 18,
+          "text": "Question 18 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 19,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 19",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g019_q019-019.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 19,
+          "text": "Question 19 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 20,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 20",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g020_q020-020.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 20,
+          "text": "Question 20 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 21,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 21",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g021_q021-021.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 21,
+          "text": "Question 21 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 22,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 22",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g022_q022-022.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 22,
+          "text": "Question 22 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 23,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 23",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g023_q023-023.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 23,
+          "text": "Question 23 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 24,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 24",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g024_q024-024.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 24,
+          "text": "Question 24 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 25,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 25",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g025_q025-025.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 25,
+          "text": "Question 25 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 26,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 26",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g026_q026-026.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 26,
+          "text": "Question 26 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 27,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 27",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g027_q027-027.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 27,
+          "text": "Question 27 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 28,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 28",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g028_q028-028.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 28,
+          "text": "Question 28 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 29,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 29",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g029_q029-029.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 29,
+          "text": "Question 29 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 30,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 30",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g030_q030-030.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 30,
+          "text": "Question 30 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 31,
+      "part": 2,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_2",
+      "title": "Part 2 · Câu 31",
+      "instructions": "Listen to the question or statement and choose the best response (A), (B), or (C).",
+      "audioKey": "test-4/audio/g031_q031-031.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 31,
+          "text": "Question 31 — Listen to the question/statement and select the best response.",
+          "options": {
+            "A": "(A)",
+            "B": "(B)",
+            "C": "(C)"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 32,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 32–34",
+      "instructions": "Directions: You will hear some conversations between two or more people. You will be asked to answer three questions about what the speakers say in each conversation. Select the best response to each question and mark the letter (A), (B), (C), or (D) on your answer sheet. The conversations will not be printed in your test book and will be spoken only one time.",
+      "audioKey": "test-4/audio/g032_q032-034.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 32,
+          "text": "Where most likely are the speakers?",
+          "options": {
+            "A": "At an airport",
+            "B": "At an office building",
+            "C": "At a shopping center",
+            "D": "At a hotel"
+          },
+          "correctOption": "D",
+          "explanation": null
+        },
+        {
+          "qNum": 33,
+          "text": "What was the woman unable to do this morning?",
+          "options": {
+            "A": "Open a door",
+            "B": "Make photocopies",
+            "C": "Find a taxi",
+            "D": "Process a payment"
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 34,
+          "text": "What does the woman like about the man's suggestion?",
+          "options": {
+            "A": "It accommodates her schedule.",
+            "B": "It is affordable.",
+            "C": "It will help increase sales.",
+            "D": "It will reduce commuting time."
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 33,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 35–37",
+      "instructions": "Directions: You will hear some conversations between two or more people. You will be asked to answer three questions about what the speakers say in each conversation. Select the best response to each question and mark the letter (A), (B), (C), or (D) on your answer sheet. The conversations will not be printed in your test book and will be spoken only one time.",
+      "audioKey": "test-4/audio/g033_q035-037.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 35,
+          "text": "What are the speakers getting ready for?",
+          "options": {
+            "A": "A holiday season",
+            "B": "A corporate visit",
+            "C": "A renovation project",
+            "D": "A company picnic"
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 36,
+          "text": "What new feature will the supermarket introduce?",
+          "options": {
+            "A": "A cooking class",
+            "B": "A gift-wrapping station",
+            "C": "A delivery service",
+            "D": "A special phone line"
+          },
+          "correctOption": "D",
+          "explanation": null
+        },
+        {
+          "qNum": 37,
+          "text": "What will the man most likely do next?",
+          "options": {
+            "A": "Pay some bills",
+            "B": "Create a calendar",
+            "C": "Talk to some colleagues",
+            "D": "Reply to an e-mail"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 34,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 38–40",
+      "instructions": "Directions: You will hear some conversations between two or more people. You will be asked to answer three questions about what the speakers say in each conversation. Select the best response to each question and mark the letter (A), (B), (C), or (D) on your answer sheet. The conversations will not be printed in your test book and will be spoken only one time.",
+      "audioKey": "test-4/audio/g034_q038-040.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 38,
+          "text": "What does the woman want to do?",
+          "options": {
+            "A": "Replace an appliance",
+            "B": "Plant a garden",
+            "C": "Repair a floor",
+            "D": "Paint a wall"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 39,
+          "text": "Why does the man recommend Kilgore products?",
+          "options": {
+            "A": "They are easy to use.",
+            "B": "They are long lasting.",
+            "C": "They come with a warranty.",
+            "D": "They are safe for the environment."
+          },
+          "correctOption": "B",
+          "explanation": null
+        },
+        {
+          "qNum": 40,
+          "text": "What does the man offer to do?",
+          "options": {
+            "A": "Demonstrate a product",
+            "B": "Contact a manufacturer",
+            "C": "Look for a contractor",
+            "D": "Provide some color samples"
+          },
+          "correctOption": "D",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 35,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 41–43",
+      "instructions": "Directions: You will hear some conversations between two or more people. You will be asked to answer three questions about what the speakers say in each conversation. Select the best response to each question and mark the letter (A), (B), (C), or (D) on your answer sheet. The conversations will not be printed in your test book and will be spoken only one time.",
+      "audioKey": "test-4/audio/g035_q041-043.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 41,
+          "text": "Why did the man call?",
+          "options": {
+            "A": "To discuss an advertising strategy",
+            "B": "To inquire about a loan",
+            "C": "To request legal assistance",
+            "D": "To update contact information"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 42,
+          "text": "What type of company is the man planning to purchase?",
+          "options": {
+            "A": "An accounting firm",
+            "B": "A bookstore",
+            "C": "A travel agency",
+            "D": "A coffee shop"
+          },
+          "correctOption": "D",
+          "explanation": null
+        },
+        {
+          "qNum": 43,
+          "text": "Why does the man ask for an online meeting?",
+          "options": {
+            "A": "He will be out of town.",
+            "B": "His car is not working.",
+            "C": "Business hours are inconvenient.",
+            "D": "A location is difficult to find."
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 36,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 44–46",
+      "instructions": "Questions 44-46 refer to the following conversation.",
+      "audioKey": "test-4/audio/g036_q044-046.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 44,
+          "text": "Where are the speakers?",
+          "options": {
+            "A": "At a hospital",
+            "B": "At a restaurant",
+            "C": "At a factory",
+            "D": "At a grocery store"
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 45,
+          "text": "Where will the speakers go later that day?",
+          "options": {
+            "A": "To a conference room",
+            "B": "To a warehouse",
+            "C": "To a security office",
+            "D": "To a fitness center"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 46,
+          "text": "What does the woman ask about?",
+          "options": {
+            "A": "What the safety procedures are",
+            "B": "When a work schedule will be posted",
+            "C": "How to operate a machine",
+            "D": "Where to park a vehicle"
+          },
+          "correctOption": "D",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 37,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 47–49",
+      "instructions": "Questions 47-49 refer to the following conversation.",
+      "audioKey": "test-4/audio/g037_q047-049.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 47,
+          "text": "What are the speakers discussing?",
+          "options": {
+            "A": "Some broken locks",
+            "B": "Some missing equipment",
+            "C": "A department purchase",
+            "D": "A floor plan"
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 48,
+          "text": "Which department does the man most likely work in?",
+          "options": {
+            "A": "Human Resources",
+            "B": "Legal",
+            "C": "Maintenance",
+            "D": "Sales"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 49,
+          "text": "What does the woman imply when she says, \"I was there this morning\"?",
+          "options": {
+            "A": "A schedule will be revised.",
+            "B": "A problem was not resolved.",
+            "C": "An explanation is not necessary.",
+            "D": "An appointment ended early."
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 38,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 50–52",
+      "instructions": "Questions 50-52 refer to the following conversation.",
+      "audioKey": "test-4/audio/g038_q050-052.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 50,
+          "text": "What did a company recently do?",
+          "options": {
+            "A": "It hired a new executive.",
+            "B": "It renewed a contract.",
+            "C": "It expanded its cafeteria menu.",
+            "D": "It ordered new furniture."
+          },
+          "correctOption": "D",
+          "explanation": null
+        },
+        {
+          "qNum": 51,
+          "text": "According to the women, what is the benefit of a change?",
+          "options": {
+            "A": "It will be good for employee health.",
+            "B": "It will lead to staff promotions.",
+            "C": "It will lower production costs.",
+            "D": "It will enlarge some office space."
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 52,
+          "text": "What do the women ask the man about?",
+          "options": {
+            "A": "A budget",
+            "B": "A delivery date",
+            "C": "A seminar",
+            "D": "An upcoming holiday"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 39,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 53–55",
+      "instructions": "Questions 53-55 refer to the following conversation.",
+      "audioKey": "test-4/audio/g039_q053-055.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 53,
+          "text": "What information does the woman ask the man for?",
+          "options": {
+            "A": "Who is scheduled to work",
+            "B": "Why a job candidate was not hired",
+            "C": "What topic was discussed at a meeting",
+            "D": "When a shipment will arrive"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 54,
+          "text": "What will happen next month?",
+          "options": {
+            "A": "A software update will be released.",
+            "B": "A newsletter will be published.",
+            "C": "Salary increases will take effect.",
+            "D": "Some construction will begin."
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 55,
+          "text": "What will the man e-mail to the woman?",
+          "options": {
+            "A": "A spreadsheet of pay scales",
+            "B": "A signed contract",
+            "C": "Some designs for a brochure",
+            "D": "Some slides from a presentation"
+          },
+          "correctOption": "D",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 40,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 56–58",
+      "instructions": "Questions 56-58 refer to the following conversation.",
+      "audioKey": "test-4/audio/g040_q056-058.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 56,
+          "text": "Why does the woman say, \"It's not on Thursday\"?",
+          "options": {
+            "A": "To indicate relief",
+            "B": "To request an extension",
+            "C": "To confirm availability",
+            "D": "To express surprise"
+          },
+          "correctOption": "D",
+          "explanation": null
+        },
+        {
+          "qNum": 57,
+          "text": "What problem does the woman mention?",
+          "options": {
+            "A": "She cannot access some data.",
+            "B": "She did not receive a travel reimbursement.",
+            "C": "A client is unavailable.",
+            "D": "Transportation is unreliable."
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 58,
+          "text": "What does the man say he will do?",
+          "options": {
+            "A": "Check a reservation",
+            "B": "Contact a coworker",
+            "C": "Print out a form",
+            "D": "Review a document"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 41,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 59–61",
+      "instructions": "Questions 59-61 refer to the following conversation.",
+      "audioKey": "test-4/audio/g041_q059-061.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 59,
+          "text": "Where do the speakers work?",
+          "options": {
+            "A": "At an art supply store",
+            "B": "At a movie theater",
+            "C": "At a technology company",
+            "D": "At a jewelry store"
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 60,
+          "text": "What is the woman's main responsibility?",
+          "options": {
+            "A": "Creating inventory lists",
+            "B": "Recruiting temporary help",
+            "C": "Making online videos",
+            "D": "Installing equipment"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 61,
+          "text": "What does the woman ask the man to do?",
+          "options": {
+            "A": "Edit a report",
+            "B": "Give some feedback",
+            "C": "Upload some pictures",
+            "D": "Open an account"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 42,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 62–64",
+      "instructions": "Questions 62-64 refer to the following conversation and map.",
+      "audioKey": "test-4/audio/g042_q062-064.mp3",
+      "imageKeys": [
+        "test-4/images/p34_q062-064_9.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 62,
+          "text": "What does the woman want to do?",
+          "options": {
+            "A": "Have an item repaired",
+            "B": "Return a product",
+            "C": "Eat a meal",
+            "D": "Apply for a job"
+          },
+          "correctOption": "B",
+          "explanation": null
+        },
+        {
+          "qNum": 63,
+          "text": "Look at the graphic. Where will the woman most likely go next?",
+          "options": {
+            "A": "The Wishing Mill",
+            "B": "Granite City",
+            "C": "Food Court",
+            "D": "The Blue Hut"
+          },
+          "correctOption": "B",
+          "explanation": null
+        },
+        {
+          "qNum": 64,
+          "text": "What does the man remind the woman about?",
+          "options": {
+            "A": "A discount has ended.",
+            "B": "An escalator is not working.",
+            "C": "A restaurant has limited seating.",
+            "D": "A mall is closing soon."
+          },
+          "correctOption": "D",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 43,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 65–67",
+      "instructions": "Questions 65-67 refer to the following conversation and ticket.",
+      "audioKey": "test-4/audio/g043_q065-067.mp3",
+      "imageKeys": [
+        "test-4/images/p34_q065-067_10.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 65,
+          "text": "Where does the conversation take place?",
+          "options": {
+            "A": "At a concert hall",
+            "B": "At a museum",
+            "C": "At a sports stadium",
+            "D": "At a movie theater"
+          },
+          "correctOption": "B",
+          "explanation": null
+        },
+        {
+          "qNum": 66,
+          "text": "Look at the graphic. Why is the woman's ticket discounted?",
+          "options": {
+            "A": "It is a Monday.",
+            "B": "It is after 5 P.M.",
+            "C": "She is a student.",
+            "D": "She is a member."
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 67,
+          "text": "What will the woman most likely do next?",
+          "options": {
+            "A": "Select a meeting time",
+            "B": "Eat at a café",
+            "C": "Go on a tour",
+            "D": "Attend a lecture"
+          },
+          "correctOption": "D",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 44,
+      "part": 3,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_3",
+      "title": "Part 3 · Câu 68–70",
+      "instructions": "Questions 68-70 refer to the following conversation and flow chart.",
+      "audioKey": "test-4/audio/g044_q068-070.mp3",
+      "imageKeys": [
+        "test-4/images/p34_q068-070_10.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 68,
+          "text": "What is the main topic of the conversation?",
+          "options": {
+            "A": "Training materials",
+            "B": "Banking hours",
+            "C": "Job descriptions",
+            "D": "Customer complaints"
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 69,
+          "text": "Look at the graphic. When will the speakers need to make a payment?",
+          "options": {
+            "A": "After Step 1",
+            "B": "After Step 2",
+            "C": "After Step 3",
+            "D": "After Step 4"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 70,
+          "text": "What does the woman say she has been busy doing?",
+          "options": {
+            "A": "Interviewing candidates",
+            "B": "Moving her office",
+            "C": "Renovating a house",
+            "D": "Finalizing a sale"
+          },
+          "correctOption": "D",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 45,
+      "part": 4,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_4",
+      "title": "Part 4 · Câu 71–73",
+      "instructions": "Directions: You will hear some talks given by a single speaker. You will be asked to answer three questions about what the speaker says in each talk. Select the best response to each question and mark the letter (A), (B), (C), or (D) on your answer sheet. The talks will not be printed in your test book and will be spoken only one time.",
+      "audioKey": "test-4/audio/g045_q071-073.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 71,
+          "text": "Which department does the speaker work in?",
+          "options": {
+            "A": "Sales",
+            "B": "Human Resources",
+            "C": "Maintenance",
+            "D": "Technical Support"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 72,
+          "text": "According to the speaker, what will begin today?",
+          "options": {
+            "A": "Some salary increases",
+            "B": "Some building repairs",
+            "C": "A landscaping improvement",
+            "D": "A departmental audit"
+          },
+          "correctOption": "B",
+          "explanation": null
+        },
+        {
+          "qNum": 73,
+          "text": "What does the speaker say will be available to employees?",
+          "options": {
+            "A": "A shuttle ride",
+            "B": "Some meal vouchers",
+            "C": "Bottled water",
+            "D": "A mentoring program"
+          },
+          "correctOption": "C",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 46,
+      "part": 4,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_4",
+      "title": "Part 4 · Câu 74–76",
+      "instructions": "Directions: You will hear some talks given by a single speaker. You will be asked to answer three questions about what the speaker says in each talk. Select the best response to each question and mark the letter (A), (B), (C), or (D) on your answer sheet. The talks will not be printed in your test book and will be spoken only one time.",
+      "audioKey": "test-4/audio/g046_q074-076.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 74,
+          "text": "Where is the talk taking place?",
+          "options": {
+            "A": "At a talent agency",
+            "B": "At a history museum",
+            "C": "At a flight school",
+            "D": "At a movie theater"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 75,
+          "text": "What does the speaker emphasize about a business?",
+          "options": {
+            "A": "It has a long history.",
+            "B": "It is easy to find.",
+            "C": "It is reasonably priced.",
+            "D": "It has extended hours."
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 76,
+          "text": "What will the listeners do next?",
+          "options": {
+            "A": "Get on an airplane",
+            "B": "Have some refreshments",
+            "C": "Purchase a ticket",
+            "D": "Watch a film"
+          },
+          "correctOption": "D",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 47,
+      "part": 4,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_4",
+      "title": "Part 4 · Câu 77–79",
+      "instructions": "Directions: You will hear some talks given by a single speaker. You will be asked to answer three questions about what the speaker says in each talk. Select the best response to each question and mark the letter (A), (B), (C), or (D) on your answer sheet. The talks will not be printed in your test book and will be spoken only one time.",
+      "audioKey": "test-4/audio/g047_q077-079.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 77,
+          "text": "What position is the listener interviewing for?",
+          "options": {
+            "A": "A travel agent",
+            "B": "A journalist",
+            "C": "A restaurant chef",
+            "D": "A farm manager"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 78,
+          "text": "What does the speaker say he wants to hear about?",
+          "options": {
+            "A": "A menu selection",
+            "B": "A reservation system",
+            "C": "A gardening technique",
+            "D": "An advertising plan"
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 79,
+          "text": "What does the speaker say he will do after the interview?",
+          "options": {
+            "A": "Introduce a colleague",
+            "B": "Contact a reference",
+            "C": "Sample some products",
+            "D": "Give a tour"
+          },
+          "correctOption": "D",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 48,
+      "part": 4,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_4",
+      "title": "Part 4 · Câu 80–82",
+      "instructions": "Directions: You will hear some talks given by a single speaker. You will be asked to answer three questions about what the speaker says in each talk. Select the best response to each question and mark the letter (A), (B), (C), or (D) on your answer sheet. The talks will not be printed in your test book and will be spoken only one time.",
+      "audioKey": "test-4/audio/g048_q080-082.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 80,
+          "text": "What is the report mainly about?",
+          "options": {
+            "A": "A local election",
+            "B": "A city festival",
+            "C": "A construction project",
+            "D": "A sports competition"
+          },
+          "correctOption": "B",
+          "explanation": null
+        },
+        {
+          "qNum": 81,
+          "text": "According to the speaker, what can the listeners find on a Web site?",
+          "options": {
+            "A": "A schedule of events",
+            "B": "An updated road map",
+            "C": "Tourist attractions",
+            "D": "Voting locations"
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 82,
+          "text": "What does the speaker mean when she says, \"there are several bus lines\"?",
+          "options": {
+            "A": "She rides the bus to work every day.",
+            "B": "The bus service is very confusing.",
+            "C": "The city buses have caused some traffic problems.",
+            "D": "People should take the bus to an event."
+          },
+          "correctOption": "D",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 49,
+      "part": 4,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_4",
+      "title": "Part 4 · Câu 83–85",
+      "instructions": "Questions 83-85 refer to the following conversation.",
+      "audioKey": "test-4/audio/g049_q083-085.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 83,
+          "text": "What is the topic of the seminar?",
+          "options": {
+            "A": "Finance basics",
+            "B": "Marketing strategies",
+            "C": "Manufacturing processes",
+            "D": "Hiring procedures"
+          },
+          "correctOption": "B",
+          "explanation": null
+        },
+        {
+          "qNum": 84,
+          "text": "What does the speaker say is available on a Web site?",
+          "options": {
+            "A": "An electronic book",
+            "B": "Different payment options",
+            "C": "Free legal advice",
+            "D": "Printable certificates"
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 85,
+          "text": "What does the speaker ask the listeners to do next?",
+          "options": {
+            "A": "Introduce themselves",
+            "B": "Hand in some paperwork",
+            "C": "Read a short paragraph",
+            "D": "Listen to some examples"
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 50,
+      "part": 4,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_4",
+      "title": "Part 4 · Câu 86–88",
+      "instructions": "Questions 86-88 refer to the following conversation.",
+      "audioKey": "test-4/audio/g050_q086-088.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 86,
+          "text": "Who is the telephone message for?",
+          "options": {
+            "A": "A dietician",
+            "B": "A caterer",
+            "C": "A truck driver",
+            "D": "A store owner"
+          },
+          "correctOption": "D",
+          "explanation": null
+        },
+        {
+          "qNum": 87,
+          "text": "What does the speaker mean when she says, \"do you carry local fruit\"?",
+          "options": {
+            "A": "She cannot find the products she is looking for.",
+            "B": "She wants the listener to give her some advice.",
+            "C": "She wants the listener to sell her products.",
+            "D": "She is worried about a shipment."
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 88,
+          "text": "What does the speaker say she can do tomorrow?",
+          "options": {
+            "A": "Make a phone call",
+            "B": "Provide samples",
+            "C": "Send an invoice",
+            "D": "Visit a clinic"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 51,
+      "part": 4,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_4",
+      "title": "Part 4 · Câu 89–91",
+      "instructions": "Questions 89-91 refer to the following conversation.",
+      "audioKey": "test-4/audio/g051_q089-091.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 89,
+          "text": "Where do the listeners most likely work?",
+          "options": {
+            "A": "At an event planning company",
+            "B": "At an appliance store",
+            "C": "At a fitness center",
+            "D": "At a hotel"
+          },
+          "correctOption": "D",
+          "explanation": null
+        },
+        {
+          "qNum": 90,
+          "text": "What will the listeners learn to use?",
+          "options": {
+            "A": "Reservation software",
+            "B": "A voice-controlled speaker",
+            "C": "A video game",
+            "D": "A security system"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 91,
+          "text": "What benefit of the product does the speaker mention?",
+          "options": {
+            "A": "Lower operating costs",
+            "B": "Improved customer service",
+            "C": "Easier maintenance",
+            "D": "Increased employee satisfaction"
+          },
+          "correctOption": "B",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 52,
+      "part": 4,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_4",
+      "title": "Part 4 · Câu 92–94",
+      "instructions": "Questions 92-94 refer to the following conversation.",
+      "audioKey": "test-4/audio/g052_q092-094.mp3",
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 92,
+          "text": "What is the speaker mainly discussing?",
+          "options": {
+            "A": "A department merger",
+            "B": "A project plan",
+            "C": "A staffing change",
+            "D": "A trade show presentation"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 93,
+          "text": "What are the listeners asked to sign?",
+          "options": {
+            "A": "A greeting card",
+            "B": "A participant list",
+            "C": "A group photograph",
+            "D": "A registration form"
+          },
+          "correctOption": "A",
+          "explanation": null
+        },
+        {
+          "qNum": 94,
+          "text": "Why does the speaker say, \"he does have fourteen years of experience\"?",
+          "options": {
+            "A": "To express surprise",
+            "B": "To disagree with a suggestion",
+            "C": "To correct a misunderstanding",
+            "D": "To offer reassurance"
+          },
+          "correctOption": "D",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 53,
+      "part": 4,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_4",
+      "title": "Part 4 · Câu 95–97",
+      "instructions": "Questions 95-97 refer to the following broadcast.",
+      "audioKey": "test-4/audio/g053_q095-097.mp3",
+      "imageKeys": [
+        "test-4/images/p34_q095-097_13.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 95,
+          "text": "Where is the announcement most likely being made?",
+          "options": {
+            "A": "In an amusement park",
+            "B": "In a supermarket",
+            "C": "In a restaurant",
+            "D": "In an airport lounge"
+          },
+          "correctOption": "B",
+          "explanation": null
+        },
+        {
+          "qNum": 96,
+          "text": "Look at the graphic. What is offered today?",
+          "options": {
+            "A": "Barbecue",
+            "B": "Pasta",
+            "C": "Curry",
+            "D": "Tacos"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 97,
+          "text": "What is provided with a purchase?",
+          "options": {
+            "A": "Beverages",
+            "B": "Serving utensils",
+            "C": "Discount coupons",
+            "D": "Recipes"
+          },
+          "correctOption": "D",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 54,
+      "part": 4,
+      "skill": "LISTENING",
+      "taskCode": "TOEIC_PART_4",
+      "title": "Part 4 · Câu 98–100",
+      "instructions": "Questions 98-100 refer to the following excerpt from a meeting.",
+      "audioKey": "test-4/audio/g054_q098-100.mp3",
+      "imageKeys": [
+        "test-4/images/p34_q098-100_13.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 98,
+          "text": "What does the speaker remind the listeners to do?",
+          "options": {
+            "A": "Pay a registration fee",
+            "B": "Pick up conference materials",
+            "C": "Visit a vendor's booth",
+            "D": "Make a lunch selection"
+          },
+          "correctOption": "B",
+          "explanation": null
+        },
+        {
+          "qNum": 99,
+          "text": "Look at the graphic. Which presentation has been canceled?",
+          "options": {
+            "A": "Dealing with Extreme Weather",
+            "B": "How to Create a Vertical Garden",
+            "C": "New Methods of Pest Control",
+            "D": "Urban Landscapes"
+          },
+          "correctOption": "C",
+          "explanation": null
+        },
+        {
+          "qNum": 100,
+          "text": "Who is Rajesh Patel?",
+          "options": {
+            "A": "A conference organizer",
+            "B": "A corporate sponsor",
+            "C": "A local caterer",
+            "D": "A building inspector"
+          },
+          "correctOption": "A",
+          "explanation": null
+        }
+      ]
+    },
+    {
+      "groupOrder": 55,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 101",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 101,
+          "text": "------- account will be credited after we receive the returned merchandise.",
+          "options": {
+            "A": "You",
+            "B": "Yours",
+            "C": "Your",
+            "D": "Yourself"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Ta cần một tính từ sở hữu đứng trước danh từ \"account\" để tạo thành cụm danh từ hoàn chỉnh. Các đáp án A (đại từ nhân xưng), B (đại từ sở hữu) và D (đại từ phản thân) không phù hợp về mặt ngữ pháp ở vị trí này."
+        }
+      ]
+    },
+    {
+      "groupOrder": 56,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 102",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 102,
+          "text": "Late entries for the cake decoration contest will not be -------.",
+          "options": {
+            "A": "solved",
+            "B": "accepted",
+            "C": "decided",
+            "D": "earned"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Cấu trúc câu bị động với từ vựng phù hợp nghĩa \"được chấp nhận\" (accepted) cho các bài dự thi nộp muộn. Các từ như \"solved\" (giải quyết), \"decided\" (quyết định) hay \"earned\" (kiếm được) không phù hợp với ngữ cảnh cuộc thi."
+        }
+      ]
+    },
+    {
+      "groupOrder": 57,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 103",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 103,
+          "text": "The newspaper has seen an ------- in the number of subscribers who read the online version.",
+          "options": {
+            "A": "increase",
+            "B": "increases",
+            "C": "increasingly",
+            "D": "increased"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Sau mạo từ \"an\" cần một danh từ đếm được số ít, và cụm \"an increase in\" là collocation phổ biến chỉ sự gia tăng về cái gì. Các đáp án B (danh từ số nhiều), C (trạng thái) và D (tính từ/quá khứ phân từ) không thỏa mãn cấu trúc."
+        }
+      ]
+    },
+    {
+      "groupOrder": 58,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 104",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 104,
+          "text": "Every attorney at the firm of Duncan and Hulce has practiced law ------- more than ten years.",
+          "options": {
+            "A": "at",
+            "B": "for",
+            "C": "on",
+            "D": "by"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Giới từ \"for\" được dùng trước một khoảng thời gian cụ thể (\"more than ten years\") trong thì hiện tại hoàn thành. Các giới từ A, C, D không đi kèm đúng với khoảng thời gian trong ngữ cảnh này."
+        }
+      ]
+    },
+    {
+      "groupOrder": 59,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 105",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 105,
+          "text": "Prehart Tool Company has created a more ------- drill than its previous models.",
+          "options": {
+            "A": "powerful",
+            "B": "powers",
+            "C": "powerfully",
+            "D": "power"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Cần một tính từ đứng trước danh từ \"drill\" để bổ nghĩa, và so sánh hơn với \"more powerful\". Các đáp án B (danh từ), C (trạng thái) và D (danh từ gốc) không đúng từ loại."
+        }
+      ]
+    },
+    {
+      "groupOrder": 60,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 106",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 106,
+          "text": "To find out if an item on this Web site is in stock, ------- highlight the item and click the \"Check on it\" button.",
+          "options": {
+            "A": "mostly",
+            "B": "simply",
+            "C": "enough",
+            "D": "quite"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Trạng thái \"simply\" thường dùng trong câu mệnh lệnh để hướng dẫn khách hàng thao tác một cách đơn giản, dễ dàng. Các trạng từ A, C, D không phù hợp với ngữ cảnh chỉ dẫn sử dụng tính năng."
+        }
+      ]
+    },
+    {
+      "groupOrder": 61,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 107",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 107,
+          "text": "Mr. Jones ------- Ms. Cheng's clients while she is on a business trip to Hong Kong.",
+          "options": {
+            "A": "will assist",
+            "B": "assisted",
+            "C": "to assist",
+            "D": "is assisted"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Ngữ cảnh câu diễn tả một hành động sẽ xảy ra trong tương lai khi Ms. Cheng đi công tác, nên ta dùng thì tương lai đơn \"will assist\". Các đáp án khác sai về thì hoặc dạng thức động từ."
+        }
+      ]
+    },
+    {
+      "groupOrder": 62,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 108",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 108,
+          "text": "The Jossty Company offers insurance policies to renters at the lowest rates -------.",
+          "options": {
+            "A": "ready",
+            "B": "strong",
+            "C": "available",
+            "D": "agreeable"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Cụm tính từ \"available\" đứng sau danh từ để chỉ những mức giá hiện có hoặc có sẵn. Các từ như ready, strong, agreeable không tạo thành collocation tự nhiên với \"rates\"."
+        }
+      ]
+    },
+    {
+      "groupOrder": 63,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 109",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 109,
+          "text": "------- the Editorial Department receives the author's final approval, the manuscript should be sent to the printer.",
+          "options": {
+            "A": "As soon as",
+            "B": "Still",
+            "C": "In the meantime",
+            "D": "For example"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Liên từ \"As soon as\" (Ngay khi) nối hai mệnh đề chỉ thời gian hợp lý, chỉ việc bản thảo sẽ được gửi đi ngay sau khi ban biên tập nhận được sự phê duyệt. Các đáp án B, C, D là trạng từ không dùng để nối câu theo cấu trúc này."
+        }
+      ]
+    },
+    {
+      "groupOrder": 64,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 110",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 110,
+          "text": "Sidewalks in the town of Newburgh are ------- one meter wide.",
+          "options": {
+            "A": "general",
+            "B": "generally",
+            "C": "generalize",
+            "D": "generalization"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Cần một trạng từ \"generally\" để bổ nghĩa cho cụm tính từ chỉ kích thước \"one meter wide\". Các đáp án khác sai từ loại vì vị trí này không cần danh từ hay động từ."
+        }
+      ]
+    },
+    {
+      "groupOrder": 65,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 111",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 111,
+          "text": "The housing authority has formed a ------- to look for new construction locations.",
+          "options": {
+            "A": "member",
+            "B": "building",
+            "C": "frontier",
+            "D": "committee"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là (D) committee. Cấu trúc cụm danh từ chỉ tổ chức 'form a committee' (thành lập một ủy ban) phù hợp về nghĩa với hành động tìm kiếm địa điểm xây dựng. Các đáp án A (thành viên), B (tòa nhà), và C (tiền tuyến) không phù hợp với ngữ cảnh của câu."
+        }
+      ]
+    },
+    {
+      "groupOrder": 66,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 112",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 112,
+          "text": "A recent study has found that those ------- regularly read food labels tend to be healthier.",
+          "options": {
+            "A": "what",
+            "B": "where",
+            "C": "who",
+            "D": "when"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là (C) who. Ta cần đại từ quan hệ thay thế cho danh từ chỉ người 'those' và làm chủ ngữ cho động từ 'read', nên dùng 'who'. Các đáp án A, B, D sai vì không phù hợp chức năng ngữ pháp và nghĩa chỉ người."
+        }
+      ]
+    },
+    {
+      "groupOrder": 67,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 113",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 113,
+          "text": "If you are not ------- with your Electoshine toothbrush, you may return it for a full refund.",
+          "options": {
+            "A": "satisfaction",
+            "B": "satisfying",
+            "C": "satisfied",
+            "D": "satisfy"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là (C) satisfied. Sau động từ 'to be' là tính từ chỉ cảm xúc của con người về sự hài lòng, đi với giới từ 'with'. Các đáp án A (danh từ), B (tính từ chỉ vật), và D (động từ) không phù hợp vị trí này."
+        }
+      ]
+    },
+    {
+      "groupOrder": 68,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 114",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 114,
+          "text": "DG Feed Supply has shown strong growth heading ------- the end of the fiscal year.",
+          "options": {
+            "A": "among",
+            "B": "into",
+            "C": "around",
+            "D": "between"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là (B) into. Cụm giới từ 'heading into' có nghĩa là hướng đến hoặc bước vào một khoảng thời gian (cuối năm tài chính). Các giới từ còn lại không tạo thành cụm từ mang nghĩa chính xác trong ngữ cảnh này."
+        }
+      ]
+    },
+    {
+      "groupOrder": 69,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 115",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 115,
+          "text": "Book fair volunteers may be asked to work longer shifts if the need -------.",
+          "options": {
+            "A": "arise",
+            "B": "arises",
+            "C": "had arisen",
+            "D": "arising"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là (B) arises. Mệnh đề trạng chỉ thời gian với 'if' ở hiện tại diễn tả điều kiện có thật, chủ ngữ 'the need' số ít nên động từ chia ở hiện tại đơn số ít. Các đáp án khác sai về dạng thức hoặc thì."
+        }
+      ]
+    },
+    {
+      "groupOrder": 70,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 116",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 116,
+          "text": "On Tuesday, Mr. Molina will visit the Seoul office for the first time ------- becoming vice-president of operations.",
+          "options": {
+            "A": "under",
+            "B": "past",
+            "C": "until",
+            "D": "since"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là (D) since. Liên từ/giới từ 'since' có nghĩa là 'từ khi', thường đi với mốc thời gian hoặc V-ing trong câu có thì hoàn thành hoặc hiện tại, phù hợp diễn tả khoảng thời gian từ lúc nhậm chức phó chủ tịch. Các đáp án khác sai nghĩa."
+        }
+      ]
+    },
+    {
+      "groupOrder": 71,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 117",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 117,
+          "text": "Attendees said the fireworks were the most ------- part of the festival.",
+          "options": {
+            "A": "impression",
+            "B": "impressive",
+            "C": "impresses",
+            "D": "impressed"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là (B) impressive. Sau động từ to be và trạng từ chỉ mức độ 'most' cần một tính từ miêu tả sự vật (pháo hoa gây ấn tượng). Các đáp án A (danh từ), C (động từ), và D (tính từ chỉ cảm xúc con người) không đúng."
+        }
+      ]
+    },
+    {
+      "groupOrder": 72,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 118",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 118,
+          "text": "The interview panel felt that Dinah Ong's education fit the job description of junior accountant -------.",
+          "options": {
+            "A": "perfectly",
+            "B": "recently",
+            "C": "routinely",
+            "D": "occasionally"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là (A) perfectly. Trạng từ 'perfectly' bổ nghĩa cho động từ 'fit', diễn tả sự phù hợp hoàn hảo giữa học vấn và mô tả công việc. Các trạng từ B, C, D không hợp nghĩa trong ngữ cảnh này."
+        }
+      ]
+    },
+    {
+      "groupOrder": 73,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 119",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 119,
+          "text": "The new software makes it possible to track purchases ------- at multiple points-of-sale.",
+          "options": {
+            "A": "rely",
+            "B": "reliable",
+            "C": "reliant",
+            "D": "reliably"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là (D) reliably. Vị trí cần trạng từ để bổ nghĩa cho phân từ/động từ 'track purchases', chỉ phương thức theo dõi một cách đáng tin cậy. Các đáp án A, B, C sai từ loại."
+        }
+      ]
+    },
+    {
+      "groupOrder": 74,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 120",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 120,
+          "text": "------- the next few months, Camion Vehicles will add more features to its sedans.",
+          "options": {
+            "A": "Provided",
+            "B": "Applying",
+            "C": "Toward",
+            "D": "Over"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là (D) Over. Giới từ 'Over' đi với cụm từ chỉ thời gian 'the next few months' mang nghĩa 'trong suốt/qua' một khoảng thời gian tới. Các đáp án khác không phù hợp về mặt ngữ pháp và nghĩa."
+        }
+      ]
+    },
+    {
+      "groupOrder": 75,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 121",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 121,
+          "text": "Altona Printing is expecting a ------- upturn in holiday card orders in the next few weeks.",
+          "options": {
+            "A": "considerable",
+            "B": "wide",
+            "C": "central",
+            "D": "dominant"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là (A) considerable. Ta cần một tính từ đứng trước danh từ 'upturn' để chỉ mức độ, và 'considerable' (đáng kể) phù hợp nhất về nghĩa collocation. Các đáp án B, C, D không kết hợp tự nhiên với 'upturn' trong ngữ cảnh này."
+        }
+      ]
+    },
+    {
+      "groupOrder": 76,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 122",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 122,
+          "text": "By creating innovative packaging -------, EK2 Beverages hopes consumers will reuse their water bottles.",
+          "options": {
+            "A": "designed",
+            "B": "designs",
+            "C": "designing",
+            "D": "designers"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là (B) designs. Cấu trúc cụm danh từ ghép 'packaging designs' (các thiết kế bao bì) phù hợp với ngữ cảnh tạo ra sự đổi mới để tái sử dụng. Các lựa chọn khác làm sai cấu trúc danh từ kép hoặc sai loại từ."
+        }
+      ]
+    },
+    {
+      "groupOrder": 77,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 123",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 123,
+          "text": "Throughout her tenure at LPID Systems, Ms. Patterson has ------- at defining complex concepts in simple terms.",
+          "options": {
+            "A": "excelled",
+            "B": "organized",
+            "C": "instructed",
+            "D": "simplified"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là (A) excelled. Cấu trúc 'excel at sth/doing sth' có nghĩa là giỏi hoặc xuất sắc trong việc gì, phù hợp với ngữ cảnh định nghĩa các khái niệm phức tạp một cách đơn giản. Các từ còn lại không đi với giới từ 'at' hoặc không phù hợp nghĩa."
+        }
+      ]
+    },
+    {
+      "groupOrder": 78,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 124",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 124,
+          "text": "Winslet Food Service has ------- to expand the cafeteria's menu offerings.",
+          "options": {
+            "A": "promptly",
+            "B": "before",
+            "C": "although",
+            "D": "promised"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là (D) promised. Động từ 'promised' (hứa hẹn) theo sau bởi 'to expand' diễn tả cam kết mở rộng thực đơn của công ty. Các đáp án khác như trạng từ hay liên từ không phù hợp về chức năng ngữ pháp và nghĩa trong câu."
+        }
+      ]
+    },
+    {
+      "groupOrder": 79,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 125",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 125,
+          "text": "------- the results of the customer survey, we may consider extending the store's evening hours until 9 P.M.",
+          "options": {
+            "A": "Because",
+            "B": "Depending on",
+            "C": "Whereas",
+            "D": "In order for"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là (B) Depending on. Giới từ ghép 'Depending on' (Tùy thuộc vào) đứng đầu mệnh đề để nêu điều kiện quyết định việc mở rộng giờ mở cửa. Các liên từ khác (Because, Whereas, In order for) không hợp nghĩa hoặc sai cấu trúc ngữ pháp."
+        }
+      ]
+    },
+    {
+      "groupOrder": 80,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 126",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 126,
+          "text": "Yarrow Cameras' lenses have a long telephoto reach yet an ------- lightweight casing.",
+          "options": {
+            "A": "exceptions",
+            "B": "exception",
+            "C": "excepting",
+            "D": "exceptionally"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là (D) exceptionally. Ta cần trạng từ bổ nghĩa cho tính từ 'lightweight' đứng sau nó. Các đáp án A, B, C sai loại từ vì là danh từ hoặc giới từ/phân từ không đúng vị trí."
+        }
+      ]
+    },
+    {
+      "groupOrder": 81,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 127",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 127,
+          "text": "After postponing her studies for many years, Ms. Ruiz ------- earned a degree in law.",
+          "options": {
+            "A": "thoroughly",
+            "B": "distinctly",
+            "C": "eventually",
+            "D": "already"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là (C) eventually. Trạng từ 'eventually' (cuối cùng thì) diễn tả kết quả sau một thời gian dài chờ đợi hoặc trì hoãn việc học. Các trạng từ khác không diễn tả đúng tiến trình thời gian này."
+        }
+      ]
+    },
+    {
+      "groupOrder": 82,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 128",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 128,
+          "text": "A favorable report on the ------- of Seesom Eyewear convinced the partners to invest in the company.",
+          "options": {
+            "A": "profitability",
+            "B": "profitable",
+            "C": "profited",
+            "D": "profitably"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là (A) profitability. Sau mạo từ 'the' và giới từ 'on', ta cần một danh từ chỉ sự sinh lời của công ty để thuyết phục nhà đầu tư. Các đáp án còn lại là tính từ, động từ hoặc trạng từ."
+        }
+      ]
+    },
+    {
+      "groupOrder": 83,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 129",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 129,
+          "text": "In Monday's meeting, Mr. Ito ------- the need to hire enough workers for the peak season.",
+          "options": {
+            "A": "hesitated",
+            "B": "emphasized",
+            "C": "dominated",
+            "D": "launched"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là (B) emphasized. Động từ 'emphasized' (nhấn mạnh) phù hợp nhất khi nói về việc đề cao tầm quan trọng của việc thuê đủ nhân công cho mùa cao điểm. Các từ còn lại sai nghĩa."
+        }
+      ]
+    },
+    {
+      "groupOrder": 84,
+      "part": 5,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_5",
+      "title": "Part 5 · Câu 130",
+      "instructions": "Choose the word or phrase that best completes the sentence.",
+      "audioKey": null,
+      "imageKeys": [],
+      "questions": [
+        {
+          "qNum": 130,
+          "text": "Pugh Tower won the Best New Building Award for its creative ------- of sustainable materials.",
+          "options": {
+            "A": "routine",
+            "B": "accessory",
+            "C": "incorporation",
+            "D": "submission"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là (C) incorporation. Danh từ 'incorporation' (sự kết hợp, đưa vào sử dụng) đi sau tính từ 'creative' tạo thành cụm danh từ hợp nghĩa về việc dùng vật liệu bền vững. Các từ còn lại (routine, accessory, submission) không phù hợp ngữ cảnh."
+        }
+      ]
+    },
+    {
+      "groupOrder": 85,
+      "part": 6,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_6",
+      "title": "Part 6 · Câu 131–134",
+      "instructions": "Questions 131-134 refer to the following memo.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p6_q131-134_p5_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 131,
+          "text": "Blank [131] — Choose the best option to complete the text.",
+          "options": {
+            "A": "poor",
+            "B": "stable",
+            "C": "physical",
+            "D": "excellent"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là (A) poor. Dựa vào ngữ nghĩa và cụm từ 'in poor condition' (ở tình trạng tồi tàn, xuống cấp), phù hợp với câu tiếp theo 'It is in desperate need of attention' (Đang cần được sửa chữa gấp). Các đáp án khác không phù hợp về ngữ nghĩa."
+        },
+        {
+          "qNum": 132,
+          "text": "Blank [132] — Choose the best option to complete the text.",
+          "options": {
+            "A": "close",
+            "B": "was closing",
+            "C": "will be closed",
+            "D": "had been closed"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là (C) will be closed. Hành động đóng cửa cổng chính sẽ xảy ra trong tương lai ('beginning at 6 P.M. on Friday') và kéo dài trong khoảng một tháng, nên dùng thì tương lai đơn ở dạng bị động. Các đáp án khác sai về thì."
+        },
+        {
+          "qNum": 133,
+          "text": "Blank [133] — Choose the best option to complete the text.",
+          "options": {
+            "A": "While",
+            "B": "During",
+            "C": "Sometimes",
+            "D": "In the meantime"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là (A) While. Liên từ 'While' (Trong khi) đi kèm với mệnh đề 'the main entrance is closed' để chỉ hai hành động diễn ra đồng thời. Các đáp án khác (B: giới từ cần danh từ theo sau, C, D: trạng từ) không dùng để nối hai mệnh đề trong trường hợp này."
+        },
+        {
+          "qNum": 134,
+          "text": "Blank [134] — Choose the best option to complete the text.",
+          "options": {
+            "A": "All ground floor offices will remain accessible.",
+            "B": "The construction firm has won several awards.",
+            "C": "The building is more than 50 years old.",
+            "D": "The board of directors is discussing the project."
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là (A) All ground floor offices will remain accessible. Câu này bổ sung thông tin hợp lý nhất cho ngữ cảnh tòa nhà đang cải tạo lối đi chính, giúp trấn an nhân viên và khách rằng các văn phòng tầng trệt vẫn có thể tiếp cận được. Các đáp án còn lại không liên quan đến thông báo."
+        }
+      ]
+    },
+    {
+      "groupOrder": 86,
+      "part": 6,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_6",
+      "title": "Part 6 · Câu 135–138",
+      "instructions": "Questions 135-138 refer to the following article.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p6_q135-138_p6_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 135,
+          "text": "Blank [135] — Choose the best option to complete the text.",
+          "options": {
+            "A": "replaces",
+            "B": "was replacing",
+            "C": "has been replaced",
+            "D": "would have replaced"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là (A) replaces. Câu này cần điền một động từ chia ở thì hiện tại đơn để diễn tả hành động hiện tại hoặc một sự thật hiển nhiên trong ngữ cảnh thông báo bổ nhiệm nhân sự (Harvey Ramirez thay thế Helen McGavick). Các đáp án khác sai về thì hoặc dạng bị động/chủ động không phù hợp."
+        },
+        {
+          "qNum": 136,
+          "text": "Blank [136] — Choose the best option to complete the text.",
+          "options": {
+            "A": "advancing",
+            "B": "future",
+            "C": "certain",
+            "D": "instant"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là (B) future. Cụm từ cố định 'future endeavors' có nghĩa là 'những nỗ lực / các dự định trong tương lai', là lời chúc thường dùng khi ai đó từ chức hoặc chuyển công tác. Các tính từ khác như advancing, certain, hay instant không tạo thành cụm từ phù hợp trong ngữ cảnh này."
+        },
+        {
+          "qNum": 137,
+          "text": "Blank [137] — Choose the best option to complete the text.",
+          "options": {
+            "A": "Again",
+            "B": "Consequently",
+            "C": "Previously",
+            "D": "However"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là (C) Previously. Từ này mang nghĩa 'trước đây', phù hợp để liên kết câu nói về kinh nghiệm làm việc ở quá khứ của ông Ramirez (từng giữ các vai trò quản lý cao cấp) trước khi làm CEO ở Elia Aviation. Các từ khác như Again, Consequently hay However không logic với mạch thời gian của đoạn văn."
+        },
+        {
+          "qNum": 138,
+          "text": "Blank [138] — Choose the best option to complete the text.",
+          "options": {
+            "A": "These meetings take place on a regular basis.",
+            "B": "The product is currently being developed.",
+            "C": "We hope to learn more about the position.",
+            "D": "We look forward to his guidance."
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là (D) We look forward to his guidance. Câu này mang nghĩa 'Chúng tôi mong chờ sự chỉ dẫn/hướng dẫn của ông ấy', hoàn toàn phù hợp với ngữ cảnh vị chủ tịch và CEO (Fen Wang) ca ngợi năng lực lãnh đạo của ông Ramirez và chào mừng ông đảm nhận vị trí mới. Các lựa chọn khác không liên quan đến nội dung đoạn văn."
+        }
+      ]
+    },
+    {
+      "groupOrder": 87,
+      "part": 6,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_6",
+      "title": "Part 6 · Câu 139–142",
+      "instructions": "Questions 139-142 refer to the following letter.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p6_q139-142_p7_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 139,
+          "text": "Blank [139] — Choose the best option to complete the text.",
+          "options": {
+            "A": "was canceled",
+            "B": "will be canceled",
+            "C": "had to cancel",
+            "D": "is canceling"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là (A) was canceled. Câu này cần chia ở thì quá khứ đơn và dạng bị động vì chuyến bay đã xảy ra vào ngày 19 tháng 2 và bản thân chuyến bay không thể tự hủy. Các đáp án (B), (C), và (D) sai vì sai thì hoặc sai cấu trúc chủ động/bị động."
+        },
+        {
+          "qNum": 140,
+          "text": "Blank [140] — Choose the best option to complete the text.",
+          "options": {
+            "A": "work",
+            "B": "time",
+            "C": "drawback",
+            "D": "inconvenience"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là (D) inconvenience. Cụm từ 'compensate for the inconvenience' (bồi thường cho sự bất tiện) là một collocation phổ biến trong văn phong dịch vụ khách hàng. Các từ còn lại như 'work', 'time', hay 'drawback' không phù hợp về mặt ngữ nghĩa trong ngữ cảnh xin lỗi khách hàng vì chuyến bay bị hủy."
+        },
+        {
+          "qNum": 141,
+          "text": "Blank [141] — Choose the best option to complete the text.",
+          "options": {
+            "A": "above",
+            "B": "near",
+            "C": "from",
+            "D": "beyond"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là (C) from. Cấu trúc 'resulting from' có nghĩa là 'gây ra bởi' hoặc 'là kết quả của', phù hợp để giải thích nguyên nhân của chi phí khách sạn. Các giới từ 'above', 'near', và 'beyond' không tạo thành cụm từ hợp lý với danh từ 'the disruption' trong ngữ cảnh này."
+        },
+        {
+          "qNum": 142,
+          "text": "Blank [142] — Choose the best option to complete the text.",
+          "options": {
+            "A": "We hope you have an enjoyable trip.",
+            "B": "Both amounts have been credited to your account.",
+            "C": "Your complaint will soon be reviewed.",
+            "D": "Thank you for your understanding."
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là (B) Both amounts have been credited to your account. Câu này đóng vai trò kết nối logic, xác nhận rằng hai khoản tiền (tiền vé và tiền khách sạn) đã được hoàn trả. Các phương án còn lại không phù hợp vì chúng không liên quan đến việc xác nhận giao dịch tài chính đã được thực hiện như nội dung đoạn văn đề cập."
+        }
+      ]
+    },
+    {
+      "groupOrder": 88,
+      "part": 6,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_6",
+      "title": "Part 6 · Câu 143–146",
+      "instructions": "Questions 143-146 refer to the following e-mail.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p6_q143-146_p8_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 143,
+          "text": "Blank [143] — Choose the best option to complete the text.",
+          "options": {
+            "A": "Otherwise",
+            "B": "In either case",
+            "C": "If possible",
+            "D": "Alternatively"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là (C) If possible. Cụm từ này có nghĩa là 'nếu có thể', phù hợp với ngữ cảnh giả định khi mọi thứ diễn ra suôn sẻ để quay xong trước bữa trưa. Các lựa chọn khác như 'Otherwise' (Nếu không thì), 'In either case' (Trong bất kỳ trường hợp nào), hoặc 'Alternatively' (Cách khác) không tạo ra mối quan hệ logic phù hợp."
+        },
+        {
+          "qNum": 144,
+          "text": "Blank [144] — Choose the best option to complete the text.",
+          "options": {
+            "A": "I was impressed by the rehearsal.",
+            "B": "Luckily, it is not noticeable to viewers.",
+            "C": "We will need different equipment.",
+            "D": "However, it may take the full day."
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là (D) However, it may take the full day. Câu này bổ sung ý trái ngược hoặc cảnh báo: 'Tuy nhiên, có thể mất cả ngày.' phù hợp với đoạn trước nói về việc làm việc suôn sẻ nhưng việc quay phim với động vật luôn khó đoán. Các đáp án A, B, C không liên quan hoặc trái ngược với nội dung nhắc nhở."
+        },
+        {
+          "qNum": 145,
+          "text": "Blank [145] — Choose the best option to complete the text.",
+          "options": {
+            "A": "research",
+            "B": "challenge",
+            "C": "avoid",
+            "D": "stress"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là (D) stress. Từ 'stress' trong ngữ cảnh này có nghĩa là nhấn mạnh tầm quan trọng của việc gì đó ('nhấn mạnh thực tế rằng...'). Các động từ như 'research' (nghiên cứu), 'challenge' (thách thức), hay 'avoid' (tránh) không phù hợp về ý nghĩa với vế câu khẳng định sự đóng cửa phim trường đối với người không phận sự."
+        },
+        {
+          "qNum": 146,
+          "text": "Blank [146] — Choose the best option to complete the text.",
+          "options": {
+            "A": "distraction",
+            "B": "distracting",
+            "C": "distracted",
+            "D": "distract"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là (A) distraction. Cụm từ 'too much of a distraction' (quá nhiều sự phân tâm) dùng danh từ số ít sau mạo từ 'a' đi cùng cụm chỉ mức độ. Các lựa chọn B (tính từ), C (quá khứ phân từ/tính từ), D (động từ) sai loại từ vì vị trí cần điền sau mạo từ 'a' và giới từ 'of' phải là một danh từ."
+        }
+      ]
+    },
+    {
+      "groupOrder": 89,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 147–148",
+      "instructions": "Questions 147-148 refer to the following notice.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q147-148_p9_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 147,
+          "text": "What does Star Designs produce?",
+          "options": {
+            "A": "Software",
+            "B": "Clothing",
+            "C": "Cosmetics",
+            "D": "Furniture"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Bài đọc đề cập đến 'quality apparel' (trang phục chất lượng), 'colorful shirts' (áo sơ mi nhiều màu) và 'formal wear' (trang phục trang trọng), tất cả đều thuộc lĩnh vực quần áo. Các phương án A (phần mềm), C (mỹ phẩm) và D (nội thất) không được nhắc đến trong văn bản."
+        },
+        {
+          "qNum": 148,
+          "text": "What is being announced?",
+          "options": {
+            "A": "A grand opening",
+            "B": "An expanded product line",
+            "C": "A change in prices",
+            "D": "An upgraded online store"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Thông báo nêu rõ 'we have been forced to increase our prices recently' (chúng tôi buộc phải tăng giá gần đây). Các phương án A, B và D không được đề cập hoặc không phản ánh đúng nội dung chính của thông báo về việc thay đổi giá cả."
+        }
+      ]
+    },
+    {
+      "groupOrder": 90,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 149–150",
+      "instructions": "Questions 149-150 refer to the following brochure.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q149-150_p10_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 149,
+          "text": "What is suggested about Acadetech?",
+          "options": {
+            "A": "It works mainly with large companies.",
+            "B": "It investigates Web site security breaches.",
+            "C": "It offers a variety of Web site designs.",
+            "D": "It provides delivery service for online-shopping businesses."
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Bài đọc nêu rõ Acadetech cung cấp 'Responsive Web site design' (thiết kế web tương thích) và các dịch vụ khác, cho thấy họ cung cấp nhiều lựa chọn thiết kế. Các đáp án khác sai vì: A trái với thông tin 'small- and mid-sized businesses', B không được đề cập, và D không liên quan đến dịch vụ của công ty."
+        },
+        {
+          "qNum": 150,
+          "text": "With what feature is Mr. Schroeder particularly pleased?",
+          "options": {
+            "A": "The security",
+            "B": "The speed",
+            "C": "The simplicity",
+            "D": "The adaptability"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D. Ông Schroeder hài lòng vì trang web của ông 'is just as functional on mobile phones and tablets as on big desktop screens', đây chính là tính thích ứng (adaptability) của thiết kế. Các đáp án A, B, C không phải là điểm chính mà ông Schroeder nhấn mạnh trong phản hồi của mình."
+        }
+      ]
+    },
+    {
+      "groupOrder": 91,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 151–153",
+      "instructions": "Questions 151-153 refer to the following e-mail.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q151-153_p11_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 151,
+          "text": "Where most likely does Mr. Chopra work?",
+          "options": {
+            "A": "At a travel agency",
+            "B": "At a publishing company",
+            "C": "At a restaurant",
+            "D": "At a financial consulting company"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là (B). Trong email, ông Gagan Chopra nhắc đến 'editor-in-chief' (tổng biên tập), 'book projects' (dự án sách), 'manuscript' (bản thảo) và việc gửi email nhắc nhở cho các 'authors' (tác giả), cho thấy ông làm việc tại một công ty xuất bản. Các đáp án A (công ty du lịch), C (nhà hàng) và D (công ty tư vấn tài chính) suy diễn sai ngữ cảnh."
+        },
+        {
+          "qNum": 152,
+          "text": "What does Mr. Chopra write that Mr. Pressler will do?",
+          "options": {
+            "A": "Go to the market",
+            "B": "Plan a lunch meeting",
+            "C": "Begin a new project",
+            "D": "Send some e-mails"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là (D). Bài đọc có đoạn: 'Ian will make certain the appropriate e-mail reminders are sent out to the authors' (Ian sẽ đảm bảo các lời nhắc qua email phù hợp được gửi đi cho các tác giả), khớp với việc gửi một số email. Các đáp án A (đi chợ), B (lên kế hoạch họp ăn trưa - việc này đã diễn ra hôm qua), và C (bắt đầu dự án mới) không đúng với thông tin bài."
+        },
+        {
+          "qNum": 153,
+          "text": "In which of the positions marked [1], [2], [3], and [4] does the following sentence best belong? \"While there, we put together a project list, which includes all of the associated tasks.\"",
+          "options": {
+            "A": "[1]",
+            "B": "[2]",
+            "C": "[3]",
+            "D": "[4]"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là (C). Câu cần điền ('While there, we put together a project list, which includes all of the associated tasks') nói về việc lập danh sách dự án khi cả hai ở đâu đó, đứng ngay sau câu kể về buổi gặp mặt ăn trưa tại nhà hàng ('We had a lunch meeting yesterday at the new restaurant near Anderson Market...'), vị trí [3] là phù hợp nhất. Các vị trí [1], [2], [4] không liên quan đến ngữ cảnh của buổi gặp mặt."
+        }
+      ]
+    },
+    {
+      "groupOrder": 92,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 154–155",
+      "instructions": "Questions 154-155 refer to the following text-message chain.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q154-155_p12_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 154,
+          "text": "What is Ms. Channa's problem?",
+          "options": {
+            "A": "She missed her train.",
+            "B": "She has been delayed.",
+            "C": "She is not prepared to give a presentation.",
+            "D": "She forgot to contact the interns."
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Trong tin nhắn lúc 8:45 A.M., cô Channa nói rằng cô ấy không thể đến văn phòng đúng giờ vì tàu bị trễ (weather-related delay). Các đáp án khác sai vì: A sai vì cô ấy đã lên tàu nhưng tàu bị trễ, C sai vì không có thông tin cô ấy chưa chuẩn bị, và D sai vì cô ấy chưa hề quên liên lạc với thực tập sinh."
+        },
+        {
+          "qNum": 155,
+          "text": "At 8:49 A.M., what does Ms. Channa mean when she writes, \"Yes, that definitely works\"?",
+          "options": {
+            "A": "A train has started to move.",
+            "B": "A machine is operating correctly.",
+            "C": "The suggested plan is a good one.",
+            "D": "She was able to change her travel schedule."
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Cụm từ \"that definitely works\" được dùng để đồng ý với phương án thay thế mà Ru Liao đề xuất (Ru Liao sẽ dẫn dắt buổi sáng, còn cô Channa sẽ dẫn dắt buổi chiều). Các đáp án A, B, D đều không liên quan đến ngữ cảnh đồng ý với kế hoạch làm việc được thảo luận trong đoạn hội thoại."
+        }
+      ]
+    },
+    {
+      "groupOrder": 93,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 156–158",
+      "instructions": "Questions 156-158 refer to the following article.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q156-158_p13_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 156,
+          "text": "The word \"boom\" in paragraph 1, line 2, is closest in meaning to",
+          "options": {
+            "A": "sound",
+            "B": "discovery",
+            "C": "growth",
+            "D": "surprise"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là (C) growth. Trong ngữ cảnh bài đọc, \"small business boom\" ám chỉ sự bùng nổ hoặc phát triển mạnh mẽ của các doanh nghiệp nhỏ, nên \"growth\" (sự tăng trưởng) là từ đồng nghĩa phù hợp nhất. Các đáp án còn lại: (A) âm thanh, (B) sự khám phá, và (D) sự ngạc nhiên không phù hợp với ngữ cảnh kinh tế này."
+        },
+        {
+          "qNum": 157,
+          "text": "Who most likely is Dr. Belanger?",
+          "options": {
+            "A": "The president of the Provincial Small Business Center",
+            "B": "A small-business owner",
+            "C": "The mayor of Preston",
+            "D": "A university professor"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là (D) A university professor. Bài đọc nêu rõ: \"Dr. Henry Belanger, who teaches finance at Lackland University\". Do đó, ông ấy là một giáo sư đại học. Các đáp án (A), (B), và (C) không có thông tin nào trong bài xác nhận ông ấy giữ các vai trò đó."
+        },
+        {
+          "qNum": 158,
+          "text": "What does Dr. Belanger state about small businesses?",
+          "options": {
+            "A": "The government has opened a new office to help them.",
+            "B": "Their impact extends to larger organizations.",
+            "C": "They provide inexperienced employees with training.",
+            "D": "They are closing throughout the province."
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là (B) Their impact extends to larger organizations. Dẫn chứng ở cuối đoạn 2: \"thanks to the personal income generated by small companies, larger, established businesses benefited too\" (nhờ thu nhập cá nhân do các công ty nhỏ tạo ra, các doanh nghiệp lớn hơn cũng được hưởng lợi). Các đáp án (A), (C), và (D) đều chứa thông tin không được đề cập hoặc sai lệch so với nội dung bài viết."
+        }
+      ]
+    },
+    {
+      "groupOrder": 94,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 159–160",
+      "instructions": "Questions 159-160 refer to the following e-mail.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q159-160_p14_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 159,
+          "text": "What does the e-mail suggest about Ms. Paxton?",
+          "options": {
+            "A": "She has requested information from Lenford Financial.",
+            "B": "She is a finance professional.",
+            "C": "She has been a Lenford Financial customer for many years.",
+            "D": "She was not able to log in to her account."
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Bài đọc mở đầu bằng câu 'Thank you for your interest in Lenford Financial. We have received your online inquiry', cho thấy Ms. Paxton đã chủ động liên hệ để tìm hiểu thông tin. Các đáp án B, C, D không có thông tin xác thực trong bài; thực tế cô ấy là khách hàng mới đang trong quá trình đăng ký tài khoản."
+        },
+        {
+          "qNum": 160,
+          "text": "What is Ms. Paxton instructed to do?",
+          "options": {
+            "A": "Call an account representative",
+            "B": "Request a temporary password",
+            "C": "Take a survey over the phone",
+            "D": "Submit a form online"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D. Bước 3 trong email yêu cầu Ms. Paxton 'Fill out the survey' (điền vào bản khảo sát) và bước 4 là 'submit the survey' (nộp bản khảo sát) trực tuyến. Các đáp án A, B, C sai vì cô ấy không cần gọi điện, không cần yêu cầu mật khẩu mới (đã được cấp tạm thời), và khảo sát được thực hiện trực tuyến chứ không phải qua điện thoại."
+        }
+      ]
+    },
+    {
+      "groupOrder": 95,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 161–163",
+      "instructions": "Questions 161-163 refer to the following job advertisement.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q161-163_p15_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 161,
+          "text": "Why is the lab-assistant position being offered?",
+          "options": {
+            "A": "Building renovations have been completed.",
+            "B": "Equipment has been modernized.",
+            "C": "Some employees have left.",
+            "D": "Hours of operation have changed."
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D. Bài đọc nêu rõ 'Green Rock University’s Technology Lab will now be open during the evening. As a result of these extended hours, we are seeking an evening lab assistant', nghĩa là vị trí này được tuyển do giờ mở cửa đã thay đổi (kéo dài sang buổi tối). Các phương án A, B, C không được đề cập trong bài."
+        },
+        {
+          "qNum": 162,
+          "text": "What is NOT a requirement of the job?",
+          "options": {
+            "A": "A degree in graphic design",
+            "B": "A desire to help others",
+            "C": "Coding knowledge",
+            "D": "Creativity"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Bài đọc chỉ yêu cầu ứng viên có kiến thức về 'graphic design programs' (các chương trình thiết kế đồ họa), chứ không yêu cầu phải có bằng cấp (degree) về lĩnh vực này. Các lựa chọn B, C, D đều được liệt kê trực tiếp trong bài là những yêu cầu về kỹ năng hoặc tính cách cần có."
+        },
+        {
+          "qNum": 163,
+          "text": "How should applicants apply for the position?",
+          "options": {
+            "A": "By telephone",
+            "B": "By e-mail",
+            "C": "By express mail",
+            "D": "In person"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Câu cuối của bài đọc ghi rõ 'Interested applicants should send a letter of interest and résumé to tech@greenrockuniversity.edu', đây là địa chỉ email để ứng tuyển. Các phương án A, C, D đều không đúng với hướng dẫn trong văn bản."
+        }
+      ]
+    },
+    {
+      "groupOrder": 96,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 164–167",
+      "instructions": "Questions 164-167 refer to the following e-mail.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q164-167_p16_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 164,
+          "text": "Why did Mr. Takeda send the e-mail?",
+          "options": {
+            "A": "To inquire about attending a trade show",
+            "B": "To discuss an upcoming meeting",
+            "C": "To follow up on a recent conversation",
+            "D": "To schedule a product demonstration"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Trong câu đầu tiên, ông Takeda viết: 'I am glad we got a chance to talk at the agricultural technology trade show in Dublin last week' (Tôi rất vui vì chúng ta đã có cơ hội trò chuyện tại triển lãm công nghệ nông nghiệp ở Dublin tuần trước). Điều này cho thấy email được gửi để tiếp nối cuộc trò chuyện gần đây. Các phương án A, B, D không được đề cập hoặc trái với mục đích chính của email."
+        },
+        {
+          "qNum": 165,
+          "text": "What is suggested about Mr. Rogerson?",
+          "options": {
+            "A": "He rarely travels for work.",
+            "B": "He is involved in farming.",
+            "C": "He specializes in environmental science.",
+            "D": "He designed a smartphone application."
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Email đề cập đến việc ông Rogerson có các 'greenhouses' (nhà kính) và ông Takeda giới thiệu về 'crop irrigation systems' (hệ thống tưới tiêu cây trồng), cho thấy ông Rogerson làm việc trong lĩnh vực nông nghiệp. Các phương án A, C, D không có thông tin xác thực trong bài."
+        },
+        {
+          "qNum": 166,
+          "text": "According to the e-mail, what can the DSKT greenhouse system do?",
+          "options": {
+            "A": "Water plants",
+            "B": "Disable machinery",
+            "C": "Control lighting",
+            "D": "Transmit information"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D. Bài đọc nêu: 'DSKT sends the readings to your smartphone or computer' (DSKT gửi các chỉ số đọc được đến điện thoại thông minh hoặc máy tính của bạn). Điều này xác nhận hệ thống có khả năng truyền tải thông tin. Các phương án A, B, C không được nhắc đến như là chức năng của hệ thống này."
+        },
+        {
+          "qNum": 167,
+          "text": "In which of the positions marked [1], [2], [3],and [4] does the following sentence best belong? \"I am confident it will illustrate how our system can meet your needs.\"",
+          "options": {
+            "A": "[1]",
+            "B": "[2]",
+            "C": "[3]",
+            "D": "[4]"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Câu 'I am confident it will illustrate how our system can meet your needs' (Tôi tin rằng nó sẽ minh họa cách hệ thống của chúng tôi có thể đáp ứng nhu cầu của bạn) cần đặt sau câu giới thiệu về việc đính kèm tập sách (booklet) ở vị trí [1]. Từ 'it' trong câu bổ sung này thay thế cho 'booklet' (tập sách) vừa được nhắc đến trước đó, tạo sự liên kết logic."
+        }
+      ]
+    },
+    {
+      "groupOrder": 97,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 168–171",
+      "instructions": "Questions 168-171 refer to the following notice.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q168-171_p17_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 168,
+          "text": "What is the purpose of the notice?",
+          "options": {
+            "A": "To advertise an art class",
+            "B": "To promote a yearly exhibition",
+            "C": "To publicize the sale of a sculpture",
+            "D": "To announce the opening of a museum"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Bài viết giới thiệu về 'annual showcase' (triển lãm thường niên) của khoa Nghệ thuật, tương đương với 'yearly exhibition'. Các đáp án A, C, D sai vì bài viết không quảng cáo lớp học, không tập trung bán một tác phẩm cụ thể và không phải là thông báo mở cửa bảo tàng."
+        },
+        {
+          "qNum": 169,
+          "text": "What is indicated about the works of art?",
+          "options": {
+            "A": "They were produced by students.",
+            "B": "They represent a common theme.",
+            "C": "They include some pieces from private collections.",
+            "D": "They are mostly paintings."
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Đoạn văn đề cập 'Student artists will be on hand to speak about their work', xác nhận các tác phẩm được tạo ra bởi sinh viên. Các đáp án B, C, D sai vì bài không nhắc đến chủ đề chung, không nói tác phẩm đến từ bộ sưu tập tư nhân (chỉ nói tác phẩm đã bán cho nhà sưu tập) và không khẳng định phần lớn là tranh vẽ."
+        },
+        {
+          "qNum": 170,
+          "text": "What is mentioned about Mr. Olson?",
+          "options": {
+            "A": "He is a recent university graduate.",
+            "B": "He manages a Web site.",
+            "C": "He has a parking permit.",
+            "D": "He traveled to another country."
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D. Bài viết nêu rõ 'Fin Olson... will give a presentation about how his study abroad in Milan influenced his work', xác nhận ông đã đi du học (travelled to another country). Các đáp án A, B, C sai vì ông chưa tốt nghiệp (sẽ xong vào tháng 4), không quản lý website và không có thông tin về việc ông có giấy phép đỗ xe."
+        },
+        {
+          "qNum": 171,
+          "text": "What is NOT suggested about the event?",
+          "options": {
+            "A": "Refreshments will be served.",
+            "B": "Artists will speak with attendees.",
+            "C": "Free parking is available.",
+            "D": "Demonstrations will be given."
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D. Bài viết không hề đề cập đến việc có các buổi 'demonstrations' (trình diễn/thực hành). Các đáp án A, B, C đều được nhắc đến: 'enjoying beverages and appetizers' (A), 'Student artists will be on hand to speak' (B), và 'the area by Building 8 is free to the public' (C)."
+        }
+      ]
+    },
+    {
+      "groupOrder": 98,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 172–175",
+      "instructions": "Questions 172-175 refer to the following online chat discussion.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q172-175_p18_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 172,
+          "text": "What are the writers discussing?",
+          "options": {
+            "A": "Changing a work procedure",
+            "B": "Hiring experienced inspectors",
+            "C": "Staffing a new department",
+            "D": "Creating additional paper forms"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A vì các nhân vật đang thảo luận về việc cải thiện quy trình kiểm tra văn phòng nha khoa bằng cách chuyển từ sử dụng biểu mẫu giấy sang biểu mẫu điện tử (Changing a work procedure - Thay đổi quy trình làm việc). Các đáp án khác sai vì nội dung không phản ánh đúng chủ đề chính của đoạn chat."
+        },
+        {
+          "qNum": 173,
+          "text": "What is suggested about the writers?",
+          "options": {
+            "A": "They train dental assistants.",
+            "B": "They manage other employees.",
+            "C": "They are determining a budget.",
+            "D": "They are purchasing computers."
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B vì qua đoạn hội thoại, họ bàn về việc đào tạo các thanh tra viên và tổ chức các buổi đào tạo, cho thấy họ là những người quản lý hoặc đưa ra chỉ đạo nhân sự (Staffing / managing employees). Các đáp án A, C, D không có căn cứ hoặc không đúng với ngữ cảnh bài đọc."
+        },
+        {
+          "qNum": 174,
+          "text": "At 9:38 A.M., what does Ms. Parrin most likely mean when she writes, \"Exactly\"?",
+          "options": {
+            "A": "She knows how many years of experience are required.",
+            "B": "She wants to make sure all the paperwork is accurate.",
+            "C": "She thinks Mr. Qian's idea will resolve a problem.",
+            "D": "She believes Mr. Watanabe's estimate is correct."
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C vì ở lượt trước (9:36 A.M.), ông Qian đưa ra ý tưởng thuê huấn luyện viên để đào tạo thanh tra viên chuẩn bị cho việc chuyển đổi. Bà Parrin nói 'Exactly' (Chính xác) để đồng tình rằng ý kiến đó sẽ giải quyết được vấn đề chuyển đổi và đào tạo. Các đáp án khác không phù hợp với ngữ cảnh."
+        },
+        {
+          "qNum": 175,
+          "text": "What will Mr. Watanabe most likely do on Friday?",
+          "options": {
+            "A": "Present a lesson to the inspectors",
+            "B": "Distribute a survey to the trainers",
+            "C": "Learn to use an electronic form",
+            "D": "Suggest a solution to a problem"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D vì ở cuối đoạn chat (9:40 A.M.), ông Watanabe nói 'I'll propose these ideas at the meeting' (Tôi sẽ đề xuất những ý tưởng này tại cuộc họp), trùng khớp với việc đề xuất giải pháp cho một vấn đề vào ngày thứ Sáu. Các đáp án A, B, C đều không chính xác."
+        }
+      ]
+    },
+    {
+      "groupOrder": 99,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 176–180",
+      "instructions": "Questions 176-180 refer to the following memo and form.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q176-180_p20_1.webp",
+        "test-4/images/p7_q176-180_p20_2.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 176,
+          "text": "What is the purpose of the memo?",
+          "options": {
+            "A": "To explain a new requirement",
+            "B": "To inform staff about a benefit",
+            "C": "To suggest a process improvement",
+            "D": "To introduce cost-saving measures"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Bản ghi nhớ (memo) thông báo về việc công ty bắt đầu tổ chức các lớp học chăm sóc sức khỏe (wellness classes) cho nhân viên, đây được coi là một phúc lợi (benefit). Các đáp án A, C, D sai vì nội dung không đề cập đến yêu cầu bắt buộc, cải tiến quy trình hay biện pháp tiết kiệm chi phí."
+        },
+        {
+          "qNum": 177,
+          "text": "Where will a company activity take place?",
+          "options": {
+            "A": "At Lellar Manufacturing",
+            "B": "At Union City Hospital",
+            "C": "At a local doctor's office",
+            "D": "At a nearby production facility"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Bài đọc nêu rõ: 'Lellar Manufacturing will begin offering monthly wellness classes' và 'run the classes on-site', nghĩa là các lớp học sẽ diễn ra ngay tại trụ sở công ty Lellar Manufacturing. Các đáp án B, C, D sai vì thông tin không khớp với địa điểm tổ chức được nêu trong bài."
+        },
+        {
+          "qNum": 178,
+          "text": "What topic will be covered in September?",
+          "options": {
+            "A": "Easy Stretching",
+            "B": "Good Food Choices",
+            "C": "Tips for Better Sleep",
+            "D": "Starting an Exercise Group"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Bài đọc liệt kê các chủ đề theo thứ tự bắt đầu từ tháng 9: 'The class topics in order, starting in September... will be as follows: Easy Stretching...'. Do đó, chủ đề tháng 9 là Easy Stretching."
+        },
+        {
+          "qNum": 179,
+          "text": "Why has Mr. De Santos paid a fee?",
+          "options": {
+            "A": "He returned his training materials late.",
+            "B": "He needs to replace some training items.",
+            "C": "He is not a regular employee.",
+            "D": "He requested an extra class."
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Memo quy định: 'Part- and full-time regular employees are eligible for these classes at no cost. All other workers and trainees will be required to pay a small enrollment fee.' Vì ông De Santos là 'Production Trainee' (thực tập sinh), ông thuộc nhóm phải trả phí."
+        },
+        {
+          "qNum": 180,
+          "text": "Who must provide an approval?",
+          "options": {
+            "A": "Ms. Brown",
+            "B": "Mr. Herrell",
+            "C": "Ms. Katzen",
+            "D": "Mr. Sanders"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D. Memo nêu: 'Supervisor approval is necessary.' Trong đơn đăng ký, ông De Santos đã điền 'Name/Title of Immediate Supervisor: Galen Sanders, Production Manager', do đó ông Sanders là người phải phê duyệt."
+        }
+      ]
+    },
+    {
+      "groupOrder": 100,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 181–185",
+      "instructions": "Questions 181-185 refer to the following Web page and e-mail.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q181-185_p22_1.webp",
+        "test-4/images/p7_q181-185_p22_2.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 181,
+          "text": "To whom is the Klockner Prize awarded?",
+          "options": {
+            "A": "Journalism professors",
+            "B": "Publishers",
+            "C": "Newspaper editors",
+            "D": "Book authors"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D. Bài đọc nêu rõ Ms. Fadulu là tác giả của cuốn 'Stones in Moonlight', tác phẩm giúp cô nhận được giải thưởng Klockner dành cho 'new novelists' (tiểu thuyết gia mới). Các đáp án A, B, C không được đề cập là đối tượng nhận giải này."
+        },
+        {
+          "qNum": 182,
+          "text": "What is suggested about Ms. Fadulu?",
+          "options": {
+            "A": "She is based in Andover.",
+            "B": "She often goes to Canada to see her relatives.",
+            "C": "She has interviewed people who live in her hometown.",
+            "D": "She studied several languages at university."
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Ms. Fadulu sống ở London cả đời và đã viết bài 'A Night Out in London', trong đó cô phỏng vấn những người dân địa phương (real Londoners) tại chính quê hương mình. Các đáp án A, B, D đều chứa thông tin sai lệch hoặc không có trong bài."
+        },
+        {
+          "qNum": 183,
+          "text": "In the e-mail, the word \"nice\" in paragraph 1, line 2, is closest in meaning to",
+          "options": {
+            "A": "polite",
+            "B": "good",
+            "C": "happy",
+            "D": "delicate"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Trong ngữ cảnh này, 'nice work' có nghĩa là công việc tốt, chất lượng cao, tương đương với 'good'. Các từ 'polite' (lịch sự), 'happy' (vui vẻ), 'delicate' (tinh tế) không phù hợp để khen ngợi chất lượng công việc trong email."
+        },
+        {
+          "qNum": 184,
+          "text": "What article does Mr. Tsang want to develop into a column?",
+          "options": {
+            "A": "\"Culture Up Close\"",
+            "B": "\"A Night Out in London\"",
+            "C": "\"Exploring on a Budget\"",
+            "D": "\"Hiking South America\""
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Mr. Tsang nhắc đến 'December piece' (bài viết tháng 12) rất phổ biến và muốn phát triển nó thành chuyên mục định kỳ; bài viết tháng 12 của cô là 'Culture Up Close' (đăng ngày 4 tháng 12). Các bài viết khác không được nhắc đến trong email."
+        },
+        {
+          "qNum": 185,
+          "text": "What does Mr. Tsang want to do on December 16?",
+          "options": {
+            "A": "Try a new restaurant",
+            "B": "Watch a show",
+            "C": "Have a meeting",
+            "D": "Teach a class"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Email được gửi ngày 15 tháng 12 và Mr. Tsang hỏi 'Are you free tomorrow at noon?' (Bạn có rảnh vào trưa mai không?) để thảo luận chi tiết, tức là ngày 16 tháng 12. Việc 'talk over lunch' (nói chuyện trong bữa trưa) là một hình thức của cuộc họp (meeting)."
+        }
+      ]
+    },
+    {
+      "groupOrder": 101,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 186–190",
+      "instructions": "Questions 186-190 refer to the following proposal forms and e-mail.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q186-190_p24_1.webp",
+        "test-4/images/p7_q186-190_p24_2.webp",
+        "test-4/images/p7_q186-190_p25_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 186,
+          "text": "Who most likely is Mr. Acosta?",
+          "options": {
+            "A": "The owner of Sethi Technologies",
+            "B": "A colleague of Mr. Tierney",
+            "C": "A facilities manager",
+            "D": "A representative of Geo Carpet Care"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D. Trong tài liệu đầu tiên, phần 'Contractor Information' liệt kê 'Geo Carpet Care' và phía dưới có dòng 'Submitted by: Martin Acosta', cho thấy ông Acosta là người đại diện của công ty này. Các phương án A, B, C không có bằng chứng trong văn bản."
+        },
+        {
+          "qNum": 187,
+          "text": "When should customers pay Freshen Carpets for their services?",
+          "options": {
+            "A": "Upon signing the proposal",
+            "B": "Within thirty days of the proposal's submission",
+            "C": "The day the cleaning is completed",
+            "D": "Upon receiving an invoice in the mail"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Trong đề xuất của Freshen Carpets, dòng 'Payment due to representative upon completion of service' xác nhận khách hàng phải thanh toán khi công việc hoàn tất. Các phương án A, B, D không khớp với thông tin về thời điểm thanh toán trong văn bản."
+        },
+        {
+          "qNum": 188,
+          "text": "What do both companies offer to customers?",
+          "options": {
+            "A": "A monthly payment plan",
+            "B": "A choice of cleaning products",
+            "C": "A service warranty",
+            "D": "A discount for new customers"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D. Geo Carpet Care ghi rõ 'Price includes a 10% discount for first-time customers' và Freshen Carpets cũng ghi 'reflects the standard reduced price for new customers'. Cả hai đều đề cập đến ưu đãi giảm giá cho khách hàng mới."
+        },
+        {
+          "qNum": 189,
+          "text": "What does Mr. Tierney ask all employees to do?",
+          "options": {
+            "A": "Move desks and chairs",
+            "B": "Remove breakable items",
+            "C": "Work at home on Friday",
+            "D": "Review two proposals"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Trong email của ông Tierney, ông yêu cầu: 'remove any fragile or valuable personal items from your work space'. Các phương án khác như di chuyển bàn ghế là việc của nhân viên cơ sở, không phải nhân viên công ty."
+        },
+        {
+          "qNum": 190,
+          "text": "What is suggested about Sethi Technologies?",
+          "options": {
+            "A": "It hired Freshen Carpets.",
+            "B": "It will close later then usual on Friday, June 26.",
+            "C": "It is a long-time customer of Geo Carpet Care.",
+            "D": "Its facilities staff will open the office early on Monday."
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Dựa trên email của ông Tierney về việc dọn dẹp thảm và nội thất vào thứ Bảy, kết hợp với các đề xuất, có thể suy ra Sethi Technologies đã chọn Freshen Carpets (vì họ là đơn vị cung cấp dịch vụ này). Các phương án khác không được đề cập hoặc mâu thuẫn với nội dung email."
+        }
+      ]
+    },
+    {
+      "groupOrder": 102,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 191–195",
+      "instructions": "Questions 191-195 refer to the following text message, article, and review.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q191-195_p26_1.webp",
+        "test-4/images/p7_q191-195_p27_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 191,
+          "text": "Why did Mr. Forletti send the text message?",
+          "options": {
+            "A": "To explain why a project's cost will increase",
+            "B": "To ask for help in solving an electrical problem",
+            "C": "To warn that a delivery will be delayed",
+            "D": "To discuss a problem with a contractor"
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Trong tin nhắn, ông Forletti viết: 'The rewiring and upgrades are going to cost more than expected' (Việc đi dây và nâng cấp sẽ tốn kém hơn dự kiến), giải thích lý do chi phí tăng. Các đáp án B, C, D không được đề cập hoặc không đúng với nội dung tin nhắn."
+        },
+        {
+          "qNum": 192,
+          "text": "Where was Mr. Forletti when he sent the text message?",
+          "options": {
+            "A": "On a train",
+            "B": "At a restaurant",
+            "C": "At a proposed hotel site",
+            "D": "In an electrical contractor's office"
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Ông Forletti viết: 'I'm with the electrical contractors at the former Millway train station site now' (Tôi đang ở cùng các nhà thầu điện tại địa điểm nhà ga xe lửa cũ Millway). Do đó, ông ấy đang ở tại địa điểm dự án khách sạn tương lai."
+        },
+        {
+          "qNum": 193,
+          "text": "What does the article suggest about Mr. Lewison?",
+          "options": {
+            "A": "He is purchasing a hotel.",
+            "B": "He created a dining menu.",
+            "C": "He was the architect of a building.",
+            "D": "He is the coordinator of a renovation."
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Bài báo nêu: 'The building was once a busy train station that was designed by Arthur Lewison over 150 years ago' (Tòa nhà từng là một nhà ga bận rộn được thiết kế bởi Arthur Lewison hơn 150 năm trước). Vậy ông Lewison là kiến trúc sư của tòa nhà."
+        },
+        {
+          "qNum": 194,
+          "text": "What does the article indicate about the Millway Road Train Station?",
+          "options": {
+            "A": "It included a world-class restaurant.",
+            "B": "It was owned by Mr. Griffiths' father.",
+            "C": "It was located near a famous garden.",
+            "D": "It had been abandoned for many years."
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D. Bài báo ghi: 'For almost three decades the building had been left unoccupied' (Trong gần ba thập kỷ, tòa nhà đã bị bỏ trống). Điều này tương đương với việc nó đã bị bỏ hoang trong nhiều năm."
+        },
+        {
+          "qNum": 195,
+          "text": "What is suggested in Ms. Ko's review?",
+          "options": {
+            "A": "The hotel's guest rooms are quite large.",
+            "B": "The hotel did not open as scheduled.",
+            "C": "A café is located on the hotel's top floor.",
+            "D": "Internet access was too expensive."
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Bài báo cho biết khách sạn dự kiến mở cửa vào ngày 14 tháng 5, nhưng trong bài đánh giá, cô Ko viết: 'I recently attended a small conference at the Millway Road Hotel, which opened in June' (Tôi gần đây đã tham dự một hội nghị tại khách sạn... nơi đã mở cửa vào tháng 6). Điều này cho thấy khách sạn đã không mở cửa đúng lịch trình dự kiến."
+        }
+      ]
+    },
+    {
+      "groupOrder": 103,
+      "part": 7,
+      "skill": "READING",
+      "taskCode": "TOEIC_PART_7",
+      "title": "Part 7 · Câu 196–200",
+      "instructions": "Questions 196-200 refer to the following e-mails and schedule.",
+      "audioKey": null,
+      "imageKeys": [
+        "test-4/images/p7_q196-200_p28_1.webp",
+        "test-4/images/p7_q196-200_p28_2.webp",
+        "test-4/images/p7_q196-200_p29_1.webp"
+      ],
+      "questions": [
+        {
+          "qNum": 196,
+          "text": "According to the first e-mail, what is true about the Optisafe software?",
+          "options": {
+            "A": "It is replacing another software program.",
+            "B": "It is used for data analysis.",
+            "C": "It has undergone significant updates.",
+            "D": "It is the focus of monthly trainings."
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Đoạn 4 của email đầu tiên nêu rõ: 'This past year, major upgrades have been made to the software' (Trong năm qua, các bản nâng cấp lớn đã được thực hiện đối với phần mềm), đồng nghĩa với việc nó đã trải qua những cập nhật đáng kể (significant updates). Các đáp án khác sai vì không được đề cập hoặc trái thông tin trong bài."
+        },
+        {
+          "qNum": 197,
+          "text": "According to the schedule, what do the Abacus Deepthink trainings have in common?",
+          "options": {
+            "A": "They are given on the same day of the month.",
+            "B": "They are taught by the same instructor.",
+            "C": "They are delivered through a Web site.",
+            "D": "They all start at the same time."
+          },
+          "correctOption": "C",
+          "explanation": "Đáp án đúng là C. Nhìn vào lịch đào tạo (Software Training Schedule), tất cả các buổi học của 'Abacus Deepthink' đều có phần Location là 'Online' và thông tin cuối bảng ghi chú 'The online lessons can be accessed at https://www.abacusdeepthink.com'. Do đó, điểm chung của chúng là được cung cấp qua trang web."
+        },
+        {
+          "qNum": 198,
+          "text": "Why did Mr. Ramos-Toro write to Ms. Hedlund?",
+          "options": {
+            "A": "To register for a training session",
+            "B": "To ask for help resolving a conflict",
+            "C": "To report a software malfunction",
+            "D": "To request additional time off"
+          },
+          "correctOption": "B",
+          "explanation": "Đáp án đúng là B. Ông Ramos-Toro viết thư cho bà Hedlund để hỏi xem có các buổi học thay thế cho phần mềm Optisafe không, do ông vướng lịch nghỉ phép và lịch họp khách hàng, nghĩa là ông cần giúp đỡ giải quyết xung đột lịch trình (resolve a conflict)."
+        },
+        {
+          "qNum": 199,
+          "text": "What is suggested about Mr. Ramos-Toro?",
+          "options": {
+            "A": "He works in the Drug Safety department.",
+            "B": "He completed a required training.",
+            "C": "He is Ms. Hedlund's supervisor.",
+            "D": "He wants an alternative position in the company."
+          },
+          "correctOption": "A",
+          "explanation": "Đáp án đúng là A. Trong email đầu tiên, khóa đào tạo Optisafe là yêu cầu dành riêng cho các thành viên thuộc bộ phận An toàn Thuốc (Drug Safety department). Ở email thứ hai, ông Ramos-Toro nói rằng ông cần tham gia cả hai buổi đào tạo phần mềm (trong đó có Optisafe), suy ra ông làm việc trong bộ phận này."
+        },
+        {
+          "qNum": 200,
+          "text": "When will Mr. Ramos-Toro most likely complete a training?",
+          "options": {
+            "A": "On November 14",
+            "B": "On November 17",
+            "C": "On November 22",
+            "D": "On November 27"
+          },
+          "correctOption": "D",
+          "explanation": "Đáp án đúng là D. Ông Ramos-Toro nghỉ phép từ ngày 6 đến 18 tháng 11, và có cuộc họp khách hàng cả ngày vào ngày 22 tháng 11. Các buổi đào tạo Abacus Deepthink diễn ra vào ngày 6, 14, 17 (ông nghỉ phép) và ngày 27 tháng 11; do đó ông có thể tham gia vào ngày 27 tháng 11."
+        }
+      ]
+    }
+  ]
+}
