@@ -57,7 +57,7 @@ describe('AdaptiveInstructorService', () => {
     await service.getPolicy(instructorId, courseId);
 
     expect(prisma.classOffering.findFirst).toHaveBeenCalledWith({
-      where: { courseId, instructorId },
+      where: { courseId, instructorId, effectiveAssignments:{none:{}},course:{classOfferings:{none:{effectiveAssignments:{some:{}}}}} },
       select: { id: true },
     });
   });

@@ -1,3 +1,4 @@
+import { candidateStimulusText } from '../placement/candidate-information-table';
 import {
   BadRequestException,
   ConflictException,
@@ -576,7 +577,7 @@ export class AssessmentStudentService {
           id: stimulus.id,
           type: stimulus.type,
           orderIndex: stimulus.orderIndex,
-          textContent: stimulus.type === 'TEXT' ? stimulus.textContent : null,
+          textContent: stimulus.type === 'TEXT' ? candidateStimulusText(stimulus.textContent) : null,
           mediaUrl:
             stimulus.type === 'IMAGE' || stimulus.type === 'AUDIO'
               ? `/api/learning/enrollments/${enrollmentId}/attempts/${attemptId}/stimuli/${stimulus.id}/media`

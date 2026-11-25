@@ -1,5 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
+  Equals,
+  IsBoolean,
   IsEmail,
   IsNotEmpty,
   IsString,
@@ -25,4 +27,15 @@ export class RegisterDto {
   @IsNotEmpty()
   @MaxLength(200)
   fullName: string;
+
+  @Transform(({ obj }) => (obj as Record<string, unknown>)?.termsAccepted, {
+    toClassOnly: true,
+  })
+  @IsBoolean({
+    message: 'Vui lòng đồng ý điều khoản sử dụng và chính sách bảo mật dữ liệu.',
+  })
+  @Equals(true, {
+    message: 'Vui lòng đồng ý điều khoản sử dụng và chính sách bảo mật dữ liệu.',
+  })
+  termsAccepted: boolean;
 }

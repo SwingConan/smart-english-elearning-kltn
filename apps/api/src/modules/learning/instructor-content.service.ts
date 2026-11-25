@@ -1,3 +1,4 @@
+import { retainedInstructorCourseScope } from '../authorization/instructor-scope';
 import {
   BadRequestException,
   ConflictException,
@@ -28,7 +29,7 @@ export class InstructorContentService {
 
   private async assertInstructorOwnsCourse(instructorId: string, courseId: string): Promise<void> {
     const assignment = await this.prisma.classOffering.findFirst({
-      where: { courseId, instructorId },
+      where: { courseId, ...retainedInstructorCourseScope(instructorId) },
       select: { id: true },
     });
     if (!assignment) {
@@ -38,7 +39,7 @@ export class InstructorContentService {
 
   async listTeaching(instructorId: string) {
     const offerings = await this.prisma.classOffering.findMany({
-      where: { instructorId },
+      where: retainedInstructorCourseScope(instructorId),
       select: {
         id: true,
         name: true,
@@ -799,7 +800,7 @@ export class InstructorContentService {
     instructorId: string,
     courseId: string,
   ): Promise<void> {
-    const assignment = await database.classOffering.findFirst({ where: { courseId, instructorId }, select: { id: true } });
+    const assignment = await database.classOffering.findFirst({ where: { courseId, ...retainedInstructorCourseScope(instructorId) }, select: { id: true } });
     if (!assignment) throw new ForbiddenException('You are not assigned to any class offering of this course');
   }
 

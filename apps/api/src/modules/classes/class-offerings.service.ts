@@ -7,11 +7,13 @@ import {
   PricingType,
 } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { countOccupiedSeats, releaseExpiredSeatHolds } from '../tuition/tuition-seat-hold';
 import { CreateClassOfferingDto } from './dto/create-class-offering.dto';
 import { AdminClassOfferingQueryDto } from './dto/admin-class-offering-query.dto';
 import { UpdateClassOfferingDto } from './dto/update-class-offering.dto';
 import { computeRegistrationState } from './registration-state';
 import { computeOperationalReadiness, projectScheduleSlot } from './class-operations';
+import { publicQaCatalogScope } from '../courses/qa-catalog.policy';
 
 interface OfferingRules {
   pricingType: PricingType;
@@ -57,10 +59,15 @@ const publicOfferingDetailSelect = {
   maxStudents: true,
   totalSessions: true,
   totalPeriods: true,
+  periodsPerSession: true,
+  durationWeeks: true,
   enrollmentStart: true,
   enrollmentEnd: true,
   classStart: true,
   classEnd: true,
+  defaultRoom: {
+    select: { id: true, code: true, name: true, location: true },
+  },
   course: {
     select: {
       id: true,
@@ -89,6 +96,7 @@ const publicOfferingDetailSelect = {
       startTime: true,
       endTime: true,
       locationText: true,
+      room: { select: { id: true, code: true, name: true, location: true } },
     },
   },
   _count: {
@@ -120,7 +128,9 @@ const allowedStatusTransitions: Record<ClassOfferingStatus, readonly ClassOfferi
 
 @Injectable()
 export class ClassOfferingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+  ) {}
 
   async listAdmin(query: AdminClassOfferingQueryDto) {
     const where: Prisma.ClassOfferingWhereInput = {
@@ -170,16 +180,34 @@ export class ClassOfferingsService {
   }
 
   async getPublicById(id: string) {
+    const scope = await publicQaCatalogScope(this.prisma);
+    const now = new Date();
     const offering = await this.prisma.classOffering.findFirst({
       where: {
         id,
         status: { in: [ClassOfferingStatus.OPEN, ClassOfferingStatus.IN_PROGRESS] },
-        course: { isPublished: true },
+        course: { isPublished: true, ...scope },
       },
       select: publicOfferingDetailSelect,
     });
     if (!offering) {
       throw new NotFoundException('Class offering not found');
+    }
+
+    let occupiedCount = offering._count.enrollments;
+    if (
+      typeof (this.prisma as { enrollment?: { count?: unknown } }).enrollment?.count ===
+        'function' &&
+      typeof (this.prisma as { $transaction?: unknown }).$transaction === 'function'
+    ) {
+      const liveOccupied = await this.prisma.$transaction(async (tx) => {
+        await releaseExpiredSeatHolds(tx, id, now);
+        const seats = await countOccupiedSeats(tx, id, now);
+        return seats.occupiedCount;
+      });
+      if (typeof liveOccupied === 'number' && Number.isFinite(liveOccupied)) {
+        occupiedCount = liveOccupied;
+      }
     }
 
     const availability = computeRegistrationState({
@@ -188,18 +216,50 @@ export class ClassOfferingsService {
       enrollmentStart: offering.enrollmentStart,
       enrollmentEnd: offering.enrollmentEnd,
       maxStudents: offering.maxStudents,
-      registeredCount: offering._count.enrollments,
-      now: new Date(),
+      registeredCount: occupiedCount,
+      now,
     });
+
+    const roadmapRows = this.prisma.classRoadmapItem?.findMany
+      ? await this.prisma.classRoadmapItem.findMany({
+          where: { classOfferingId: id },
+          orderBy: [{ orderIndex: 'asc' }, { sessionNumber: 'asc' }],
+          select: {
+            id: true,
+            weekNumber: true,
+            sessionNumber: true,
+            sessionDate: true,
+            startTime: true,
+            endTime: true,
+            periods: true,
+            modality: true,
+            locationText: true,
+            topicTitle: true,
+            contentSummary: true,
+            room: { select: { id: true, code: true, name: true, location: true } },
+          },
+        })
+      : [];
 
     return {
       ...offering,
+      defaultRoom: (offering as { defaultRoom?: unknown }).defaultRoom ?? null,
+      minutesPerPeriod: 45,
+      dataContext: scope.id ? 'QA_REFERENCE' : undefined,
       scheduleSlots: offering.scheduleSlots.map((slot) => ({
         id: slot.id,
         dayOfWeek: slot.dayOfWeek,
         startTime: slot.startTime,
         endTime: slot.endTime,
         locationText: slot.locationText,
+        room: (slot as { room?: unknown }).room ?? null,
+      })),
+      roadmapItems: roadmapRows.map((item) => ({
+        ...item,
+        sessionDate:
+          item.sessionDate instanceof Date
+            ? item.sessionDate.toISOString().slice(0, 10)
+            : String(item.sessionDate).slice(0, 10),
       })),
       course: {
         ...offering.course,
@@ -214,6 +274,7 @@ export class ClassOfferingsService {
       remainingSeats: availability.remainingSeats,
       isFull: availability.isFull,
       registrationState: availability.registrationState,
+      w07Managed: false,
       _count: undefined,
     };
   }

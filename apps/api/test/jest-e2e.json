@@ -2,6 +2,8 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "testEnvironment": "node",
+  "globalSetup": "<rootDir>/e2e-global-setup.cjs",
+  "setupFiles": ["<rootDir>/e2e-safety.setup.cjs"],
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"

@@ -1,3 +1,4 @@
+import { legacyInstructorCourseScope } from '../authorization/instructor-scope';
 import {
   BadRequestException,
   ConflictException,
@@ -324,7 +325,7 @@ export class KnowledgeModelInstructorService {
       throw new NotFoundException('Legacy BKT mapping requires a course-scoped Question');
     }
     const assignment = await database.classOffering.findFirst({
-      where: { courseId, instructorId },
+      where: { courseId, ...legacyInstructorCourseScope(instructorId) },
       select: { id: true },
     });
     if (!assignment) {

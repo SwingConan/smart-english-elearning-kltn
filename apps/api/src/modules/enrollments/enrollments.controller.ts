@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Optional,
   Param,
   ParseUUIDPipe,
   Post,
@@ -10,6 +11,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../generated/prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { TuitionPaymentService } from '../tuition/tuition-payment.service';
 import { PublicUser } from '../users/user.types';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { EnrollmentsService } from './enrollments.service';
@@ -18,7 +20,10 @@ import { EnrollmentsService } from './enrollments.service';
 @Roles(UserRole.STUDENT)
 @Controller('enrollments')
 export class EnrollmentsController {
-  constructor(private readonly enrollmentsService: EnrollmentsService) {}
+  constructor(
+    private readonly enrollmentsService: EnrollmentsService,
+    @Optional() private readonly tuitionPayment?: TuitionPaymentService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Enroll the current student in a class offering' })
@@ -42,5 +47,14 @@ export class EnrollmentsController {
     @CurrentUser() user: PublicUser,
   ) {
     return this.enrollmentsService.getMineById(user.id, id);
+  }
+
+  @Post(':id/retry-hold')
+  @ApiOperation({ summary: 'Re-create or resume 15-minute seat hold payment order for a pending/expired enrollment' })
+  retryHold(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: PublicUser,
+  ) {
+    return this.tuitionPayment!.retryHoldForEnrollment(user.id, id);
   }
 }

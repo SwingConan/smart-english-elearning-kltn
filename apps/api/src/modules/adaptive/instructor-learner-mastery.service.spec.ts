@@ -146,7 +146,7 @@ describe('InstructorLearnerMasteryService', () => {
       expect.objectContaining({
         where: {
           status: EnrollmentStatus.ACTIVE,
-          classOffering: { courseId, instructorId },
+          classOffering: { courseId, instructorId,effectiveAssignments:{none:{}},course:{classOfferings:{none:{effectiveAssignments:{some:{}}}}} },
         },
       }),
     );
@@ -155,7 +155,7 @@ describe('InstructorLearnerMasteryService', () => {
       expect.objectContaining({
         where: {
           status: EnrollmentStatus.ACTIVE,
-          classOffering: { courseId, instructorId: otherInstructorId },
+          classOffering: { courseId, instructorId: otherInstructorId,effectiveAssignments:{none:{}},course:{classOfferings:{none:{effectiveAssignments:{some:{}}}}} },
         },
       }),
     );

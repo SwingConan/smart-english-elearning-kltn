@@ -1,11 +1,13 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ClassOfferingStatus, CourseSkillScope, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { getOccupiedSeatMap } from '../tuition/tuition-seat-hold';
 import { computeRegistrationState } from '../classes/registration-state';
 import { CatalogQueryDto } from './dto/catalog-query.dto';
 import { AdminCourseQueryDto } from './dto/admin-course-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
+import { publicQaCatalogScope } from './qa-catalog.policy';
 import {
   COURSE_THUMBNAIL_URL_PREFIX,
   CourseThumbnailStorage,
@@ -25,10 +27,20 @@ const publicOfferingSelect = {
   maxStudents: true,
   totalSessions: true,
   totalPeriods: true,
+  periodsPerSession: true,
+  durationWeeks: true,
   enrollmentStart: true,
   enrollmentEnd: true,
   classStart: true,
   classEnd: true,
+  defaultRoom: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      location: true,
+    },
+  },
   instructor: {
     select: {
       id: true,
@@ -43,6 +55,14 @@ const publicOfferingSelect = {
       startTime: true,
       endTime: true,
       locationText: true,
+      room: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          location: true,
+        },
+      },
     },
   },
   _count: {
@@ -108,8 +128,10 @@ export class CoursesService {
   ) {}
 
   async listPublic(query: CatalogQueryDto) {
+    const scope = await publicQaCatalogScope(this.prisma);
     const where: Prisma.CourseWhereInput = {
       isPublished: true,
+      ...scope,
       ...(query.search ? { title: { contains: query.search, mode: 'insensitive' } } : {}),
       ...(query.level ? { level: query.level } : {}),
       ...(query.skillScope ? { skillScope: query.skillScope } : {}),
@@ -129,9 +151,18 @@ export class CoursesService {
       this.prisma.course.count({ where }),
     ]);
 
+    const now = new Date();
+    const offeringIds = data.flatMap((course) => course.classOfferings.map((o) => o.id));
+    const seatMap =
+      typeof (this.prisma as { enrollment?: { findMany?: unknown } }).enrollment?.findMany ===
+      'function'
+        ? await getOccupiedSeatMap(this.prisma, offeringIds, now)
+        : undefined;
+
     return {
-      data: data.map((course) => this.mapPublicCourse(course)),
+      data: data.map((course) => this.mapPublicCourse(course, seatMap, now)),
       meta: {
+        dataContext: scope.id ? 'QA_REFERENCE' : undefined,
         total,
         page: query.page,
         limit: query.limit,
@@ -141,8 +172,9 @@ export class CoursesService {
   }
 
   async getPublicBySlug(slug: string) {
+    const scope = await publicQaCatalogScope(this.prisma);
     const course = await this.prisma.course.findFirst({
-      where: { slug, isPublished: true },
+      where: { slug, isPublished: true, ...scope },
       select: publicCourseDetailSelect,
     });
 
@@ -150,7 +182,18 @@ export class CoursesService {
       throw new NotFoundException('Course not found');
     }
 
-    return this.mapPublicCourseDetail(course);
+    const now = new Date();
+    const offeringIds = course.classOfferings.map((o) => o.id);
+    const seatMap =
+      typeof (this.prisma as { enrollment?: { findMany?: unknown } }).enrollment?.findMany ===
+      'function'
+        ? await getOccupiedSeatMap(this.prisma, offeringIds, now)
+        : undefined;
+
+    return {
+      ...this.mapPublicCourseDetail(course, seatMap, now),
+      dataContext: scope.id ? 'QA_REFERENCE' : undefined,
+    };
   }
 
   async listAdmin(query: AdminCourseQueryDto) {
@@ -320,18 +363,30 @@ export class CoursesService {
     }
   }
 
-  private mapPublicCourse(course: PublicCourseRow) {
+  private mapPublicCourse(
+    course: PublicCourseRow,
+    seatMap?: Map<string, { occupiedCount: number }>,
+    now: Date = new Date(),
+  ) {
     return {
       ...course,
-      classOfferings: course.classOfferings.map(mapPublicOffering),
+      classOfferings: course.classOfferings.map((o) =>
+        mapPublicOffering(o, seatMap?.get(o.id)?.occupiedCount, now),
+      ),
       openOfferingCount: course.classOfferings.length,
     };
   }
 
-  private mapPublicCourseDetail(course: PublicCourseDetailRow) {
+  private mapPublicCourseDetail(
+    course: PublicCourseDetailRow,
+    seatMap?: Map<string, { occupiedCount: number }>,
+    now: Date = new Date(),
+  ) {
     return {
       ...course,
-      classOfferings: course.classOfferings.map(mapPublicOffering),
+      classOfferings: course.classOfferings.map((o) =>
+        mapPublicOffering(o, seatMap?.get(o.id)?.occupiedCount, now),
+      ),
       openOfferingCount: course.classOfferings.length,
       modules: course.modules.map((module) => ({
         ...module,
@@ -345,7 +400,11 @@ export class CoursesService {
   }
 }
 
-function mapPublicOffering(offering: PublicOfferingRow) {
+function mapPublicOffering(
+  offering: PublicOfferingRow,
+  occupiedCountOverride?: number,
+  now: Date = new Date(),
+) {
   const { _count, ...publicFields } = offering;
   const availability = computeRegistrationState({
     status: offering.status,
@@ -353,8 +412,8 @@ function mapPublicOffering(offering: PublicOfferingRow) {
     enrollmentStart: offering.enrollmentStart,
     enrollmentEnd: offering.enrollmentEnd,
     maxStudents: offering.maxStudents,
-    registeredCount: _count.enrollments,
-    now: new Date(),
+    registeredCount: occupiedCountOverride ?? _count.enrollments,
+    now,
   });
 
   return {
@@ -365,6 +424,7 @@ function mapPublicOffering(offering: PublicOfferingRow) {
       startTime: slot.startTime,
       endTime: slot.endTime,
       locationText: slot.locationText,
+      room: (slot as { room?: unknown }).room ?? null,
     })),
     registeredCount: availability.registeredCount,
     remainingSeats: availability.remainingSeats,

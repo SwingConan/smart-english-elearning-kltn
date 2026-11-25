@@ -1,3 +1,4 @@
+import { legacyInstructorCourseScope } from '../authorization/instructor-scope';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { EnrollmentStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -111,7 +112,7 @@ export class InstructorLearnerMasteryService {
       this.prisma.enrollment.findMany({
         where: {
           status: EnrollmentStatus.ACTIVE,
-          classOffering: { courseId, instructorId },
+          classOffering: { courseId, ...legacyInstructorCourseScope(instructorId) },
         },
         select: {
           ...dashboardEnrollmentSelect,
@@ -141,7 +142,7 @@ export class InstructorLearnerMasteryService {
 
   private async assertInstructorAssigned(instructorId: string, courseId: string): Promise<void> {
     const assignment = await this.prisma.classOffering.findFirst({
-      where: { courseId, instructorId },
+      where: { courseId, ...legacyInstructorCourseScope(instructorId) },
       select: { id: true },
     });
     if (!assignment) {

@@ -15,6 +15,7 @@ export abstract class AssessmentResponseStorage {
     owner: { learnerId: string; attemptId: string; testQuestionId: string },
     body: Buffer,
     mimeType: string,
+    reservedKey?: string,
   ): Promise<StoredAssessmentResponse>;
   abstract read(key: string): Promise<Buffer>;
   abstract open(key: string): ReturnType<typeof createReadStream>;
@@ -32,10 +33,13 @@ export class LocalAssessmentResponseStorage extends AssessmentResponseStorage {
     owner: { learnerId: string; attemptId: string; testQuestionId: string },
     body: Buffer,
     mimeType: string,
+    reservedKey?: string,
   ): Promise<StoredAssessmentResponse> {
     const extension =
       ({ 'audio/webm': '.webm', 'audio/ogg': '.ogg', 'audio/mp4': '.m4a', 'audio/mpeg': '.mp3' } as Record<string, string>)[mimeType] ?? '';
-    const key = [owner.learnerId, owner.attemptId, owner.testQuestionId, `${randomUUID()}${extension}`].join('/');
+    const prefix = [owner.learnerId, owner.attemptId, owner.testQuestionId].join('/') + '/';
+    const key = reservedKey ?? `${prefix}${randomUUID()}${extension}`;
+    if (!key.startsWith(prefix)) throw new Error('Invalid reserved response owner.');
     const path = this.resolveKey(key);
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, body, { flag: 'wx' });

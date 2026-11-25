@@ -1,10 +1,11 @@
 import { Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { instantAwarePg, type PgPoolSnapshot } from './pg-instant-adapter';
 import { PrismaClient } from '../../generated/prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnApplicationShutdown {
+  readonly poolSnapshot: () => PgPoolSnapshot;
   constructor(config: ConfigService) {
     const connectionString = config.get<string>('DATABASE_URL');
 
@@ -13,8 +14,9 @@ export class PrismaService extends PrismaClient implements OnApplicationShutdown
     }
 
     const schema = new URL(connectionString).searchParams.get('schema') ?? undefined;
-    const adapter = new PrismaPg({ connectionString }, { schema });
+    const adapter = instantAwarePg({ connectionString }, schema);
     super({ adapter });
+    this.poolSnapshot = adapter.diagnostics;
   }
 
   async onApplicationShutdown(): Promise<void> {

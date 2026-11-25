@@ -1,3 +1,4 @@
+import { legacyInstructorCourseScope } from '../authorization/instructor-scope';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -68,7 +69,7 @@ export class AdaptiveInstructorService {
 
   private async assertInstructorAssigned(instructorId: string, courseId: string): Promise<void> {
     const assignment = await this.prisma.classOffering.findFirst({
-      where: { courseId, instructorId },
+      where: { courseId, ...legacyInstructorCourseScope(instructorId) },
       select: { id: true },
     });
     if (!assignment) {

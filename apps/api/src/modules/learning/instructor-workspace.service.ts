@@ -1,3 +1,4 @@
+import { retainedInstructorClassScope } from '../authorization/instructor-scope';
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   AnswerEvaluationSource,
@@ -25,7 +26,7 @@ export class InstructorWorkspaceService {
 
   async listClasses(instructorId: string) {
     const classes = await this.prisma.classOffering.findMany({
-      where: { instructorId },
+      where: retainedInstructorClassScope(instructorId),
       orderBy: [{ classStart: 'desc' }, { code: 'asc' }],
       select: {
         id: true,
@@ -38,7 +39,7 @@ export class InstructorWorkspaceService {
         course: { select: { id: true, title: true, level: true } },
         scheduleSlots: {
           orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
-          select: { dayOfWeek: true, startTime: true, endTime: true, locationText: true, meetingUrl: true },
+          select: { dayOfWeek: true, startTime: true, endTime: true, locationText: true },
         },
         _count: { select: { enrollments: { where: { status: EnrollmentStatus.ACTIVE } } } },
       },
@@ -914,7 +915,7 @@ export class InstructorWorkspaceService {
 
   private async requireOwnedClass(instructorId: string, classOfferingId: string) {
     const classroom = await this.prisma.classOffering.findFirst({
-      where: { id: classOfferingId, instructorId },
+      where: { id: classOfferingId, ...retainedInstructorClassScope(instructorId) },
       select: {
         id: true,
         code: true,
@@ -926,7 +927,7 @@ export class InstructorWorkspaceService {
         course: { select: { id: true, title: true, level: true } },
         scheduleSlots: {
           orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
-          select: { dayOfWeek: true, startTime: true, endTime: true, locationText: true, meetingUrl: true },
+          select: { dayOfWeek: true, startTime: true, endTime: true, locationText: true },
         },
       },
     });
@@ -944,7 +945,6 @@ function projectScheduleSlot(slot: {
   startTime: Date;
   endTime: Date;
   locationText: string | null;
-  meetingUrl: string | null;
 }) {
   return {
     ...slot,

@@ -78,8 +78,9 @@ describe('InstructorContentService', () => {
     prisma.learningResource.findMany.mockResolvedValue([]);
     await service.listLessons(instructorId, moduleId);
     await service.listResources(instructorId, lessonId);
-    expect(prisma.classOffering.findFirst).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: { courseId, instructorId } }));
-    expect(prisma.classOffering.findFirst).toHaveBeenNthCalledWith(2, expect.objectContaining({ where: { courseId, instructorId } }));
+    const scope={courseId,instructorId,effectiveAssignments:{none:{}},course:{classOfferings:{none:{effectiveAssignments:{some:{}}}}}};
+    expect(prisma.classOffering.findFirst).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: scope }));
+    expect(prisma.classOffering.findFirst).toHaveBeenNthCalledWith(2, expect.objectContaining({ where: scope }));
   });
 
   it('rejects mutation when the instructor owns a different course', async () => {
