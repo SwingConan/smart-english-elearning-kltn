@@ -29,6 +29,7 @@ export default defineConfig({
       'src/features/academic/planning.test.tsx',
       'src/features/enrollments/enrollment.test.tsx',
       'src/features/workspace/workspace.test.tsx',
+      'src/features/operations/visual-qa/guard-core.test.mjs',
     ],
   },
   resolve: {
